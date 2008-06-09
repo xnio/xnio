@@ -35,6 +35,7 @@ import java.nio.ByteBuffer;
 /**
  *
  */
+@SuppressWarnings({"unchecked"})
 public final class IoUtilsTestCase extends TestCase {
     @SuppressWarnings("unchecked")
     public void testCreateClient() throws UnknownHostException {
@@ -249,19 +250,19 @@ public final class IoUtilsTestCase extends TestCase {
                 return null;
             }
 
-            public <T> List<Future<T>> invokeAll(final Collection<Callable<T>> tasks) throws InterruptedException {
+            public List invokeAll(final Collection tasks) throws InterruptedException {
                 return null;
             }
 
-            public <T> List<Future<T>> invokeAll(final Collection<Callable<T>> tasks, final long timeout, final TimeUnit unit) throws InterruptedException {
+            public List invokeAll(final Collection tasks, final long timeout, final TimeUnit unit) throws InterruptedException {
                 return null;
             }
 
-            public <T> T invokeAny(final Collection<Callable<T>> tasks) throws InterruptedException, ExecutionException {
+            public Object invokeAny(final Collection tasks) throws InterruptedException, ExecutionException {
                 return null;
             }
 
-            public <T> T invokeAny(final Collection<Callable<T>> tasks, final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            public Object invokeAny(final Collection tasks, final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
                 return null;
             }
 
