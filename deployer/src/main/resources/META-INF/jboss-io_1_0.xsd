@@ -1,0 +1,226 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns="urn:jboss:io:1.0"
+        targetNamespace="urn:jboss:io:1.0"
+        xmlns:bean="urn:jboss:bean-deployer:2.0"
+        elementFormDefault="qualified"
+        attributeFormDefault="unqualified"
+        >
+
+    <xs:complexType name="deployment">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:sequence minOccurs="0" maxOccurs="unbounded">
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element name="tcp-server" type="tcp-server"/>
+                    <xs:element name="tcp-connector" type="tcp-connector"/>
+                    <xs:element name="tcp-client" type="tcp-client"/>
+                    <xs:element name="tcp-connection" type="tcp-connection"/>
+                    <xs:element name="udp-server" type="udp-server"/>
+                    <xs:element name="pipe" type="pipe"/>
+                    <xs:element name="one-way-pipe" type="one-way-pipe"/>
+                    <!--<xs:element name="serial-port" type="serial-port-connection"/>-->
+                    <!--<xs:element name="parallel-port" type="parallel-port-connection"/>-->
+                </xs:choice>
+            </xs:sequence>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="tcp-server">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" type="bean" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="handler-factory-bean" type="bean" minOccurs="1" maxOccurs="1"/>
+            <xs:sequence minOccurs="1" maxOccurs="unbounded">
+                <xs:element name="bind-address" type="bind-address"/>
+            </xs:sequence>
+        </xs:sequence>
+        <xs:attribute name="keep-alive" use="optional" type="xs:boolean"/>
+        <xs:attribute name="oob-inline" use="optional" type="xs:boolean"/>
+        <xs:attribute name="receive-buffer-size" use="optional" type="xs:int"/>
+        <xs:attribute name="reuse-address" use="optional" type="xs:boolean"/>
+        <xs:attribute name="tcp-no-delay" use="optional" type="xs:boolean"/>
+        <xs:attribute name="backlog" use="optional" type="xs:int"/>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="tcp-connector">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" type="bean" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attribute name="keep-alive" use="optional" type="xs:boolean"/>
+        <xs:attribute name="oob-inline" use="optional" type="xs:boolean"/>
+        <xs:attribute name="receive-buffer-size" use="optional" type="xs:int"/>
+        <xs:attribute name="reuse-address" use="optional" type="xs:boolean"/>
+        <xs:attribute name="send-buffer-size" use="optional" type="xs:int"/>
+        <xs:attribute name="tcp-no-delay" use="optional" type="xs:boolean"/>
+        <xs:attribute name="connect-timeout" use="optional" type="xs:int"/>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="tcp-client">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:choice minOccurs="0" maxOccurs="1">
+                <xs:element name="tcp-connector" minOccurs="1" maxOccurs="1" type="tcp-connector"/>
+                <xs:element name="tcp-connector-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+            </xs:choice>
+            <xs:sequence minOccurs="1" maxOccurs="unbounded">
+                <xs:element name="connect-address" type="connect-address"/>
+            </xs:sequence>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="tcp-connection">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="handler-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+            <xs:choice minOccurs="1" maxOccurs="1">
+                <xs:element name="tcp-client" minOccurs="1" maxOccurs="1" type="tcp-client"/>
+                <xs:element name="tcp-client-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+            </xs:choice>
+            <xs:element name="scheduled-executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+        </xs:sequence>
+        <xs:attribute name="reconnect-interval" type="xs:int"/>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="udp-server">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="handler-factory-bean" type="bean" minOccurs="1" maxOccurs="1"/>
+            <xs:sequence minOccurs="1" maxOccurs="unbounded">
+                <xs:element name="bind-address" type="bind-address"/>
+            </xs:sequence>
+        </xs:sequence>
+        <xs:attribute name="receive-buffer-size" use="optional" type="xs:int"/>
+        <xs:attribute name="reuse-address" use="optional" type="xs:boolean"/>
+        <xs:attribute name="send-buffer-size" use="optional" type="xs:int"/>
+        <xs:attribute name="traffic-class" use="optional" type="xs:int"/>
+        <xs:attribute name="broadcast" use="optional" type="xs:boolean"/>
+        <xs:attribute name="multicast" use="optional" type="xs:boolean"/>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="pipe">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="left-end" minOccurs="1" maxOccurs="1" type="pipe-end"/>
+            <xs:element name="right-end" minOccurs="1" maxOccurs="1" type="pipe-end"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="one-way-pipe">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="source-end" minOccurs="1" maxOccurs="1" type="pipe-end"/>
+            <xs:element name="sink-end" minOccurs="1" maxOccurs="1" type="pipe-end"/>
+        </xs:sequence>
+        <xs:attribute name="name" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="pipe-end">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="handler-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="serial-port-connection">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="handler-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+        </xs:sequence>
+        <xs:attribute name="port-name" type="xs:string" use="required"/>
+        <xs:attribute name="speed" type="baud-rate" use="optional"/>
+        <xs:attribute name="data-bits" type="data-bits" use="optional"/>
+        <xs:attribute name="stop-bits" type="xs:float" use="optional"/>
+        <xs:attribute name="parity" type="parity" use="optional"/>
+        <xs:attribute name="flow-control" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <xs:complexType name="parallel-port-connection">
+        <xs:sequence minOccurs="1" maxOccurs="1">
+            <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
+            <xs:element name="handler-bean" minOccurs="1" maxOccurs="1" type="bean"/>
+        </xs:sequence>
+        <xs:attribute name="port-name" type="xs:string" use="required"/>
+        <xs:attribute name="mode" type="parallel-port-mode" use="optional"/>
+    </xs:complexType>
+
+    <xs:complexType name="bean">
+        <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+
+    <xs:complexType name="bind-address">
+        <xs:attribute name="address" type="xs:string" use="optional"/>
+        <xs:attribute name="port" type="port" use="optional"/>
+    </xs:complexType>
+
+    <xs:complexType name="connect-address">
+        <xs:attribute name="address" type="xs:string" use="required"/>
+        <xs:attribute name="port" type="port" use="required"/>
+        <xs:attribute name="bind-address" type="xs:string" use="optional"/>
+        <xs:attribute name="bind-port" type="port" use="optional"/>
+    </xs:complexType>
+
+    <xs:simpleType name="port">
+        <xs:restriction base="xs:int">
+            <xs:minInclusive value="0"/>
+            <xs:maxInclusive value="65535"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="parity">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="none"/>
+            <xs:enumeration value="even"/>
+            <xs:enumeration value="odd"/>
+            <xs:enumeration value="mark"/>
+            <xs:enumeration value="space"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="flow-control">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="none"/>
+            <xs:enumeration value="rtscts"/>
+            <xs:enumeration value="xonxoff"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="data-bits">
+        <xs:restriction base="xs:int">
+            <xs:enumeration value="5"/>
+            <xs:enumeration value="6"/>
+            <xs:enumeration value="7"/>
+            <xs:enumeration value="8"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="stop-bits">
+        <xs:restriction base="xs:float">
+            <xs:enumeration value="1"/>
+            <xs:enumeration value="1.5"/>
+            <xs:enumeration value="2"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="baud-rate">
+        <xs:restriction base="xs:int">
+            <xs:minInclusive value="1"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="parallel-port-mode">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="any"/>
+            <xs:enumeration value="ecp"/>
+            <xs:enumeration value="epp"/>
+            <xs:enumeration value="nibble"/>
+            <xs:enumeration value="ps2"/>
+            <xs:enumeration value="spp"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:element name="deployment" type="deployment"/>
+</xs:schema>

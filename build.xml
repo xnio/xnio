@@ -1,0 +1,243 @@
+<project name="XNIO" default="base">
+
+    <property file="build.properties.local"/>
+    <property file="build.properties"/>
+
+    <!-- ============================================== -->
+    <!-- LIBRARIES - Keep in alpha order by target name -->
+    <!-- ============================================== -->
+
+    <target name="lib.jaxb-api-check">
+        <available property="lib.jaxb-api.exists" file="${lib.jaxb-api.local}"/>
+    </target>
+
+    <target name="lib.jaxb-api" depends="lib.jaxb-api-check" unless="lib.jaxb-api.exists">
+        <mkdir dir="${local.repository}/${lib.jaxb-api.dir}"/>
+        <get src="${lib.jaxb-api.remote}" dest="${lib.jaxb-api.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.jaxb-api.license}.txt" dest="${lib.jaxb-api.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
+    <target name="lib.jboss-common-core-check">
+        <available property="lib.jboss-common-core.exists" file="${lib.jboss-common-core.local}"/>
+    </target>
+
+    <target name="lib.jboss-common-core" depends="lib.jboss-common-core-check" unless="lib.jboss-common-core.exists">
+        <mkdir dir="${local.repository}/${lib.jboss-common-core.dir}"/>
+        <get src="${lib.jboss-common-core.remote}" dest="${lib.jboss-common-core.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.jboss-common-core.license}.txt" dest="${lib.jboss-common-core.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
+    <target name="lib.jbossmc-kernel-check">
+        <available property="lib.jbossmc-kernel.exists" file="${lib.jbossmc-kernel.local}"/>
+    </target>
+
+    <target name="lib.jbossmc-kernel" depends="lib.jbossmc-kernel-check" unless="lib.jbossmc-kernel.exists">
+        <mkdir dir="${local.repository}/${lib.jbossmc-kernel.dir}"/>
+        <get src="${lib.jbossmc-kernel.remote}" dest="${lib.jbossmc-kernel.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.jbossmc-kernel.license}.txt" dest="${lib.jbossmc-kernel.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
+    <target name="lib.jbossxb-check">
+        <available property="lib.jbossxb.exists" file="${lib.jbossxb.local}"/>
+    </target>
+
+    <target name="lib.jbossxb" depends="lib.jbossxb-check" unless="lib.jbossxb.exists">
+        <mkdir dir="${local.repository}/${lib.jbossxb.dir}"/>
+        <get src="${lib.jbossxb.remote}" dest="${lib.jbossxb.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.jbossxb.license}.txt" dest="${lib.jbossxb.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
+    <!-- ============================================== -->
+    <!-- MODULES - Keep in alpha order by target name   -->
+    <!-- ============================================== -->
+
+    <!-- api module -->
+
+    <target name="api.compile.depcheck">
+        <mkdir dir="api/target/main"/>
+        <uptodate property="api.compile.uptodate" targetfile="api/target/main/.lastcompile">
+            <srcfiles dir="api/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="api.compile" depends="api.compile.depcheck" unless="api.compile.uptodate">
+        <mkdir dir="api/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="api/src/main/java"
+                destdir="api/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+        </javac>
+        <touch file="api/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="api.clean">
+        <delete dir="api/target"/>
+    </target>
+
+    <target name="api" description="Build the api module" depends="api.compile">
+        <path id="api.classpath">
+            <pathelement location="api/target/main/classes"/>
+        </path>
+    </target>
+
+    <!-- deployer module -->
+
+    <target name="deployer.compile.depcheck">
+        <mkdir dir="deployer/target/main"/>
+        <uptodate property="deployer.compile.uptodate" targetfile="deployer/target/main/.lastcompile">
+            <srcfiles dir="deployer/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="deployer.compile" depends="deployer.compile.depcheck" unless="deployer.compile.uptodate">
+        <mkdir dir="deployer/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="deployer/src/main/java"
+                destdir="deployer/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <path refid="spi.classpath"/>
+                <pathelement location="${lib.jaxb-api.local}"/>
+                <pathelement location="${lib.jboss-common-core.local}"/>
+                <pathelement location="${lib.jbossmc-kernel.local}"/>
+                <pathelement location="${lib.jbossxb.local}"/>
+            </classpath>
+        </javac>
+        <touch file="deployer/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="deployer.clean">
+        <delete dir="deployer/target"/>
+    </target>
+
+    <target name="deployer" description="Build the deployer module" depends="api,spi,lib.jaxb-api,lib.jboss-common-core,lib.jbossmc-kernel,lib.jbossxb,api,nio-impl,deployer.compile">
+        <path id="deployer.classpath">
+            <pathelement location="deployer/target/main/classes"/>
+        </path>
+    </target>
+
+    <!-- nio-impl module -->
+
+    <target name="nio-impl.compile.depcheck">
+        <mkdir dir="nio-impl/target/main"/>
+        <uptodate property="nio-impl.compile.uptodate" targetfile="nio-impl/target/main/.lastcompile">
+            <srcfiles dir="nio-impl/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="nio-impl.compile" depends="nio-impl.compile.depcheck" unless="nio-impl.compile.uptodate">
+        <mkdir dir="nio-impl/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="nio-impl/src/main/java"
+                destdir="nio-impl/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <path refid="spi.classpath"/>
+            </classpath>
+        </javac>
+        <touch file="nio-impl/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="nio-impl.clean">
+        <delete dir="nio-impl/target"/>
+    </target>
+
+    <target name="nio-impl" description="Build the nio-impl module" depends="api,spi,nio-impl.compile">
+        <path id="nio-impl.classpath">
+            <pathelement location="nio-impl/target/main/classes"/>
+        </path>
+    </target>
+
+    <!-- spi module -->
+
+    <target name="spi.compile.depcheck">
+        <mkdir dir="spi/target/main"/>
+        <uptodate property="spi.compile.uptodate" targetfile="spi/target/main/.lastcompile">
+            <srcfiles dir="spi/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="spi.compile" depends="spi.compile.depcheck" unless="spi.compile.uptodate">
+        <mkdir dir="spi/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="spi/src/main/java"
+                destdir="spi/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="api.classpath"/>
+            </classpath>
+        </javac>
+        <touch file="spi/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="spi.clean">
+        <delete dir="spi/target"/>
+    </target>
+
+    <target name="spi" description="Build the spi module" depends="api,spi.compile">
+        <path id="spi.classpath">
+            <pathelement location="spi/target/main/classes"/>
+        </path>
+    </target>
+
+    <!-- ============================================== -->
+    <!-- JARS - Keep in alpha order by jar name         -->
+    <!-- ============================================== -->
+
+    <!-- ============================================== -->
+    <!-- JAVADOCS                                       -->
+    <!-- ============================================== -->
+
+    <target name="javadoc" depends="api,spi">
+        <delete dir="docs/target/main/javadoc"/>
+        <mkdir dir="docs/target/main/javadoc"/>
+        <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
+            <packageset dir="api/src/main/java"/>
+            <packageset dir="spi/src/main/java"/>
+            <doctitle><![CDATA[<h1>XNIO</h1>]]></doctitle>
+            <bottom><![CDATA[<i>Copyright &#169; 2008 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
+            <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
+            <classpath/>
+        </javadoc>
+    </target>
+
+    <!-- Default targets - keep depends in alpha order by category name -->
+    <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
+
+    <target name="base" description="Build base modules only (no external deps)" depends="api,nio-impl,spi,javadoc"/>
+
+    <target name="all" description="Build everything" depends="base,deployer"/>
+
+    <target name="clean" description="Clean everything" depends="api.clean,deployer.clean,nio-impl.clean,spi.clean"/>
+
+</project>

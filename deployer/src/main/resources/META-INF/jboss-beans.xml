@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<deployment xmlns="urn:jboss:bean-deployer:2.0">
+    <bean name="JBossIODeployer" class="org.jboss.deployers.vfs.deployer.kernel.BeanMetaDataFactoryDeployer">
+        <constructor>
+            <parameter>org.jboss.xnio.metadata.DeploymentMetaData</parameter>
+        </constructor>
+    </bean>
+
+    <bean name="JBossIOParser" class="org.jboss.deployers.vfs.spi.deployer.SchemaResolverDeployer">
+        <constructor>
+            <parameter>org.jboss.xnio.metadata.DeploymentMetaData</parameter>
+        </constructor>
+        <property name="name">jboss-io.xml</property>
+        <property name="registerWithJBossXB">true</property>
+    </bean>
+</deployment>
