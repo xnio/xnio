@@ -1,6 +1,5 @@
 package org.jboss.xnio;
 
-import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
