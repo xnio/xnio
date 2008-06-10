@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.TcpServer;
 import org.jboss.xnio.spi.TcpConnector;
@@ -132,7 +134,12 @@ public final class NioProvider implements Provider, Lifecycle {
         executor = null;
         if (selectorExecutorService != null) {
             try {
-                selectorExecutorService.shutdown();
+                AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                    public Void run() {
+                        selectorExecutorService.shutdown();
+                        return null;
+                    }
+                });
             } catch (Throwable t) {
                 // todo log @ trace
             } finally {
@@ -141,7 +148,12 @@ public final class NioProvider implements Provider, Lifecycle {
         }
         if (executorService != null) {
             try {
-                executorService.shutdown();
+                AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                    public Void run() {
+                        executorService.shutdown();
+                        return null;
+                    }
+                });
             } catch (Throwable t) {
                 // todo log @ trace
             } finally {

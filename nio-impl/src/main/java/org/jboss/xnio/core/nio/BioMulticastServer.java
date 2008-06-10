@@ -8,6 +8,8 @@ import java.util.concurrent.Executors;
 import java.util.Map;
 import java.util.Collections;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
@@ -145,7 +147,12 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
 
     public void stop() {
         if (executorService != null) {
-            executorService.shutdown();
+            AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                public Void run() {
+                    executorService.shutdown();
+                    return null;
+                }
+            });
         }
     }
 

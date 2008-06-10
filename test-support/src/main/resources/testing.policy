@@ -4,6 +4,7 @@
 grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
 {
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
+    permission java.lang.RuntimePermission "modifyThread";
 };
 
 // Permissions to run the nio-impl test suite
