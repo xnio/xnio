@@ -1,0 +1,37 @@
+
+// Permissions to grant to modules
+
+grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
+{
+    permission java.net.SocketPermission "*:*", "connect, accept, resolve";
+};
+
+// Permissions to run the nio-impl test suite
+
+grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
+{
+    // server side requirement
+    permission java.net.SocketPermission "127.0.0.1:*", "accept, resolve";
+    // client side requirement
+    permission java.net.SocketPermission "127.0.0.1:12345", "connect";
+};
+
+// Support classes
+
+grant codeBase "file:${build.home}/test-support/target/main/classes/-"
+{
+    permission java.security.AllPermission;
+};
+
+grant codeBase "file:${idea.home}/lib/idea_rt.jar"
+{
+    permission java.security.AllPermission;
+};
+
+grant codeBase "file:${lib.junit.local}"
+{
+    permission java.security.AllPermission;
+};
+
+
+
