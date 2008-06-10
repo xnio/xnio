@@ -208,6 +208,45 @@
         </path>
     </target>
 
+    <!-- logging-jdk module -->
+
+    <target name="logging-jdk.compile.depcheck">
+        <mkdir dir="logging-jdk/target/main"/>
+        <uptodate property="logging-jdk.compile.uptodate" targetfile="logging-jdk/target/main/.lastcompile">
+            <srcfiles dir="logging-jdk/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="logging-jdk.compile" depends="logging-jdk.compile.depcheck" unless="logging-jdk.compile.uptodate">
+        <mkdir dir="logging-jdk/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="logging-jdk/src/main/java"
+                destdir="logging-jdk/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="version.classpath"/>
+            </classpath>
+        </javac>
+        <touch file="logging-jdk/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="logging-jdk.clean">
+        <delete dir="logging-jdk/target"/>
+    </target>
+
+    <target name="logging-jdk" description="Build the logging-jdk module" depends="version,logging-jdk.compile">
+        <path id="logging-jdk.classpath">
+            <pathelement location="logging-jdk/target/main/classes"/>
+        </path>
+    </target>
+
     <!-- nio-impl module -->
 
     <target name="nio-impl.compile.depcheck">
@@ -457,12 +496,12 @@
     <!-- Default targets - keep depends in alpha order by category name -->
     <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
 
-    <target name="base" description="Build base modules only (no external deps)" depends="api,nio-impl,spi,test-support,version,javadoc"/>
+    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,spi,test-support,version,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer"/>
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,deployer.clean,nio-impl.clean,spi.clean,test-support.clean,version.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,spi.clean,test-support.clean,version.clean"/>
 
 </project>
