@@ -34,5 +34,8 @@ grant codeBase "file:${lib.junit.local}"
     permission java.security.AllPermission;
 };
 
-
+grant codeBase "file:${ant.library.dir}/-"
+{
+    permission java.security.AllPermission;
+};
 
