@@ -3,11 +3,12 @@ package org.jboss.xnio.spi;
 import java.net.SocketAddress;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.Configurable;
 
 /**
  * A configurable TCP server.
  */
-public interface TcpServer extends ExecutorUser, Lifecycle {
+public interface TcpServer extends ExecutorUser, Lifecycle, Configurable {
     /**
      * Set the handler factory which will be used to create handlers for incoming connections.
      *

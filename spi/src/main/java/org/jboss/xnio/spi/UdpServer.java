@@ -2,12 +2,13 @@ package org.jboss.xnio.spi;
 
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.Configurable;
 import java.net.SocketAddress;
 
 /**
  * A configurable UDP server.
  */
-public interface UdpServer extends ExecutorUser, Lifecycle {
+public interface UdpServer extends ExecutorUser, Lifecycle, Configurable {
     /**
      * Set the handler factory which will be used to create handlers for each bind address.
      *
