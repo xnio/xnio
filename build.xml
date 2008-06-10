@@ -47,6 +47,16 @@
         <get src="${remote.license.dir}/${lib.jbossxb.license}.txt" dest="${lib.jbossxb.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
     </target>
 
+    <target name="lib.junit-check">
+        <available property="lib.junit.exists" file="${lib.junit.local}"/>
+    </target>
+
+    <target name="lib.junit" depends="lib.junit-check" unless="lib.junit.exists">
+        <mkdir dir="${local.repository}/${lib.junit.dir}"/>
+        <get src="${lib.junit.remote}" dest="${lib.junit.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.junit.license}.txt" dest="${lib.junit.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
     <!-- ============================================== -->
     <!-- MODULES - Keep in alpha order by target name   -->
     <!-- ============================================== -->
@@ -75,6 +85,52 @@
             <compilerarg value="-Xlint:unchecked"/>
         </javac>
         <touch file="api/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="api.test.compile.depcheck">
+        <mkdir dir="api/target/test"/>
+        <uptodate property="api.compile.uptodate" targetfile="api/target/test/.lastcompile">
+            <srcfiles dir="api/src/test/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="api.test.compile" depends="api.compile,api.test.compile.depcheck" unless="api.test.compile.uptodate">
+        <mkdir dir="api/target/test/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="api/src/test/java"
+                destdir="api/target/test/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <pathelement location="${lib.junit.local}"/>
+            </classpath>
+        </javac>
+        <touch file="api/target/test/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="api.test" depends="api">
+        <mkdir dir="api/target/test-results"/>
+        <junit printsummary="true" fork="yes" includeantruntime="true">
+            <formatter classname="org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <pathelement location="api/target/test/classes"/>
+                <pathelement location="${lib.junit.local}"/>
+            </classpath>
+            <batchtest fork="yes" todir="api/target/test-results"
+                       haltonfailure="no">
+               <fileset dir="api/target/test/classes">
+                   <include name="**/*TestCase.class"/>
+               </fileset>
+            </batchtest>
+        </junit>
     </target>
 
     <target name="api.clean">
@@ -161,6 +217,56 @@
         <touch file="nio-impl/target/main/.lastcompile" verbose="false"/>
     </target>
 
+    <target name="nio-impl.test.compile.depcheck">
+        <mkdir dir="nio-impl/target/test"/>
+        <uptodate property="nio-impl.compile.uptodate" targetfile="nio-impl/target/test/.lastcompile">
+            <srcfiles dir="nio-impl/src/test/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="nio-impl.test.compile" depends="nio-impl.compile,nio-impl.test.compile.depcheck" unless="nio-impl.test.compile.uptodate">
+        <mkdir dir="nio-impl/target/test/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="nio-impl/src/test/java"
+                destdir="nio-impl/target/test/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="nio-impl.classpath"/>
+                <path refid="api.classpath"/>
+                <path refid="spi.classpath"/>
+                <pathelement location="${lib.junit.local}"/>
+            </classpath>
+        </javac>
+        <touch file="nio-impl/target/test/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="nio-impl.test" depends="nio-impl">
+        <mkdir dir="nio-impl/target/test-results"/>
+        <junit printsummary="true" fork="yes" includeantruntime="true">
+            <formatter classname="org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <path refid="spi.classpath"/>
+                <path refid="nio-impl.classpath"/>
+                <pathelement location="nio-impl/target/test/classes"/>
+                <pathelement location="${lib.junit.local}"/>
+            </classpath>
+            <batchtest fork="yes" todir="nio-impl/target/test-results"
+                       haltonfailure="no">
+               <fileset dir="nio-impl/target/test/classes">
+                   <include name="**/*TestCase.class"/>
+               </fileset>
+            </batchtest>
+        </junit>
+    </target>
+
     <target name="nio-impl.clean">
         <delete dir="nio-impl/target"/>
     </target>
@@ -237,6 +343,8 @@
     <target name="base" description="Build base modules only (no external deps)" depends="api,nio-impl,spi,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer"/>
+
+    <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
     <target name="clean" description="Clean everything" depends="api.clean,deployer.clean,nio-impl.clean,spi.clean"/>
 
