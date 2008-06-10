@@ -12,11 +12,14 @@ import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
 public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
+    private static final Logger log = Logger.getLogger(NioPipeSinkChannelImpl.class);
+
     private final Pipe.SinkChannel channel;
     private final NioHandle handle;
     private final IoHandler<? super StreamSinkChannel> handler;
@@ -49,8 +52,10 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
             channel.close();
         } finally {
             handle.cancelKey();
-            if (! callFlag.getAndSet(true)) {
+            if (! callFlag.getAndSet(true)) try {
                 handler.handleClose(this);
+            } catch (Throwable t) {
+                log.error(t, "Close handler threw an exception");
             }
         }
     }
@@ -93,8 +98,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
             try {
                 handler.handleWritable(NioPipeSinkChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Write handler threw an exception");
             }
         }
     }

@@ -65,10 +65,6 @@ public final class ConnectionHelper<T extends StreamChannel> {
     }
 
     public void stop() {
-        try {
-            connection.close();
-        } catch (IOException e) {
-            // todo log
-        }
+        IoUtils.safeClose(connection);
     }
 }

@@ -19,11 +19,13 @@ import org.jboss.xnio.spi.UdpServer;
 import org.jboss.xnio.spi.Pipe;
 import org.jboss.xnio.spi.OneWayPipe;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
 public final class NioProvider implements Provider, Lifecycle {
+    private static final Logger log = Logger.getLogger(NioProvider.class);
 
     private Executor selectorExecutor;
     private Executor executor;
@@ -141,7 +143,7 @@ public final class NioProvider implements Provider, Lifecycle {
                     }
                 });
             } catch (Throwable t) {
-                // todo log @ trace
+                log.trace(t, "Failed to shut down selector executor service");
             } finally {
                 selectorExecutorService = null;
             }
@@ -155,7 +157,7 @@ public final class NioProvider implements Provider, Lifecycle {
                     }
                 });
             } catch (Throwable t) {
-                // todo log @ trace
+                log.trace(t, "Failed to shut down executor service");
             } finally {
                 executorService = null;
             }

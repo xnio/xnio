@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 import java.util.Collections;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
@@ -20,6 +21,7 @@ import org.jboss.xnio.channels.SocketOption;
  *
  */
 public final class NioSocketChannelImpl implements ConnectedStreamChannel<SocketAddress> {
+    private static final Logger log = Logger.getLogger(NioSocketChannelImpl.class);
 
     private final SocketChannel socketChannel;
     private final Socket socket;
@@ -58,8 +60,10 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         } finally {
             readHandle.cancelKey();
             writeHandle.cancelKey();
-            if (! callFlag.getAndSet(true)) {
+            if (! callFlag.getAndSet(true)) try {
                 handler.handleClose(this);
+            } catch (Throwable t) {
+                log.error(t, "Close handler failed");
             }
         }
     }
@@ -163,8 +167,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
             try {
                 handler.handleReadable(NioSocketChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Read handler failed");
             }
         }
     }
@@ -175,8 +178,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
             try {
                 handler.handleWritable(NioSocketChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Write handler failed");
             }
         }
     }

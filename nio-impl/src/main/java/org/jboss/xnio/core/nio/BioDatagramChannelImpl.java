@@ -5,6 +5,7 @@ import org.jboss.xnio.channels.MultipointReadHandler;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import java.net.SocketAddress;
 import java.net.DatagramSocket;
 import java.net.DatagramPacket;
@@ -18,6 +19,8 @@ import java.util.Collections;
  *
  */
 public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketAddress> {
+    private static final Logger log = Logger.getLogger(BioDatagramChannelImpl.class);
+
     private final DatagramSocket datagramSocket;
     private final DatagramPacket receivePacket;
     private final ByteBuffer receiveBuffer;
@@ -93,12 +96,12 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
         try {
             readerTask.cancel();
         } catch (Throwable t) {
-            // todo log it
+            log.trace(t, "Reader task cancel failed");
         }
         try {
             writerTask.cancel();
         } catch (Throwable t) {
-            // todo log it
+            log.trace(t, "Writer task cancel failed");
         }
         synchronized (writeLock) {
             writable = false;
@@ -267,7 +270,7 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
                 try {
                     datagramSocket.send(sendPacket);
                 } catch (IOException e) {
-                    // todo log failure
+                    log.trace("Packet send failed: %s", e);
                 }
             }
         }

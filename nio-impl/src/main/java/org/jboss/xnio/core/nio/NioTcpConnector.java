@@ -18,6 +18,7 @@ import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.StreamIoConnector;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpConnector;
 import org.jboss.xnio.spi.Lifecycle;
 
@@ -25,6 +26,8 @@ import org.jboss.xnio.spi.Lifecycle;
  *
  */
 public final class NioTcpConnector implements Lifecycle, StreamIoConnector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnector {
+
+    private static final Logger log = Logger.getLogger(NioTcpConnector.class);
 
     private NioProvider nioProvider;
     private Executor executor;
@@ -271,8 +274,7 @@ public final class NioTcpConnector implements Lifecycle, StreamIoConnector<Socke
                         try {
                             streamChannelNotifier.notify(FutureImpl.this);
                         } catch (Throwable t) {
-                            t.printStackTrace();
-                            // todo log it
+                            log.error(t, "Completion handler \"%s\" failed", streamChannelNotifier);
                         }
                     }
                 });
@@ -282,8 +284,7 @@ public final class NioTcpConnector implements Lifecycle, StreamIoConnector<Socke
                 if (finishCancel()) try {
                     socketChannel.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
-                    // todo log it
+                    log.trace(e, "Cancel failed");
                 }
                 return this;
             }

@@ -4,6 +4,8 @@ import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
 import java.nio.ByteBuffer;
 import java.nio.channels.Pipe;
 import java.nio.channels.CancelledKeyException;
@@ -17,6 +19,8 @@ import java.util.Collections;
  *
  */
 public final class NioPipeChannelImpl implements StreamChannel {
+    public static final Logger log = Logger.getLogger(NioPipeChannelImpl.class);
+
     private final Pipe.SourceChannel sourceChannel;
     private final Pipe.SinkChannel sinkChannel;
     private final IoHandler<? super StreamChannel> handler;
@@ -51,18 +55,14 @@ public final class NioPipeChannelImpl implements StreamChannel {
 
     public void close() throws IOException {
         // since we've got two channels, only rethrow a failure on the WRITE side, since that's the side that stands to lose data
-        try {
-            sourceChannel.close();
-        } catch (Throwable t) {
-            // todo log @ trace
-        }
+        IoUtils.safeClose(sourceChannel);
         try {
             sinkChannel.close();
         } finally {
             if (callFlag.getAndSet(true) == false) try {
                 handler.handleClose(this);
             } catch (Throwable t) {
-                // todo log it
+                log.error(t, "Close handler threw an exception");
             }
             sinkHandle.cancelKey();
             sourceHandle.cancelKey();
@@ -139,8 +139,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
             try {
                 handler.handleReadable(NioPipeChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Read handler threw an exception");
             }
         }
     }
@@ -151,8 +150,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
             try {
                 handler.handleWritable(NioPipeChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Write handler threw an exception");
             }
         }
     }

@@ -16,6 +16,8 @@ import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpServer;
 import org.jboss.xnio.spi.Lifecycle;
 
@@ -23,6 +25,8 @@ import org.jboss.xnio.spi.Lifecycle;
  *
  */
 public final class NioTcpServer implements Lifecycle, TcpServer {
+    private static final Logger log = Logger.getLogger(NioTcpServer.class);
+
     private NioHandle[] handles;
     private ServerSocket[] serverSockets;
     private ServerSocketChannel[] serverSocketChannels;
@@ -159,13 +163,7 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
             } catch (IOException ex) {
                 // undo the opened sockets
                 for (; i >= 0; i --) {
-                    try {
-                        if (serverSocketChannels[i] != null) {
-                            serverSocketChannels[i].close();
-                        }
-                    } catch (Throwable t) {
-                        // todo log
-                    }
+                    IoUtils.safeClose(serverSocketChannels[i]);
                 }
                 throw ex;
             }
@@ -179,17 +177,17 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
         int bindCount = bindAddresses.length;
         for (int i = 0; i < bindCount; i ++) {
             if (handles != null && handles.length > i && handles[i] != null) {
-                try {
+                if (handles[i] != null) try {
                     handles[i].cancelKey();
                 } catch (Throwable t) {
-                    // todo log
+                    log.trace(t, "Cancel key failed");
                 }
             }
             if (serverSocketChannels != null && serverSocketChannels.length > i && serverSocketChannels[i] != null) {
-                try {
+                if (serverSocketChannels[i] != null) try {
                     serverSocketChannels[i].close();
                 } catch (Throwable t) {
-                    // todo log
+                    log.trace(t, "Cancel key failed");
                 }
             }
         }
@@ -220,37 +218,38 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
         }
 
         public void run() {
-            if (handles[idx].getSelectionKey().isAcceptable()) {
-                try {
-                    final SocketChannel socketChannel = serverSocketChannels[idx].accept();
-                    if (socketChannel != null) {
-                        boolean ok = false;
+            try {
+                final SocketChannel socketChannel = serverSocketChannels[idx].accept();
+                if (socketChannel != null) {
+                    boolean ok = false;
+                    try {
+                        socketChannel.configureBlocking(false);
+                        final Socket socket = socketChannel.socket();
+                        socket.setKeepAlive(keepAlive);
+                        socket.setOOBInline(oobInline);
+                        socket.setTcpNoDelay(tcpNoDelay);
+                        // IDEA thinks this is an unsafe cast, but it really isn't.  But to shut it up...
+                        //noinspection unchecked
+                        final IoHandler<? super ConnectedStreamChannel<SocketAddress>> streamIoHandler = handlerFactory.createHandler();
+                        final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
                         try {
-                            socketChannel.configureBlocking(false);
-                            final Socket socket = socketChannel.socket();
-                            socket.setKeepAlive(keepAlive);
-                            socket.setOOBInline(oobInline);
-                            socket.setTcpNoDelay(tcpNoDelay);
-                            // IDEA thinks this is an unsafe cast, but it really isn't.  But to shut it up...
-                            //noinspection unchecked
-                            final IoHandler<? super ConnectedStreamChannel<SocketAddress>> streamIoHandler = handlerFactory.createHandler();
-                            final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
                             streamIoHandler.handleOpened(channel);
                             ok = true;
-                        } finally {
-                            if (! ok) try {
-                                socketChannel.close();
-                            } catch (IOException e) {
-                                // todo log
-                            }
+                        } catch (Throwable t) {
+                            log.error(t, "Opened handler failed");
+                        }
+                    } finally {
+                        if (! ok) {
+                            // do NOT call close handler, since open handler was either not called or it failed
+                            IoUtils.safeClose(socketChannel);
                         }
                     }
-                } catch (ClosedChannelException e) {
-                    // todo - log a message (no stack trace) to trace
-                } catch (IOException e) {
-                    // todo - log @ trace
-                    e.printStackTrace();
                 }
+            } catch (ClosedChannelException e) {
+                log.trace("Channel closed: %s", e.getMessage());
+                return;
+            } catch (IOException e) {
+                log.trace(e, "I/O error on TCP server");
             }
         }
     }

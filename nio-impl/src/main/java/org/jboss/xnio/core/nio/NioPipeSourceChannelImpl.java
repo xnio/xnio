@@ -12,11 +12,14 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
 public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
+    private static final Logger log = Logger.getLogger(NioPipeSourceChannelImpl.class);
+
     private final Pipe.SourceChannel channel;
     private final NioHandle handle;
     private final IoHandler<? super StreamSourceChannel> handler;
@@ -49,8 +52,10 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
             channel.close();
         } finally {
             handle.cancelKey();
-            if (! callFlag.getAndSet(true)) {
+            if (! callFlag.getAndSet(true)) try {
                 handler.handleClose(this);
+            } catch (Throwable t) {
+                log.error(t, "Close handler threw an exception");
             }
         }
     }
@@ -93,8 +98,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
             try {
                 handler.handleReadable(NioPipeSourceChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Read handler threw an exception");
             }
         }
     }

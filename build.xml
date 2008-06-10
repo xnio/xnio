@@ -83,6 +83,9 @@
                 destdir="api/target/main/classes"
                 debug="true">
             <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="logging-jdk.classpath"/>
+            </classpath>
         </javac>
         <touch file="api/target/main/.lastcompile" verbose="false"/>
     </target>
@@ -109,6 +112,7 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
+                <path refid="logging-jdk.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>
         </javac>
@@ -128,6 +132,7 @@
             <formatter type="plain" extension="${extension}"/>
             <classpath>
                 <path refid="test-support.classpath"/>
+                <path refid="logging-jdk.classpath"/>
                 <path refid="api.classpath"/>
                 <pathelement location="api/target/test/classes"/>
                 <pathelement location="${lib.junit.local}"/>
@@ -158,7 +163,7 @@
         <delete dir="api/target"/>
     </target>
 
-    <target name="api" description="Build the api module" depends="version,api.compile">
+    <target name="api" description="Build the api module" depends="version,logging-jdk,api.compile">
         <path id="api.classpath">
             <pathelement location="api/target/main/classes"/>
         </path>
@@ -272,6 +277,7 @@
             <classpath>
                 <path refid="api.classpath"/>
                 <path refid="spi.classpath"/>
+                <path refid="logging-jdk.classpath"/>
             </classpath>
         </javac>
         <touch file="nio-impl/target/main/.lastcompile" verbose="false"/>
@@ -301,6 +307,7 @@
                 <path refid="nio-impl.classpath"/>
                 <path refid="api.classpath"/>
                 <path refid="spi.classpath"/>
+                <path refid="logging-jdk.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>
         </javac>
@@ -322,6 +329,7 @@
                 <path refid="test-support.classpath"/>
                 <path refid="api.classpath"/>
                 <path refid="spi.classpath"/>
+                <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
                 <pathelement location="nio-impl/target/test/classes"/>
                 <pathelement location="${lib.junit.local}"/>

@@ -14,6 +14,7 @@ import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.UdpServer;
 import org.jboss.xnio.spi.Lifecycle;
 
@@ -21,6 +22,8 @@ import org.jboss.xnio.spi.Lifecycle;
  *
  */
 public final class BioMulticastServer implements Lifecycle, UdpServer {
+    private static final Logger log = Logger.getLogger(BioMulticastServer.class);
+
     private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;
     private BioMulticastChannelImpl[] channels = new BioMulticastChannelImpl[0];
     private SocketAddress[] bindAddresses = new SocketAddress[0];
@@ -138,7 +141,7 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
                     if (socket != null) try {
                         socket.close();
                     } catch (Throwable t) {
-                        // todo log it @ trace
+                        log.trace(t, "Socket close failed");
                     }
                 }
             }

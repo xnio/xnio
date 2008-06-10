@@ -9,8 +9,10 @@ import java.util.logging.LogRecord;
  *
  */
 public final class Logger {
-    static {
-        getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
+    private static final class Init {
+        static {
+            getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
+        }
     }
 
     public static final class Level extends java.util.logging.Level {
@@ -32,6 +34,8 @@ public final class Logger {
     private final String name;
 
     private Logger(final String name) {
+        // Log the main init message exactly once
+        final Class<Init> x = Init.class;
         this.name = name;
         logger = java.util.logging.Logger.getLogger(name);
     }
@@ -41,7 +45,7 @@ public final class Logger {
     }
 
     public static Logger getLogger(final Class claxx) {
-        return new Logger(claxx.getName());
+        return getLogger(claxx.getName());
     }
 
     public boolean isTrace() {

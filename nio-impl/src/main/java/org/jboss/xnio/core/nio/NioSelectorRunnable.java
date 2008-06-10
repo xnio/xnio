@@ -10,11 +10,14 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
 public final class NioSelectorRunnable implements Runnable {
+
+    private static final Logger log = Logger.getLogger(NioSelectorRunnable.class);
 
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new LinkedList<SelectorTask>();
@@ -44,8 +47,7 @@ public final class NioSelectorRunnable implements Runnable {
         try {
             selector.close();
         } catch (Throwable t) {
-            // todo log @ trace
-            t.printStackTrace();
+            log.trace(t, "Failed to close selector");
         }
     }
 
@@ -61,8 +63,7 @@ public final class NioSelectorRunnable implements Runnable {
                         try {
                             task.run(selector);
                         } catch (Throwable t) {
-                            t.printStackTrace();
-                            // todo log & ignore
+                            log.trace(t, "NIO selector task failed");
                         }
                     }
                 }
@@ -77,24 +78,19 @@ public final class NioSelectorRunnable implements Runnable {
                             final NioHandle handle = (NioHandle) key.attachment();
                             handle.getHandlerExecutor().execute(handle.getHandler());
                         } catch (Throwable t) {
-                            // tough crap
-                            // todo log @ trace
-                            t.printStackTrace();
+                            log.trace(t, "Failed to execute handler");
                         }
                     } catch (CancelledKeyException e) {
-                        // todo log @ trace (normal)
-                        // e.printStackTrace();
+                        log.trace("Key %s cancelled", key);
                         continue;
                     }
                 }
             } catch (ClosedSelectorException e) {
                 // THIS is the "official" signalling mechanism
-                // todo log @ trace (normal)
-                // e.printStackTrace();
+                log.trace("Selector %s closed", selector);
                 return;
             } catch (IOException e) {
-                // todo - other I/O errors - should they be fatal?
-                e.printStackTrace();
+                log.trace(e, "I/O error in selector loop");
             }
         }
     }

@@ -11,6 +11,7 @@ import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.spi.UdpServer;
 import org.jboss.xnio.spi.Lifecycle;
 
@@ -126,6 +127,7 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
             if (sendBufferSize != -1) socket.setSendBufferSize(sendBufferSize);
             if (trafficClass != -1) socket.setTrafficClass(trafficClass);
             datagramChannels[i] = datagramChannel;
+            //noinspection unchecked
             channels[i] = new NioUdpSocketChannelImpl(nioProvider, datagramChannel, handlerFactory.createHandler());
         }
         for (int i = 0; i < bindCount; i++) {
@@ -133,11 +135,7 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
                 datagramChannels[i].socket().bind(bindAddresses[i]);
             } catch (IOException ex) {
                 for (int j = 0; j < bindCount; j ++) {
-                    if (datagramChannels[j] != null) try {
-                        datagramChannels[j].close();
-                    } catch (Throwable t) {
-                        // todo log
-                    }
+                    IoUtils.safeClose(datagramChannels[j]);
                 }
                 channels = null;
                 throw ex;
@@ -147,11 +145,7 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
 
     public void stop() {
         for (NioUdpSocketChannelImpl channel : channels) {
-            if (channel != null) try {
-                channel.close();
-            } catch (Throwable t) {
-                // todo log
-            }
+            IoUtils.safeClose(channel);
         }
         channels = null;
     }

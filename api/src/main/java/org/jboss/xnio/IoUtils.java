@@ -9,11 +9,14 @@ import java.util.Random;
 import java.nio.channels.Channel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.ConnectedChannel;
+import org.jboss.xnio.log.Logger;
 
 /**
  * General I/O utility methods.
  */
 public final class IoUtils {
+    private static final Logger log = Logger.getLogger(IoUtils.class);
+
     private static final Executor NULL_EXECUTOR = new Executor() {
         public void execute(final Runnable command) {
             // no operation
@@ -87,7 +90,7 @@ public final class IoUtils {
     }
 
     /**
-     * Create a connection using a client.  The provided handler will handler the connection.  The {@code reconnectExecutor} will
+     * Create a connection using a client.  The provided handler will handle the connection.  The {@code reconnectExecutor} will
      * be used to execute a reconnect task in the event that the connection fails or is lost or terminated.  If you wish
      * to impose a time delay on reconnect, use the {@link org.jboss.xnio.IoUtils#delayedExecutor(java.util.concurrent.ScheduledExecutorService, long, java.util.concurrent.TimeUnit) delayedExecutor()} method
      * to create a delayed executor.  If you do not want to auto-reconnect use the {@link org.jboss.xnio.IoUtils#nullExecutor()} method to
@@ -100,7 +103,9 @@ public final class IoUtils {
      * @return a handle which can be used to terminate the connection
      */
     public static <T extends StreamChannel> Closeable createConnection(final StreamIoClient<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
-        return new Connection<T>(client, handler, reconnectExecutor);
+        final Connection<T> connection = new Connection<T>(client, handler, reconnectExecutor);
+        connection.connect();
+        return connection;
     }
 
     /**
@@ -169,9 +174,8 @@ public final class IoUtils {
             if (closeable != null) {
                 closeable.close();
             }
-        } catch (Throwable throwable) {
-            // todo log @ trace
-            throwable.printStackTrace();
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
         }
     }
 
@@ -193,7 +197,13 @@ public final class IoUtils {
             this.client = client;
             this.handler = handler;
             this.reconnectExecutor = reconnectExecutor;
-            currentFuture = client.connect(handlerWrapper);
+        }
+
+        private void connect() {
+            log.trace("Establishing connection");
+            final IoFuture<T> ioFuture = client.connect(handlerWrapper);
+            ioFuture.addNotifier(notifier);
+            currentFuture = ioFuture;
         }
 
         public void close() throws IOException {
@@ -210,14 +220,13 @@ public final class IoUtils {
                 currentFuture = null;
                 switch (future.getStatus()) {
                     case DONE:
-                        // todo log normal completion
+                        log.trace("Connection established");
                         return;
                     case FAILED:
-                        // todo log reason
-                        future.getException().printStackTrace();
+                        log.trace(future.getException(), "Connection failed");
                         break;
                     case CANCELLED:
-                        // todo log normal cancellation
+                        log.trace("Connection cancelled");
                         break;
                 }
                 if (! stopFlag) {
@@ -242,8 +251,7 @@ public final class IoUtils {
 
             public void handleClose(final T channel) {
                 try {
-                    // todo log connection term
-                    System.out.println("Connection closed");
+                    log.trace("Connection closed");
                     if (! stopFlag) {
                         reconnectExecutor.execute(reconnectTask);
                     }
@@ -256,9 +264,7 @@ public final class IoUtils {
         private final class ReconnectTask implements Runnable {
             public void run() {
                 if (! stopFlag) {
-                    final IoFuture<T> ioFuture = client.connect(handlerWrapper);
-                    ioFuture.addNotifier(notifier);
-                    currentFuture = ioFuture;
+                    connect();
                 }
             }
         }

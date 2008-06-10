@@ -5,6 +5,7 @@ import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import java.net.SocketAddress;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -21,6 +22,7 @@ import java.util.Collections;
  *
  */
 public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
+    private static final Logger log = Logger.getLogger(NioUdpSocketChannelImpl.class);
 
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
@@ -153,8 +155,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
             if (key.isValid() && key.isReadable()) try {
                 handler.handleReadable(NioUdpSocketChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Write handler failed");
             }
         }
     }
@@ -167,8 +168,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
             if (key.isValid() && key.isWritable()) try {
                 handler.handleWritable(NioUdpSocketChannelImpl.this);
             } catch (Throwable t) {
-                // todo log it
-                t.printStackTrace();
+                log.error(t, "Write handler failed");
             }
         }
     }
