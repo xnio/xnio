@@ -158,7 +158,7 @@
         <delete dir="api/target"/>
     </target>
 
-    <target name="api" description="Build the api module" depends="api.compile">
+    <target name="api" description="Build the api module" depends="version,api.compile">
         <path id="api.classpath">
             <pathelement location="api/target/main/classes"/>
         </path>
@@ -394,6 +394,44 @@
         </path>
     </target>
 
+    <!-- version module -->
+
+    <target name="version.compile.depcheck">
+        <mkdir dir="version/target/main"/>
+        <uptodate property="version.compile.uptodate" targetfile="version/target/main/.lastcompile">
+            <srcfiles dir="version/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="version.compile" depends="version.compile.depcheck" unless="version.compile.uptodate">
+        <mkdir dir="version/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="version/src/main/java"
+                destdir="version/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+        </javac>
+        <touch file="version/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="version.clean">
+        <delete dir="version/target"/>
+    </target>
+
+    <target name="version" description="Build the version module" depends="version.compile">
+        <path id="version.classpath">
+            <pathelement location="version/target/main/classes"/>
+        </path>
+        <java taskname="version" classpathref="version.classpath" classname="org.jboss.xnio.Version" outputproperty="version"/>
+        <property name="version" value="UNKNOWN"/>
+    </target>
+
     <!-- ============================================== -->
     <!-- JARS - Keep in alpha order by jar name         -->
     <!-- ============================================== -->
@@ -408,6 +446,7 @@
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
             <packageset dir="api/src/main/java"/>
             <packageset dir="spi/src/main/java"/>
+            <packageset dir="version/src/main/java"/>
             <doctitle><![CDATA[<h1>XNIO</h1>]]></doctitle>
             <bottom><![CDATA[<i>Copyright &#169; 2008 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
             <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
@@ -418,12 +457,12 @@
     <!-- Default targets - keep depends in alpha order by category name -->
     <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
 
-    <target name="base" description="Build base modules only (no external deps)" depends="api,nio-impl,spi,test-support,javadoc"/>
+    <target name="base" description="Build base modules only (no external deps)" depends="api,nio-impl,spi,test-support,version,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer"/>
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,deployer.clean,nio-impl.clean,spi.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,deployer.clean,nio-impl.clean,spi.clean,test-support.clean,version.clean"/>
 
 </project>
