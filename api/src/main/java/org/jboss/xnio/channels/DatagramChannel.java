@@ -9,5 +9,5 @@ import java.io.IOException;
  *
  * @param <A> the type of address associated with this channel
  */
-public interface DatagramChannel<A> extends MessageChannel, SuspendableChannel, ConnectedChannel<A> {
+public interface DatagramChannel<A> extends MessageChannel, SuspendableChannel, ConnectedChannel<A>, Configurable {
 }

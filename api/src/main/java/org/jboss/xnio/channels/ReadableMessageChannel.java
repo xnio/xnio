@@ -2,11 +2,12 @@ package org.jboss.xnio.channels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
 
 /**
  * A channel that can receive messages.  Such a channel receives whole messages only.
  */
-public interface ReadableMessageChannel extends ConfigurableChannel {
+public interface ReadableMessageChannel extends Channel {
     /**
      * Receive a message.
      *

@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 /**
  * A channel that can send messages.
  */
-public interface WritableMessageChannel extends ConfigurableChannel {
+public interface WritableMessageChannel extends Configurable {
     /**
      * Send a complete message.
      *

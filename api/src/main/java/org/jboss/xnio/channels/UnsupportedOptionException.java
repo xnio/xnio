@@ -1,7 +1,7 @@
 package org.jboss.xnio.channels;
 
 /**
- * An exception that is thrown when an invalid option is specified for a {@link org.jboss.xnio.channels.ConfigurableChannel}.
+ * An exception that is thrown when an invalid option is specified for a {@link Configurable}.
  */
 public final class UnsupportedOptionException extends IllegalArgumentException {
     private static final long serialVersionUID = 250195510855241708L;

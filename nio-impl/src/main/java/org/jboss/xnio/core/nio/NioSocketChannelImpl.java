@@ -13,7 +13,7 @@ import java.util.Collections;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ConfigurableChannel;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.SocketOption;
 
 /**
@@ -141,7 +141,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         return OPTIONS;
     }
 
-    public ConfigurableChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
         if (name == null) {
             throw new NullPointerException("name is null");
         }

@@ -4,7 +4,7 @@ package org.jboss.xnio.channels;
  * A suspendable writable channel.  This type of channel is associated with a handler which can suspend and resume
  * writes as needed.
  */
-public interface SuspendableWriteChannel extends ConfigurableChannel {
+public interface SuspendableWriteChannel extends Configurable {
     /**
      * Suspend further writes on this channel.  The {@link org.jboss.xnio.IoHandler#handleWritable(java.nio.channels.Channel)} method will not
      * be called until writes are resumed.

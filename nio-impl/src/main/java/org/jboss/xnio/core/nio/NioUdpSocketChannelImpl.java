@@ -3,7 +3,7 @@ package org.jboss.xnio.core.nio;
 import org.jboss.xnio.channels.MultipointReadHandler;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ConfigurableChannel;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
 import java.net.SocketAddress;
 import java.net.InetAddress;
@@ -141,7 +141,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
         return Collections.emptyMap();
     }
 
-    public ConfigurableChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 

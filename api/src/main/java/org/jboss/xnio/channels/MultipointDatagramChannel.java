@@ -8,5 +8,5 @@ import java.io.IOException;
  *
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointDatagramChannel<A> extends MultipointMessageChannel<A>, SuspendableChannel {
+public interface MultipointDatagramChannel<A> extends MultipointMessageChannel<A>, SuspendableChannel, Configurable {
 }

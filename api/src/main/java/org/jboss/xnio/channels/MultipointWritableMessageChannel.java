@@ -1,6 +1,7 @@
 package org.jboss.xnio.channels;
 
 import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
 import java.io.IOException;
 
 /**
@@ -9,7 +10,7 @@ import java.io.IOException;
  * @see org.jboss.xnio.channels.MultipointMessageChannel
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointWritableMessageChannel<A> extends ConfigurableChannel {
+public interface MultipointWritableMessageChannel<A> extends Channel {
 
     /**
      * Send a buffer to a destination.

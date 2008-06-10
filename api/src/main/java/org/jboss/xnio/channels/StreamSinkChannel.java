@@ -8,7 +8,7 @@ import java.io.IOException;
 /**
  * A stream sink channel.  This type of channel is a writable desination for bytes.
  */
-public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel {
+public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel, Configurable {
     /**
      * Indicate that writing is complete for this channel.  Further attempts to write after shutdown will result in an
      * exception.

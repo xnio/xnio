@@ -2,7 +2,7 @@ package org.jboss.xnio.core.nio;
 
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ConfigurableChannel;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
 import java.nio.ByteBuffer;
 import java.nio.channels.Pipe;
@@ -129,7 +129,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
         return Collections.emptyMap();
     }
 
-    public ConfigurableChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 

@@ -1,13 +1,12 @@
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
 import java.util.Map;
 import java.io.IOException;
 
 /**
  * A channel that has parameters that may be configured while the channel is open.
  */
-public interface ConfigurableChannel extends Channel {
+public interface Configurable {
     /**
      * Get the value of a channel option.
      *
@@ -35,5 +34,5 @@ public interface ConfigurableChannel extends Channel {
      * @throws IllegalArgumentException if the value is not acceptable for this option
      * @throws IOException if an I/O error occured when modifying the option
      */
-    ConfigurableChannel setOption(String name, Object value) throws IllegalArgumentException, IOException;
+    Configurable setOption(String name, Object value) throws IllegalArgumentException, IOException;
 }

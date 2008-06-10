@@ -11,7 +11,7 @@ import org.jboss.xnio.StreamIoClient;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ConfigurableChannel;
+import org.jboss.xnio.channels.Configurable;
 import java.net.SocketAddress;
 import java.net.InetSocketAddress;
 import java.net.Inet4Address;
@@ -124,7 +124,7 @@ public final class IoUtilsTestCase extends TestCase {
                         return null;
                     }
 
-                    public ConfigurableChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+                    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
                         return null;
                     }
                 };
