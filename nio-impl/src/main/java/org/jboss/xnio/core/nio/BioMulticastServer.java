@@ -5,8 +5,12 @@ import java.net.MulticastSocket;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Map;
+import java.util.Collections;
 import java.io.IOException;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.spi.UdpServer;
 import org.jboss.xnio.spi.Lifecycle;
@@ -149,5 +153,17 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
         if (executorService != null) {
             executor = executorService = null;
         }
+    }
+
+    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+        throw new UnsupportedOptionException("No options supported by this server type");
+    }
+
+    public Map<String, Class<?>> getOptions() {
+        return Collections.emptyMap();
+    }
+
+    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+        throw new UnsupportedOptionException("No options supported by this server type");
     }
 }

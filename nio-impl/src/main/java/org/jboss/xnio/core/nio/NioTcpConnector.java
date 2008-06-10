@@ -7,12 +7,16 @@ import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Executor;
+import java.util.Map;
+import java.util.Collections;
 import org.jboss.xnio.AbstractIoFuture;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.StreamIoConnector;
 import org.jboss.xnio.spi.TcpConnector;
 import org.jboss.xnio.spi.Lifecycle;
@@ -189,6 +193,18 @@ public final class NioTcpConnector implements Lifecycle, StreamIoConnector<Socke
         } catch (IOException e) {
             return new FailedIoFuture<ConnectedStreamChannel<SocketAddress>>(e);
         }
+    }
+
+    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+        throw new UnsupportedOptionException("No options supported by this connector type");
+    }
+
+    public Map<String, Class<?>> getOptions() {
+        return Collections.emptyMap();
+    }
+
+    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+        throw new UnsupportedOptionException("No options supported by this server type");
     }
 
     /**
