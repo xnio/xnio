@@ -497,5 +497,4 @@ public final class NioTcpTestCase extends TestCase {
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
     }
-
 }

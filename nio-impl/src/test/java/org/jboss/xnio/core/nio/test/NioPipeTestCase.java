@@ -419,4 +419,77 @@ public final class NioPipeTestCase extends TestCase {
         assertEquals(leftSent.get(), rightReceived.get());
     }
 
+    public void testStopClosesBothSides() throws Exception {
+        final AtomicBoolean leftOK = new AtomicBoolean(false);
+        final AtomicBoolean rightOK = new AtomicBoolean(false);
+        doTwoWayPipeTest(new Runnable() {
+            public void run() {
+            }
+        }, new IoHandler<StreamChannel>() {
+            public void handleOpened(final StreamChannel channel) {
+            }
+
+            public void handleReadable(final StreamChannel channel) {
+            }
+
+            public void handleWritable(final StreamChannel channel) {
+            }
+
+            public void handleClosed(final StreamChannel channel) {
+                leftOK.set(true);
+            }
+        }, new IoHandler<StreamChannel>() {
+            public void handleOpened(final StreamChannel channel) {
+            }
+
+            public void handleReadable(final StreamChannel channel) {
+            }
+
+            public void handleWritable(final StreamChannel channel) {
+            }
+
+            public void handleClosed(final StreamChannel channel) {
+                rightOK.set(true);
+            }
+        });
+        assertTrue(leftOK.get());
+        assertTrue(rightOK.get());
+    }
+
+    public void testStopClosesBothSidesOneWay() throws Exception {
+        final AtomicBoolean sourceOK = new AtomicBoolean(false);
+        final AtomicBoolean sinkOK = new AtomicBoolean(false);
+        doOneWayPipeTest(new Runnable() {
+            public void run() {
+            }
+        }, new IoHandler<StreamSourceChannel>() {
+            public void handleOpened(final StreamSourceChannel channel) {
+            }
+
+            public void handleReadable(final StreamSourceChannel channel) {
+            }
+
+            public void handleWritable(final StreamSourceChannel channel) {
+            }
+
+            public void handleClosed(final StreamSourceChannel channel) {
+                sourceOK.set(true);
+            }
+        }, new IoHandler<StreamSinkChannel>() {
+            public void handleOpened(final StreamSinkChannel channel) {
+            }
+
+            public void handleReadable(final StreamSinkChannel channel) {
+            }
+
+            public void handleWritable(final StreamSinkChannel channel) {
+            }
+
+            public void handleClosed(final StreamSinkChannel channel) {
+                sinkOK.set(true);
+            }
+        });
+        assertTrue(sourceOK.get());
+        assertTrue(sinkOK.get());
+    }
 }
