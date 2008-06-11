@@ -1,9 +1,9 @@
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.MultipointReadHandler;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
@@ -43,16 +43,17 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
         return datagramChannel.socket().getLocalSocketAddress();
     }
 
-    public boolean receive(final ByteBuffer buffer, final MultipointReadHandler<SocketAddress> readHandler) throws IOException {
+    public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
         final SocketAddress sourceAddress = datagramChannel.receive(buffer);
-        if (sourceAddress != null) {
-            if (readHandler != null) {
-                readHandler.handle(sourceAddress, null);
+        return sourceAddress == null ? null : new MultipointReadResult<SocketAddress>() {
+            public SocketAddress getSourceAddress() {
+                return sourceAddress;
             }
-            return true;
-        } else {
-            return false;
-        }
+
+            public SocketAddress getDestinationAddress() {
+                return null;
+            }
+        };
     }
 
     public boolean isOpen() {

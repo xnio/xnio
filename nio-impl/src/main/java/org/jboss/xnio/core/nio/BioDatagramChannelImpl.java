@@ -1,9 +1,9 @@
 package org.jboss.xnio.core.nio;
 
 import org.jboss.xnio.channels.MultipointDatagramChannel;
-import org.jboss.xnio.channels.MultipointReadHandler;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
@@ -68,10 +68,10 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
         return datagramSocket.getLocalSocketAddress();
     }
 
-    public boolean receive(final ByteBuffer buffer, final MultipointReadHandler<SocketAddress> readHandler) throws IOException {
+    public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
         synchronized (readLock) {
             if (!readable) {
-                return false;
+                return null;
             }
             readable = false;
             if (readException != null) {
@@ -86,8 +86,16 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
             receiveBuffer.limit(size);
             buffer.put(receiveBuffer);
             readLock.notify();
-            if (readHandler != null) readHandler.handle(receivePacket.getSocketAddress(), null);
-            return true;
+            final SocketAddress socketAddress = receivePacket.getSocketAddress();
+            return new MultipointReadResult<SocketAddress>() {
+                public SocketAddress getSourceAddress() {
+                    return socketAddress;
+                }
+
+                public SocketAddress getDestinationAddress() {
+                    return null;
+                }
+            };
         }
     }
 

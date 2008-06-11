@@ -15,14 +15,13 @@ public interface MultipointReadableMessageChannel<A> extends Channel {
      * Receive a message via this channel.
      *
      * If a message is immediately available, then the datagram is written into the given buffer and the source
-     * and destination addresses (if available) are given to the handler.  If there is no message immediately available,
-     * this method will return {@code false}.
+     * and destination addresses (if available) are returned.  If there is no message immediately available,
+     * this method will return {@code null}.
      *
      * @param buffer the buffer into which data should be read
-     * @param readHandler the handler to invoke with the reception details, or {@code null} for none
      *
-     * @return {@code true} if a message was found and processed
+     * @return a result instance if a message was found and processed, or {@code null} if the operation would block
      * @throws IOException if an I/O error occurs
      */
-    boolean receive(ByteBuffer buffer, MultipointReadHandler<A> readHandler) throws IOException;
+    MultipointReadResult<A> receive(ByteBuffer buffer) throws IOException;
 }
