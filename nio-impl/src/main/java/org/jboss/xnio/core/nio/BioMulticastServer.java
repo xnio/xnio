@@ -125,6 +125,9 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
         try {
             channels = new BioMulticastChannelImpl[bindCount];
             for (int i = 0; i < bindCount; i++) {
+                if (bindAddresses[i] == null) {
+                    throw new NullPointerException("bindAddresses[i] is null");
+                }
                 MulticastSocket socket = new MulticastSocket(bindAddresses[i]);
                 socket.setBroadcast(broadcast);
                 if (receiveBufferSize != -1) socket.setReceiveBufferSize(receiveBufferSize);
@@ -134,6 +137,7 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
                 sockets[i] = socket;
                 final IoHandler<? super MulticastDatagramChannel> handler = handlerFactory.createHandler();
                 channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handler, socket);
+                channels[i].open();
                 if (! SpiUtils.handleOpened(handler, channels[i])) try {
                     socket.close();
                 } catch (Throwable t) {

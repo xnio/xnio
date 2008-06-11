@@ -13,6 +13,8 @@ import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 import java.util.Collections;
@@ -73,6 +75,27 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
     }
 
+    protected void open() {
+        final ThreadFactory threadFactory = Executors.defaultThreadFactory();
+        final Thread readThread = threadFactory.newThread(readerTask);
+        boolean ok = false;
+        try {
+            final Thread writeThread = threadFactory.newThread(writerTask);
+            try {
+                readThread.start();
+                writeThread.start();
+                ok = true;
+            } finally {
+                if (! ok) {
+                    writerTask.cancel();
+                }
+            }
+        } finally {
+            if (! ok) {
+                readerTask.cancel();
+            }
+        }
+    }
 
     public SocketAddress getLocalAddress() {
         return datagramSocket.getLocalSocketAddress();
@@ -110,10 +133,16 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
     }
 
     public boolean isOpen() {
-        return datagramSocket.isBound();
+        return ! datagramSocket.isClosed();
     }
 
     public void close() throws IOException {
+        synchronized (writeLock) {
+            enableWrite = false;
+        }
+        synchronized (readLock) {
+            enableRead = false;
+        }
         try {
             readerTask.cancel();
         } catch (Throwable t) {
@@ -277,25 +306,29 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
         private volatile Thread thread;
 
         public void run() {
-            for (;;) {
-                thread = Thread.currentThread();
-                synchronized (writeLock) {
-                    writable = true;
-                    if (enableWrite) {
-                        enableWrite = false;
-                        handlerExecutor.execute(writeHandlerTask);
+            thread = Thread.currentThread();
+            try {
+                for (;;) {
+                    synchronized (writeLock) {
+                        writable = true;
+                        if (enableWrite) {
+                            enableWrite = false;
+                            handlerExecutor.execute(writeHandlerTask);
+                        }
+                        while (writable) try {
+                            writeLock.wait();
+                        } catch (InterruptedException e) {
+                            return;
+                        }
                     }
-                    while (writable) try {
-                        writeLock.wait();
-                    } catch (InterruptedException e) {
-                        return;
+                    try {
+                        datagramSocket.send(sendPacket);
+                    } catch (IOException e) {
+                        log.trace("Packet send failed: %s", e);
                     }
                 }
-                try {
-                    datagramSocket.send(sendPacket);
-                } catch (IOException e) {
-                    log.trace("Packet send failed: %s", e);
-                }
+            } finally {
+                thread = null;
             }
         }
 

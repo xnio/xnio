@@ -7,6 +7,12 @@ grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
     permission java.lang.RuntimePermission "modifyThread";
 };
 
+grant codeBase "file:${build.home}/spi/target/main/classes/-"
+{
+    permission java.net.SocketPermission "*:*", "connect, accept, resolve";
+};
+
+
 // Permissions to run the nio-impl test suite
 
 grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
@@ -14,7 +20,7 @@ grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
     // server side requirement
     permission java.net.SocketPermission "127.0.0.1:*", "accept, resolve";
     // client side requirement
-    permission java.net.SocketPermission "127.0.0.1:12345", "connect";
+    permission java.net.SocketPermission "127.0.0.1:12345", "connect, resolve";
 };
 
 // Support classes

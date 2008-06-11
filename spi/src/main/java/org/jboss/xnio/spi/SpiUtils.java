@@ -9,7 +9,7 @@ import org.jboss.xnio.log.Logger;
 public final class SpiUtils {
     private SpiUtils() {}
 
-    private static final Logger log = Logger.getLogger(SpiUtils.class);
+    private static final Logger handlerErrorLog = Logger.getLogger("org.jboss.xnio.handler-errors");
 
     /**
      * Call the handler open method, logging any exceptions that may occur.  Returns {@code true} if the handler
@@ -24,7 +24,7 @@ public final class SpiUtils {
             handler.handleOpened(channel);
             return true;
         } catch (Throwable t) {
-            log.error(t, "Channel handler open notification failed for handler %s, channel %s", handler, channel);
+            handlerErrorLog.error(t, "Channel handler open notification failed for handler %s, channel %s", handler, channel);
             return false;
         }
     }
@@ -42,7 +42,7 @@ public final class SpiUtils {
             handler.handleClosed(channel);
             return true;
         } catch (Throwable t) {
-            log.error(t, "Channel handler close notification failed for handler %s, channel %s", handler, channel);
+            handlerErrorLog.error(t, "Channel handler close notification failed for handler %s, channel %s", handler, channel);
             return false;
         }
     }
@@ -60,7 +60,7 @@ public final class SpiUtils {
             handler.handleReadable(channel);
             return true;
         } catch (Throwable t) {
-            log.error(t, "Channel handler readable notification failed for handler %s, channel %s", handler, channel);
+            handlerErrorLog.error(t, "Channel handler readable notification failed for handler %s, channel %s", handler, channel);
             return false;
         }
     }
@@ -78,7 +78,7 @@ public final class SpiUtils {
             handler.handleWritable(channel);
             return true;
         } catch (Throwable t) {
-            log.error(t, "Channel handler writable notification failed for handler %s, channel %s", handler, channel);
+            handlerErrorLog.error(t, "Channel handler writable notification failed for handler %s, channel %s", handler, channel);
             return false;
         }
     }

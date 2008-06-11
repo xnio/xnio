@@ -294,7 +294,7 @@
         </uptodate>
     </target>
 
-    <target name="nio-impl.test.compile" depends="nio-impl.compile,nio-impl.test.compile.depcheck" unless="nio-impl.test.compile.uptodate">
+    <target name="nio-impl.test.compile" depends="test-support,nio-impl.compile,nio-impl.test.compile.depcheck" unless="nio-impl.test.compile.uptodate">
         <mkdir dir="nio-impl/target/test/classes"/>
         <javac
                 source="${javac.source}"
@@ -304,10 +304,11 @@
                 debug="true">
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
-                <path refid="nio-impl.classpath"/>
                 <path refid="api.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="logging-jdk.classpath"/>
+                <path refid="nio-impl.classpath"/>
+                <path refid="spi.classpath"/>
+                <path refid="test-support.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>
         </javac>
