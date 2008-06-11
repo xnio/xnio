@@ -5,6 +5,7 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
 import java.nio.ByteBuffer;
 import java.nio.channels.Pipe;
@@ -59,10 +60,8 @@ public final class NioPipeChannelImpl implements StreamChannel {
         try {
             sinkChannel.close();
         } finally {
-            if (callFlag.getAndSet(true) == false) try {
-                handler.handleClose(this);
-            } catch (Throwable t) {
-                log.error(t, "Close handler threw an exception");
+            if (callFlag.getAndSet(true) == false) {
+                SpiUtils.<StreamChannel>handleClosed(handler, this);
             }
             sinkHandle.cancelKey();
             sourceHandle.cancelKey();

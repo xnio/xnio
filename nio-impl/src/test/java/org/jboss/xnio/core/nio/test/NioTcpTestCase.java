@@ -138,7 +138,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
@@ -173,7 +173,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         });
@@ -224,7 +224,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
@@ -245,7 +245,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         });
@@ -311,7 +311,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
@@ -356,7 +356,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         });
@@ -395,7 +395,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
@@ -433,7 +433,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         });
@@ -490,7 +490,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
@@ -513,7 +513,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
             }
 
-            public void handleClose(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
                 latch.countDown();
             }
         });

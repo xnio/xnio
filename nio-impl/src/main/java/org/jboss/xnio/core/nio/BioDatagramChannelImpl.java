@@ -5,6 +5,7 @@ import org.jboss.xnio.channels.MultipointReadHandler;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
 import java.net.SocketAddress;
 import java.net.DatagramSocket;
@@ -12,6 +13,7 @@ import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 import java.util.Collections;
 
@@ -46,6 +48,8 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
     private boolean writable;
     // @protectedby {@link #readLock}
     private IOException readException;
+
+    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
 
     protected BioDatagramChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
         this.datagramSocket = datagramSocket;
@@ -82,7 +86,6 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
             receiveBuffer.limit(size);
             buffer.put(receiveBuffer);
             readLock.notify();
-            // if the user throws an exception from the handler, that's their problem
             if (readHandler != null) readHandler.handle(receivePacket.getSocketAddress(), null);
             return true;
         }
@@ -110,6 +113,9 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
             readable = false;
         }
         datagramSocket.close();
+        if (! closeCalled.getAndSet(true)) {
+            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
+        }
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
@@ -285,13 +291,13 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
 
     private final class ReadHandlerTask implements Runnable {
         public void run() {
-            handler.handleReadable(BioDatagramChannelImpl.this);
+            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleReadable(handler, BioDatagramChannelImpl.this);
         }
     }
 
     private final class WriteHandlerTask implements Runnable {
         public void run() {
-            handler.handleWritable(BioDatagramChannelImpl.this);
+            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleWritable(handler, BioDatagramChannelImpl.this);
         }
     }
 }

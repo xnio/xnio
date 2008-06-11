@@ -39,5 +39,5 @@ public interface IoHandler<T extends Channel> {
      *
      * @param channel the channel that was closed
      */
-    void handleClose(T channel);
+    void handleClosed(T channel);
 }

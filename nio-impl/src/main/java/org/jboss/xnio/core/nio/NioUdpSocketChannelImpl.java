@@ -5,6 +5,7 @@ import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
 import java.net.SocketAddress;
 import java.net.InetAddress;
@@ -65,7 +66,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (!callFlag.getAndSet(true)) {
-                handler.handleClose(this);
+                SpiUtils.<MulticastDatagramChannel>handleClosed(handler, this);
             }
         }
     }
@@ -148,28 +149,14 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
     }
 
     public final class ReadHandler implements Runnable {
-
         public void run() {
-            IoHandler<? super MulticastDatagramChannel> handler = NioUdpSocketChannelImpl.this.handler;
-            final SelectionKey key = readHandle.getSelectionKey();
-            if (key.isValid() && key.isReadable()) try {
-                handler.handleReadable(NioUdpSocketChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Write handler failed");
-            }
+            SpiUtils.<MulticastDatagramChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 
     public final class WriteHandler implements Runnable {
-
         public void run() {
-            IoHandler<? super MulticastDatagramChannel> handler = NioUdpSocketChannelImpl.this.handler;
-            final SelectionKey key = writeHandle.getSelectionKey();
-            if (key.isValid() && key.isWritable()) try {
-                handler.handleWritable(NioUdpSocketChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Write handler failed");
-            }
+            SpiUtils.<MulticastDatagramChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 }

@@ -7,6 +7,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.spi.PipeEnd;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -134,12 +135,12 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
         this.rightSide = rightSide;
         leftSideExecutor.execute(new Runnable() {
             public void run() {
-                leftHandler.handleOpened(leftSide);
+                SpiUtils.<StreamChannel>handleOpened(leftHandler, leftSide);
             }
         });
         rightSideExecutor.execute(new Runnable() {
             public void run() {
-                rightHandler.handleOpened(rightSide);
+                SpiUtils.<StreamChannel>handleOpened(rightHandler, rightSide);
             }
         });
     }

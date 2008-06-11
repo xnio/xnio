@@ -9,6 +9,7 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.spi.PipeEnd;
 import org.jboss.xnio.spi.OneWayPipe;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -131,12 +132,12 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
         this.sinkSide = sinkSide;
         sourceSideExecutor.execute(new Runnable() {
             public void run() {
-                sourceHandler.handleOpened(sourceSide);
+                SpiUtils.<StreamSourceChannel>handleOpened(sourceHandler, sourceSide);
             }
         });
         sinkSideExecutor.execute(new Runnable() {
             public void run() {
-                sinkHandler.handleOpened(sinkSide);
+                SpiUtils.<StreamSinkChannel>handleOpened(sinkHandler, sinkSide);
             }
         });
     }

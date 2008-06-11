@@ -18,9 +18,11 @@ import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.StreamIoConnector;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpConnector;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -184,7 +186,7 @@ public final class NioTcpConnector implements Lifecycle, StreamIoConnector<Socke
                 final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
                 executor.execute(new Runnable() {
                     public void run() {
-                        handler.handleOpened(channel);
+                        SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(handler, channel);
                     }
                 });
                 return new FinishedIoFuture<ConnectedStreamChannel<SocketAddress>>(channel);
@@ -281,11 +283,7 @@ public final class NioTcpConnector implements Lifecycle, StreamIoConnector<Socke
             }
 
             public IoFuture<ConnectedStreamChannel<SocketAddress>> cancel() {
-                if (finishCancel()) try {
-                    socketChannel.close();
-                } catch (IOException e) {
-                    log.trace(e, "Cancel failed");
-                }
+                IoUtils.safeClose(socketChannel);
                 return this;
             }
         }

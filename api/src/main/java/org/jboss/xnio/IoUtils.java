@@ -37,7 +37,7 @@ public final class IoUtils {
         public void handleWritable(final Channel channel) {
         }
 
-        public void handleClose(final Channel channel) {
+        public void handleClosed(final Channel channel) {
         }
     };
     private static final IoHandlerFactory<Channel> NULL_HANDLER_FACTORY = new IoHandlerFactory<Channel>() {
@@ -249,14 +249,14 @@ public final class IoUtils {
                 handler.handleWritable(channel);
             }
 
-            public void handleClose(final T channel) {
+            public void handleClosed(final T channel) {
                 try {
                     log.trace("Connection closed");
                     if (! stopFlag) {
                         reconnectExecutor.execute(reconnectTask);
                     }
                 } finally {
-                    handler.handleClose(channel);
+                    handler.handleClosed(channel);
                 }
             }
         }

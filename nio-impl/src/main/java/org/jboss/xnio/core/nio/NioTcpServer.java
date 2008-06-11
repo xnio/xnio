@@ -20,6 +20,7 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpServer;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -232,12 +233,7 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
                         //noinspection unchecked
                         final IoHandler<? super ConnectedStreamChannel<SocketAddress>> streamIoHandler = handlerFactory.createHandler();
                         final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
-                        try {
-                            streamIoHandler.handleOpened(channel);
-                            ok = true;
-                        } catch (Throwable t) {
-                            log.error(t, "Opened handler failed");
-                        }
+                        ok = SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(streamIoHandler, channel);
                     } finally {
                         if (! ok) {
                             // do NOT call close handler, since open handler was either not called or it failed

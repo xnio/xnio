@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 import java.util.Collections;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -60,10 +61,8 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         } finally {
             readHandle.cancelKey();
             writeHandle.cancelKey();
-            if (! callFlag.getAndSet(true)) try {
-                handler.handleClose(this);
-            } catch (Throwable t) {
-                log.error(t, "Close handler failed");
+            if (! callFlag.getAndSet(true)) {
+                SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleClosed(handler, this);
             }
         }
     }
@@ -163,23 +162,13 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
 
     private final class ReadHandler implements Runnable {
         public void run() {
-            IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler = NioSocketChannelImpl.this.handler;
-            try {
-                handler.handleReadable(NioSocketChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Read handler failed");
-            }
+            SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleReadable(handler, NioSocketChannelImpl.this);
         }
     }
 
     private final class WriteHandler implements Runnable {
         public void run() {
-            IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler = NioSocketChannelImpl.this.handler;
-            try {
-                handler.handleWritable(NioSocketChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Write handler failed");
-            }
+            SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleWritable(handler, NioSocketChannelImpl.this);
         }
     }
 }

@@ -77,7 +77,7 @@ public final class IoUtilsTestCase extends TestCase {
                     }
 
                     public void close() throws IOException {
-                        ioHandler.handleClose(this);
+                        ioHandler.handleClosed(this);
                     }
 
                     public void suspendWrites() {
@@ -149,7 +149,7 @@ public final class IoUtilsTestCase extends TestCase {
                 fail("wrong method");
             }
 
-            public void handleClose(final StreamChannel channel) {
+            public void handleClosed(final StreamChannel channel) {
                 statuses[0] = true;
             }
         };

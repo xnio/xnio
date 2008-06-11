@@ -144,7 +144,7 @@ public final class NioPipeTestCase extends TestCase {
             public void handleWritable(final StreamSourceChannel channel) {
             }
 
-            public void handleClose(final StreamSourceChannel channel) {
+            public void handleClosed(final StreamSourceChannel channel) {
                 latch.countDown();
             }
         }, new IoHandler<StreamSinkChannel>() {
@@ -181,7 +181,7 @@ public final class NioPipeTestCase extends TestCase {
                 }
             }
 
-            public void handleClose(final StreamSinkChannel channel) {
+            public void handleClosed(final StreamSinkChannel channel) {
                 latch.countDown();
             }
         });
@@ -234,7 +234,7 @@ public final class NioPipeTestCase extends TestCase {
             public void handleWritable(final StreamSourceChannel channel) {
             }
 
-            public void handleClose(final StreamSourceChannel channel) {
+            public void handleClosed(final StreamSourceChannel channel) {
                 latch.countDown();
             }
         }, new IoHandler<StreamSinkChannel>() {
@@ -255,7 +255,7 @@ public final class NioPipeTestCase extends TestCase {
             public void handleWritable(final StreamSinkChannel channel) {
             }
 
-            public void handleClose(final StreamSinkChannel channel) {
+            public void handleClosed(final StreamSinkChannel channel) {
                 latch.countDown();
             }
         });
@@ -293,7 +293,7 @@ public final class NioPipeTestCase extends TestCase {
             public void handleWritable(final StreamChannel channel) {
             }
 
-            public void handleClose(final StreamChannel channel) {
+            public void handleClosed(final StreamChannel channel) {
                 latch.countDown();
             }
         }, new IoHandler<StreamChannel>() {
@@ -328,7 +328,7 @@ public final class NioPipeTestCase extends TestCase {
             public void handleWritable(final StreamChannel channel) {
             }
 
-            public void handleClose(final StreamChannel channel) {
+            public void handleClosed(final StreamChannel channel) {
                 latch.countDown();
             }
         });
@@ -394,7 +394,7 @@ public final class NioPipeTestCase extends TestCase {
                 }
             }
 
-            public void handleClose(final StreamChannel channel) {
+            public void handleClosed(final StreamChannel channel) {
                 latch.countDown();
             }
         }, new IoHandler<StreamChannel>() {
@@ -439,7 +439,7 @@ public final class NioPipeTestCase extends TestCase {
                 }
             }
 
-            public void handleClose(final StreamChannel channel) {
+            public void handleClosed(final StreamChannel channel) {
                 latch.countDown();
             }
         });
