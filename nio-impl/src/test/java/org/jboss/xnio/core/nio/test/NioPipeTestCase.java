@@ -32,40 +32,22 @@ public final class NioPipeTestCase extends TestCase {
         }
     }
 
-    private static final void destroy(Lifecycle lifecycle) {
-        try {
-            lifecycle.destroy();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
         synchronized (this) {
             final Provider provider = new NioProvider();
-            provider.create();
+            provider.start();
             try {
-                provider.start();
+                final OneWayPipe pipe = provider.createOneWayPipe();
+                pipe.getSourceEnd().setHandler(sourceHandler);
+                pipe.getSinkEnd().setHandler(sinkHandler);
+                pipe.start();
                 try {
-                    final OneWayPipe pipe = provider.createOneWayPipe();
-                    pipe.getSourceEnd().setHandler(sourceHandler);
-                    pipe.getSinkEnd().setHandler(sinkHandler);
-                    pipe.create();
-                    try {
-                        pipe.start();
-                        try {
-                            body.run();
-                        } finally {
-                            stop(pipe);
-                        }
-                    } finally {
-                        destroy(pipe);
-                    }
+                    body.run();
                 } finally {
-                    stop(provider);
+                    stop(pipe);
                 }
             } finally {
-                destroy(provider);
+                stop(provider);
             }
         }
     }
@@ -73,29 +55,19 @@ public final class NioPipeTestCase extends TestCase {
     private void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
         synchronized (this) {
             final Provider provider = new NioProvider();
-            provider.create();
+            provider.start();
             try {
-                provider.start();
+                final Pipe pipe = provider.createPipe();
+                pipe.getLeftEnd().setHandler(leftHandler);
+                pipe.getRightEnd().setHandler(rightHandler);
+                pipe.start();
                 try {
-                    final Pipe pipe = provider.createPipe();
-                    pipe.getLeftEnd().setHandler(leftHandler);
-                    pipe.getRightEnd().setHandler(rightHandler);
-                    pipe.create();
-                    try {
-                        pipe.start();
-                        try {
-                            body.run();
-                        } finally {
-                            stop(pipe);
-                        }
-                    } finally {
-                        destroy(pipe);
-                    }
+                    body.run();
                 } finally {
-                    stop(provider);
+                    stop(pipe);
                 }
             } finally {
-                destroy(provider);
+                stop(provider);
             }
         }
     }

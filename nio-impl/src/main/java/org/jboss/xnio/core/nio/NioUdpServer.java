@@ -104,16 +104,13 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
         this.executor = executor;
     }
 
-    public void create() throws Exception {
+    public void start() throws IOException {
         if (nioProvider == null) {
-            throw new NullPointerException("nioCore is null");
+            throw new NullPointerException("nioProvider is null");
         }
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-    }
-
-    public void start() throws IOException {
         final int bindCount = bindAddresses.length;
         final DatagramChannel[] datagramChannels = new DatagramChannel[bindCount];
         channels = new NioUdpSocketChannelImpl[bindCount];
@@ -148,9 +145,6 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
             IoUtils.safeClose(channel);
         }
         channels = null;
-    }
-
-    public void destroy() throws Exception {
     }
 
     public Object getOption(final String name) throws UnsupportedOptionException, IOException {

@@ -2,6 +2,7 @@ package org.jboss.xnio.core.nio;
 
 import java.nio.channels.Pipe;
 import java.util.concurrent.Executor;
+import java.io.IOException;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
@@ -97,7 +98,7 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
         return rightEnd;
     }
 
-    public void create() throws Exception {
+    public void start() throws IOException {
         if (leftHandler == null) {
             throw new NullPointerException("leftHandler is null");
         }
@@ -105,7 +106,7 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
             throw new NullPointerException("rightHandler is null");
         }
         if (nioProvider == null) {
-            throw new NullPointerException("nioCore is null");
+            throw new NullPointerException("nioProvider is null");
         }
         if (executor == null) {
             executor = nioProvider.getExecutor();
@@ -116,9 +117,6 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
         if (rightSideExecutor == null) {
             rightSideExecutor = executor;
         }
-    }
-
-    public void start() throws Exception {
         final Pipe leftToRight = Pipe.open();
         final Pipe rightToLeft = Pipe.open();
         final Pipe.SourceChannel leftToRightSource = leftToRight.source();
@@ -145,13 +143,10 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
         });
     }
 
-    public void stop() throws Exception {
+    public void stop() throws IOException {
         IoUtils.safeClose(leftSide);
         IoUtils.safeClose(rightSide);
         leftSide = null;
         rightSide = null;
-    }
-
-    public void destroy() throws Exception {
     }
 }

@@ -47,7 +47,6 @@ public final class Xnio implements Closeable {
         nioProvider.setReadSelectorThreads(readSelectorThreads);
         nioProvider.setWriteSelectorThreads(writeSelectorThreads);
         nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.create();
         nioProvider.start();
         return new Xnio(nioProvider);
     }
@@ -70,7 +69,6 @@ public final class Xnio implements Closeable {
         nioProvider.setReadSelectorThreads(readSelectorThreads);
         nioProvider.setWriteSelectorThreads(writeSelectorThreads);
         nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.create();
         nioProvider.start();
         return new Xnio(nioProvider);
     }
@@ -95,7 +93,6 @@ public final class Xnio implements Closeable {
         nioProvider.setReadSelectorThreads(readSelectorThreads);
         nioProvider.setWriteSelectorThreads(writeSelectorThreads);
         nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.create();
         nioProvider.start();
         return new Xnio(nioProvider);
     }
@@ -267,18 +264,9 @@ public final class Xnio implements Closeable {
     /**
      * Close this XNIO provider.  Calling this method more than one time has no additional effect.
      */
-    public void close() {
+    public void close() throws IOException{
         if (! closed.getAndSet(true)) {
-            try {
-                provider.stop();
-            } catch (Throwable t) {
-                t.printStackTrace();
-            }
-            try {
-                provider.destroy();
-            } catch (Throwable t) {
-                t.printStackTrace();
-            }
+            provider.stop();
         }
     }
 
@@ -294,16 +282,7 @@ public final class Xnio implements Closeable {
 
         public void close() throws IOException {
             if (! closed.getAndSet(true)) {
-                try {
-                    lifecycle.stop();
-                } catch (Throwable t) {
-                    // todo
-                }
-                try {
-                    lifecycle.destroy();
-                } catch (Throwable t) {
-                    // todo
-                }
+                lifecycle.stop();
             }
         }
     }
@@ -348,27 +327,7 @@ public final class Xnio implements Closeable {
             if (started.get()) {
                 throw new IllegalStateException("Already created");
             }
-            try {
-                boolean ok = false;
-                configurableLifecycle.create();
-                try {
-                    configurableLifecycle.start();
-                } finally {
-                    if (! ok) try {
-                        configurableLifecycle.destroy();
-                    } catch (Throwable t) {
-                        // ignored
-                    }
-                }
-            } catch (IOException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                final IOException ioe = new IOException("Unknown error");
-                ioe.initCause(e);
-                throw ioe;
-            }
+            configurableLifecycle.start();
             return resource;
         }
 

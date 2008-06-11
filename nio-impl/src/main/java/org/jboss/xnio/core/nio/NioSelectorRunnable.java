@@ -52,8 +52,10 @@ public final class NioSelectorRunnable implements Runnable {
                 log.trace(t, "Failed to close selector");
             }
             final Thread thread = this.thread;
-            if (thread != null && thread != Thread.currentThread()) {
+            if (thread != null && thread != Thread.currentThread()) try {
                 thread.interrupt();
+            } catch (Throwable t) {
+                log.trace(t, "Failed to interrupt selector thread");
             }
         }
     }

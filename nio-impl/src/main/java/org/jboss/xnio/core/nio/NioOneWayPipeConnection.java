@@ -2,6 +2,7 @@ package org.jboss.xnio.core.nio;
 
 import java.nio.channels.Pipe;
 import java.util.concurrent.Executor;
+import java.io.IOException;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
@@ -99,7 +100,7 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
         return sinkEnd;
     }
 
-    public void create() throws Exception {
+    public void start() throws IOException {
         if (sourceHandler == null) {
             throw new NullPointerException("leftHandler is null");
         }
@@ -118,9 +119,6 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
         if (sinkSideExecutor == null) {
             sinkSideExecutor = executor;
         }
-    }
-
-    public void start() throws Exception {
         final Pipe pipe = Pipe.open();
         final Pipe.SourceChannel source = pipe.source();
         final Pipe.SinkChannel sink = pipe.sink();
@@ -142,13 +140,10 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
         });
     }
 
-    public void stop() throws Exception {
+    public void stop() throws IOException {
         IoUtils.safeClose(sourceSide);
         IoUtils.safeClose(sinkSide);
         sourceSide = null;
         sinkSide = null;
-    }
-
-    public void destroy() throws Exception {
     }
 }

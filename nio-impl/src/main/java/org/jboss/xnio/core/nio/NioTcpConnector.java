@@ -119,13 +119,10 @@ public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress
 
     // lifecycle
 
-    public void create() {
-        if (nioProvider == null) {
-            throw new NullPointerException("nioCore is null");
-        }
-    }
-
     public void start() {
+        if (nioProvider == null) {
+            throw new NullPointerException("nioProvider is null");
+        }
         if (executor == null) {
             executor = nioProvider.getExecutor();
         }
@@ -133,10 +130,6 @@ public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress
 
     public void stop() {
         executor = null;
-    }
-
-    public void destroy() {
-
     }
 
     private void configureStream(final Socket socket) throws SocketException {

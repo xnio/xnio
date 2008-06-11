@@ -108,17 +108,14 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
         this.executor = executor;
     }
 
-    public void create() {
+    @SuppressWarnings({"unchecked"})
+    public void start() throws IOException {
         if (executor == null) {
             executor = executorService = Executors.newCachedThreadPool();
         }
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-    }
-
-    @SuppressWarnings({"unchecked"})
-    public void start() throws IOException {
         final int bindCount = bindAddresses.length;
         final MulticastSocket[] sockets = new MulticastSocket[bindCount];
         boolean ok = false;
@@ -150,18 +147,16 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
 
     public void stop() {
         if (executorService != null) {
-            AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                public Void run() {
-                    executorService.shutdown();
-                    return null;
-                }
-            });
-        }
-    }
-
-    public void destroy() {
-        if (executorService != null) {
-            executor = executorService = null;
+            try {
+                AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                    public Void run() {
+                        executorService.shutdown();
+                        return null;
+                    }
+                });
+            } finally {
+                executor = executorService = null;
+            }
         }
     }
 

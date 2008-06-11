@@ -39,64 +39,41 @@ public final class NioTcpTestCase extends TestCase {
         }
     }
 
-    private static final void destroy(Lifecycle lifecycle) {
-        try {
-            lifecycle.destroy();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void doConnectionTest(final Runnable body, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> clientHandler, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> serverHandler) throws Exception {
         synchronized (this) {
             final Provider provider = new NioProvider();
-            provider.create();
+            provider.start();
             try {
-                provider.start();
+                final TcpServer tcpServer = provider.createTcpServer();
+                tcpServer.setReuseAddress(true);
+                tcpServer.setBindAddresses(new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
+                tcpServer.setHandlerFactory(new IoHandlerFactory<ConnectedStreamChannel<SocketAddress>>() {
+                    public IoHandler<? super ConnectedStreamChannel<SocketAddress>> createHandler() {
+                        return serverHandler;
+                    }
+                });
+                tcpServer.start();
                 try {
-                    final TcpServer tcpServer = provider.createTcpServer();
-                    tcpServer.setReuseAddress(true);
-                    tcpServer.setBindAddresses(new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
-                    tcpServer.setHandlerFactory(new IoHandlerFactory<ConnectedStreamChannel<SocketAddress>>() {
-                        public IoHandler<? super ConnectedStreamChannel<SocketAddress>> createHandler() {
-                            return serverHandler;
-                        }
-                    });
-                    tcpServer.create();
+                    final TcpConnector connector = provider.createTcpConnector();
+                    connector.setConnectTimeout(10);
+                    connector.start();
                     try {
-                        tcpServer.start();
+                        final IoFuture<ConnectedStreamChannel<SocketAddress>> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
+                        final ConnectedStreamChannel<SocketAddress> connectedStreamChannel = ioFuture.get();
                         try {
-                            final TcpConnector connector = provider.createTcpConnector();
-                            connector.setConnectTimeout(10);
-                            connector.create();
-                            try {
-                                connector.start();
-                                try {
-                                    final IoFuture<ConnectedStreamChannel<SocketAddress>> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
-                                    final ConnectedStreamChannel<SocketAddress> connectedStreamChannel = ioFuture.get();
-                                    try {
-                                        body.run();
-                                        connectedStreamChannel.close();
-                                    } finally {
-                                        safeClose(connectedStreamChannel);
-                                    }
-                                } finally {
-                                    stop(connector);
-                                }
-                            } finally {
-                                destroy(connector);
-                            }
+                            body.run();
+                            connectedStreamChannel.close();
                         } finally {
-                            stop(tcpServer);
+                            safeClose(connectedStreamChannel);
                         }
                     } finally {
-                        destroy(tcpServer);
+                        stop(connector);
                     }
                 } finally {
-                    stop(provider);
+                    stop(tcpServer);
                 }
             } finally {
-                destroy(provider);
+                stop(provider);
             }
         }
     }

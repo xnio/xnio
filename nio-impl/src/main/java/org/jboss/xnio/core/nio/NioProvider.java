@@ -86,16 +86,13 @@ public final class NioProvider implements Provider, Lifecycle {
 
     // lifecycle
 
-    public void create() {
+    public void start() throws IOException {
         if (selectorThreadFactory == null) {
             selectorThreadFactory = Executors.defaultThreadFactory();
         }
         if (executor == null) {
             executor = executorService = Executors.newCachedThreadPool();
         }
-    }
-
-    public void start() throws IOException {
         for (int i = 0; i < readSelectorThreads; i ++) {
             readers.add(new NioSelectorRunnable());
         }
@@ -129,9 +126,6 @@ public final class NioProvider implements Provider, Lifecycle {
         readers.clear();
         writers.clear();
         connectors.clear();
-    }
-
-    public void destroy() {
         if (executorService != null) {
             try {
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {

@@ -129,16 +129,13 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
 
     // lifecycle
 
-    public void create() throws IOException {
+    public void start() throws IOException {
         if (nioProvider == null) {
-            throw new NullPointerException("nioCore is null");
+            throw new NullPointerException("nioProvider is null");
         }
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-    }
-
-    public void start() throws IOException {
         final int bindCount = bindAddresses.length;
         serverSocketChannels = new ServerSocketChannel[bindCount];
         serverSockets = new ServerSocket[bindCount];
@@ -192,9 +189,6 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
                 }
             }
         }
-    }
-
-    public void destroy() throws IOException {
     }
 
     public Object getOption(final String name) throws UnsupportedOptionException, IOException {
