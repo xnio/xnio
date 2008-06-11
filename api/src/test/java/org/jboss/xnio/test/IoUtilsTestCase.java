@@ -28,6 +28,7 @@ import java.util.concurrent.Delayed;
 import java.util.List;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Collections;
 import java.io.IOException;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -57,8 +58,8 @@ public final class IoUtilsTestCase extends TestCase {
                 return future;
             }
         };
-        assertSame(future, IoUtils.createClient(testConnector, addr).connect(handler));
-        assertSame(future, IoUtils.createClient(testConnector, new ConnectionAddress<SocketAddress>(addr2, addr)).connect(handler));
+        assertSame(future, IoUtils.createClient(testConnector, Collections.singletonList(addr)).connect(handler));
+        assertSame(future, IoUtils.createBoundClient(testConnector, Collections.singletonList(new ConnectionAddress<SocketAddress>(addr2, addr))).connect(handler));
     }
 
     public void testConnection() throws IOException {

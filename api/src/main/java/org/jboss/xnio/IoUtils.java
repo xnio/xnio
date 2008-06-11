@@ -6,6 +6,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Random;
+import java.util.Set;
+import java.util.List;
 import java.nio.channels.Channel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.ConnectedChannel;
@@ -58,11 +60,12 @@ public final class IoUtils {
      * @param <T> the channel type
      * @return the client
      */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final A... addresses) {
+    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final List<A> addresses) {
         return new Client<T>() {
             public IoFuture<T> connect(final IoHandler<? super T> handler) {
-                final int idx = addresses.length == 1 ? 0 : new Random().nextInt(addresses.length);
-                final A destAddress = addresses[idx];
+                final int s = addresses.size();
+                final int idx = s == 1 ? 0 : new Random().nextInt(s);
+                final A destAddress = addresses.get(idx);
                 return connector.connectTo(destAddress, handler);
             }
         };
@@ -78,12 +81,12 @@ public final class IoUtils {
      * @param <T> the channel type
      * @return the client
      */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final ConnectionAddress<A>... addresses) {
-        // todo - addresses is a generic array, which causes a warning
+    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createBoundClient(final Connector<A, T> connector, final List<ConnectionAddress<A>> addresses) {
         return new Client<T>() {
             public IoFuture<T> connect(final IoHandler<? super T> handler) {
-                final int idx = addresses.length == 1 ? 0 : new Random().nextInt(addresses.length);
-                final ConnectionAddress<A> connectionAddress = addresses[idx];
+                final int s = addresses.size();
+                final int idx = s == 1 ? 0 : new Random().nextInt(s);
+                final ConnectionAddress<A> connectionAddress = addresses.get(idx);
                 return connector.connectTo(connectionAddress.getLocalAddress(), connectionAddress.getRemoteAddress(), handler);
             }
         };
