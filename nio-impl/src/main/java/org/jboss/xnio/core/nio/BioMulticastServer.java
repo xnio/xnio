@@ -14,9 +14,12 @@ import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.UdpServer;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -129,7 +132,13 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
                 if (sendBufferSize != -1) socket.setSendBufferSize(sendBufferSize);
                 if (trafficClass != -1) socket.setTrafficClass(trafficClass);
                 sockets[i] = socket;
-                channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handlerFactory.createHandler(), socket);
+                final IoHandler<? super MulticastDatagramChannel> handler = handlerFactory.createHandler();
+                channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handler, socket);
+                if (! SpiUtils.handleOpened(handler, channels[i])) try {
+                    socket.close();
+                } catch (Throwable t) {
+                    log.trace(t, "Socket close failed");
+                }
             }
             ok = true;
         } finally {
@@ -154,8 +163,14 @@ public final class BioMulticastServer implements Lifecycle, UdpServer {
                         return null;
                     }
                 });
-            } finally {
-                executor = executorService = null;
+            } catch (Throwable t) {
+                log.trace(t, "Shutting down executor service failed");
+            }
+        }
+        executor = executorService = null;
+        if (channels != null) {
+            for (BioMulticastChannelImpl channel : channels) {
+                IoUtils.safeClose(channel);
             }
         }
     }

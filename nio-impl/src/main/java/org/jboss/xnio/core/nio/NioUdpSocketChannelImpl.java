@@ -149,6 +149,10 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
         throw new UnsupportedOptionException("No options supported");
     }
 
+    public IoHandler<? super MulticastDatagramChannel> getHandler() {
+        return handler;
+    }
+
     public final class ReadHandler implements Runnable {
         public void run() {
             SpiUtils.<MulticastDatagramChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);

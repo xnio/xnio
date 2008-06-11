@@ -51,10 +51,20 @@ public class BioDatagramChannelImpl implements MultipointDatagramChannel<SocketA
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
 
-    protected BioDatagramChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
+    protected BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
         this.datagramSocket = datagramSocket;
         this.handlerExecutor = handlerExecutor;
         this.handler = handler;
+        if (sendBufSize == -1) {
+            sendBufSize = 4096;
+        } else if (sendBufSize < 0) {
+            throw new IllegalArgumentException("sendBufSize is less than 0");
+        }
+        if (recvBufSize == -1) {
+            recvBufSize = 4096;
+        } else if (recvBufSize < 0) {
+            throw new IllegalArgumentException("recvBufSize is less than 0");
+        }
         final byte[] sendBufferBytes = new byte[sendBufSize];
         sendBuffer = ByteBuffer.wrap(sendBufferBytes);
         final byte[] recvBufferBytes = new byte[recvBufSize];
