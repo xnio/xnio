@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -21,11 +22,11 @@ public final class NioSelectorRunnable implements Runnable {
 
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new LinkedList<SelectorTask>();
+    private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private volatile int keyLoad;
-    private final Executor handlerExecutor;
+    private volatile Thread thread;
 
-    protected NioSelectorRunnable(final Executor handlerExecutor) throws IOException {
-        this.handlerExecutor = handlerExecutor;
+    protected NioSelectorRunnable() throws IOException {
         selector = Selector.open();
     }
 
@@ -44,22 +45,32 @@ public final class NioSelectorRunnable implements Runnable {
     }
 
     public void shutdown() {
-        try {
-            selector.close();
-        } catch (Throwable t) {
-            log.trace(t, "Failed to close selector");
+        if (! shutdown.getAndSet(true)) {
+            try {
+                selector.close();
+            } catch (Throwable t) {
+                log.trace(t, "Failed to close selector");
+            }
+            final Thread thread = this.thread;
+            if (thread != null && thread != Thread.currentThread()) {
+                thread.interrupt();
+            }
         }
     }
 
     public void run() {
         final Selector selector = this.selector;
+        final Queue<SelectorTask> queue = selectorWorkQueue;
         for (; ;) {
             try {
+                if (shutdown.get()) {
+                    return;
+                }
                 keyLoad = selector.keys().size();
                 selector.select();
-                synchronized (selectorWorkQueue) {
-                    while (! selectorWorkQueue.isEmpty()) {
-                        final SelectorTask task = selectorWorkQueue.remove();
+                synchronized (queue) {
+                    while (! queue.isEmpty()) {
+                        final SelectorTask task = queue.remove();
                         try {
                             task.run(selector);
                         } catch (Throwable t) {

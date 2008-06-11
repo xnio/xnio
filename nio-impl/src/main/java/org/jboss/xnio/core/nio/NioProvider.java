@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import org.jboss.xnio.spi.Provider;
@@ -27,10 +28,9 @@ import org.jboss.xnio.log.Logger;
 public final class NioProvider implements Provider, Lifecycle {
     private static final Logger log = Logger.getLogger(NioProvider.class);
 
-    private Executor selectorExecutor;
     private Executor executor;
-    private ExecutorService selectorExecutorService;
     private ExecutorService executorService;
+    private ThreadFactory selectorThreadFactory;
 
     private final Set<NioSelectorRunnable> readers = new HashSet<NioSelectorRunnable>();
     private final Set<NioSelectorRunnable> writers = new HashSet<NioSelectorRunnable>();
@@ -42,20 +42,20 @@ public final class NioProvider implements Provider, Lifecycle {
 
     // dependencies
 
-    public Executor getSelectorExecutor() {
-        return selectorExecutor;
-    }
-
-    public void setSelectorExecutor(final Executor selectorExecutor) {
-        this.selectorExecutor = selectorExecutor;
-    }
-
     public Executor getExecutor() {
         return executor;
     }
 
     public void setExecutor(final Executor executor) {
         this.executor = executor;
+    }
+
+    public ThreadFactory getSelectorThreadFactory() {
+        return selectorThreadFactory;
+    }
+
+    public void setSelectorThreadFactory(final ThreadFactory selectorThreadFactory) {
+        this.selectorThreadFactory = selectorThreadFactory;
     }
 
     // configuration
@@ -87,8 +87,8 @@ public final class NioProvider implements Provider, Lifecycle {
     // lifecycle
 
     public void create() {
-        if (selectorExecutor == null) {
-            selectorExecutor = selectorExecutorService = Executors.newFixedThreadPool(readSelectorThreads + writeSelectorThreads + connectionSelectorThreads);
+        if (selectorThreadFactory == null) {
+            selectorThreadFactory = Executors.defaultThreadFactory();
         }
         if (executor == null) {
             executor = executorService = Executors.newCachedThreadPool();
@@ -97,22 +97,22 @@ public final class NioProvider implements Provider, Lifecycle {
 
     public void start() throws IOException {
         for (int i = 0; i < readSelectorThreads; i ++) {
-            readers.add(new NioSelectorRunnable(executor));
+            readers.add(new NioSelectorRunnable());
         }
         for (int i = 0; i < writeSelectorThreads; i ++) {
-            writers.add(new NioSelectorRunnable(executor));
+            writers.add(new NioSelectorRunnable());
         }
         for (int i = 0; i < connectionSelectorThreads; i ++) {
-            connectors.add(new NioSelectorRunnable(executor));
+            connectors.add(new NioSelectorRunnable());
         }
         for (NioSelectorRunnable runnable : readers) {
-            selectorExecutor.execute(runnable);
+            selectorThreadFactory.newThread(runnable).start();
         }
         for (NioSelectorRunnable runnable : writers) {
-            selectorExecutor.execute(runnable);
+            selectorThreadFactory.newThread(runnable).start();
         }
         for (NioSelectorRunnable runnable : connectors) {
-            selectorExecutor.execute(runnable);
+            selectorThreadFactory.newThread(runnable).start();
         }
     }
 
@@ -132,22 +132,6 @@ public final class NioProvider implements Provider, Lifecycle {
     }
 
     public void destroy() {
-        selectorExecutor = null;
-        executor = null;
-        if (selectorExecutorService != null) {
-            try {
-                AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                    public Void run() {
-                        selectorExecutorService.shutdown();
-                        return null;
-                    }
-                });
-            } catch (Throwable t) {
-                log.trace(t, "Failed to shut down selector executor service");
-            } finally {
-                selectorExecutorService = null;
-            }
-        }
         if (executorService != null) {
             try {
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {
