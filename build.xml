@@ -390,6 +390,7 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
+                <path refid="logging-jdk.classpath"/>
             </classpath>
         </javac>
         <touch file="spi/target/main/.lastcompile" verbose="false"/>
@@ -399,7 +400,7 @@
         <delete dir="spi/target"/>
     </target>
 
-    <target name="spi" description="Build the spi module" depends="api,spi.compile">
+    <target name="spi" description="Build the spi module" depends="api,logging-jdk,spi.compile">
         <path id="spi.classpath">
             <pathelement location="spi/target/main/classes"/>
         </path>
