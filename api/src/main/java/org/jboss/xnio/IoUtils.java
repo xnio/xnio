@@ -58,8 +58,8 @@ public final class IoUtils {
      * @param <T> the channel type
      * @return the client
      */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> StreamIoClient<T> createClient(final StreamIoConnector<A, T> connector, final A... addresses) {
-        return new StreamIoClient<T>() {
+    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final A... addresses) {
+        return new Client<T>() {
             public IoFuture<T> connect(final IoHandler<? super T> handler) {
                 final int idx = addresses.length == 1 ? 0 : new Random().nextInt(addresses.length);
                 final A destAddress = addresses[idx];
@@ -78,9 +78,9 @@ public final class IoUtils {
      * @param <T> the channel type
      * @return the client
      */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> StreamIoClient<T> createClient(final StreamIoConnector<A, T> connector, final ConnectionAddress<A>... addresses) {
+    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final ConnectionAddress<A>... addresses) {
         // todo - addresses is a generic array, which causes a warning
-        return new StreamIoClient<T>() {
+        return new Client<T>() {
             public IoFuture<T> connect(final IoHandler<? super T> handler) {
                 final int idx = addresses.length == 1 ? 0 : new Random().nextInt(addresses.length);
                 final ConnectionAddress<A> connectionAddress = addresses[idx];
@@ -100,9 +100,10 @@ public final class IoUtils {
      * @param client the client to connect on
      * @param handler the handler for the connection
      * @param reconnectExecutor the executor that should execute the reconnect task
+     * @param <T> the channel type
      * @return a handle which can be used to terminate the connection
      */
-    public static <T extends StreamChannel> Closeable createConnection(final StreamIoClient<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
+    public static <T extends StreamChannel> Closeable createConnection(final Client<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
         final Connection<T> connection = new Connection<T>(client, handler, reconnectExecutor);
         connection.connect();
         return connection;
@@ -147,6 +148,7 @@ public final class IoUtils {
     /**
      * Get the null handler.  This is a handler whose handler methods all return without taking any action.
      *
+     * @param <T> the channel type
      * @return the null handler
      */
     @SuppressWarnings({"unchecked"})
@@ -157,6 +159,7 @@ public final class IoUtils {
     /**
      * Get the null handler factory.  This is a handler factory that returns the null handler.
      *
+     * @param <T> the channel type
      * @return the null handler factory
      */
     @SuppressWarnings({"unchecked"})
@@ -182,7 +185,7 @@ public final class IoUtils {
 
     private static final class Connection<T extends StreamChannel> implements Closeable {
 
-        private final StreamIoClient<T> client;
+        private final Client<T> client;
         private final IoHandler<? super T> handler;
         private final Executor reconnectExecutor;
 
@@ -193,7 +196,7 @@ public final class IoUtils {
         private final HandlerImpl handlerWrapper = new HandlerImpl();
         private final ReconnectTask reconnectTask = new ReconnectTask();
 
-        private Connection(final StreamIoClient<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
+        private Connection(final Client<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
             this.client = client;
             this.handler = handler;
             this.reconnectExecutor = reconnectExecutor;

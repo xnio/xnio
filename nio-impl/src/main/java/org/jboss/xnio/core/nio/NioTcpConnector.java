@@ -17,7 +17,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.StreamIoConnector;
+import org.jboss.xnio.Connector;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpConnector;
@@ -27,7 +27,7 @@ import org.jboss.xnio.spi.SpiUtils;
 /**
  *
  */
-public final class NioTcpConnector implements Lifecycle, StreamIoConnector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnector {
+public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnector {
 
     private static final Logger log = Logger.getLogger(NioTcpConnector.class);
 

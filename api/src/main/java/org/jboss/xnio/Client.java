@@ -1,13 +1,13 @@
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.StreamChannel;
+import java.nio.channels.Channel;
 
 /**
- * A stream client.  Instances of this interface are used to establish a connection with a known remote endpoint.
+ * A client.  Instances of this interface are used to establish a connection with a known remote endpoint.
  *
  * @param <T> the type of channel
  */
-public interface StreamIoClient<T extends StreamChannel> {
+public interface Client<T extends Channel> {
     /**
      * Establish a connection.
      *

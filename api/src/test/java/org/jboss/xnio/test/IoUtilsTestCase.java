@@ -2,12 +2,12 @@ package org.jboss.xnio.test;
 
 import junit.framework.TestCase;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.StreamIoConnector;
+import org.jboss.xnio.Connector;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.ConnectionAddress;
 import org.jboss.xnio.FinishedIoFuture;
-import org.jboss.xnio.StreamIoClient;
+import org.jboss.xnio.Client;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -43,7 +43,7 @@ public final class IoUtilsTestCase extends TestCase {
         final SocketAddress addr2 = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 2 }), 12345);
         final IoHandler<ConnectedStreamChannel<SocketAddress>> handler = IoUtils.nullHandler();
         final IoFuture<ConnectedStreamChannel<SocketAddress>> future = new FinishedIoFuture<ConnectedStreamChannel<SocketAddress>>(null);
-        final StreamIoConnector<SocketAddress, ConnectedStreamChannel<SocketAddress>> testConnector = new StreamIoConnector<SocketAddress, ConnectedStreamChannel<SocketAddress>>() {
+        final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> testConnector = new Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>() {
             public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
                 assertSame(ioHandler, handler);
                 assertSame(dest, addr);
@@ -63,7 +63,7 @@ public final class IoUtilsTestCase extends TestCase {
 
     public void testConnection() throws IOException {
         final boolean statuses[] = new boolean[2];
-        final StreamIoClient<StreamChannel> testClient = new StreamIoClient<StreamChannel>() {
+        final Client<StreamChannel> testClient = new Client<StreamChannel>() {
             public IoFuture<StreamChannel> connect(final IoHandler<? super StreamChannel> ioHandler) {
                 final StreamChannel channel = new StreamChannel() {
                     public void suspendReads() {

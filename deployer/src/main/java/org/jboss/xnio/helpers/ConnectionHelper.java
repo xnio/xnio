@@ -1,12 +1,11 @@
 package org.jboss.xnio.helpers;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.StreamIoClient;
+import org.jboss.xnio.Client;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.StreamChannel;
 
@@ -17,7 +16,7 @@ public final class ConnectionHelper<T extends StreamChannel> {
     private Closeable connection;
     private int reconnectTime = -1;
     private ScheduledExecutorService scheduledExecutor;
-    private StreamIoClient<T> client;
+    private Client<T> client;
     private IoHandler<? super T> handler;
 
     public int getReconnectTime() {
@@ -36,11 +35,11 @@ public final class ConnectionHelper<T extends StreamChannel> {
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public StreamIoClient<T> getClient() {
+    public Client<T> getClient() {
         return client;
     }
 
-    public void setClient(final StreamIoClient<T> client) {
+    public void setClient(final Client<T> client) {
         this.client = client;
     }
 
