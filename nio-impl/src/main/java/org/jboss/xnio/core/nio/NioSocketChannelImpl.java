@@ -38,7 +38,7 @@ import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.SocketOption;
+import org.jboss.xnio.channels.ChannelOption;
 
 /**
  *
@@ -149,13 +149,13 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         return socket.getLocalSocketAddress();
     }
 
-    private static final Map<String, Class<?>> OPTIONS = Collections.<String, Class<?>>singletonMap(SocketOption.SO_LINGER, Boolean.class);
+    private static final Map<String, Class<?>> OPTIONS = Collections.<String, Class<?>>singletonMap(ChannelOption.CLOSE_ABORT, Boolean.class);
 
     public Object getOption(final String name) throws UnsupportedOptionException, IOException {
         if (name == null) {
             throw new NullPointerException("name is null");
         }
-        if (SocketOption.SO_LINGER.equals(name)) {
+        if (ChannelOption.CLOSE_ABORT.equals(name)) {
             return Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
             throw new UnsupportedOptionException("Option " + name + " not supported");
@@ -170,7 +170,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         if (name == null) {
             throw new NullPointerException("name is null");
         }
-        if (SocketOption.SO_LINGER.equals(name)) {
+        if (ChannelOption.CLOSE_ABORT.equals(name)) {
             if (value == null) {
                 throw new NullPointerException("value is null");
             }

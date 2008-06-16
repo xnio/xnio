@@ -214,6 +214,7 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
     }
 
     public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+
         throw new UnsupportedOptionException("No options supported by this server type");
     }
 
