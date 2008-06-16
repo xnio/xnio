@@ -527,7 +527,40 @@
     <!-- JARS - Keep in alpha order by jar name         -->
     <!-- ============================================== -->
 
-    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,spi,standalone,version">
+    <target name="jar.api" depends="api,logging-jdk,version" description="Build the API JAR">
+        <delete file="xnio-api.jar" failonerror="false"/>
+        <delete file="xnio-api-sources.jar" failonerror="false"/>
+        <jar jarfile="xnio-api.jar">
+            <manifest>
+                <attribute name="Specification-Title" value="XNIO API"/>
+                <attribute name="Specification-Version" value="${version}"/>
+                <attribute name="Specification-Vendor" value="JBoss, a division of Red Hat, Inc."/>
+                <attribute name="Implementation-Title" value="XNIO API"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+                <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
+                <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
+            </manifest>
+            <zipfileset dir="api/target/main/classes" includes="**/*.class"/>
+            <zipfileset dir="logging-jdk/target/main/classes" includes="**/*.class"/>
+            <zipfileset dir="version/target/main/classes" includes="**/*.class"/>
+        </jar>
+        <jar jarfile="xnio-api-sources.jar">
+            <manifest>
+                <attribute name="Specification-Title" value="XNIO API Sources"/>
+                <attribute name="Specification-Version" value="${version}"/>
+                <attribute name="Specification-Vendor" value="JBoss, a division of Red Hat, Inc."/>
+                <attribute name="Implementation-Title" value="XNIO API Sources"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+                <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
+                <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
+            </manifest>
+            <zipfileset dir="api/src/main/java" includes="**/*.java"/>
+            <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
+            <zipfileset dir="version/src/main/java" includes="**/*.java"/>
+        </jar>
+    </target>
+
+    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,spi,standalone,version" description="Build the standalone JAR">
         <delete file="xnio-standalone.jar" failonerror="false"/>
         <delete file="xnio-standalone-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-standalone.jar">
@@ -597,7 +630,7 @@
 
     <target name="all" description="Build everything" depends="base,deployer"/>
 
-    <target name="jar" description="Build all JARs" depends="jar.standalone"/>
+    <target name="jar" description="Build all JARs" depends="jar.api,jar.standalone"/>
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
