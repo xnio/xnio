@@ -531,6 +531,9 @@
         <delete file="xnio-api.jar" failonerror="false"/>
         <delete file="xnio-api-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-api.jar">
+            <metainf dir="${basedir}">
+                <include name="COPYING.txt"/>
+            </metainf>
             <manifest>
                 <attribute name="Specification-Title" value="XNIO API"/>
                 <attribute name="Specification-Version" value="${version}"/>
@@ -554,6 +557,7 @@
                 <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
                 <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
             </manifest>
+            <zipfileset dir="${basedir}" includesfile="COPYING.txt"/>
             <zipfileset dir="api/src/main/java" includes="**/*.java"/>
             <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
             <zipfileset dir="version/src/main/java" includes="**/*.java"/>
@@ -564,6 +568,9 @@
         <delete file="xnio-standalone.jar" failonerror="false"/>
         <delete file="xnio-standalone-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-standalone.jar">
+            <metainf dir="${basedir}">
+                <include name="COPYING.txt"/>
+            </metainf>
             <manifest>
                 <attribute name="Specification-Title" value="XNIO Standalone"/>
                 <attribute name="Specification-Version" value="${version}"/>
@@ -590,6 +597,7 @@
                 <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
                 <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
             </manifest>
+            <zipfileset dir="${basedir}" includesfile="COPYING.txt"/>
             <zipfileset dir="api/src/main/java" includes="**/*.java"/>
             <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
             <zipfileset dir="nio-impl/src/main/java" includes="**/*.java"/>
