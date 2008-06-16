@@ -27,8 +27,12 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.Channel;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,6 +47,7 @@ import org.jboss.xnio.spi.Pipe;
 import org.jboss.xnio.spi.OneWayPipe;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.IoUtils;
 
 /**
  *
@@ -61,6 +66,8 @@ public final class NioProvider implements Provider, Lifecycle {
     private int readSelectorThreads = 2;
     private int writeSelectorThreads = 1;
     private int connectionSelectorThreads = 1;
+
+    private Set<Channel> managedChannelSet = Collections.synchronizedSet(new HashSet<Channel>());
 
     // dependencies
 
@@ -136,6 +143,15 @@ public final class NioProvider implements Provider, Lifecycle {
     }
 
     public void stop() throws IOException {
+        final List<Channel> channels;
+        synchronized (managedChannelSet) {
+            channels = new ArrayList<Channel>(managedChannelSet);
+            managedChannelSet.clear();
+        }
+        for (Channel channel : channels) {
+            System.out.println("AUTO CLOSING " + channel);
+            IoUtils.safeClose(channel);
+        }
         for (NioSelectorRunnable runnable : readers) {
             runnable.shutdown();
         }
@@ -245,5 +261,13 @@ public final class NioProvider implements Provider, Lifecycle {
 
     public NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
         return doAdd(channel, writers, handler);
+    }
+
+    public void addChannel(Channel channel) {
+        managedChannelSet.add(channel);
+    }
+
+    public void removeChannel(Channel channel) {
+        managedChannelSet.remove(channel);
     }
 }

@@ -50,11 +50,13 @@ public final class NioPipeChannelImpl implements StreamChannel {
     private final NioHandle sourceHandle;
     private final NioHandle sinkHandle;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
+    private final NioProvider nioProvider;
 
     public NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioProvider nioProvider) throws IOException {
         this.sourceChannel = sourceChannel;
         this.sinkChannel = sinkChannel;
         this.handler = handler;
+        this.nioProvider = nioProvider;
         // todo leaking [this]
         sourceHandle = nioProvider.addReadHandler(sourceChannel, new ReadHandler());
         sinkHandle = nioProvider.addWriteHandler(sinkChannel, new WriteHandler());
@@ -82,6 +84,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
         try {
             sinkChannel.close();
         } finally {
+            nioProvider.removeChannel(this);
             if (callFlag.getAndSet(true) == false) {
                 SpiUtils.<StreamChannel>handleClosed(handler, this);
             }

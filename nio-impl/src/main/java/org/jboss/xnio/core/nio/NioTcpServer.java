@@ -251,6 +251,9 @@ public final class NioTcpServer implements Lifecycle, TcpServer {
                         final IoHandler<? super ConnectedStreamChannel<SocketAddress>> streamIoHandler = handlerFactory.createHandler();
                         final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
                         ok = SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(streamIoHandler, channel);
+                        if (ok) {
+                            nioProvider.addChannel(channel);
+                        }
                     } finally {
                         if (! ok) {
                             // do NOT call close handler, since open handler was either not called or it failed

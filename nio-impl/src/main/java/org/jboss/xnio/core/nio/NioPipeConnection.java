@@ -163,6 +163,8 @@ public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pi
                 SpiUtils.<StreamChannel>handleOpened(rightHandler, rightSide);
             }
         });
+        nioProvider.addChannel(leftSide);
+        nioProvider.addChannel(rightSide);
     }
 
     public void stop() throws IOException {

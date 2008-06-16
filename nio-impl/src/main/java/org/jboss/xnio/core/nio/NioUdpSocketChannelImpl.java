@@ -53,8 +53,10 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
     private final IoHandler<? super MulticastDatagramChannel> handler;
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
+    private final NioProvider nioProvider;
 
     public NioUdpSocketChannelImpl(final NioProvider nioProvider, final DatagramChannel datagramChannel, final IoHandler<? super MulticastDatagramChannel> handler) throws IOException {
+        this.nioProvider = nioProvider;
         readHandle = nioProvider.addReadHandler(datagramChannel, new ReadHandler());
         writeHandle = nioProvider.addWriteHandler(datagramChannel, new WriteHandler());
         this.datagramChannel = datagramChannel;
@@ -86,6 +88,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
         try {
             datagramChannel.close();
         } finally {
+            nioProvider.removeChannel(this);
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (!callFlag.getAndSet(true)) {

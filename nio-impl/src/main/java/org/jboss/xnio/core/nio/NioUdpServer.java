@@ -163,12 +163,16 @@ public final class NioUdpServer implements Lifecycle, UdpServer {
                 if (! SpiUtils.<MulticastDatagramChannel>handleOpened(channel.getHandler(), channel)) {
                     IoUtils.safeClose(datagramChannels[i]);
                 }
+                nioProvider.addChannel(channel);
             }
             ok = true;
         } finally {
             if (! ok) {
                 for (int j = 0; j < bindCount; j ++) {
                     IoUtils.safeClose(datagramChannels[j]);
+                    if (channels[j] != null) {
+                        nioProvider.removeChannel(channels[j]);
+                    }
                 }
                 channels = null;
             }

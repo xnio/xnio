@@ -160,9 +160,13 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
                 SpiUtils.<StreamSinkChannel>handleOpened(sinkHandler, sinkSide);
             }
         });
+        nioProvider.addChannel(sourceSide);
+        nioProvider.addChannel(sinkSide);
     }
 
     public void stop() throws IOException {
+        nioProvider.removeChannel(sourceSide);
+        nioProvider.removeChannel(sinkSide);
         IoUtils.safeClose(sourceSide);
         IoUtils.safeClose(sinkSide);
         sourceSide = null;

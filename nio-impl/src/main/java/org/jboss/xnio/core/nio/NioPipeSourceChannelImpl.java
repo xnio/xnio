@@ -45,12 +45,14 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     private final Pipe.SourceChannel channel;
     private final NioHandle handle;
+    private final NioProvider nioProvider;
     private final IoHandler<? super StreamSourceChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
 
     public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioProvider nioProvider) throws IOException {
         this.channel = channel;
         this.handler = handler;
+        this.nioProvider = nioProvider;
         handle = nioProvider.addReadHandler(channel, new Handler());
     }
 
@@ -74,6 +76,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
         try {
             channel.close();
         } finally {
+            nioProvider.removeChannel(this);
             handle.cancelKey();
             if (! callFlag.getAndSet(true)) {
                 SpiUtils.<StreamSourceChannel>handleClosed(handler, this);

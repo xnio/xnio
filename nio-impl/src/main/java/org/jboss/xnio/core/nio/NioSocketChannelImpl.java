@@ -51,11 +51,13 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
     private final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
+    private final NioProvider nioProvider;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
 
     public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) throws IOException {
         this.handler = handler;
         this.socketChannel = socketChannel;
+        this.nioProvider = nioProvider;
         socket = socketChannel.socket();
         readHandle = nioProvider.addReadHandler(socketChannel, new ReadHandler());
         writeHandle = nioProvider.addWriteHandler(socketChannel, new WriteHandler());
@@ -81,6 +83,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
         try {
             socketChannel.close();
         } finally {
+            nioProvider.removeChannel(this);
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (! callFlag.getAndSet(true)) {

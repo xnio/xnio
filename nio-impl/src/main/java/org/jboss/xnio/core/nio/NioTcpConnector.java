@@ -204,6 +204,7 @@ public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress
                         SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(handler, channel);
                     }
                 });
+                nioProvider.addChannel(channel);
                 return new FinishedIoFuture<ConnectedStreamChannel<SocketAddress>>(channel);
             } else {
                 final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioProvider, handler);
