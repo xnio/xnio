@@ -53,6 +53,17 @@ public final class Xnio implements Closeable {
     }
 
     /**
+     * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will create its own
+     * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
+     *
+     * @return a new provider
+     * @throws IOException if an I/o error occurs while starting the service
+     */
+    public static Xnio createNio() throws IOException {
+        return createNio(1, 1, 1);
+    }
+
+    /**
      * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will
      * create its own selector threads.
      *
@@ -174,7 +185,6 @@ public final class Xnio implements Closeable {
             throw new IllegalStateException("XNIO provider not open");
         }
         final TcpServer tcpServer = provider.createTcpServer();
-        if (null != null) tcpServer.setExecutor(null);
         tcpServer.setBindAddresses(bindAddresses);
         tcpServer.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
