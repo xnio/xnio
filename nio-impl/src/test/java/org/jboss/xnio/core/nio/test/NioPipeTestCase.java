@@ -10,6 +10,7 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.test.support.LoggingHelper;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.nullHandler;
 import org.jboss.xnio.core.nio.NioProvider;
@@ -24,6 +25,10 @@ import java.io.IOException;
  *
  */
 public final class NioPipeTestCase extends TestCase {
+    static {
+        LoggingHelper.init();
+    }
+
     private static final void stop(Lifecycle lifecycle) {
         try {
             lifecycle.stop();

@@ -4,6 +4,7 @@ import junit.framework.TestCase;
 import org.jboss.xnio.Streams;
 import org.jboss.xnio.ObjectSink;
 import org.jboss.xnio.ObjectSource;
+import org.jboss.xnio.test.support.LoggingHelper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -14,6 +15,10 @@ import java.io.EOFException;
  *
  */
 public final class StreamsTestCase extends TestCase {
+    static {
+        LoggingHelper.init();
+    }
+
     public void testCollectionObjectSink() {
         final List<String> strings = new ArrayList<String>();
         final ObjectSink<String> sink = Streams.getCollectionObjectSink(strings);

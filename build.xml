@@ -113,6 +113,7 @@
             <classpath>
                 <path refid="api.classpath"/>
                 <path refid="logging-jdk.classpath"/>
+                <path refid="test-support.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>
         </javac>
@@ -131,9 +132,9 @@
             <jvmarg line="${test.jvmargs}"/>
             <formatter type="plain" extension="${extension}"/>
             <classpath>
-                <path refid="test-support.classpath"/>
-                <path refid="logging-jdk.classpath"/>
                 <path refid="api.classpath"/>
+                <path refid="logging-jdk.classpath"/>
+                <path refid="test-support.classpath"/>
                 <pathelement location="api/target/test/classes"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>

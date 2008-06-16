@@ -8,6 +8,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.ConnectionAddress;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.Client;
+import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -38,6 +39,10 @@ import java.nio.ByteBuffer;
  */
 @SuppressWarnings({"unchecked"})
 public final class IoUtilsTestCase extends TestCase {
+    static {
+        LoggingHelper.init();
+    }
+
     @SuppressWarnings("unchecked")
     public void testCreateClient() throws UnknownHostException {
         final SocketAddress addr = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 12345);

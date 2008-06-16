@@ -6,11 +6,15 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.util.Arrays;
 import org.jboss.xnio.Buffers;
+import org.jboss.xnio.test.support.LoggingHelper;
 
 /**
  *
  */
 public final class BuffersTestCase extends TestCase {
+    static {
+        LoggingHelper.init();
+    }
 
     private void doTestFlip(Buffer buffer) {
         final int pos = buffer.position();

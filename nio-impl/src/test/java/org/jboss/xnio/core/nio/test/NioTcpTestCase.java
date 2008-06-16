@@ -12,6 +12,7 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.test.support.LoggingHelper;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.safeClose;
 import static org.jboss.xnio.IoUtils.nullHandler;
@@ -29,6 +30,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  */
 public final class NioTcpTestCase extends TestCase {
+    static {
+        LoggingHelper.init();
+    }
+
     private static final int SERVER_PORT = 12345;
 
     private static final void stop(Lifecycle lifecycle) {
