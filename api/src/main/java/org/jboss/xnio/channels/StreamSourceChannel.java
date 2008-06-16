@@ -24,7 +24,6 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 
 /**

@@ -48,7 +48,7 @@ public final class Xnio implements Closeable {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private Xnio(Provider provider) throws IOException {
+    private Xnio(Provider provider) {
         this.provider = provider;
     }
 

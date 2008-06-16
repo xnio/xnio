@@ -22,9 +22,6 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.ByteBuffer;
-import java.io.IOException;
-
 /**
  * A multipoint datagram channel.  A multipoint datagram channel is a suspendable multipoint message channel.
  *

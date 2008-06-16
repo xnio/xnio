@@ -24,7 +24,6 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.WritableByteChannel;
 import java.nio.channels.GatheringByteChannel;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 
 /**

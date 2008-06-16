@@ -52,7 +52,7 @@ public interface MulticastDatagramChannel extends MultipointDatagramChannel<Sock
          * @throws IllegalStateException if this key is source-specific or is no longer valid
          * @throws IllegalArgumentException if the {@code source} parameter is not a unicast address or is not the same address type as the multicast group
          */
-        Key block(InetAddress source) throws IOException, UnsupportedOperationException;
+        Key block(InetAddress source) throws IOException, UnsupportedOperationException, IllegalStateException, IllegalArgumentException;
 
         /**
          * Unblock multicast packets from the given source address that was previously blocked using the {@link #block(java.net.InetAddress)} method.
@@ -61,8 +61,9 @@ public interface MulticastDatagramChannel extends MultipointDatagramChannel<Sock
          * @return this key
          * @throws IOException if an I/O error occurs
          * @throws IllegalStateException if the given source address is not currently blocked or the key is no longer valid
+         * @throws UnsupportedOperationException if the implementation does not support source filtering
          */
-        Key unblock(InetAddress source) throws IOException, UnsupportedOperationException;
+        Key unblock(InetAddress source) throws IOException, IllegalStateException, UnsupportedOperationException;
 
         /**
          * Return the channel associated with this key.  This method will return the channel even after the membership

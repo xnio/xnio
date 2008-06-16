@@ -28,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Random;
-import java.util.Set;
 import java.util.List;
 import java.nio.channels.Channel;
 import org.jboss.xnio.channels.StreamChannel;
