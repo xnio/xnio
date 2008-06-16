@@ -575,14 +575,16 @@
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
             <packageset dir="api/src/main/java"/>
+            <packageset dir="logging-jdk/src/main/java"/>
             <packageset dir="spi/src/main/java"/>
             <packageset dir="standalone/src/main/java"/>
             <packageset dir="version/src/main/java"/>
-            <doctitle><![CDATA[<h1>XNIO</h1>]]></doctitle>
+            <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
+            <header><![CDATA[XNIO version ${version}]]></header>
+            <footer><![CDATA[XNIO version ${version}]]></footer>
             <bottom><![CDATA[<i>Copyright &#169; 2008 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
             <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
             <classpath>
-                <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
             </classpath>
         </javadoc>
