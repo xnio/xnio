@@ -19,4 +19,6 @@ public final class SocketOption {
     public static final String SO_SNDBUF = "SOL_SOCKET.SO_SNDBUF";
 
     public static final String TCP_NODELAY = "IPPROTO_TCP.TCP_NODELAY";
+
+    public static final String MULTICAST_TTL = "MULTICAST.TTL";
 }
