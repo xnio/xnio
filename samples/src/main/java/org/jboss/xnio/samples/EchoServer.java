@@ -38,7 +38,7 @@ public final class EchoServer {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        final Xnio xnio = Xnio.createNio(1, 1, 1);
+        final Xnio xnio = Xnio.createNio();
         try {
             final ConfigurableFactory<Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
             if (false) tcpServer.setOption(ChannelOption.REUSE_ADDRESSES, Boolean.TRUE);
