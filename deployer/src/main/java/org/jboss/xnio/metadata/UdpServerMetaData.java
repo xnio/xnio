@@ -24,7 +24,7 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.spi.UdpServer;
+import org.jboss.xnio.spi.UdpServerService;
 import java.util.List;
 import java.util.ArrayList;
 import java.net.SocketAddress;
@@ -145,7 +145,7 @@ public final class UdpServerMetaData implements IoMetaData {
 
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
         final BeanMetaDataBuilder builder;
-        builder = BeanMetaDataBuilder.createBuilder(name, UdpServer.class.getName());
+        builder = BeanMetaDataBuilder.createBuilder(name, UdpServerService.class.getName());
         builder.setFactory(providerBean);
         if (multicast != null && multicast.booleanValue()) {
             builder.setFactoryMethod("createUdpServer");

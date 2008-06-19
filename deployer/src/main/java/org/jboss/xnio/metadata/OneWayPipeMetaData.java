@@ -25,7 +25,7 @@ package org.jboss.xnio.metadata;
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.OneWayPipe;
+import org.jboss.xnio.spi.OneWayPipeService;
 
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlElement;
@@ -79,7 +79,7 @@ public final class OneWayPipeMetaData implements IoMetaData {
     }
 
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, OneWayPipe.class.getName());
+        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, OneWayPipeService.class.getName());
         builder.setFactory(providerBean);
         builder.setFactoryMethod("createPipe");
         final NamedBeanMetaData pipeExecutorBean = executorBean;

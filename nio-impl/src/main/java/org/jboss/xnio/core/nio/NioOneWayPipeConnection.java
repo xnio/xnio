@@ -30,14 +30,14 @@ import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.OneWayPipe;
+import org.jboss.xnio.spi.OneWayPipeService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipe {
+public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeService {
 
     private NioProvider nioProvider;
     private IoHandler<? super StreamSourceChannel> sourceHandler;

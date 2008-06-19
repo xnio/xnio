@@ -25,7 +25,7 @@ package org.jboss.xnio.core.nio.test;
 import junit.framework.TestCase;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.UdpServer;
+import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
@@ -99,19 +99,19 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private void doPart(final boolean multicast, final IoHandler<MulticastDatagramChannel> handler, final Runnable body, final Provider nioProvider, final InetSocketAddress bindAddress) throws IOException {
-        final UdpServer server = multicast ? nioProvider.createMulticastUdpServer() : nioProvider.createUdpServer();
-        server.setBindAddresses(new SocketAddress[] { bindAddress });
-        server.setHandlerFactory(new IoHandlerFactory<MulticastDatagramChannel>() {
+        final UdpServerService serverService = multicast ? nioProvider.createMulticastUdpServer() : nioProvider.createUdpServer();
+        serverService.setBindAddresses(new SocketAddress[] { bindAddress });
+        serverService.setHandlerFactory(new IoHandlerFactory<MulticastDatagramChannel>() {
             public IoHandler<? super MulticastDatagramChannel> createHandler() {
                 return handler;
             }
         });
-        start(server);
+        start(serverService);
         try {
             body.run();
-            stop(server);
+            stop(serverService);
         } finally {
-            safeStop(server);
+            safeStop(serverService);
         }
     }
 

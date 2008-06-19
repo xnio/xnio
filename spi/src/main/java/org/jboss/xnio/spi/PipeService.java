@@ -28,7 +28,7 @@ import org.jboss.xnio.channels.StreamChannel;
  * A two-way pipe connection between two handlers.  Both ends of the pipe are considered equal, so they are called
  * "left" and "right" here.
  */
-public interface Pipe extends ExecutorUser, Lifecycle {
+public interface PipeService extends ExecutorUser, Lifecycle {
     /**
      * Get the left end of the pipe.
      *

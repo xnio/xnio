@@ -24,7 +24,7 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.spi.Pipe;
+import org.jboss.xnio.spi.PipeService;
 import org.jboss.xnio.spi.PipeEnd;
 
 import javax.xml.bind.annotation.XmlType;
@@ -79,7 +79,7 @@ public final class PipeMetaData implements IoMetaData {
     }
 
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Pipe.class.getName());
+        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, PipeService.class.getName());
         builder.setFactory(providerBean);
         builder.setFactoryMethod("createPipe");
         final NamedBeanMetaData pipeExecutorBean = executorBean;

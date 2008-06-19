@@ -35,10 +35,10 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpServer;
-import org.jboss.xnio.spi.TcpConnector;
+import org.jboss.xnio.spi.TcpServerService;
+import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.UdpServer;
+import org.jboss.xnio.spi.UdpServerService;
 
 /**
  * An XNIO provider for a standalone application.
@@ -154,13 +154,13 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpServer tcpServer = provider.createTcpServer();
-        if (executor != null) tcpServer.setExecutor(executor);
-        tcpServer.setBindAddresses(bindAddresses);
-        tcpServer.setHandlerFactory(handlerFactory);
+        final TcpServerService tcpServerService = provider.createTcpServer();
+        if (executor != null) tcpServerService.setExecutor(executor);
+        tcpServerService.setBindAddresses(bindAddresses);
+        tcpServerService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, TcpServer>(tcpServer, started, new LifecycleCloseable(tcpServer, stopped));
+        return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
     }
 
     /**
@@ -184,12 +184,12 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpServer tcpServer = provider.createTcpServer();
-        tcpServer.setBindAddresses(bindAddresses);
-        tcpServer.setHandlerFactory(handlerFactory);
+        final TcpServerService tcpServerService = provider.createTcpServer();
+        tcpServerService.setBindAddresses(bindAddresses);
+        tcpServerService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, TcpServer>(tcpServer, started, new LifecycleCloseable(tcpServer, stopped));
+        return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
     }
 
     /**
@@ -205,11 +205,11 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpConnector connector = provider.createTcpConnector();
-        connector.setExecutor(executor);
+        final TcpConnectorService connectorService = provider.createTcpConnector();
+        connectorService.setExecutor(executor);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnector>(connector, started, new LifecycleConnector(connector, stopped));
+        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -222,10 +222,10 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpConnector connector = provider.createTcpConnector();
+        final TcpConnectorService connectorService = provider.createTcpConnector();
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnector>(connector, started, new LifecycleConnector(connector, stopped));
+        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -255,12 +255,12 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final UdpServer server = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+        final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
         //noinspection unchecked
-        server.setHandlerFactory(handlerFactory);
+        serverService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, UdpServer>(server, started, new LifecycleCloseable(server, stopped));
+        return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
     }
 
     /**
@@ -285,12 +285,12 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final UdpServer server = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+        final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
         //noinspection unchecked
-        server.setHandlerFactory(handlerFactory);
+        serverService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, UdpServer>(server, started, new LifecycleCloseable(server, stopped));
+        return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
     }
 
     /**

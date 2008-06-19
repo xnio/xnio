@@ -28,7 +28,7 @@ import org.jboss.xnio.channels.StreamSinkChannel;
 /**
  * A one-way pipe connection between a source handler and a sink handler.
  */
-public interface OneWayPipe extends ExecutorUser, Lifecycle {
+public interface OneWayPipeService extends ExecutorUser, Lifecycle {
     /**
      * Get the source end of the pipe.
      *

@@ -40,14 +40,14 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.TcpServer;
+import org.jboss.xnio.spi.TcpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioTcpServer implements Lifecycle, TcpServer {
+public final class NioTcpServer implements Lifecycle, TcpServerService {
     private static final Logger log = Logger.getLogger(NioTcpServer.class);
 
     private NioHandle[] handles;

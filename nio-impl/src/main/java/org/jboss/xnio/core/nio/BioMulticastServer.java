@@ -39,14 +39,14 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.UdpServer;
+import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class BioMulticastServer implements Lifecycle, UdpServer {
+public final class BioMulticastServer implements Lifecycle, UdpServerService {
     private static final Logger log = Logger.getLogger(BioMulticastServer.class);
 
     private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;

@@ -25,8 +25,8 @@ package org.jboss.xnio.core.nio.test;
 import junit.framework.TestCase;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.Pipe;
-import org.jboss.xnio.spi.OneWayPipe;
+import org.jboss.xnio.spi.PipeService;
+import org.jboss.xnio.spi.OneWayPipeService;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
@@ -64,14 +64,14 @@ public final class NioPipeTestCase extends TestCase {
             final Provider provider = new NioProvider();
             provider.start();
             try {
-                final OneWayPipe pipe = provider.createOneWayPipe();
-                pipe.getSourceEnd().setHandler(sourceHandler);
-                pipe.getSinkEnd().setHandler(sinkHandler);
-                pipe.start();
+                final OneWayPipeService pipeService = provider.createOneWayPipe();
+                pipeService.getSourceEnd().setHandler(sourceHandler);
+                pipeService.getSinkEnd().setHandler(sinkHandler);
+                pipeService.start();
                 try {
                     body.run();
                 } finally {
-                    stop(pipe);
+                    stop(pipeService);
                 }
             } finally {
                 stop(provider);
@@ -84,14 +84,14 @@ public final class NioPipeTestCase extends TestCase {
             final Provider provider = new NioProvider();
             provider.start();
             try {
-                final Pipe pipe = provider.createPipe();
-                pipe.getLeftEnd().setHandler(leftHandler);
-                pipe.getRightEnd().setHandler(rightHandler);
-                pipe.start();
+                final PipeService pipeService = provider.createPipe();
+                pipeService.getLeftEnd().setHandler(leftHandler);
+                pipeService.getRightEnd().setHandler(rightHandler);
+                pipeService.start();
                 try {
                     body.run();
                 } finally {
-                    stop(pipe);
+                    stop(pipeService);
                 }
             } finally {
                 stop(provider);

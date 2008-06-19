@@ -40,11 +40,11 @@ import java.util.concurrent.ThreadFactory;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpServer;
-import org.jboss.xnio.spi.TcpConnector;
-import org.jboss.xnio.spi.UdpServer;
-import org.jboss.xnio.spi.Pipe;
-import org.jboss.xnio.spi.OneWayPipe;
+import org.jboss.xnio.spi.TcpServerService;
+import org.jboss.xnio.spi.TcpConnectorService;
+import org.jboss.xnio.spi.UdpServerService;
+import org.jboss.xnio.spi.PipeService;
+import org.jboss.xnio.spi.OneWayPipeService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.IoUtils;
@@ -182,37 +182,37 @@ public final class NioProvider implements Provider, Lifecycle {
 
     // Provider SPI impl
 
-    public TcpServer createTcpServer() {
+    public TcpServerService createTcpServer() {
         final NioTcpServer tcpServer = new NioTcpServer();
         tcpServer.setNioProvider(this);
         return tcpServer;
     }
 
-    public TcpConnector createTcpConnector() {
+    public TcpConnectorService createTcpConnector() {
         final NioTcpConnector tcpConnector = new NioTcpConnector();
         tcpConnector.setNioProvider(this);
         return tcpConnector;
     }
 
-    public UdpServer createUdpServer() {
+    public UdpServerService createUdpServer() {
         NioUdpServer udpServer = new NioUdpServer();
         udpServer.setNioProvider(this);
         return udpServer;
     }
 
-    public UdpServer createMulticastUdpServer() {
+    public UdpServerService createMulticastUdpServer() {
         BioMulticastServer bioMulticastServer = new BioMulticastServer();
         bioMulticastServer.setExecutor(executor);
         return bioMulticastServer;
     }
 
-    public Pipe createPipe() {
+    public PipeService createPipe() {
         NioPipeConnection pipeConnection = new NioPipeConnection();
         pipeConnection.setNioProvider(this);
         return pipeConnection;
     }
 
-    public OneWayPipe createOneWayPipe() {
+    public OneWayPipeService createOneWayPipe() {
         NioOneWayPipeConnection pipeConnection = new NioOneWayPipeConnection();
         pipeConnection.setNioProvider(this);
         return pipeConnection;

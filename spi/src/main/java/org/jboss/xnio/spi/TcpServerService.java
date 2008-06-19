@@ -22,15 +22,21 @@
 
 package org.jboss.xnio.spi;
 
-import org.jboss.xnio.Connector;
+import java.net.SocketAddress;
+import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.Configurable;
-import java.net.SocketAddress;
 
 /**
- * A TCP connector instance.
+ * A configurable TCP server.
  */
-public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, ExecutorUser, Lifecycle, Configurable {
+public interface TcpServerService extends ExecutorUser, Lifecycle, Configurable {
+    /**
+     * Set the handler factory which will be used to create handlers for incoming connections.
+     *
+     * @param handlerFactory the handler factory
+     */
+    void setHandlerFactory(IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory);
 
     /**
      * Set the socket keepalive parameter.
@@ -61,13 +67,6 @@ public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamCh
     void setReuseAddress(boolean reuseAddress);
 
     /**
-     * Set the socket send buffer size.
-     *
-     * @param sendBufferSize the send buffer size
-     */
-    void setSendBufferSize(int sendBufferSize);
-
-    /**
      * Set the TCP-no-delay socket parameter.
      *
      * @param tcpNoDelay {@code true} to enable TCP-no-delay
@@ -75,9 +74,16 @@ public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamCh
     void setTcpNoDelay(boolean tcpNoDelay);
 
     /**
-     * Set the connection timeout (in milliseconds).
+     * Set the socket backlog parameters.
      *
-     * @param connectTimeout the connect timeout, in milliseconds
+     * @param backlog the socket backlog
      */
-    void setConnectTimeout(int connectTimeout);
+    void setBacklog(int backlog);
+
+    /**
+     * Set the bind addresses to use for this server.
+     *
+     * @param bindAddresses the bind addresses
+     */
+    void setBindAddresses(SocketAddress[] bindAddresses);
 }

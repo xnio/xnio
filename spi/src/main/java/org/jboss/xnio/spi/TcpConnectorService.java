@@ -22,61 +22,62 @@
 
 package org.jboss.xnio.spi;
 
-import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.Connector;
+import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.Configurable;
 import java.net.SocketAddress;
 
 /**
- * A configurable UDP server.
+ * A TCP connector instance.
  */
-public interface UdpServer extends ExecutorUser, Lifecycle, Configurable {
-    /**
-     * Set the handler factory which will be used to create handlers for each bind address.
-     *
-     * @param handlerFactory the handler factory
-     */
-    void setHandlerFactory(IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory);
+public interface TcpConnectorService extends Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, ExecutorUser, Lifecycle, Configurable {
 
     /**
-     * Set the bind addresses for this server.
+     * Set the socket keepalive parameter.
      *
-     * @param bindAddresses the list of bind addresses
+     * @param keepAlive {@code true} to enable TCP keepalive
      */
-    void setBindAddresses(SocketAddress[] bindAddresses);
+    void setKeepAlive(boolean keepAlive);
 
     /**
-     * Set the receive buffer size socket parameter.
+     * Set the OOB-inline socket parameter.
+     *
+     * @param oobInline {@code true} to enable inline OOB messages
+     */
+    void setOobInline(boolean oobInline);
+
+    /**
+     * Set the socket receive buffer size.
      *
      * @param receiveBufferSize the receive buffer size
      */
     void setReceiveBufferSize(int receiveBufferSize);
 
     /**
-     * Set the reuse-address socket parameter.
+     * Set the reuse address socket parameter.
      *
-     * @param reuseAddress {@code true} to enable the reuse-address socket parameter
+     * @param reuseAddress {@code true} to enable address reuse
      */
     void setReuseAddress(boolean reuseAddress);
 
     /**
-     * Set the send buffer size socket parameter.
+     * Set the socket send buffer size.
      *
      * @param sendBufferSize the send buffer size
      */
     void setSendBufferSize(int sendBufferSize);
 
     /**
-     * Set the traffic class socket parameter.
+     * Set the TCP-no-delay socket parameter.
      *
-     * @param trafficClass the traffic class
+     * @param tcpNoDelay {@code true} to enable TCP-no-delay
      */
-    void setTrafficClass(int trafficClass);
+    void setTcpNoDelay(boolean tcpNoDelay);
 
     /**
-     * Configure whether this socket is sensitive to broadcasts.
+     * Set the connection timeout (in milliseconds).
      *
-     * @param broadcast {@code true} to enable reception of broadcast packets
+     * @param connectTimeout the connect timeout, in milliseconds
      */
-    void setBroadcast(boolean broadcast);
+    void setConnectTimeout(int connectTimeout);
 }

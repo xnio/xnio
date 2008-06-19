@@ -24,7 +24,7 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.spi.TcpConnector;
+import org.jboss.xnio.spi.TcpConnectorService;
 import java.io.Serializable;
 
 import javax.xml.bind.annotation.XmlType;
@@ -129,7 +129,7 @@ public final class TcpConnectorMetaData implements IoMetaData, Serializable {
 
     @XmlTransient
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, TcpConnector.class.getName());
+        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, TcpConnectorService.class.getName());
         builder.setFactory(providerBean);
         builder.setFactoryMethod("createTcpConnector");
         if (executorBean != null) builder.addPropertyMetaData("executor", builder.createInject(executorBean.getName()));

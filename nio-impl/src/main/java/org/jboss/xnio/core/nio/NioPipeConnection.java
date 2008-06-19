@@ -31,11 +31,12 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.spi.PipeEnd;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.spi.PipeService;
 
 /**
  *
  */
-public final class NioPipeConnection implements Lifecycle, org.jboss.xnio.spi.Pipe {
+public final class NioPipeConnection implements Lifecycle, PipeService {
 
     private NioProvider nioProvider;
     private IoHandler<? super StreamChannel> leftHandler;

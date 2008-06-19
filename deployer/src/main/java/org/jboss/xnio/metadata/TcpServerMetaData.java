@@ -24,7 +24,7 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.spi.TcpServer;
+import org.jboss.xnio.spi.TcpServerService;
 import java.io.Serializable;
 import java.util.List;
 import java.util.ArrayList;
@@ -150,7 +150,7 @@ public final class TcpServerMetaData implements IoMetaData, Serializable {
 
     @XmlTransient
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, TcpServer.class.getName());
+        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, TcpServerService.class.getName());
         builder.setFactory(providerBean);
         builder.setFactoryMethod("createTcpServer");
         final int bindCount = bindAddresses.size();

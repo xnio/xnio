@@ -31,40 +31,40 @@ public interface Provider extends ExecutorUser, Lifecycle {
      *
      * @return a TCP server
      */
-    TcpServer createTcpServer();
+    TcpServerService createTcpServer();
 
     /**
      * Create a TCP connector instance.
      *
      * @return a TCP connector
      */
-    TcpConnector createTcpConnector();
+    TcpConnectorService createTcpConnector();
 
     /**
      * Create a UDP server instance.
      *
      * @return a UDP server
      */
-    UdpServer createUdpServer();
+    UdpServerService createUdpServer();
 
     /**
      * Create a multicast-capable UDP server instance.
      *
      * @return a UDP server
      */
-    UdpServer createMulticastUdpServer();
+    UdpServerService createMulticastUdpServer();
 
     /**
      * Create a pipe instance.
      *
      * @return a pipe
      */
-    Pipe createPipe();
+    PipeService createPipe();
 
     /**
      * Create a one-way pipe instance.
      *
      * @return a one-way pipe
      */
-    OneWayPipe createOneWayPipe();
+    OneWayPipeService createOneWayPipe();
 }

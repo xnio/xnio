@@ -34,14 +34,14 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.spi.UdpServer;
+import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioUdpServer implements Lifecycle, UdpServer {
+public final class NioUdpServer implements Lifecycle, UdpServerService {
 
     private NioProvider nioProvider;
     private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;
