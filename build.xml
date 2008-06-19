@@ -617,7 +617,6 @@
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
-            <packageset dir="spi/src/main/java"/>
             <packageset dir="standalone/src/main/java"/>
             <packageset dir="version/src/main/java"/>
             <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
