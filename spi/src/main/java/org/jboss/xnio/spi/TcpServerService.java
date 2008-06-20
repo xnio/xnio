@@ -24,8 +24,8 @@ package org.jboss.xnio.spi;
 
 import java.net.SocketAddress;
 import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A configurable TCP server.
@@ -36,7 +36,7 @@ public interface TcpServerService extends ExecutorUser, Lifecycle, Configurable 
      *
      * @param handlerFactory the handler factory
      */
-    void setHandlerFactory(IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory);
+    void setHandlerFactory(IoHandlerFactory<? super TcpChannel> handlerFactory);
 
     /**
      * Set the socket keepalive parameter.

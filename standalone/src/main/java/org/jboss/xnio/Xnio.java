@@ -153,7 +153,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(final Executor executor, final IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -189,7 +189,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(final IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }

@@ -34,9 +34,9 @@ import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Collections;
 import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
@@ -55,7 +55,7 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
     private ServerSocketChannel[] serverSocketChannels;
     private Executor executor;
 
-    private IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory;
+    private IoHandlerFactory<? super TcpChannel> handlerFactory;
 
     private boolean reuseAddress = true;
     private int receiveBufferSize = -1;
@@ -101,11 +101,11 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
         this.backlog = backlog;
     }
 
-    public IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> getHandlerFactory() {
+    public IoHandlerFactory<? super TcpChannel> getHandlerFactory() {
         return handlerFactory;
     }
 
-    public void setHandlerFactory(final IoHandlerFactory<? super ConnectedStreamChannel<SocketAddress>> handlerFactory) {
+    public void setHandlerFactory(final IoHandlerFactory<? super TcpChannel> handlerFactory) {
         this.handlerFactory = handlerFactory;
     }
 
@@ -248,9 +248,9 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
                         socket.setTcpNoDelay(tcpNoDelay);
                         // IDEA thinks this is an unsafe cast, but it really isn't.  But to shut it up...
                         //noinspection unchecked
-                        final IoHandler<? super ConnectedStreamChannel<SocketAddress>> streamIoHandler = handlerFactory.createHandler();
+                        final IoHandler<? super TcpChannel> streamIoHandler = handlerFactory.createHandler();
                         final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
-                        ok = SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(streamIoHandler, channel);
+                        ok = SpiUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
                         if (ok) {
                             nioProvider.addChannel(channel);
                         }
