@@ -22,11 +22,10 @@
 
 package org.jboss.xnio;
 
-import java.net.SocketAddress;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A client specifically for connecting to TCP remote servers.
  */
-public interface TcpClient extends Client<ConnectedStreamChannel<SocketAddress>> {
+public interface TcpClient extends Client<TcpChannel> {
 }

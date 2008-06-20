@@ -23,7 +23,7 @@
 package org.jboss.xnio.spi;
 
 import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.Configurable;
 import java.net.SocketAddress;
 
@@ -36,7 +36,7 @@ public interface UdpServerService extends ExecutorUser, Lifecycle, Configurable 
      *
      * @param handlerFactory the handler factory
      */
-    void setHandlerFactory(IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory);
+    void setHandlerFactory(IoHandlerFactory<? super UdpChannel> handlerFactory);
 
     /**
      * Set the bind addresses for this server.

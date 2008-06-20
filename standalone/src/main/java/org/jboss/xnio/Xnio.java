@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.TcpServerService;
@@ -265,7 +266,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -302,7 +303,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
@@ -359,7 +360,7 @@ public final class Xnio implements Closeable {
 
     private class LifecycleConnector extends LifecycleCloseable implements TcpConnector {
         private final AtomicBoolean closed;
-        private final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> realConnector;
+        private final TcpConnector realConnector;
 
         private <T extends Lifecycle & TcpConnector> LifecycleConnector(final T lifecycle, final AtomicBoolean closed) {
             super(lifecycle, closed);
@@ -367,14 +368,14 @@ public final class Xnio implements Closeable {
             realConnector = lifecycle;
         }
 
-        public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
+        public IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
             if (closed.get()) {
                 throw new IllegalStateException("Connector closed");
             }
             return realConnector.connectTo(dest, ioHandler);
         }
 
-        public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
+        public IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
             if (closed.get()) {
                 throw new IllegalStateException("Connector closed");
             }
@@ -383,16 +384,16 @@ public final class Xnio implements Closeable {
 
         public TcpClient createClient(final SocketAddress dest) {
             return new TcpClient() {
-                public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
-                    return realConnector.connectTo(dest, ioHandler);
+                public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+                    return realConnector.connectTo(dest, handler);
                 }
             };
         }
 
         public TcpClient createClient(final SocketAddress src, final SocketAddress dest) {
             return new TcpClient() {
-                public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
-                    return realConnector.connectTo(src, dest, ioHandler);
+                public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+                    return realConnector.connectTo(src, dest, handler);
                 }
             };
         }

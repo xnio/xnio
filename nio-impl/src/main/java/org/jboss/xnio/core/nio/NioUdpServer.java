@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Collections;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
@@ -47,7 +47,7 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
     private static Logger log = Logger.getLogger(NioUdpServer.class);
 
     private NioProvider nioProvider;
-    private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;
+    private IoHandlerFactory<? super UdpChannel> handlerFactory;
     private NioUdpSocketChannelImpl[] channels = new NioUdpSocketChannelImpl[0];
     private SocketAddress[] bindAddresses = new SocketAddress[0];
     private Executor executor;
@@ -114,11 +114,11 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
         this.nioProvider = nioProvider;
     }
 
-    public IoHandlerFactory<? super MulticastDatagramChannel> getHandlerFactory() {
+    public IoHandlerFactory<? super UdpChannel> getHandlerFactory() {
         return handlerFactory;
     }
 
-    public void setHandlerFactory(final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory) {
+    public void setHandlerFactory(final IoHandlerFactory<? super UdpChannel> handlerFactory) {
         this.handlerFactory = handlerFactory;
     }
 
@@ -164,7 +164,7 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
                     continue;
                 }
                 final NioUdpSocketChannelImpl channel = channels[i];
-                if (! SpiUtils.<MulticastDatagramChannel>handleOpened(channel.getHandler(), channel)) {
+                if (! SpiUtils.<UdpChannel>handleOpened(channel.getHandler(), channel)) {
                     IoUtils.safeClose(datagramChannels[i]);
                 }
                 nioProvider.addChannel(channel);

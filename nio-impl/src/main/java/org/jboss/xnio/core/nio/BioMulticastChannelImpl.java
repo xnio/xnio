@@ -22,7 +22,7 @@
 
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
 import org.jboss.xnio.IoHandler;
 import java.net.InetAddress;
@@ -37,11 +37,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  *
  */
-public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implements MulticastDatagramChannel {
+public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implements UdpChannel {
     private final MulticastSocket multicastSocket;
 
     @SuppressWarnings({"unchecked"})
-    protected BioMulticastChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MulticastDatagramChannel> handler, final MulticastSocket multicastSocket) {
+    protected BioMulticastChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super UdpChannel> handler, final MulticastSocket multicastSocket) {
         super(sendBufSize, recvBufSize, handlerExecutor, (IoHandler<? super MultipointDatagramChannel<SocketAddress>>) handler, multicastSocket);
         this.multicastSocket = multicastSocket;
     }
@@ -75,7 +75,7 @@ public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implem
             return this;
         }
 
-        public MulticastDatagramChannel getChannel() {
+        public UdpChannel getChannel() {
             return BioMulticastChannelImpl.this;
         }
 

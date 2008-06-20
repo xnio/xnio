@@ -22,7 +22,7 @@
 
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
@@ -44,18 +44,18 @@ import java.util.Collections;
 /**
  *
  */
-public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
+public final class NioUdpSocketChannelImpl implements UdpChannel {
     private static final Logger log = Logger.getLogger(NioUdpSocketChannelImpl.class);
 
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
-    private final IoHandler<? super MulticastDatagramChannel> handler;
+    private final IoHandler<? super UdpChannel> handler;
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioProvider nioProvider;
 
-    public NioUdpSocketChannelImpl(final NioProvider nioProvider, final DatagramChannel datagramChannel, final IoHandler<? super MulticastDatagramChannel> handler) throws IOException {
+    public NioUdpSocketChannelImpl(final NioProvider nioProvider, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler) throws IOException {
         this.nioProvider = nioProvider;
         readHandle = nioProvider.addReadHandler(datagramChannel, new ReadHandler());
         writeHandle = nioProvider.addWriteHandler(datagramChannel, new WriteHandler());
@@ -92,7 +92,7 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (!callFlag.getAndSet(true)) {
-                SpiUtils.<MulticastDatagramChannel>handleClosed(handler, this);
+                SpiUtils.<UdpChannel>handleClosed(handler, this);
             }
         }
     }
@@ -174,19 +174,19 @@ public final class NioUdpSocketChannelImpl implements MulticastDatagramChannel {
         throw new UnsupportedOptionException("No options supported");
     }
 
-    public IoHandler<? super MulticastDatagramChannel> getHandler() {
+    public IoHandler<? super UdpChannel> getHandler() {
         return handler;
     }
 
     public final class ReadHandler implements Runnable {
         public void run() {
-            SpiUtils.<MulticastDatagramChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
+            SpiUtils.<UdpChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 
     public final class WriteHandler implements Runnable {
         public void run() {
-            SpiUtils.<MulticastDatagramChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
+            SpiUtils.<UdpChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 }

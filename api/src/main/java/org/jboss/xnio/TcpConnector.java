@@ -23,12 +23,12 @@
 package org.jboss.xnio;
 
 import java.net.SocketAddress;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A connector specifically for connecting to TCP servers.
  */
-public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> {
+public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
 
     /**
      * Establish a connection to a TCP server.
@@ -37,7 +37,17 @@ public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamCh
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler);
+    IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
+
+    /**
+     * Establish a connection to a TCP server.
+     *
+     * @param src the source address
+     * @param dest the destination address
+     * @param handler the handler for this connection
+     * @return the future result of this operation
+     */
+    IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
 
     /**
      * Create a client that always connects to the given TCP server.

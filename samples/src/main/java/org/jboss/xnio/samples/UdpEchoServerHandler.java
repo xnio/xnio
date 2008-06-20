@@ -25,7 +25,7 @@ package org.jboss.xnio.samples;
 import org.jboss.xnio.IoHandler;
 import static org.jboss.xnio.Buffers.flip;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
 import java.nio.ByteBuffer;
 import java.io.IOException;
@@ -35,15 +35,15 @@ import java.net.SocketAddress;
 /**
  *
  */
-public final class UdpEchoServerHandler implements IoHandler<MulticastDatagramChannel> {
+public final class UdpEchoServerHandler implements IoHandler<UdpChannel> {
     private static final Logger log = Logger.getLogger(UdpEchoServerHandler.class);
 
-    public void handleOpened(final MulticastDatagramChannel channel) {
+    public void handleOpened(final UdpChannel channel) {
         log.info("UDP echo channel opened!");
         channel.resumeReads();
     }
 
-    public void handleReadable(final MulticastDatagramChannel channel) {
+    public void handleReadable(final UdpChannel channel) {
         final ByteBuffer buffer = ByteBuffer.allocate(65536);
         try {
             final MultipointReadResult<SocketAddress> result = channel.receive(buffer);
@@ -57,10 +57,10 @@ public final class UdpEchoServerHandler implements IoHandler<MulticastDatagramCh
         }
     }
 
-    public void handleWritable(final MulticastDatagramChannel channel) {
+    public void handleWritable(final UdpChannel channel) {
     }
 
-    public void handleClosed(final MulticastDatagramChannel channel) {
+    public void handleClosed(final UdpChannel channel) {
         log.info("UDP echo channel closed!");
     }
 }

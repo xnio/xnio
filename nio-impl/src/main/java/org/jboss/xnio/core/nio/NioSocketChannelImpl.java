@@ -34,27 +34,25 @@ import java.util.Map;
 import java.util.Collections;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  *
  */
-public final class NioSocketChannelImpl implements ConnectedStreamChannel<SocketAddress> {
-    private static final Logger log = Logger.getLogger(NioSocketChannelImpl.class);
+public final class NioSocketChannelImpl implements TcpChannel {
 
     private final SocketChannel socketChannel;
     private final Socket socket;
-    private final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler;
+    private final IoHandler<? super TcpChannel> handler;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
     private final NioProvider nioProvider;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
 
-    public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) throws IOException {
+    public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler) throws IOException {
         this.handler = handler;
         this.socketChannel = socketChannel;
         this.nioProvider = nioProvider;
@@ -87,7 +85,7 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (! callFlag.getAndSet(true)) {
-                SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleClosed(handler, this);
+                SpiUtils.<TcpChannel>handleClosed(handler, this);
             }
         }
     }
@@ -187,13 +185,13 @@ public final class NioSocketChannelImpl implements ConnectedStreamChannel<Socket
 
     private final class ReadHandler implements Runnable {
         public void run() {
-            SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleReadable(handler, NioSocketChannelImpl.this);
+            SpiUtils.<TcpChannel>handleReadable(handler, NioSocketChannelImpl.this);
         }
     }
 
     private final class WriteHandler implements Runnable {
         public void run() {
-            SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleWritable(handler, NioSocketChannelImpl.this);
+            SpiUtils.<TcpChannel>handleWritable(handler, NioSocketChannelImpl.this);
         }
     }
 }

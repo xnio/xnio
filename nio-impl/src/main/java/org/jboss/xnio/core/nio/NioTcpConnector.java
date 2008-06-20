@@ -36,9 +36,9 @@ import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.TcpClient;
@@ -168,7 +168,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         socket.setTcpNoDelay(tcpNoDelay);
     }
 
-    public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+    public IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
@@ -178,7 +178,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         return doConnectTo(null, dest, handler);
     }
 
-    public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+    public IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         if (src == null) {
             throw new NullPointerException("src is null");
         }
@@ -196,7 +196,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
             throw new NullPointerException("dest is null");
         }
         return new TcpClient() {
-            public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+            public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -213,7 +213,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
             throw new NullPointerException("dest is null");
         }
         return new TcpClient() {
-            public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+            public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -222,7 +222,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         };
     }
 
-    private IoFuture<ConnectedStreamChannel<SocketAddress>> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+    private IoFuture<TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
             final SocketChannel socketChannel = SocketChannel.open();
             socketChannel.configureBlocking(false);
@@ -233,18 +233,18 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
                 executor.execute(new Runnable() {
                     public void run() {
-                        SpiUtils.<ConnectedStreamChannel<SocketAddress>>handleOpened(handler, channel);
+                        SpiUtils.<TcpChannel>handleOpened(handler, channel);
                     }
                 });
                 nioProvider.addChannel(channel);
-                return new FinishedIoFuture<ConnectedStreamChannel<SocketAddress>>(channel);
+                return new FinishedIoFuture<TcpChannel>(channel);
             } else {
                 final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioProvider, handler);
                 connectionHandler.handle.getSelectionKey().interestOps(SelectionKey.OP_CONNECT).selector().wakeup();
                 return connectionHandler.future;
             }
         } catch (IOException e) {
-            return new FailedIoFuture<ConnectedStreamChannel<SocketAddress>>(e);
+            return new FailedIoFuture<TcpChannel>(e);
         }
     }
 
@@ -267,9 +267,9 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         private final FutureImpl future;
         private final SocketChannel socketChannel;
         private final NioHandle handle;
-        private final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler;
+        private final IoHandler<? super TcpChannel> handler;
 
-        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioProvider nioProvider, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) throws IOException {
+        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioProvider nioProvider, final IoHandler<? super TcpChannel> handler) throws IOException {
             this.socketChannel = socketChannel;
             this.handler = handler;
             handle = nioProvider.addConnectHandler(socketChannel, this);
@@ -299,7 +299,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
             }
         }
 
-        private final class FutureImpl extends AbstractIoFuture<ConnectedStreamChannel<SocketAddress>> {
+        private final class FutureImpl extends AbstractIoFuture<TcpChannel> {
             private final Executor executor;
 
             public FutureImpl(final Executor executor) {
@@ -310,7 +310,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 return super.setException(exception);
             }
 
-            protected boolean setResult(final ConnectedStreamChannel<SocketAddress> result) {
+            protected boolean setResult(final TcpChannel result) {
                 return super.setResult(result);
             }
 
@@ -318,7 +318,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 return super.finishCancel();
             }
 
-            protected void runNotifier(final Notifier<ConnectedStreamChannel<SocketAddress>> streamChannelNotifier) {
+            protected void runNotifier(final Notifier<TcpChannel> streamChannelNotifier) {
                 executor.execute(new Runnable() {
                     public void run() {
                         try {
@@ -330,7 +330,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 });
             }
 
-            public IoFuture<ConnectedStreamChannel<SocketAddress>> cancel() {
+            public IoFuture<TcpChannel> cancel() {
                 IoUtils.safeClose(socketChannel);
                 return this;
             }

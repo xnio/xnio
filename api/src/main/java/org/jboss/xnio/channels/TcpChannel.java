@@ -20,17 +20,13 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.samples;
+package org.jboss.xnio.channels;
 
-import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.channels.UdpChannel;
+import java.net.SocketAddress;
 
 /**
- *
+ * A TCP channel.  TCP channels are connected stream channels that always use {@link SocketAddress} instances to define
+ * endpoint addresses.
  */
-public final class  UdpEchoServerHandlerFactory implements IoHandlerFactory<UdpChannel> {
-    public IoHandler<? super UdpChannel> createHandler() {
-        return new UdpEchoServerHandler();
-    }
+public interface TcpChannel extends ConnectedStreamChannel<SocketAddress> {
 }

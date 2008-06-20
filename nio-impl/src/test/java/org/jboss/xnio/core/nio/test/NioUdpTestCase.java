@@ -27,7 +27,7 @@ import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.core.nio.NioProvider;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoHandler;
@@ -77,7 +77,7 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private void doServerSideTest(final boolean multicast, final IoHandler<MulticastDatagramChannel> handler, final Runnable body) throws IOException {
+    private void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
         final Provider nioProvider = new NioProvider();
         start(nioProvider);
         try {
@@ -88,21 +88,21 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private void doServerSidePart(final boolean multicast, final IoHandler<MulticastDatagramChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
+    private void doServerSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
         final InetSocketAddress bindAddress = SERVER_SOCKET_ADDRESS;
         doPart(multicast, handler, body, nioProvider, bindAddress);
     }
 
-    private void doClientSidePart(final boolean multicast, final IoHandler<MulticastDatagramChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
+    private void doClientSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
         final InetSocketAddress bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 0, 0, 0, 0 }), 0);
         doPart(multicast, handler, body, nioProvider, bindAddress);
     }
 
-    private void doPart(final boolean multicast, final IoHandler<MulticastDatagramChannel> handler, final Runnable body, final Provider nioProvider, final InetSocketAddress bindAddress) throws IOException {
+    private void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider, final InetSocketAddress bindAddress) throws IOException {
         final UdpServerService serverService = multicast ? nioProvider.createMulticastUdpServer() : nioProvider.createUdpServer();
         serverService.setBindAddresses(new SocketAddress[] { bindAddress });
-        serverService.setHandlerFactory(new IoHandlerFactory<MulticastDatagramChannel>() {
-            public IoHandler<? super MulticastDatagramChannel> createHandler() {
+        serverService.setHandlerFactory(new IoHandlerFactory<UdpChannel>() {
+            public IoHandler<? super UdpChannel> createHandler() {
                 return handler;
             }
         });
@@ -115,7 +115,7 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<MulticastDatagramChannel> serverHandler, final IoHandler<MulticastDatagramChannel> clientHandler, final Runnable body) throws IOException {
+    private void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
         final Provider nioProvider = new NioProvider();
         start(nioProvider);
         try {
@@ -137,18 +137,18 @@ public final class NioUdpTestCase extends TestCase {
     private void doServerCreate(boolean multicast) throws Exception {
         final AtomicBoolean openedOk = new AtomicBoolean(false);
         final AtomicBoolean closedOk = new AtomicBoolean(false);
-        doServerSideTest(multicast, new IoHandler<MulticastDatagramChannel>() {
-            public void handleOpened(final MulticastDatagramChannel channel) {
+        doServerSideTest(multicast, new IoHandler<UdpChannel>() {
+            public void handleOpened(final UdpChannel channel) {
                 openedOk.set(true);
             }
 
-            public void handleReadable(final MulticastDatagramChannel channel) {
+            public void handleReadable(final UdpChannel channel) {
             }
 
-            public void handleWritable(final MulticastDatagramChannel channel) {
+            public void handleWritable(final UdpChannel channel) {
             }
 
-            public void handleClosed(final MulticastDatagramChannel channel) {
+            public void handleClosed(final UdpChannel channel) {
                 closedOk.set(true);
             }
         }, new Runnable() {
@@ -174,13 +174,13 @@ public final class NioUdpTestCase extends TestCase {
         final CountDownLatch receivedLatch = new CountDownLatch(1);
         final CountDownLatch doneLatch = new CountDownLatch(2);
         final byte[] payload = new byte[] { 10, 5, 15, 10, 100, -128, 30, 0, 0 };
-        doClientServerSide(clientMulticast, serverMulticast, new IoHandler<MulticastDatagramChannel>() {
-            public void handleOpened(final MulticastDatagramChannel channel) {
+        doClientServerSide(clientMulticast, serverMulticast, new IoHandler<UdpChannel>() {
+            public void handleOpened(final UdpChannel channel) {
                 channel.resumeReads();
                 startLatch.countDown();
             }
 
-            public void handleReadable(final MulticastDatagramChannel channel) {
+            public void handleReadable(final UdpChannel channel) {
                 try {
                     final ByteBuffer buffer = ByteBuffer.allocate(50);
                     final MultipointReadResult<SocketAddress> result = channel.receive(buffer);
@@ -210,13 +210,13 @@ public final class NioUdpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final MulticastDatagramChannel channel) {
+            public void handleWritable(final UdpChannel channel) {
             }
 
-            public void handleClosed(final MulticastDatagramChannel channel) {
+            public void handleClosed(final UdpChannel channel) {
             }
-        }, new IoHandler<MulticastDatagramChannel>() {
-            public void handleOpened(final MulticastDatagramChannel channel) {
+        }, new IoHandler<UdpChannel>() {
+            public void handleOpened(final UdpChannel channel) {
                 try {
                     // wait until server is ready
                     assertTrue(startLatch.await(1500L, TimeUnit.MILLISECONDS));
@@ -226,10 +226,10 @@ public final class NioUdpTestCase extends TestCase {
                 channel.resumeWrites();
             }
 
-            public void handleReadable(final MulticastDatagramChannel channel) {
+            public void handleReadable(final UdpChannel channel) {
             }
 
-            public void handleWritable(final MulticastDatagramChannel channel) {
+            public void handleWritable(final UdpChannel channel) {
                 try {
                     if (! channel.send(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
                         channel.resumeWrites();
@@ -247,7 +247,7 @@ public final class NioUdpTestCase extends TestCase {
                 }
             }
 
-            public void handleClosed(final MulticastDatagramChannel channel) {
+            public void handleClosed(final UdpChannel channel) {
             }
         }, new Runnable() {
             public void run() {

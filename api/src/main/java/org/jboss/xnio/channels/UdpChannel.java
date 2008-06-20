@@ -29,9 +29,10 @@ import java.io.IOException;
 import java.io.Closeable;
 
 /**
- * A datagram channel that is multicast-capable.
+ * A UDP channel.  UDP channels are a multipoint datagram channel always use a {@link java.net.SocketAddress} and that
+ * additionally support multicast registration.
  */
-public interface MulticastDatagramChannel extends MultipointDatagramChannel<SocketAddress> {
+public interface UdpChannel extends MultipointDatagramChannel<SocketAddress> {
 
     /**
      * A registration key for a multicast group.
@@ -71,7 +72,7 @@ public interface MulticastDatagramChannel extends MultipointDatagramChannel<Sock
          *
          * @return the channel
          */
-        MulticastDatagramChannel getChannel();
+        UdpChannel getChannel();
 
         /**
          * Return the multicast group for which this key was created.  This method will continue to return the group even

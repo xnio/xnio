@@ -32,7 +32,7 @@ import java.util.Collections;
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import org.jboss.xnio.channels.MulticastDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
@@ -49,7 +49,7 @@ import org.jboss.xnio.spi.SpiUtils;
 public final class BioMulticastServer implements Lifecycle, UdpServerService {
     private static final Logger log = Logger.getLogger(BioMulticastServer.class);
 
-    private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;
+    private IoHandlerFactory<? super UdpChannel> handlerFactory;
     private BioMulticastChannelImpl[] channels = new BioMulticastChannelImpl[0];
     private SocketAddress[] bindAddresses = new SocketAddress[0];
 
@@ -61,11 +61,11 @@ public final class BioMulticastServer implements Lifecycle, UdpServerService {
     private Executor executor;
     private ExecutorService executorService;
 
-    public IoHandlerFactory<? super MulticastDatagramChannel> getHandlerFactory() {
+    public IoHandlerFactory<? super UdpChannel> getHandlerFactory() {
         return handlerFactory;
     }
 
-    public void setHandlerFactory(final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory) {
+    public void setHandlerFactory(final IoHandlerFactory<? super UdpChannel> handlerFactory) {
         this.handlerFactory = handlerFactory;
     }
 
@@ -157,7 +157,7 @@ public final class BioMulticastServer implements Lifecycle, UdpServerService {
                 if (sendBufferSize != -1) socket.setSendBufferSize(sendBufferSize);
                 if (trafficClass != -1) socket.setTrafficClass(trafficClass);
                 sockets[i] = socket;
-                final IoHandler<? super MulticastDatagramChannel> handler = handlerFactory.createHandler();
+                final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
                 channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handler, socket);
                 channels[i].open();
                 if (! SpiUtils.handleOpened(handler, channels[i])) try {
