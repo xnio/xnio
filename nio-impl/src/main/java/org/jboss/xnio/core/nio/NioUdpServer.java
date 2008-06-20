@@ -34,6 +34,7 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
@@ -42,6 +43,8 @@ import org.jboss.xnio.spi.SpiUtils;
  *
  */
 public final class NioUdpServer implements Lifecycle, UdpServerService {
+
+    private static Logger log = Logger.getLogger(NioUdpServer.class);
 
     private NioProvider nioProvider;
     private IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory;
@@ -156,6 +159,7 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
                 try {
                     datagramChannels[i].socket().bind(bindAddresses[i]);
                 } catch (IOException ex) {
+                    log.error("Unable to bind to %s: %s", bindAddresses[i], ex);
                     IoUtils.safeClose(datagramChannels[i]);
                     continue;
                 }
