@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.MultipointDatagramChannel;
 import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.spi.Provider;
