@@ -235,7 +235,6 @@ public final class NioTcpTestCase extends TestCase {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
                     channel.close();
-                    serverOK.set(true);
                 } catch (Throwable t) {
                     t.printStackTrace();
                     latch.countDown();
@@ -250,6 +249,7 @@ public final class NioTcpTestCase extends TestCase {
             }
 
             public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+                serverOK.set(true);
                 latch.countDown();
             }
         });
