@@ -47,9 +47,11 @@ public final class Xnio implements Closeable {
     private final Provider provider;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final Object lifecycleLock;
 
-    private Xnio(Provider provider) {
+    private Xnio(Provider provider, final Object lifecycleLock) {
         this.provider = provider;
+        this.lifecycleLock = lifecycleLock;
     }
 
     /**
@@ -75,13 +77,17 @@ public final class Xnio implements Closeable {
      * @throws IllegalArgumentException if a given argument is not valid
      */
     public static Xnio createNio(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final NioProvider nioProvider = new NioProvider();
-        nioProvider.setExecutor(IoUtils.directExecutor());
-        nioProvider.setReadSelectorThreads(readSelectorThreads);
-        nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-        nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.start();
-        return new Xnio(nioProvider);
+        final Object lifecycleLock = new Object();
+        final NioProvider nioProvider;
+        synchronized (lifecycleLock) {
+            nioProvider = new NioProvider();
+            nioProvider.setExecutor(IoUtils.directExecutor());
+            nioProvider.setReadSelectorThreads(readSelectorThreads);
+            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
+            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
+            nioProvider.start();
+        }
+        return new Xnio(nioProvider, lifecycleLock);
     }
 
     /**
@@ -97,13 +103,17 @@ public final class Xnio implements Closeable {
      * @throws IllegalArgumentException if a given argument is not valid
      */
     public static Xnio createNio(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final NioProvider nioProvider = new NioProvider();
-        nioProvider.setExecutor(handlerExecutor);
-        nioProvider.setReadSelectorThreads(readSelectorThreads);
-        nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-        nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.start();
-        return new Xnio(nioProvider);
+        final Object lifecycleLock = new Object();
+        final NioProvider nioProvider;
+        synchronized (lifecycleLock) {
+            nioProvider = new NioProvider();
+            nioProvider.setExecutor(handlerExecutor);
+            nioProvider.setReadSelectorThreads(readSelectorThreads);
+            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
+            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
+            nioProvider.start();
+        }
+        return new Xnio(nioProvider, lifecycleLock);
     }
 
     /**
@@ -120,14 +130,18 @@ public final class Xnio implements Closeable {
      * @throws IllegalArgumentException
      */
     public static Xnio createNio(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final NioProvider nioProvider = new NioProvider();
-        nioProvider.setExecutor(handlerExecutor);
-        nioProvider.setSelectorThreadFactory(selectorThreadFactory);
-        nioProvider.setReadSelectorThreads(readSelectorThreads);
-        nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-        nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-        nioProvider.start();
-        return new Xnio(nioProvider);
+        final Object lifecycleLock = new Object();
+        final NioProvider nioProvider;
+        synchronized (lifecycleLock) {
+            nioProvider = new NioProvider();
+            nioProvider.setExecutor(handlerExecutor);
+            nioProvider.setSelectorThreadFactory(selectorThreadFactory);
+            nioProvider.setReadSelectorThreads(readSelectorThreads);
+            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
+            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
+            nioProvider.start();
+        }
+        return new Xnio(nioProvider, lifecycleLock);
     }
 
     /**
@@ -154,10 +168,13 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpServerService tcpServerService = provider.createTcpServer();
-        if (executor != null) tcpServerService.setExecutor(executor);
-        tcpServerService.setBindAddresses(bindAddresses);
-        tcpServerService.setHandlerFactory(handlerFactory);
+        final TcpServerService tcpServerService;
+        synchronized (lifecycleLock) {
+            tcpServerService = provider.createTcpServer();
+            if (executor != null) tcpServerService.setExecutor(executor);
+            tcpServerService.setBindAddresses(bindAddresses);
+            tcpServerService.setHandlerFactory(handlerFactory);
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
@@ -184,9 +201,12 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpServerService tcpServerService = provider.createTcpServer();
-        tcpServerService.setBindAddresses(bindAddresses);
-        tcpServerService.setHandlerFactory(handlerFactory);
+        final TcpServerService tcpServerService;
+        synchronized (lifecycleLock) {
+            tcpServerService = provider.createTcpServer();
+            tcpServerService.setBindAddresses(bindAddresses);
+            tcpServerService.setHandlerFactory(handlerFactory);
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
@@ -205,8 +225,11 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpConnectorService connectorService = provider.createTcpConnector();
-        connectorService.setExecutor(executor);
+        final TcpConnectorService connectorService;
+        synchronized (lifecycleLock) {
+            connectorService = provider.createTcpConnector();
+            connectorService.setExecutor(executor);
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
@@ -222,7 +245,10 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final TcpConnectorService connectorService = provider.createTcpConnector();
+        final TcpConnectorService connectorService;
+        synchronized (lifecycleLock) {
+            connectorService = provider.createTcpConnector();
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
@@ -255,10 +281,13 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
-        serverService.setBindAddresses(bindAddresses);
-        //noinspection unchecked
-        serverService.setHandlerFactory(handlerFactory);
+        final UdpServerService serverService;
+        synchronized (lifecycleLock) {
+            serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+            serverService.setBindAddresses(bindAddresses);
+            //noinspection unchecked
+            serverService.setHandlerFactory(handlerFactory);
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
@@ -286,10 +315,13 @@ public final class Xnio implements Closeable {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
-        final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
-        serverService.setBindAddresses(bindAddresses);
-        //noinspection unchecked
-        serverService.setHandlerFactory(handlerFactory);
+        final UdpServerService serverService;
+        synchronized (lifecycleLock) {
+            serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+            serverService.setBindAddresses(bindAddresses);
+            //noinspection unchecked
+            serverService.setHandlerFactory(handlerFactory);
+        }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
         return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
@@ -300,12 +332,14 @@ public final class Xnio implements Closeable {
      */
     public void close() throws IOException{
         if (! closed.getAndSet(true)) {
-            provider.stop();
+            synchronized (lifecycleLock) {
+                provider.stop();
+            }
         }
     }
 
 
-    private static class LifecycleCloseable implements Closeable {
+    private class LifecycleCloseable implements Closeable {
         private final Lifecycle lifecycle;
         private final AtomicBoolean closed;
 
@@ -316,12 +350,14 @@ public final class Xnio implements Closeable {
 
         public void close() throws IOException {
             if (! closed.getAndSet(true)) {
-                lifecycle.stop();
+                synchronized (lifecycleLock) {
+                    lifecycle.stop();
+                }
             }
         }
     }
 
-    private static class LifecycleConnector extends LifecycleCloseable implements TcpConnector {
+    private class LifecycleConnector extends LifecycleCloseable implements TcpConnector {
         private final AtomicBoolean closed;
         private final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> realConnector;
 
@@ -362,7 +398,7 @@ public final class Xnio implements Closeable {
         }
     }
 
-    private static class SimpleConfigurableFactory<T, Z extends Configurable & Lifecycle> implements ConfigurableFactory<T> {
+    private class SimpleConfigurableFactory<T, Z extends Configurable & Lifecycle> implements ConfigurableFactory<T> {
         private final AtomicBoolean started;
         private final T resource;
         private final Z configurableLifecycle;
@@ -377,7 +413,9 @@ public final class Xnio implements Closeable {
             if (started.get()) {
                 throw new IllegalStateException("Already created");
             }
-            configurableLifecycle.start();
+            synchronized (lifecycleLock) {
+                configurableLifecycle.start();
+            }
             return resource;
         }
 
