@@ -368,6 +368,47 @@
         </path>
     </target>
 
+    <!-- samples module -->
+
+    <target name="samples.compile.depcheck">
+        <mkdir dir="samples/target/main"/>
+        <uptodate property="samples.compile.uptodate" targetfile="samples/target/main/.lastcompile">
+            <srcfiles dir="samples/src/main/java">
+                <include name="**/"/>
+                <include name="**/*.java"/>
+                <exclude name="**/.*"/>
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="samples.compile" depends="samples.compile.depcheck" unless="samples.compile.uptodate">
+        <mkdir dir="samples/target/main/classes"/>
+        <javac
+                source="${javac.source}"
+                target="${javac.target}"
+                srcdir="samples/src/main/java"
+                destdir="samples/target/main/classes"
+                debug="true">
+            <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="api.classpath"/>
+                <path refid="logging-jdk.classpath"/>
+                <path refid="standalone.classpath"/>
+            </classpath>
+        </javac>
+        <touch file="samples/target/main/.lastcompile" verbose="false"/>
+    </target>
+
+    <target name="samples.clean">
+        <delete dir="samples/target"/>
+    </target>
+
+    <target name="samples" description="Build the samples module" depends="api,logging-jdk,standalone,samples.compile">
+        <path id="samples.classpath">
+            <pathelement location="samples/target/main/classes"/>
+        </path>
+    </target>
+
     <!-- spi module -->
 
     <target name="spi.compile.depcheck">
@@ -636,7 +677,7 @@
 
     <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,spi,standalone,test-support,version,javadoc"/>
 
-    <target name="all" description="Build everything" depends="base,deployer"/>
+    <target name="all" description="Build everything" depends="base,deployer,samples"/>
 
     <target name="jar" description="Build all JARs" depends="jar.api,jar.standalone"/>
 

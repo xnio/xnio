@@ -23,9 +23,9 @@
 package org.jboss.xnio.samples;
 
 import org.jboss.xnio.Xnio;
-import org.jboss.xnio.Connector;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.TcpConnector;
 import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import java.io.IOException;
@@ -47,8 +47,8 @@ public final class EchoClient {
         }
         final Xnio xnio = Xnio.createNio();
         try {
-            final ConfigurableFactory<Connector<SocketAddress,ConnectedStreamChannel<SocketAddress>>> connectorFactory = xnio.createTcpConnector();
-            final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> connector = connectorFactory.create();
+            final ConfigurableFactory<TcpConnector> connectorFactory = xnio.createTcpConnector();
+            final TcpConnector connector = connectorFactory.create();
             final IoFuture<ConnectedStreamChannel<SocketAddress>> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
             final ConnectedStreamChannel<SocketAddress> channel = ioFuture.get();
             try {
