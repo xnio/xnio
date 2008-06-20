@@ -33,6 +33,7 @@ import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
+import org.jboss.xnio.channels.MulticastDatagramChannel;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.TcpServerService;
@@ -239,7 +240,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super MultipointDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -256,6 +257,7 @@ public final class Xnio implements Closeable {
             throw new IllegalStateException("XNIO provider not open");
         }
         final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+        serverService.setBindAddresses(bindAddresses);
         //noinspection unchecked
         serverService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
@@ -272,7 +274,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super MultipointDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super MulticastDatagramChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
@@ -286,6 +288,7 @@ public final class Xnio implements Closeable {
             throw new IllegalStateException("XNIO provider not open");
         }
         final UdpServerService serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
+        serverService.setBindAddresses(bindAddresses);
         //noinspection unchecked
         serverService.setHandlerFactory(handlerFactory);
         final AtomicBoolean started = new AtomicBoolean(false);
