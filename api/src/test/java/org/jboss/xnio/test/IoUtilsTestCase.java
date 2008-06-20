@@ -65,30 +65,6 @@ public final class IoUtilsTestCase extends TestCase {
         LoggingHelper.init();
     }
 
-    @SuppressWarnings("unchecked")
-    public void testCreateClient() throws UnknownHostException {
-        final SocketAddress addr = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 12345);
-        final SocketAddress addr2 = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 2 }), 12345);
-        final IoHandler<ConnectedStreamChannel<SocketAddress>> handler = IoUtils.nullHandler();
-        final IoFuture<ConnectedStreamChannel<SocketAddress>> future = new FinishedIoFuture<ConnectedStreamChannel<SocketAddress>>(null);
-        final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> testConnector = new Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>() {
-            public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
-                assertSame(ioHandler, handler);
-                assertSame(dest, addr);
-                return future;
-            }
-
-            public IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
-                assertSame(ioHandler, handler);
-                assertSame(dest, addr);
-                assertSame(src, addr2);
-                return future;
-            }
-        };
-        assertSame(future, IoUtils.createClient(testConnector, Collections.singletonList(addr)).connect(handler));
-        assertSame(future, IoUtils.createBoundClient(testConnector, Collections.singletonList(new ConnectionAddress<SocketAddress>(addr2, addr))).connect(handler));
-    }
-
     public void testConnection() throws IOException {
         final boolean statuses[] = new boolean[2];
         final Client<StreamChannel> testClient = new Client<StreamChannel>() {

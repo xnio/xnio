@@ -23,6 +23,7 @@
 package org.jboss.xnio.spi;
 
 import org.jboss.xnio.Connector;
+import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.Configurable;
 import java.net.SocketAddress;
@@ -30,7 +31,7 @@ import java.net.SocketAddress;
 /**
  * A TCP connector instance.
  */
-public interface TcpConnectorService extends Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, ExecutorUser, Lifecycle, Configurable {
+public interface TcpConnectorService extends TcpConnector, ExecutorUser, Lifecycle, Configurable {
 
     /**
      * Set the socket keepalive parameter.

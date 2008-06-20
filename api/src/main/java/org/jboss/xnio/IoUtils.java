@@ -72,48 +72,6 @@ public final class IoUtils {
     private IoUtils() {}
 
     /**
-     * Create a client from a connector and an address list.  If more than one address is provided, an address is
-     * randomly chosen from the list.
-     *
-     * @param connector the connector to use
-     * @param addresses the list of potential addresses to connect to
-     * @param <A> the address type
-     * @param <T> the channel type
-     * @return the client
-     */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createClient(final Connector<A, T> connector, final List<A> addresses) {
-        return new Client<T>() {
-            public IoFuture<T> connect(final IoHandler<? super T> handler) {
-                final int s = addresses.size();
-                final int idx = s == 1 ? 0 : new Random().nextInt(s);
-                final A destAddress = addresses.get(idx);
-                return connector.connectTo(destAddress, handler);
-            }
-        };
-    }
-
-    /**
-     * Create a client from a connector and an address list.  If more than one address is provided, an address is
-     * randomly chosen from the list.
-     *
-     * @param connector the connector to use
-     * @param addresses the list of potential addresses to connect to
-     * @param <A> the address type
-     * @param <T> the channel type
-     * @return the client
-     */
-    public static <A, T extends ConnectedChannel<A> & StreamChannel> Client<T> createBoundClient(final Connector<A, T> connector, final List<ConnectionAddress<A>> addresses) {
-        return new Client<T>() {
-            public IoFuture<T> connect(final IoHandler<? super T> handler) {
-                final int s = addresses.size();
-                final int idx = s == 1 ? 0 : new Random().nextInt(s);
-                final ConnectionAddress<A> connectionAddress = addresses.get(idx);
-                return connector.connectTo(connectionAddress.getLocalAddress(), connectionAddress.getRemoteAddress(), handler);
-            }
-        };
-    }
-
-    /**
      * Create a connection using a client.  The provided handler will handle the connection.  The {@code reconnectExecutor} will
      * be used to execute a reconnect task in the event that the connection fails or is lost or terminated.  If you wish
      * to impose a time delay on reconnect, use the {@link org.jboss.xnio.IoUtils#delayedExecutor(java.util.concurrent.ScheduledExecutorService, long, java.util.concurrent.TimeUnit) delayedExecutor()} method

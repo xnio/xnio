@@ -198,7 +198,7 @@ public final class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>> createTcpConnector(final Executor executor) {
+    public ConfigurableFactory<TcpConnector> createTcpConnector(final Executor executor) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -209,7 +209,7 @@ public final class Xnio implements Closeable {
         connectorService.setExecutor(executor);
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
+        return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -218,14 +218,14 @@ public final class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>> createTcpConnector() {
+    public ConfigurableFactory<TcpConnector> createTcpConnector() {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
         final TcpConnectorService connectorService = provider.createTcpConnector();
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
+        return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -319,11 +319,11 @@ public final class Xnio implements Closeable {
         }
     }
 
-    private static class LifecycleConnector extends LifecycleCloseable implements Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> {
+    private static class LifecycleConnector extends LifecycleCloseable implements TcpConnector {
         private final AtomicBoolean closed;
         private final Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> realConnector;
 
-        private <T extends Lifecycle & Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>> LifecycleConnector(final T lifecycle, final AtomicBoolean closed) {
+        private <T extends Lifecycle & TcpConnector> LifecycleConnector(final T lifecycle, final AtomicBoolean closed) {
             super(lifecycle, closed);
             this.closed = closed;
             realConnector = lifecycle;
@@ -341,6 +341,22 @@ public final class Xnio implements Closeable {
                 throw new IllegalStateException("Connector closed");
             }
             return realConnector.connectTo(src, dest, ioHandler);
+        }
+
+        public TcpClient createClient(final SocketAddress dest) {
+            return new TcpClient() {
+                public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
+                    return realConnector.connectTo(dest, ioHandler);
+                }
+            };
+        }
+
+        public TcpClient createClient(final SocketAddress src, final SocketAddress dest) {
+            return new TcpClient() {
+                public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> ioHandler) {
+                    return realConnector.connectTo(src, dest, ioHandler);
+                }
+            };
         }
     }
 

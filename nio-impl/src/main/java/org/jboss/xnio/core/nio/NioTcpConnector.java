@@ -39,8 +39,9 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.Connector;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.TcpClient;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.spi.Lifecycle;
@@ -49,7 +50,7 @@ import org.jboss.xnio.spi.SpiUtils;
 /**
  *
  */
-public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>>, TcpConnectorService {
+public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnectorService {
 
     private static final Logger log = Logger.getLogger(NioTcpConnector.class);
 
@@ -188,6 +189,37 @@ public final class NioTcpConnector implements Lifecycle, Connector<SocketAddress
             throw new NullPointerException("handler is null");
         }
         return doConnectTo(src, dest, handler);
+    }
+
+    public TcpClient createClient(final SocketAddress dest) {
+        if (dest == null) {
+            throw new NullPointerException("dest is null");
+        }
+        return new TcpClient() {
+            public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+                if (handler == null) {
+                    throw new NullPointerException("handler is null");
+                }
+                return doConnectTo(null, dest, handler);
+            }
+        };
+    }
+
+    public TcpClient createClient(final SocketAddress src, final SocketAddress dest) {
+        if (src == null) {
+            throw new NullPointerException("src is null");
+        }
+        if (dest == null) {
+            throw new NullPointerException("dest is null");
+        }
+        return new TcpClient() {
+            public IoFuture<ConnectedStreamChannel<SocketAddress>> connect(final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {
+                if (handler == null) {
+                    throw new NullPointerException("handler is null");
+                }
+                return doConnectTo(src, dest, handler);
+            }
+        };
     }
 
     private IoFuture<ConnectedStreamChannel<SocketAddress>> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler) {

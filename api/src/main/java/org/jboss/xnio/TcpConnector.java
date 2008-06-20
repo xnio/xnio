@@ -22,48 +22,37 @@
 
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.ConnectedChannel;
+import java.net.SocketAddress;
+import org.jboss.xnio.channels.ConnectedStreamChannel;
 
 /**
- * A connector.  Instances of this interface are used to connect to arbitrary peers.
- *
- * @param <A> the address type
- * @param <T> the type of channel
+ * A connector specifically for connecting to TCP servers.
  */
-public interface Connector<A, T extends ConnectedChannel<A>> {
+public interface TcpConnector extends Connector<SocketAddress, ConnectedStreamChannel<SocketAddress>> {
+
     /**
-     * Establish a connection to a destination.
+     * Establish a connection to a TCP server.
      *
      * @param dest the destination address
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    IoFuture<T> connectTo(A dest, IoHandler<? super T> handler);
+    IoFuture<ConnectedStreamChannel<SocketAddress>> connectTo(final SocketAddress dest, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> handler);
 
     /**
-     * Establish a connection to a destination using an explicit source.
-     *
-     * @param src the source address
-     * @param dest the destination address
-     * @param handler the handler for this connection
-     * @return the future result of this operation
-     */
-    IoFuture<T> connectTo(A src, A dest, IoHandler<? super T> handler);
-
-    /**
-     * Create a client that always connects to the given destination.
+     * Create a client that always connects to the given TCP server.
      *
      * @param dest the destination to connect to
      * @return the client
      */
-    Client<T> createClient(A dest);
+    TcpClient createClient(final SocketAddress dest);
 
     /**
-     * Create a client that always connects to the given destination using an explicit source.
+     * Create a client that always connects to the given TCP from the given source address.
      *
      * @param src the source to connect from
      * @param dest the destination to connect to
      * @return the client
      */
-    Client<T> createClient(A src, A dest);
+    TcpClient createClient(final SocketAddress src, final SocketAddress dest);
 }
