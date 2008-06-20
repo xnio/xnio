@@ -30,6 +30,7 @@ import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
@@ -66,7 +67,7 @@ public final class NioTcpTestCase extends TestCase {
         }
     }
 
-    private void doConnectionTest(final Runnable body, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> clientHandler, final IoHandler<? super ConnectedStreamChannel<SocketAddress>> serverHandler) throws Exception {
+    private void doConnectionTest(final Runnable body, final IoHandler<? super TcpChannel> clientHandler, final IoHandler<? super TcpChannel> serverHandler) throws Exception {
         synchronized (this) {
             final Provider provider = new NioProvider();
             provider.start();
@@ -74,8 +75,8 @@ public final class NioTcpTestCase extends TestCase {
                 final TcpServerService tcpServerService = provider.createTcpServer();
                 tcpServerService.setReuseAddress(true);
                 tcpServerService.setBindAddresses(new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
-                tcpServerService.setHandlerFactory(new IoHandlerFactory<ConnectedStreamChannel<SocketAddress>>() {
-                    public IoHandler<? super ConnectedStreamChannel<SocketAddress>> createHandler() {
+                tcpServerService.setHandlerFactory(new IoHandlerFactory<TcpChannel>() {
+                    public IoHandler<? super TcpChannel> createHandler() {
                         return serverHandler;
                     }
                 });
@@ -85,13 +86,13 @@ public final class NioTcpTestCase extends TestCase {
                     connectorService.setConnectTimeout(10);
                     connectorService.start();
                     try {
-                        final IoFuture<ConnectedStreamChannel<SocketAddress>> ioFuture = connectorService.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
-                        final ConnectedStreamChannel<SocketAddress> connectedStreamChannel = ioFuture.get();
+                        final IoFuture<TcpChannel> ioFuture = connectorService.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
+                        final TcpChannel channel = ioFuture.get();
                         try {
                             body.run();
-                            connectedStreamChannel.close();
+                            channel.close();
                         } finally {
-                            safeClose(connectedStreamChannel);
+                            safeClose(channel);
                         }
                     } finally {
                         stop(connectorService);
