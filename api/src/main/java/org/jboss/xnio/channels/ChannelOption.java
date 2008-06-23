@@ -71,4 +71,25 @@ public final class ChannelOption {
      * Set the multicast time-to-live field for datagram sockets.  The value type for this option is {@code int}.
      */
     public static final String MULTICAST_TTL = "MULTICAST_TTL";
+
+    /**
+     * Set the IP traffic class/type-of-service for the channel.  The value type for this option is {@code int}.
+     */
+    public static final String IP_TRAFFIC_CLASS = "IP_TRAFFIC_CLASS";
+
+    /**
+     * Configure a TCP socket to receive out-of-band data alongside regular data.  The value type for this option is
+     * {@code boolean}.
+     */
+    public static final String TCP_OOB_INLINE = "TCP_OOB_INLINE";
+
+    /**
+     * Configure a channel to send a periodic heartbeat of some sort.  The value type for this option is {@code boolean}.
+     */
+    public static final String KEEP_ALIVE = "KEEP_ALIVE";
+
+    /**
+     * Configure a server with the specified backlog.  The value type for this option is {@code int}.
+     */
+    public static final String BACKLOG = "BACKLOG";
 }

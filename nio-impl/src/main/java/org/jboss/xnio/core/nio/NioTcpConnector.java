@@ -31,6 +31,7 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.Collections;
+import java.util.HashMap;
 import org.jboss.xnio.AbstractIoFuture;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
@@ -39,6 +40,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.TcpClient;
@@ -250,16 +252,77 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         }
     }
 
+    private static final Map<String, Class<?>> OPTIONS;
+
+    static {
+        final Map<String, Class<?>> options = new HashMap<String, Class<?>>();
+        options.put(ChannelOption.KEEP_ALIVE, Boolean.class);
+        options.put(ChannelOption.TCP_OOB_INLINE, Boolean.class);
+        options.put(ChannelOption.RECEIVE_BUFFER, Integer.class);
+        options.put(ChannelOption.REUSE_ADDRESSES, Boolean.class);
+        options.put(ChannelOption.SEND_BUFFER, Integer.class);
+        options.put(ChannelOption.TCP_NODELAY, Boolean.class);
+        OPTIONS = Collections.unmodifiableMap(options);
+    }
+
     public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        throw new UnsupportedOptionException("No options supported by this connector type");
+        if (name == null) {
+            throw new NullPointerException("name is null");
+        }
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
+        }
+        if (ChannelOption.KEEP_ALIVE.equals(name)) {
+            return Boolean.valueOf(keepAlive);
+        } else if (ChannelOption.TCP_OOB_INLINE.equals(name)) {
+            return Boolean.valueOf(oobInline);
+        } else if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+            final int v = receiveBufferSize;
+            return v == -1 ? null : Integer.valueOf(v);
+        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
+            return Boolean.valueOf(reuseAddress);
+        } else if (ChannelOption.SEND_BUFFER.equals(name)) {
+            final int v = sendBufferSize;
+            return v == -1 ? null : Integer.valueOf(v);
+        } else if (ChannelOption.TCP_NODELAY.equals(name)) {
+            return Boolean.valueOf(tcpNoDelay);
+        } else {
+            throw new IllegalStateException("Failed to get supported option: " + name);
+        }
     }
 
     public Map<String, Class<?>> getOptions() {
-        return Collections.emptyMap();
+        return OPTIONS;
     }
 
-    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        throw new UnsupportedOptionException("No options supported by this server type");
+    public TcpConnectorService setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+        if (name == null) {
+            throw new NullPointerException("name is null");
+        }
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
+        }
+        if (ChannelOption.KEEP_ALIVE.equals(name)) {
+            setKeepAlive(((Boolean)value).booleanValue());
+            return this;
+        } else if (ChannelOption.TCP_OOB_INLINE.equals(name)) {
+            setOobInline(((Boolean)value).booleanValue());
+            return this;
+        } else if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+            setReceiveBufferSize(((Integer)value).intValue());
+            return this;
+        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
+            setReuseAddress(((Boolean)value).booleanValue());
+            return this;
+        } else if (ChannelOption.SEND_BUFFER.equals(name)) {
+            setSendBufferSize(((Integer)value).intValue());
+            return this;
+        } else if (ChannelOption.TCP_NODELAY.equals(name)) {
+            setTcpNoDelay(((Boolean)value).booleanValue());
+            return this;
+        } else {
+            throw new IllegalStateException("Failed to set supported option: " + name);
+        }
     }
 
     /**

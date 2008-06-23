@@ -24,6 +24,8 @@ package org.jboss.xnio.core.nio;
 
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.IoHandler;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -33,6 +35,9 @@ import java.net.InetSocketAddress;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Collections;
 
 /**
  *
@@ -52,6 +57,41 @@ public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implem
 
     public Key join(final InetAddress group, final NetworkInterface iface, final InetAddress source) throws IOException {
         throw new UnsupportedOperationException("source filtering not supported");
+    }
+
+    private static final Map<String, Class<?>> OPTIONS;
+
+    static {
+        final Map<String, Class<?>> options = new HashMap<String, Class<?>>(BioDatagramChannelImpl.OPTIONS);
+        options.put(ChannelOption.MULTICAST_TTL, Integer.class);
+        OPTIONS = Collections.unmodifiableMap(options);
+    }
+
+    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
+        }
+        if (ChannelOption.MULTICAST_TTL.equals(name)) {
+            return Integer.valueOf(multicastSocket.getTimeToLive());
+        } else {
+            return super.getOption(name);
+        }
+    }
+
+    public Map<String, Class<?>> getOptions() {
+        return OPTIONS;
+    }
+
+    public UdpChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
+        }
+        if (ChannelOption.MULTICAST_TTL.equals(name)) {
+            multicastSocket.setTimeToLive(((Integer)value).intValue());
+            return this;
+        } else {
+            return super.setOption(name, value);
+        }
     }
 
     private final class BioKey implements Key {

@@ -153,7 +153,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
         return Collections.emptyMap();
     }
 
-    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public StreamChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 

@@ -156,6 +156,9 @@ public final class NioSocketChannelImpl implements TcpChannel {
         if (name == null) {
             throw new NullPointerException("name is null");
         }
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
+        }
         if (ChannelOption.CLOSE_ABORT.equals(name)) {
             return Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
@@ -167,16 +170,16 @@ public final class NioSocketChannelImpl implements TcpChannel {
         return OPTIONS;
     }
 
-    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public TcpChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
         if (name == null) {
             throw new NullPointerException("name is null");
+        }
+        if (! OPTIONS.containsKey(name)) {
+            throw new UnsupportedOptionException("Option not supported: " + name);
         }
         if (ChannelOption.CLOSE_ABORT.equals(name)) {
             if (value == null) {
                 throw new NullPointerException("value is null");
-            }
-            if (! (value instanceof Boolean)) {
-                throw new IllegalArgumentException("value must be boolean for SO_LINGER");
             }
             socket.setSoLinger(((Boolean) value).booleanValue(), 0);
         }
