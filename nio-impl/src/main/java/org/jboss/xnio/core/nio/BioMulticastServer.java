@@ -160,21 +160,15 @@ public final class BioMulticastServer implements Lifecycle, UdpServerService {
                 final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
                 channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handler, socket);
                 channels[i].open();
-                if (! SpiUtils.handleOpened(handler, channels[i])) try {
-                    socket.close();
-                } catch (Throwable t) {
-                    log.trace(t, "Socket close failed");
+                if (! SpiUtils.handleOpened(handler, channels[i])) {
+                    IoUtils.safeClose(socket);
                 }
             }
             ok = true;
         } finally {
             if (! ok) {
                 for (MulticastSocket socket : sockets) {
-                    if (socket != null) try {
-                        socket.close();
-                    } catch (Throwable t) {
-                        log.trace(t, "Socket close failed");
-                    }
+                    IoUtils.safeClose(socket);
                 }
             }
         }

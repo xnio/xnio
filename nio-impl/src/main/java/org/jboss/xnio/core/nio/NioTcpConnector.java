@@ -233,7 +233,9 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
                 executor.execute(new Runnable() {
                     public void run() {
-                        SpiUtils.<TcpChannel>handleOpened(handler, channel);
+                        if (! SpiUtils.<TcpChannel>handleOpened(handler, channel)) {
+                            IoUtils.safeClose(socketChannel);
+                        }
                     }
                 });
                 nioProvider.addChannel(channel);

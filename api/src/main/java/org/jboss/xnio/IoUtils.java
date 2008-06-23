@@ -27,12 +27,16 @@ import java.io.Closeable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.Random;
-import java.util.List;
+import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
+import java.nio.channels.Selector;
+import java.net.Socket;
+import java.net.ServerSocket;
+import java.net.DatagramSocket;
 import org.jboss.xnio.channels.StreamChannel;
-import org.jboss.xnio.channels.ConnectedChannel;
 import org.jboss.xnio.log.Logger;
+
+import java.util.logging.Handler;
 
 /**
  * General I/O utility methods.
@@ -152,18 +156,107 @@ public final class IoUtils {
     /**
      * Close a resource, logging an error if an error occurs.
      *
-     * @param closeable the resource to close
+     * @param resource the resource to close
      */
-    public static void safeClose(final Closeable closeable) {
+    public static void safeClose(final Closeable resource) {
         try {
-            if (closeable != null) {
-                closeable.close();
+            if (resource != null) {
+                resource.close();
             }
         } catch (Throwable t) {
             log.trace(t, "Closing resource failed");
         }
     }
 
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final Socket resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final DatagramSocket resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final Selector resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final ServerSocket resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final ZipFile resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final Handler resource) {
+        try {
+            if (resource != null) {
+                resource.close();
+            }
+        } catch (Throwable t) {
+            log.trace(t, "Closing resource failed");
+        }
+    }
 
     private static final class Connection<T extends StreamChannel> implements Closeable {
 

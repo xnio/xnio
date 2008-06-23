@@ -156,12 +156,22 @@ public final class NioPipeConnection implements Lifecycle, PipeService {
         this.rightSide = rightSide;
         leftSideExecutor.execute(new Runnable() {
             public void run() {
-                SpiUtils.<StreamChannel>handleOpened(leftHandler, leftSide);
+                if (! SpiUtils.<StreamChannel>handleOpened(leftHandler, leftSide)) {
+                    IoUtils.safeClose(leftToRightSource);
+                    IoUtils.safeClose(leftToRightSink);
+                    IoUtils.safeClose(rightToLeftSource);
+                    IoUtils.safeClose(rightToLeftSink);
+                }
             }
         });
         rightSideExecutor.execute(new Runnable() {
             public void run() {
-                SpiUtils.<StreamChannel>handleOpened(rightHandler, rightSide);
+                if (! SpiUtils.<StreamChannel>handleOpened(rightHandler, rightSide)) {
+                    IoUtils.safeClose(leftToRightSource);
+                    IoUtils.safeClose(leftToRightSink);
+                    IoUtils.safeClose(rightToLeftSource);
+                    IoUtils.safeClose(rightToLeftSink);
+                }
             }
         });
         nioProvider.addChannel(leftSide);

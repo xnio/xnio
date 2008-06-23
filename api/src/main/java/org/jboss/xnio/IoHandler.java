@@ -33,7 +33,9 @@ public interface IoHandler<T extends Channel> {
 
     /**
      * Handle channel open.  This method is called exactly once per channel.  When a channel is opened, both reads and
-     * writes are suspended initially.
+     * writes are suspended initially, and must be resumed manually.  If this method fails by throwing an exception,
+     * the channel open is aborted and the underlying channel is terminated without invoking the {@link #handleClosed(java.nio.channels.Channel)}
+     * method.
      *
      * @param channel the channel that was opened
      */
