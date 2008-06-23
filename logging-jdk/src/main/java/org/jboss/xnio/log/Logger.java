@@ -40,7 +40,7 @@ public final class Logger {
     /**
      * A base class for the XNIO custom log levels for JDK logging.
      */
-    public static final class Level extends java.util.logging.Level {
+    static final class Level extends java.util.logging.Level {
         private static final long serialVersionUID = 2595049467798273809L;
 
         protected Level(final String name, final int value) {
@@ -49,15 +49,15 @@ public final class Logger {
     }
 
     /** The TRACE log level. */
-    public static final Level TRACE = new Level("TRACE", 400);
+    public static final java.util.logging.Level TRACE = new Level("TRACE", 400);
     /** The DEBUG log level. */
-    public static final Level DEBUG = new Level("DEBUG", 500);
+    public static final java.util.logging.Level DEBUG = new Level("DEBUG", 500);
     /** The INFO log level. */
-    public static final Level INFO = new Level("INFO", 800);
+    public static final java.util.logging.Level INFO = new Level("INFO", 800);
     /** The WARN log level. */
-    public static final Level WARN = new Level("WARN", 900);
+    public static final java.util.logging.Level WARN = new Level("WARN", 900);
     /** The ERROR log level. */
-    public static final Level ERROR = new Level("ERROR", 1000);
+    public static final java.util.logging.Level ERROR = new Level("ERROR", 1000);
 
     @SuppressWarnings ({"NonConstantLogger"})
     private final java.util.logging.Logger logger;
@@ -99,7 +99,7 @@ public final class Logger {
         return logger.isLoggable(TRACE);
     }
 
-    private void doLog(Level level, String msg, Throwable ex, Object[] params) {
+    private void doLog(java.util.logging.Level level, String msg, Throwable ex, Object[] params) {
         if (logger.isLoggable(level)) {
             final String fmtMsg;
             if (params != null && params.length > 0) {
