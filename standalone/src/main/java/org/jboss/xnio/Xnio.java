@@ -25,15 +25,15 @@ package org.jboss.xnio;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.TcpServerService;
@@ -399,18 +399,18 @@ public final class Xnio implements Closeable {
         }
     }
 
-    private class SimpleConfigurableFactory<T, Z extends Configurable & Lifecycle> implements ConfigurableFactory<T> {
+    private class SimpleConfigurableFactory<Q, Z extends Configurable & Lifecycle> implements ConfigurableFactory<Q> {
         private final AtomicBoolean started;
-        private final T resource;
+        private final Q resource;
         private final Z configurableLifecycle;
 
-        private SimpleConfigurableFactory(final Z configurableLifecycle, final AtomicBoolean started, final T resource) {
+        private SimpleConfigurableFactory(final Z configurableLifecycle, final AtomicBoolean started, final Q resource) {
             this.started = started;
             this.resource = resource;
             this.configurableLifecycle = configurableLifecycle;
         }
 
-        public T create() throws IOException {
+        public Q create() throws IOException {
             if (started.get()) {
                 throw new IllegalStateException("Already created");
             }
@@ -420,19 +420,19 @@ public final class Xnio implements Closeable {
             return resource;
         }
 
-        public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-            return configurableLifecycle.getOption(name);
+        public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+            return configurableLifecycle.getOption(option);
         }
 
-        public Map<String, Class<?>> getOptions() {
+        public Set<ChannelOption<?>> getOptions() {
             return configurableLifecycle.getOptions();
         }
 
-        public ConfigurableFactory<T> setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+        public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
             if (started.get()) {
                 throw new IllegalStateException("Already created");
             }
-            configurableLifecycle.setOption(name, value);
+            configurableLifecycle.setOption(option, value);
             return this;
         }
     }

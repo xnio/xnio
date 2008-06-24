@@ -24,27 +24,28 @@ package org.jboss.xnio.core.nio;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.net.SocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.Executor;
-import java.util.Map;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Executor;
+import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.TcpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.spi.TcpServerService;
 
 /**
  *
@@ -215,76 +216,77 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
         }
     }
 
-    private static final Map<String, Class<?>> OPTIONS;
+    private static final Set<ChannelOption<?>> OPTIONS;
 
     static {
-        final Map<String, Class<?>> options = new HashMap<String, Class<?>>();
-        options.put(ChannelOption.REUSE_ADDRESSES, Boolean.class);
-        options.put(ChannelOption.RECEIVE_BUFFER, Integer.class);
-        options.put(ChannelOption.BACKLOG, Integer.class);
-        options.put(ChannelOption.KEEP_ALIVE, Boolean.class);
-        options.put(ChannelOption.TCP_OOB_INLINE, Boolean.class);
-        options.put(ChannelOption.TCP_NODELAY, Boolean.class);
-        OPTIONS = Collections.unmodifiableMap(options);
+        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
+        options.add(CommonOptions.REUSE_ADDRESSES);
+        options.add(CommonOptions.RECEIVE_BUFFER);
+        options.add(CommonOptions.BACKLOG);
+        options.add(CommonOptions.KEEP_ALIVE);
+        options.add(CommonOptions.TCP_OOB_INLINE);
+        options.add(CommonOptions.TCP_NODELAY);
+        OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        if (name == null) {
+    @SuppressWarnings({"unchecked"})
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        if (option == null) {
             throw new NullPointerException("name is null");
         }
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.BACKLOG.equals(name)) {
+        if (CommonOptions.BACKLOG.equals(option)) {
             final int v = backlog;
-            return v == -1 ? null : Integer.valueOf(v);
-        } else if (ChannelOption.KEEP_ALIVE.equals(name)) {
-            return Boolean.valueOf(keepAlive);
-        } else if (ChannelOption.TCP_OOB_INLINE.equals(name)) {
-            return Boolean.valueOf(oobInline);
-        } else if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+            return v == -1 ? null : (T) Integer.valueOf(v);
+        } else if (CommonOptions.KEEP_ALIVE.equals(option)) {
+            return (T) Boolean.valueOf(keepAlive);
+        } else if (CommonOptions.TCP_OOB_INLINE.equals(option)) {
+            return (T) Boolean.valueOf(oobInline);
+        } else if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             final int v = receiveBufferSize;
-            return v == -1 ? null : Integer.valueOf(v);
-        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
-            return Boolean.valueOf(reuseAddress);
-        } else if (ChannelOption.TCP_NODELAY.equals(name)) {
-            return Boolean.valueOf(tcpNoDelay);
+            return v == -1 ? null : (T) Integer.valueOf(v);
+        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
+            return (T) Boolean.valueOf(reuseAddress);
+        } else if (CommonOptions.TCP_NODELAY.equals(option)) {
+            return (T) Boolean.valueOf(tcpNoDelay);
         } else {
-            throw new IllegalStateException("Failed to get supported option: " + name);
+            throw new IllegalStateException("Failed to get supported option: " + option);
         }
     }
 
-    public Map<String, Class<?>> getOptions() {
+    public Set<ChannelOption<?>> getOptions() {
         return OPTIONS;
     }
 
-    public TcpServerService setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        if (name == null) {
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (option == null) {
             throw new NullPointerException("name is null");
         }
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.BACKLOG.equals(name)) {
+        if (CommonOptions.BACKLOG.equals(option)) {
             setBacklog(((Integer)value).intValue());
             return this;
-        } else if (ChannelOption.KEEP_ALIVE.equals(name)) {
+        } else if (CommonOptions.KEEP_ALIVE.equals(option)) {
             setKeepAlive(((Boolean)value).booleanValue());
             return this;
-        } else if (ChannelOption.TCP_OOB_INLINE.equals(name)) {
+        } else if (CommonOptions.TCP_OOB_INLINE.equals(option)) {
             setOobInline(((Boolean)value).booleanValue());
             return this;
-        } else if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+        } else if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             setReceiveBufferSize(((Integer)value).intValue());
             return this;
-        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
+        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
             setReuseAddress(((Boolean)value).booleanValue());
             return this;
-        } else if (ChannelOption.TCP_NODELAY.equals(name)) {
+        } else if (CommonOptions.TCP_NODELAY.equals(option)) {
             setTcpNoDelay(((Boolean)value).booleanValue());
             return this;
         } else {
-            throw new IllegalStateException("Failed to set supported option: " + name);
+            throw new IllegalStateException("Failed to set supported option: " + option);
         }
     }
 

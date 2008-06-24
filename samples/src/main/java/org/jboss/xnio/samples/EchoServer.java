@@ -25,7 +25,7 @@ package org.jboss.xnio.samples;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
 import java.io.IOException;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
@@ -41,7 +41,7 @@ public final class EchoServer {
         final Xnio xnio = Xnio.createNio();
         try {
             final ConfigurableFactory<Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
-            if (false) tcpServer.setOption(ChannelOption.REUSE_ADDRESSES, Boolean.TRUE);
+            if (false) tcpServer.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
             final Closeable tcpServerHandle = tcpServer.create();
             try {
                 Thread.sleep(30000L);

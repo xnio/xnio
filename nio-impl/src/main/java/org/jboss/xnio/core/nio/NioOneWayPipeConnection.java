@@ -22,16 +22,16 @@
 
 package org.jboss.xnio.core.nio;
 
+import java.io.IOException;
 import java.nio.channels.Pipe;
 import java.util.concurrent.Executor;
-import java.io.IOException;
-import org.jboss.xnio.channels.StreamSourceChannel;
-import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.OneWayPipeService;
+import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.OneWayPipeService;
+import org.jboss.xnio.spi.PipeEnd;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**

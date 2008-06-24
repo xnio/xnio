@@ -22,30 +22,29 @@
 
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.MultipointReadResult;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.log.Logger;
-import java.net.SocketAddress;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
 import java.nio.channels.CancelledKeyException;
+import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
 import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.MultipointReadResult;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
 public final class NioUdpSocketChannelImpl implements UdpChannel {
-    private static final Logger log = Logger.getLogger(NioUdpSocketChannelImpl.class);
 
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
@@ -162,15 +161,15 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         throw new UnsupportedOperationException("Multicast join");
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 
-    public Map<String, Class<?>> getOptions() {
-        return Collections.emptyMap();
+    public Set<ChannelOption<?>> getOptions() {
+        return Collections.emptySet();
     }
 
-    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 

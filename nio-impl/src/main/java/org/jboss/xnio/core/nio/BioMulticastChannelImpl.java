@@ -22,22 +22,24 @@
 
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.MultipointDatagramChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.IoHandler;
+import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.MulticastSocket;
-import java.net.InetSocketAddress;
-import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Collections;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.MultipointDatagramChannel;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
 
 /**
  *
@@ -59,38 +61,39 @@ public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implem
         throw new UnsupportedOperationException("source filtering not supported");
     }
 
-    private static final Map<String, Class<?>> OPTIONS;
+    private static final Set<ChannelOption<?>> OPTIONS;
 
     static {
-        final Map<String, Class<?>> options = new HashMap<String, Class<?>>(BioDatagramChannelImpl.OPTIONS);
-        options.put(ChannelOption.MULTICAST_TTL, Integer.class);
-        OPTIONS = Collections.unmodifiableMap(options);
+        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>(BioDatagramChannelImpl.OPTIONS);
+        options.add(CommonOptions.MULTICAST_TTL);
+        OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    @SuppressWarnings({"unchecked"})
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.MULTICAST_TTL.equals(name)) {
-            return Integer.valueOf(multicastSocket.getTimeToLive());
+        if (CommonOptions.MULTICAST_TTL.equals(option)) {
+            return (T) Integer.valueOf(multicastSocket.getTimeToLive());
         } else {
-            return super.getOption(name);
+            return super.getOption(option);
         }
     }
 
-    public Map<String, Class<?>> getOptions() {
+    public Set<ChannelOption<?>> getOptions() {
         return OPTIONS;
     }
 
-    public UdpChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.MULTICAST_TTL.equals(name)) {
+        if (CommonOptions.MULTICAST_TTL.equals(option)) {
             multicastSocket.setTimeToLive(((Integer)value).intValue());
             return this;
         } else {
-            return super.setOption(name, value);
+            return super.setOption(option, value);
         }
     }
 

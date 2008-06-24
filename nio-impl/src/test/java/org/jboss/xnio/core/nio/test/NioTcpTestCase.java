@@ -29,7 +29,7 @@ import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.core.nio.NioProvider;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
@@ -384,7 +384,7 @@ public final class NioTcpTestCase extends TestCase {
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
-                    channel.setOption(ChannelOption.CLOSE_ABORT, Boolean.TRUE);
+                    channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
                     clientOK.set(true);
                 } catch (Throwable t) {
@@ -502,7 +502,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
                     serverLatch.await(3000L, TimeUnit.MILLISECONDS);
-                    channel.setOption(ChannelOption.CLOSE_ABORT, Boolean.TRUE);
+                    channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
                     serverOK.set(true);
                 } catch (Throwable t) {

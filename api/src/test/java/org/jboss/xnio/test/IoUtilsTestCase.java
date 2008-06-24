@@ -22,39 +22,32 @@
 
 package org.jboss.xnio.test;
 
-import junit.framework.TestCase;
-import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.Connector;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.ConnectionAddress;
-import org.jboss.xnio.FinishedIoFuture;
-import org.jboss.xnio.Client;
-import org.jboss.xnio.test.support.LoggingHelper;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
-import org.jboss.xnio.channels.StreamChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
-import java.net.SocketAddress;
-import java.net.InetSocketAddress;
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.Delayed;
-import java.util.List;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Collections;
-import java.io.IOException;
-import java.io.Closeable;
-import java.nio.ByteBuffer;
+import junit.framework.TestCase;
+import org.jboss.xnio.Client;
+import org.jboss.xnio.FinishedIoFuture;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.StreamChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.test.support.LoggingHelper;
 
 /**
  *
@@ -120,15 +113,15 @@ public final class IoUtilsTestCase extends TestCase {
                         return 0;
                     }
 
-                    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+                    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
                         return null;
                     }
 
-                    public Map<String, Class<?>> getOptions() {
+                    public Set<ChannelOption<?>> getOptions() {
                         return null;
                     }
 
-                    public Configurable setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
+                    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
                         return null;
                     }
                 };

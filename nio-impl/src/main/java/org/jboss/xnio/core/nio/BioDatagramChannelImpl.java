@@ -22,28 +22,30 @@
 
 package org.jboss.xnio.core.nio;
 
-import org.jboss.xnio.channels.MultipointDatagramChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.MultipointReadResult;
-import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.log.Logger;
-import java.net.SocketAddress;
-import java.net.DatagramSocket;
+import java.io.IOException;
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
-import java.util.Collections;
-import java.util.HashMap;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.MultipointDatagramChannel;
+import org.jboss.xnio.channels.MultipointReadResult;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -267,45 +269,46 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
     }
 
-    protected static final Map<String, Class<?>> OPTIONS;
+    protected static final Set<ChannelOption<?>> OPTIONS;
 
     static {
-        final Map<String, Class<?>> options = new HashMap<String, Class<?>>();
-        options.put(ChannelOption.BROADCAST, Boolean.class);
-        options.put(ChannelOption.IP_TRAFFIC_CLASS, Integer.class);
-        OPTIONS = Collections.unmodifiableMap(options);
+        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
+        options.add(CommonOptions.BROADCAST);
+        options.add(CommonOptions.IP_TRAFFIC_CLASS);
+        OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    @SuppressWarnings({"unchecked"})
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.BROADCAST.equals(name)) {
-            return Boolean.valueOf(datagramSocket.getBroadcast());
-        } else if (ChannelOption.IP_TRAFFIC_CLASS.equals(name)) {
+        if (CommonOptions.BROADCAST.equals(option)) {
+            return (T) Boolean.valueOf(datagramSocket.getBroadcast());
+        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             final int v = datagramSocket.getTrafficClass();
-            return v == -1 ? null : Integer.valueOf(v);
+            return v == -1 ? null : (T) Integer.valueOf(v);
         } else {
-            throw new IllegalStateException("Failed to get supported option: " + name);
+            throw new IllegalStateException("Failed to get supported option: " + option);
         }
     }
 
-    public Map<String, Class<?>> getOptions() {
+    public Set<ChannelOption<?>> getOptions() {
         return OPTIONS;
     }
 
-    public UdpChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.BROADCAST.equals(name)) {
+        if (CommonOptions.BROADCAST.equals(option)) {
             datagramSocket.setBroadcast(((Boolean)value).booleanValue());
             return this;
-        } else if (ChannelOption.IP_TRAFFIC_CLASS.equals(name)) {
+        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             datagramSocket.setTrafficClass(((Integer)value).intValue());
             return this;
         } else {
-            throw new IllegalStateException("Failed to set supported option: " + name);
+            throw new IllegalStateException("Failed to set supported option: " + option);
         }
     }
 

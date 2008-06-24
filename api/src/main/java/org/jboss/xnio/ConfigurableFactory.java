@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.ChannelOption;
 import java.io.IOException;
 
 /**
@@ -39,9 +40,4 @@ public interface ConfigurableFactory<T> extends Configurable {
      * @throws java.io.IOException if an error occurs starting the instance
      */
     T create() throws IOException;
-
-    /**
-     * {@inheritDoc}
-     */
-    ConfigurableFactory<T> setOption(final String name, final Object value) throws IllegalArgumentException, IOException;
 }

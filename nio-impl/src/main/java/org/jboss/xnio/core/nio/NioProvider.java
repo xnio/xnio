@@ -23,31 +23,31 @@
 package org.jboss.xnio.core.nio;
 
 import java.io.IOException;
+import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.Channel;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Collections;
-import java.util.List;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpServerService;
-import org.jboss.xnio.spi.TcpConnectorService;
-import org.jboss.xnio.spi.UdpServerService;
-import org.jboss.xnio.spi.PipeService;
-import org.jboss.xnio.spi.OneWayPipeService;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.spi.Lifecycle;
+import org.jboss.xnio.spi.OneWayPipeService;
+import org.jboss.xnio.spi.PipeService;
+import org.jboss.xnio.spi.Provider;
+import org.jboss.xnio.spi.TcpConnectorService;
+import org.jboss.xnio.spi.TcpServerService;
+import org.jboss.xnio.spi.UdpServerService;
 
 /**
  *

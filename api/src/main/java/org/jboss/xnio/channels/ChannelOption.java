@@ -22,74 +22,46 @@
 
 package org.jboss.xnio.channels;
 
+import java.io.Serializable;
+
 /**
- * Common channel options.
+ * An option that may be applied to a channel.
  */
-public final class ChannelOption {
-    private ChannelOption() {}
+public interface ChannelOption<T> extends Serializable {
+    /**
+     * Get the name of this option.
+     *
+     * @return the name
+     */
+    String getName();
 
     /**
-     * Type of service for IP sockets.  The value type for this option is {@code int}.  The value given is only
-     * a hint to the operating system, and may be ignored.
+     * Get the concrete type of the value for this option.
+     *
+     * @return the type
      */
-    public static final String IP_TOS = "IP_TOS";
+    Class<T> getType();
 
     /**
-     * Enable broadcast support for IP datagram sockets.  The value type for this option is {@code boolean}.  If you
-     * intend to send datagrams to a broadcast address, this option must be enabled.
+     * Determine whether this channel option is equal to another.  If the argument is not a {@code ChannelOption}, {@code false}
+     * will be returned.  Two options are equal when they have the same name and are applicable to the same type.
+     *
+     * @param other the other channel option
+     * @return {@code true} if they are equal
      */
-    public static final String BROADCAST = "BROADCAST";
+    boolean equals(Object other);
 
     /**
-     * Configure a TCP socket to send an {@code RST} packet on close.  The value type for this option is {@code boolean}.
+     * The hash code for this option.  It should always be equal to {@code 31 * name.hashCode() + type.hashCode()}.
+     *
+     * @return the hash code
      */
-    public static final String CLOSE_ABORT = "CLOSE_ABORT";
+    int hashCode();
 
     /**
-     * The receive buffer size.  The value type for this option is {@code int}.  This may be used by an XNIO provider
-     * directly, or it may be passed to the underlying operating system, depending on the channel type.
+     * Return a human-readable string form of this option.
+     *
+     * @return the name of the option
      */
-    public static final String RECEIVE_BUFFER = "RECEIVE_BUFFER";
-
-    /**
-     * Configure an IP socket to reuse addresses.  The value type for this option is {@code boolean}.
-     */
-    public static final String REUSE_ADDRESSES = "REUSE_ADDRESSES";
-
-    /**
-     * The send buffer size.  The value type for this option is {@code int}.  This may be used by an XNIO provider
-     * directly, or it may be passed to the underlying operating system, depending on the channel type.
-     */
-    public static final String SEND_BUFFER = "SEND_BUFFER";
-
-    /**
-     * Configure a TCP socket to disable Nagle's algorithm.  The value type for this option is {@code boolean}.
-     */
-    public static final String TCP_NODELAY = "TCP_NODELAY";
-
-    /**
-     * Set the multicast time-to-live field for datagram sockets.  The value type for this option is {@code int}.
-     */
-    public static final String MULTICAST_TTL = "MULTICAST_TTL";
-
-    /**
-     * Set the IP traffic class/type-of-service for the channel.  The value type for this option is {@code int}.
-     */
-    public static final String IP_TRAFFIC_CLASS = "IP_TRAFFIC_CLASS";
-
-    /**
-     * Configure a TCP socket to receive out-of-band data alongside regular data.  The value type for this option is
-     * {@code boolean}.
-     */
-    public static final String TCP_OOB_INLINE = "TCP_OOB_INLINE";
-
-    /**
-     * Configure a channel to send a periodic heartbeat of some sort.  The value type for this option is {@code boolean}.
-     */
-    public static final String KEEP_ALIVE = "KEEP_ALIVE";
-
-    /**
-     * Configure a server with the specified backlog.  The value type for this option is {@code int}.
-     */
-    public static final String BACKLOG = "BACKLOG";
+    String toString();
 }

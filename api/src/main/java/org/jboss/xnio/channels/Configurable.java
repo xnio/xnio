@@ -22,7 +22,7 @@
 
 package org.jboss.xnio.channels;
 
-import java.util.Map;
+import java.util.Set;
 import java.io.IOException;
 
 /**
@@ -32,29 +32,31 @@ public interface Configurable {
     /**
      * Get the value of a channel option.
      *
-     * @param name the name of the option
+     * @param <T> the type of the option value
+     * @param option the option to get
      * @return the value of the option
      * @throws UnsupportedOptionException if the option is not supported by this channel
      * @throws IOException if an I/O error occurred when reading the option
      */
-    Object getOption(String name) throws UnsupportedOptionException, IOException;
+    <T> T getOption(ChannelOption<T> option) throws UnsupportedOptionException, IOException;
 
     /**
      * Get the options that may be set on this channel.
      *
-     * @return an unmodifiable map of options
+     * @return an unmodifiable set of options
      */
-    Map<String, Class<?>> getOptions();
+    Set<ChannelOption<?>> getOptions();
 
     /**
      * Set an option for this channel.
      *
-     * @param name the name of the option to set
+     * @param <T> the type of the option value
+     * @param option the option to set
      * @param value the value of the option to set
      * @return this channel
      * @throws UnsupportedOptionException if the option is not supported by this channel
      * @throws IllegalArgumentException if the value is not acceptable for this option
      * @throws IOException if an I/O error occured when modifying the option
      */
-    Configurable setOption(String name, Object value) throws IllegalArgumentException, IOException;
+    <T> Configurable setOption(ChannelOption<T> option, T value) throws IllegalArgumentException, IOException;
 }

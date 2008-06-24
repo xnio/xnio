@@ -22,23 +22,25 @@
 
 package org.jboss.xnio.core.nio;
 
-import java.net.SocketAddress;
-import java.net.DatagramSocket;
-import java.nio.channels.DatagramChannel;
 import java.io.IOException;
-import java.util.concurrent.Executor;
-import java.util.Map;
+import java.net.DatagramSocket;
+import java.net.SocketAddress;
+import java.nio.channels.DatagramChannel;
 import java.util.Collections;
-import java.util.HashMap;
-import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ChannelOption;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Executor;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.spi.UdpServerService;
 
 /**
  *
@@ -193,65 +195,66 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
         }
     }
 
-    protected static final Map<String, Class<?>> OPTIONS;
+    protected static final Set<ChannelOption<?>> OPTIONS;
 
     static {
-        Map<String, Class<?>> options = new HashMap<String, Class<?>>();
-        options.put(ChannelOption.RECEIVE_BUFFER, Integer.class);
-        options.put(ChannelOption.REUSE_ADDRESSES, Boolean.class);
-        options.put(ChannelOption.SEND_BUFFER, Integer.class);
-        options.put(ChannelOption.IP_TRAFFIC_CLASS, Integer.class);
-        options.put(ChannelOption.BROADCAST, Boolean.class);
-        OPTIONS = Collections.unmodifiableMap(options);
+        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
+        options.add(CommonOptions.RECEIVE_BUFFER);
+        options.add(CommonOptions.REUSE_ADDRESSES);
+        options.add(CommonOptions.SEND_BUFFER);
+        options.add(CommonOptions.IP_TRAFFIC_CLASS);
+        options.add(CommonOptions.BROADCAST);
+        OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    @SuppressWarnings({"unchecked"})
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+        if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             final int v = receiveBufferSize;
-            return v == -1 ? null : Integer.valueOf(v);
-        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
-            return Boolean.valueOf(reuseAddress);
-        } else if (ChannelOption.SEND_BUFFER.equals(name)) {
+            return v == -1 ? null : (T) Integer.valueOf(v);
+        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
+            return (T) Boolean.valueOf(reuseAddress);
+        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
             final int v = sendBufferSize;
-            return v == -1 ? null : Integer.valueOf(v);
-        } else if (ChannelOption.IP_TRAFFIC_CLASS.equals(name)) {
+            return v == -1 ? null : (T) Integer.valueOf(v);
+        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             final int v = trafficClass;
-            return v == -1 ? null : Integer.valueOf(v);
-        } else if (ChannelOption.BROADCAST.equals(name)) {
-            return Boolean.valueOf(broadcast);
+            return v == -1 ? null : (T) Integer.valueOf(v);
+        } else if (CommonOptions.BROADCAST.equals(option)) {
+            return (T) Boolean.valueOf(broadcast);
         } else {
-            throw new IllegalStateException("Failed to get supported option: " + name);
+            throw new IllegalStateException("Failed to get supported option: " + option);
         }
     }
 
-    public Map<String, Class<?>> getOptions() {
+    public Set<ChannelOption<?>> getOptions() {
         return OPTIONS;
     }
 
-    public UdpServerService setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.RECEIVE_BUFFER.equals(name)) {
+        if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             setReceiveBufferSize(((Integer)value).intValue());
             return this;
-        } else if (ChannelOption.REUSE_ADDRESSES.equals(name)) {
+        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
             setReuseAddress(((Boolean)value).booleanValue());
             return this;
-        } else if (ChannelOption.SEND_BUFFER.equals(name)) {
+        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
             setSendBufferSize(((Integer)value).intValue());
             return this;
-        } else if (ChannelOption.IP_TRAFFIC_CLASS.equals(name)) {
+        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             setTrafficClass(((Integer)value).intValue());
             return this;
-        } else if (ChannelOption.BROADCAST.equals(name)) {
+        } else if (CommonOptions.BROADCAST.equals(option)) {
             setBroadcast(((Boolean)value).booleanValue());
             return this;
         } else {
-            throw new IllegalStateException("Failed to set supported option: " + name);
+            throw new IllegalStateException("Failed to set supported option: " + option);
         }
     }
 }

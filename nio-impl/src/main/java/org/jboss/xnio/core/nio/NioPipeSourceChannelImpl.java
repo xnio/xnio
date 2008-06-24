@@ -22,20 +22,21 @@
 
 package org.jboss.xnio.core.nio;
 
-import java.nio.channels.Pipe;
-import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SelectionKey;
-import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
+import java.nio.channels.Pipe;
+import java.nio.channels.SelectionKey;
 import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.spi.SpiUtils;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -104,16 +105,16 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
         channel.close();
     }
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 
-    public Map<String, Class<?>> getOptions() {
-        return Collections.emptyMap();
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        throw new UnsupportedOptionException("No options supported");
     }
 
-    public StreamSourceChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        throw new UnsupportedOptionException("No options supported");
+    public Set<ChannelOption<?>> getOptions() {
+        return Collections.emptySet();
     }
 
     private final class Handler implements Runnable {

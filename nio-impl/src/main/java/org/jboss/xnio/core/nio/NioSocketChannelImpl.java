@@ -29,15 +29,16 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
 import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
@@ -150,34 +151,35 @@ public final class NioSocketChannelImpl implements TcpChannel {
         return socket.getLocalSocketAddress();
     }
 
-    private static final Map<String, Class<?>> OPTIONS = Collections.<String, Class<?>>singletonMap(ChannelOption.CLOSE_ABORT, Boolean.class);
+    private static final Set<ChannelOption<?>> OPTIONS = Collections.<ChannelOption<?>>singleton(CommonOptions.CLOSE_ABORT);
 
-    public Object getOption(final String name) throws UnsupportedOptionException, IOException {
-        if (name == null) {
+    @SuppressWarnings({"unchecked"})
+    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        if (option == null) {
             throw new NullPointerException("name is null");
         }
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.CLOSE_ABORT.equals(name)) {
-            return Boolean.valueOf(socket.getSoLinger() != -1);
+        if (CommonOptions.CLOSE_ABORT.equals(option)) {
+            return (T) Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
-            throw new UnsupportedOptionException("Option " + name + " not supported");
+            throw new UnsupportedOptionException("Option " + option + " not supported");
         }
     }
 
-    public Map<String, Class<?>> getOptions() {
+    public Set<ChannelOption<?>> getOptions() {
         return OPTIONS;
     }
 
-    public TcpChannel setOption(final String name, final Object value) throws IllegalArgumentException, IOException {
-        if (name == null) {
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (option == null) {
             throw new NullPointerException("name is null");
         }
-        if (! OPTIONS.containsKey(name)) {
-            throw new UnsupportedOptionException("Option not supported: " + name);
+        if (! OPTIONS.contains(option)) {
+            throw new UnsupportedOptionException("Option not supported: " + option);
         }
-        if (ChannelOption.CLOSE_ABORT.equals(name)) {
+        if (CommonOptions.CLOSE_ABORT.equals(option)) {
             if (value == null) {
                 throw new NullPointerException("value is null");
             }
