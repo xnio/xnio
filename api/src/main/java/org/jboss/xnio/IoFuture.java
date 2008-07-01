@@ -97,7 +97,7 @@ public interface IoFuture<T> {
      * @return the new status
      * @throws InterruptedException if the operation is interrupted
      */
-    Status awaitInterruptably() throws InterruptedException;
+    Status awaitInterruptibly() throws InterruptedException;
 
     /**
      * Wait for the operation to complete, with a timeout.  This method will block until the status changes from {@link Status#WAITING},
@@ -109,7 +109,7 @@ public interface IoFuture<T> {
      * @return the new status, or {@link Status#TIMED_OUT} if the timeout expired
      * @throws InterruptedException if the operation is interrupted
      */
-    Status awaitInterruptably(TimeUnit timeUnit, long time) throws InterruptedException;
+    Status awaitInterruptibly(TimeUnit timeUnit, long time) throws InterruptedException;
 
     /**
      * Get the result of the operation.  If the operation is not complete, blocks until the operation completes.  If
@@ -129,7 +129,7 @@ public interface IoFuture<T> {
      * @throws IOException if the operation failed
      * @throws InterruptedException if the operation is interrupted
      */
-    T getInterruptably() throws IOException, InterruptedException;
+    T getInterruptibly() throws IOException, InterruptedException;
 
     /**
      * Get the failure reason.

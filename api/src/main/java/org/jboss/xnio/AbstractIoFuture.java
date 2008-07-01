@@ -112,7 +112,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public Status awaitInterruptably() throws InterruptedException {
+    public Status awaitInterruptibly() throws InterruptedException {
         synchronized (lock) {
             while (status == Status.WAITING) {
                 lock.wait();
@@ -124,7 +124,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public Status awaitInterruptably(final TimeUnit timeUnit, long time) throws InterruptedException {
+    public Status awaitInterruptibly(final TimeUnit timeUnit, long time) throws InterruptedException {
         if (time < 0L) {
             time = 0L;
         }
@@ -163,9 +163,9 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     @SuppressWarnings({"unchecked"})
-    public T getInterruptably() throws IOException, InterruptedException {
+    public T getInterruptibly() throws IOException, InterruptedException {
         synchronized (lock) {
-            switch (awaitInterruptably()) {
+            switch (awaitInterruptibly()) {
                 case DONE: return (T) result;
                 case FAILED: throw (IOException) result;
                 default: throw new IllegalStateException("Unexpected state " + status);
