@@ -100,19 +100,23 @@ public final class Logger {
     }
 
     private void doLog(java.util.logging.Level level, String msg, Throwable ex, Object[] params) {
-        if (logger.isLoggable(level)) {
-            final String fmtMsg;
-            if (params != null && params.length > 0) {
-                fmtMsg = String.format(msg, params);
-            } else {
-                fmtMsg = msg;
+        try {
+            if (logger.isLoggable(level)) {
+                final String fmtMsg;
+                if (params != null && params.length > 0) {
+                    fmtMsg = String.format(msg, params);
+                } else {
+                    fmtMsg = msg;
+                }
+                LogRecord record = new LogRecord(level, fmtMsg);
+                record.setLoggerName(name);
+                if (ex != null) record.setThrown(ex);
+                record.setSourceMethodName("");
+                record.setSourceClassName("");
+                logger.log(record);
             }
-            LogRecord record = new LogRecord(level, fmtMsg);
-            record.setLoggerName(name);
-            if (ex != null) record.setThrown(ex);
-            record.setSourceMethodName("");
-            record.setSourceClassName("");
-            logger.log(record);
+        } catch (Throwable t) {
+            // ignore it, I guess...
         }
     }
 
