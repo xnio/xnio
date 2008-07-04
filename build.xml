@@ -7,6 +7,16 @@
     <!-- LIBRARIES - Keep in alpha order by target name -->
     <!-- ============================================== -->
 
+    <target name="lib.apiviz-check">
+        <available property="lib.apiviz.exists" file="${lib.apiviz.local}"/>
+    </target>
+
+    <target name="lib.apiviz" depends="lib.apiviz-check" unless="lib.apiviz.exists">
+        <mkdir dir="${local.repository}/${lib.apiviz.dir}"/>
+        <get src="${lib.apiviz.remote}" dest="${lib.apiviz.local}" usetimestamp="true" ignoreerrors="false"/>
+        <get src="${remote.license.dir}/${lib.apiviz.license}.txt" dest="${lib.apiviz.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
+    </target>
+
     <target name="lib.jaxb-api-check">
         <available property="lib.jaxb-api.exists" file="${lib.jaxb-api.local}"/>
     </target>
@@ -22,7 +32,7 @@
     </target>
 
     <target name="lib.jboss-common-core" depends="lib.jboss-common-core-check" unless="lib.jboss-common-core.exists">
-        <mkdir dir="${local.repository}/${lib.jboss-common-core.dir}"/>
+        <mkdir dir="${local.repository}/${lib.jboss-common-core.local-dir}"/>
         <get src="${lib.jboss-common-core.remote}" dest="${lib.jboss-common-core.local}" usetimestamp="true" ignoreerrors="false"/>
         <get src="${remote.license.dir}/${lib.jboss-common-core.license}.txt" dest="${lib.jboss-common-core.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
     </target>
@@ -32,7 +42,7 @@
     </target>
 
     <target name="lib.jbossmc-kernel" depends="lib.jbossmc-kernel-check" unless="lib.jbossmc-kernel.exists">
-        <mkdir dir="${local.repository}/${lib.jbossmc-kernel.dir}"/>
+        <mkdir dir="${local.repository}/${lib.jbossmc.local-dir}"/>
         <get src="${lib.jbossmc-kernel.remote}" dest="${lib.jbossmc-kernel.local}" usetimestamp="true" ignoreerrors="false"/>
         <get src="${remote.license.dir}/${lib.jbossmc-kernel.license}.txt" dest="${lib.jbossmc-kernel.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
     </target>
@@ -656,6 +666,7 @@
         <delete dir="docs/target/main/javadoc"/>
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
+            <doclet name="net.gleamynode.apiviz.APIviz" path="${lib.apiviz.local}"/>
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
             <packageset dir="standalone/src/main/java"/>
