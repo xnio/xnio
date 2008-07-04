@@ -101,7 +101,7 @@
         </uptodate>
     </target>
 
-    <target name="api.test.compile" depends="api.compile,api.test.compile.depcheck" unless="api.test.compile.uptodate">
+    <target name="api.test.compile" depends="lib.junit,api.compile,api.test.compile.depcheck" unless="api.test.compile.uptodate">
         <mkdir dir="api/target/test/classes"/>
         <javac
                 source="${javac.source}"
