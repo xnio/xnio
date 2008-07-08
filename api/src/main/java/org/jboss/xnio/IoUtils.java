@@ -76,21 +76,21 @@ public final class IoUtils {
     private IoUtils() {}
 
     /**
-     * Create a connection using a client.  The provided handler will handle the connection.  The {@code reconnectExecutor} will
+     * Create a persistent connection using a channel source.  The provided handler will handle the connection.  The {@code reconnectExecutor} will
      * be used to execute a reconnect task in the event that the connection fails or is lost or terminated.  If you wish
      * to impose a time delay on reconnect, use the {@link org.jboss.xnio.IoUtils#delayedExecutor(java.util.concurrent.ScheduledExecutorService, long, java.util.concurrent.TimeUnit) delayedExecutor()} method
      * to create a delayed executor.  If you do not want to auto-reconnect use the {@link org.jboss.xnio.IoUtils#nullExecutor()} method to
      * create a null executor.  If you want auto-reconnect to take place immediately, use the {@link IoUtils#directExecutor()} method
      * to create a direct executor.
      *
-     * @param client the client to connect on
+     * @param channelSource the client to connect on
      * @param handler the handler for the connection
      * @param reconnectExecutor the executor that should execute the reconnect task
      * @param <T> the channel type
      * @return a handle which can be used to terminate the connection
      */
-    public static <T extends StreamChannel> Closeable createConnection(final Client<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
-        final Connection<T> connection = new Connection<T>(client, handler, reconnectExecutor);
+    public static <T extends StreamChannel> Closeable createConnection(final ChannelSource<T> channelSource, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
+        final Connection<T> connection = new Connection<T>(channelSource, handler, reconnectExecutor);
         connection.connect();
         return connection;
     }
@@ -260,7 +260,7 @@ public final class IoUtils {
 
     private static final class Connection<T extends StreamChannel> implements Closeable {
 
-        private final Client<T> client;
+        private final ChannelSource<T> channelSource;
         private final IoHandler<? super T> handler;
         private final Executor reconnectExecutor;
 
@@ -271,15 +271,15 @@ public final class IoUtils {
         private final HandlerImpl handlerWrapper = new HandlerImpl();
         private final ReconnectTask reconnectTask = new ReconnectTask();
 
-        private Connection(final Client<T> client, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
-            this.client = client;
+        private Connection(final ChannelSource<T> channelSource, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
+            this.channelSource = channelSource;
             this.handler = handler;
             this.reconnectExecutor = reconnectExecutor;
         }
 
         private void connect() {
             log.trace("Establishing connection");
-            final IoFuture<T> ioFuture = client.connect(handlerWrapper);
+            final IoFuture<T> ioFuture = channelSource.open(handlerWrapper);
             ioFuture.addNotifier(notifier);
             currentFuture = ioFuture;
         }

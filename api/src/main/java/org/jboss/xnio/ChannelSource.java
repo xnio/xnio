@@ -25,16 +25,17 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
- * A client.  Instances of this interface are used to establish a connection with a known remote endpoint.
+ * A channel source.  Instances of this interface are used to create a channel and associate it with a handler.  Example
+ * uses are to establish a TCP connection (as a client), open a serial port, etc.
  *
  * @param <T> the type of channel
  */
-public interface Client<T extends Channel> {
+public interface ChannelSource<T extends Channel> {
     /**
-     * Establish a connection.
+     * Open a channel.
      *
-     * @param handler the handler for this connection
+     * @param handler the handler for this channel
      * @return the future result of this operation
      */
-    IoFuture<T> connect(IoHandler<? super T> handler);
+    IoFuture<T> open(IoHandler<? super T> handler);
 }

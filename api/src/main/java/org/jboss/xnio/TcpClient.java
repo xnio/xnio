@@ -27,5 +27,5 @@ import org.jboss.xnio.channels.TcpChannel;
 /**
  * A client specifically for connecting to TCP remote servers.
  */
-public interface TcpClient extends Client<TcpChannel> {
+public interface TcpClient extends ChannelSource<TcpChannel> {
 }

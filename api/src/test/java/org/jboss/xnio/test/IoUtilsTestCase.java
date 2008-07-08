@@ -38,7 +38,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import junit.framework.TestCase;
-import org.jboss.xnio.Client;
+import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
@@ -60,8 +60,8 @@ public final class IoUtilsTestCase extends TestCase {
 
     public void testConnection() throws IOException {
         final boolean statuses[] = new boolean[2];
-        final Client<StreamChannel> testClient = new Client<StreamChannel>() {
-            public IoFuture<StreamChannel> connect(final IoHandler<? super StreamChannel> ioHandler) {
+        final ChannelSource<StreamChannel> testChannelSource = new ChannelSource<StreamChannel>() {
+            public IoFuture<StreamChannel> open(final IoHandler<? super StreamChannel> ioHandler) {
                 final StreamChannel channel = new StreamChannel() {
                     public void suspendReads() {
                     }
@@ -155,7 +155,7 @@ public final class IoUtilsTestCase extends TestCase {
                 statuses[1] = true;
             }
         };
-        final Closeable connection = IoUtils.createConnection(testClient, testHandler, testExecutor);
+        final Closeable connection = IoUtils.createConnection(testChannelSource, testHandler, testExecutor);
         connection.close();
         for (int i = 0; i < statuses.length; i++) {
             boolean t = statuses[i];

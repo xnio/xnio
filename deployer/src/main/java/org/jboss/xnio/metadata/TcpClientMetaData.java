@@ -25,7 +25,7 @@ package org.jboss.xnio.metadata;
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import org.jboss.xnio.ConnectionAddress;
-import org.jboss.xnio.Client;
+import org.jboss.xnio.ChannelSource;
 import java.io.Serializable;
 
 import javax.xml.bind.annotation.XmlType;
@@ -84,7 +84,7 @@ public final class TcpClientMetaData implements IoMetaData, Serializable {
 
     @XmlTransient
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData nioCoreBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Client.class.getName());
+        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, ChannelSource.class.getName());
         if (tcpConnectorBean != null) builder.addPropertyMetaData("connector", builder.createInject(tcpConnectorBean.getName()));
         if (tcpConnectorMetaData != null) builder.addPropertyMetaData("connector", tcpConnectorMetaData.getBeanMetaData(defaultExecutorBean, nioCoreBean));
         final int addressCount = connectAddresses.length;

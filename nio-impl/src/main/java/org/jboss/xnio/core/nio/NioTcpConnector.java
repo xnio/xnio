@@ -193,12 +193,12 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         return doConnectTo(src, dest, handler);
     }
 
-    public TcpClient createClient(final SocketAddress dest) {
+    public TcpClient createChannelSource(final SocketAddress dest) {
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
         return new TcpClient() {
-            public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+            public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -207,7 +207,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         };
     }
 
-    public TcpClient createClient(final SocketAddress src, final SocketAddress dest) {
+    public TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest) {
         if (src == null) {
             throw new NullPointerException("src is null");
         }
@@ -215,7 +215,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
             throw new NullPointerException("dest is null");
         }
         return new TcpClient() {
-            public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+            public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }

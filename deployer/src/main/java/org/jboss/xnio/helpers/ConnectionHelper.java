@@ -27,7 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.Client;
+import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.StreamChannel;
 
@@ -38,7 +38,7 @@ public final class ConnectionHelper<T extends StreamChannel> {
     private Closeable connection;
     private int reconnectTime = -1;
     private ScheduledExecutorService scheduledExecutor;
-    private Client<T> client;
+    private ChannelSource<T> channelSource;
     private IoHandler<? super T> handler;
 
     public int getReconnectTime() {
@@ -57,12 +57,12 @@ public final class ConnectionHelper<T extends StreamChannel> {
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public Client<T> getClient() {
-        return client;
+    public ChannelSource<T> getClient() {
+        return channelSource;
     }
 
-    public void setClient(final Client<T> client) {
-        this.client = client;
+    public void setClient(final ChannelSource<T> channelSource) {
+        this.channelSource = channelSource;
     }
 
     public IoHandler<? super T> getHandler() {
@@ -82,7 +82,7 @@ public final class ConnectionHelper<T extends StreamChannel> {
         } else {
             reconnectExecutor = IoUtils.delayedExecutor(scheduledExecutor, (long) reconnectTime, TimeUnit.MILLISECONDS);
         }
-        connection = IoUtils.<T>createConnection(client, handler, reconnectExecutor);
+        connection = IoUtils.<T>createConnection(channelSource, handler, reconnectExecutor);
     }
 
     public void stop() {

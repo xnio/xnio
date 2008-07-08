@@ -56,7 +56,7 @@ public interface Connector<A, T extends ConnectedChannel<A>> {
      * @param dest the destination to connect to
      * @return the client
      */
-    Client<T> createClient(A dest);
+    ChannelSource<T> createChannelSource(A dest);
 
     /**
      * Create a client that always connects to the given destination using an explicit source.
@@ -65,5 +65,5 @@ public interface Connector<A, T extends ConnectedChannel<A>> {
      * @param dest the destination to connect to
      * @return the client
      */
-    Client<T> createClient(A src, A dest);
+    ChannelSource<T> createChannelSource(A src, A dest);
 }

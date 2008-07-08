@@ -382,17 +382,17 @@ public final class Xnio implements Closeable {
             return realConnector.connectTo(src, dest, ioHandler);
         }
 
-        public TcpClient createClient(final SocketAddress dest) {
+        public TcpClient createChannelSource(final SocketAddress dest) {
             return new TcpClient() {
-                public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                     return realConnector.connectTo(dest, handler);
                 }
             };
         }
 
-        public TcpClient createClient(final SocketAddress src, final SocketAddress dest) {
+        public TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest) {
             return new TcpClient() {
-                public IoFuture<TcpChannel> connect(final IoHandler<? super TcpChannel> handler) {
+                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                     return realConnector.connectTo(src, dest, handler);
                 }
             };
