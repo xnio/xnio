@@ -28,5 +28,5 @@ package org.jboss.xnio.channels;
  *
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointMessageChannel<A> extends MultipointReadableMessageChannel<A>, MultipointWritableMessageChannel<A>, BoundChannel<A> {
+public interface MultipointMessageChannel<A> extends MultipointReadableMessageChannel<A>, MultipointWritableMessageChannel<A>, SuspendableChannel, Configurable {
 }

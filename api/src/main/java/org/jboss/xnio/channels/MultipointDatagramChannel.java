@@ -23,9 +23,9 @@
 package org.jboss.xnio.channels;
 
 /**
- * A multipoint datagram channel.  A multipoint datagram channel is a suspendable multipoint message channel.
+ * A multipoint datagram channel.  A multipoint datagram channel is a bound multipoint message channel.
  *
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointDatagramChannel<A> extends MultipointMessageChannel<A>, SuspendableChannel, Configurable {
+public interface MultipointDatagramChannel<A> extends MultipointMessageChannel<A>, BoundChannel<A> {
 }

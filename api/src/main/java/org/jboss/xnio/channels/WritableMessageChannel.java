@@ -24,12 +24,11 @@ package org.jboss.xnio.channels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 
 /**
  * A channel that can send messages.
  */
-public interface WritableMessageChannel extends Channel {
+public interface WritableMessageChannel extends SuspendableWriteChannel, Configurable {
     /**
      * Send a complete message.
      *

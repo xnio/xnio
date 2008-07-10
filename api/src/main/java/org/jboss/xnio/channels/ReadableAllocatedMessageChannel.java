@@ -22,7 +22,6 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 
@@ -30,7 +29,7 @@ import java.io.IOException;
  * A channel that can receive messages.  Such a channel receives whole messages only; the messages are stored
  * in pre-filled and pre-sized buffers.
  */
-public interface ReadableAllocatedMessageChannel extends Channel {
+public interface ReadableAllocatedMessageChannel extends SuspendableReadChannel {
     /**
      * Receive a message.  The returned buffer's position is 0, the mark is not set, the limit is the size of the
      * received message, and the capacity is some value greater than or equal to the limit.  If the request would
