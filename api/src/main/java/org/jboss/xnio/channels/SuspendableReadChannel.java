@@ -22,11 +22,13 @@
 
 package org.jboss.xnio.channels;
 
+import java.nio.channels.Channel;
+
 /**
  * A suspendable readable channel.  This type of channel is associated with a handler which can suspend and resume
  * reads as needed.
  */
-public interface SuspendableReadChannel extends Configurable {
+public interface SuspendableReadChannel extends Channel, Configurable {
     /**
      * Suspend further reads on this channel.  The {@link org.jboss.xnio.IoHandler#handleReadable(java.nio.channels.Channel)} method will not
      * be called until reads are resumed.

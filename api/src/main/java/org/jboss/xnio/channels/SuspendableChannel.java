@@ -22,8 +22,10 @@
 
 package org.jboss.xnio.channels;
 
+import java.nio.channels.Channel;
+
 /**
  * A suspendable bidirectional channel.
  */
-public interface SuspendableChannel extends SuspendableReadChannel, SuspendableWriteChannel {
+public interface SuspendableChannel extends Channel, SuspendableReadChannel, SuspendableWriteChannel {
 }
