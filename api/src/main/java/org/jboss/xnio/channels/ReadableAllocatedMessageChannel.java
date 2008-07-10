@@ -33,9 +33,10 @@ import java.io.IOException;
 public interface ReadableAllocatedMessageChannel extends Channel {
     /**
      * Receive a message.  The returned buffer's position is 0, the mark is not set, the limit is the size of the
-     * received message, and the capacity is some value greater than or equal to the limit.
+     * received message, and the capacity is some value greater than or equal to the limit.  If the request would
+     * block, an empty buffer is returned.  If the channel is closed from a read direction, {@code null} is returned.
      *
-     * @return a buffer containing the received message, or {@code null} if the call would block
+     * @return a buffer containing the received message, or {@code null} if the channel is at EOF
      * @throws java.io.IOException if an I/O error occurs
      */
     ByteBuffer receive() throws IOException;
