@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import java.nio.channels.Channel;
+import java.io.IOException;
 
 /**
  * A suspendable writable channel.  This type of channel is associated with a handler which can suspend and resume
@@ -40,4 +41,12 @@ public interface SuspendableWriteChannel extends Channel, Configurable {
      * called as soon as there is space in the channel's transmit buffer.
      */
     void resumeWrites();
+
+    /**
+     * Indicate that writing is complete for this channel.  Further attempts to write after shutdown will result in an
+     * exception.
+     *
+     * @throws java.io.IOException if an I/O error occurs
+     */
+    void shutdownWrites() throws IOException;
 }

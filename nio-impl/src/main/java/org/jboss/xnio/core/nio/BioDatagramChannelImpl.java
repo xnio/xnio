@@ -269,6 +269,14 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
     }
 
+    public void shutdownReads() throws IOException {
+        throw new UnsupportedOperationException("Shutdown reads");
+    }
+
+    public void shutdownWrites() throws IOException {
+        throw new UnsupportedOperationException("Shutdown writes");
+    }
+
     protected static final Set<ChannelOption<?>> OPTIONS;
 
     static {

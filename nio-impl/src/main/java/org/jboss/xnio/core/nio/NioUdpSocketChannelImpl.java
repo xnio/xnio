@@ -153,6 +153,14 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         }
     }
 
+    public void shutdownReads() throws IOException {
+        throw new UnsupportedOperationException("Shutdown reads");
+    }
+
+    public void shutdownWrites() throws IOException {
+        throw new UnsupportedOperationException("Shutdown writes");
+    }
+
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {
         throw new UnsupportedOperationException("Multicast join");
     }

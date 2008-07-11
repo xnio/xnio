@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import java.nio.channels.Channel;
+import java.io.IOException;
 
 /**
  * A suspendable readable channel.  This type of channel is associated with a handler which can suspend and resume
@@ -40,4 +41,11 @@ public interface SuspendableReadChannel extends Channel, Configurable {
      * called as soon as there is data available to be read.
      */
     void resumeReads();
+
+    /**
+     * Places this readable channel at "end of stream".  Further reads will result in EOF.
+     *
+     * @throws java.io.IOException if an I/O error occurs
+     */
+    void shutdownReads() throws IOException;
 }
