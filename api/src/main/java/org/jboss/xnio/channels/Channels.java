@@ -46,7 +46,7 @@ public final class Channels {
      * @param maxOutboundMessageSize the maximum outgoing message size
      * @return an allocated message channel source
      */
-    public static ChannelSource<AllocatedMessageChannel> convertStreamToAllocatedMessage(final ChannelSource<StreamChannel> streamChannelSource, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
+    public static ChannelSource<AllocatedMessageChannel> convertStreamToAllocatedMessage(final ChannelSource<? extends StreamChannel> streamChannelSource, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
         return new ChannelSource<AllocatedMessageChannel>() {
             public IoFuture<AllocatedMessageChannel> open(final IoHandler<? super AllocatedMessageChannel> handler) {
                 final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);

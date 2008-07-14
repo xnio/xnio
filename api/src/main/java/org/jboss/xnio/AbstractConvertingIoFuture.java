@@ -38,8 +38,9 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
      */
     protected final IoFuture<D> delegate;
 
-    protected AbstractConvertingIoFuture(final IoFuture<D> delegate) {
-        this.delegate = delegate;
+    @SuppressWarnings({"unchecked"})
+    protected AbstractConvertingIoFuture(final IoFuture<? extends D> delegate) {
+        this.delegate = (IoFuture<D>) delegate;
     }
 
     public IoFuture<T> cancel() {
