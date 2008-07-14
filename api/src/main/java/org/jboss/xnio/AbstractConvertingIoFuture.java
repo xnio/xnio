@@ -79,7 +79,7 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
         return convert(delegate.getInterruptibly());
     }
 
-    abstract protected T convert(D arg);
+    abstract protected T convert(D arg) throws IOException;
 
     public void addNotifier(final Notifier<T> notifier) {
         delegate.addNotifier(new Notifier<D>() {
