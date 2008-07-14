@@ -27,7 +27,6 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
-import java.io.IOException;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
