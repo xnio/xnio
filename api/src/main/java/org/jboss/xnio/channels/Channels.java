@@ -52,12 +52,8 @@ public final class Channels {
             public IoFuture<AllocatedMessageChannel> open(final IoHandler<? super AllocatedMessageChannel> handler) {
                 final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
                 return new AbstractConvertingIoFuture<AllocatedMessageChannel, StreamChannel>(streamChannelSource.open(innerHandler)) {
-                    public AllocatedMessageChannel get() throws IOException {
-                        return innerHandler.getChannel(delegate.get());
-                    }
-
-                    public AllocatedMessageChannel getInterruptibly() throws IOException, InterruptedException {
-                        return innerHandler.getChannel(delegate.getInterruptibly());
+                    protected AllocatedMessageChannel convert(final StreamChannel arg) {
+                        return innerHandler.getChannel(arg);
                     }
                 };
             }

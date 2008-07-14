@@ -71,6 +71,16 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
         return delegate.getException();
     }
 
+    public T get() throws IOException {
+        return convert(delegate.get());
+    }
+
+    public T getInterruptibly() throws IOException, InterruptedException {
+        return convert(delegate.getInterruptibly());
+    }
+
+    abstract protected T convert(D arg);
+
     public void addNotifier(final Notifier<T> notifier) {
         delegate.addNotifier(new Notifier<D>() {
             public void notify(final IoFuture<D> future) {
