@@ -149,7 +149,6 @@ public final class NioProvider implements Provider, Lifecycle {
             managedChannelSet.clear();
         }
         for (Channel channel : channels) {
-            System.out.println("AUTO CLOSING " + channel);
             IoUtils.safeClose(channel);
         }
         for (NioSelectorRunnable runnable : readers) {
