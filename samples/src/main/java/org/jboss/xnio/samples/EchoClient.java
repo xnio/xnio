@@ -28,6 +28,7 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.TcpConnector;
 import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.TcpChannel;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.net.InetSocketAddress;
@@ -49,7 +50,7 @@ public final class EchoClient {
         try {
             final ConfigurableFactory<TcpConnector> connectorFactory = xnio.createTcpConnector();
             final TcpConnector connector = connectorFactory.create();
-            final IoFuture<ConnectedStreamChannel<SocketAddress>> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
+            final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
             final ConnectedStreamChannel<SocketAddress> channel = ioFuture.get();
             try {
                 while (channel.isOpen()) {
