@@ -175,10 +175,13 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
                     serverSocket.setReceiveBufferSize(receiveBufferSize);
                 }
                 NioHandle handle = nioProvider.addConnectHandler(serverSocketChannel, new Handler(i));
+                final SocketAddress bindAddress = bindAddresses[i];
                 if (backlog > 0) {
-                    serverSocket.bind(bindAddresses[i], backlog);
+                    log.trace("Binding TCP server to %s with a backlog of %d", bindAddress, Integer.valueOf(backlog));
+                    serverSocket.bind(bindAddress, backlog);
                 } else {
-                    serverSocket.bind(bindAddresses[i]);
+                    log.trace("Binding TCP server to %s", bindAddress);
+                    serverSocket.bind(bindAddress);
                 }
                 serverSocketChannels[i] = serverSocketChannel;
                 serverSockets[i] = serverSocket;
@@ -194,6 +197,7 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
         for (int i = 0; i < bindCount; i++) {
             handles[i].getSelectionKey().interestOps(SelectionKey.OP_ACCEPT).selector().wakeup();
         }
+        log.trace("Successfully started TCP server");
     }
 
     public void stop() {
@@ -317,9 +321,11 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
                         ok = SpiUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
                         if (ok) {
                             nioProvider.addChannel(channel);
+                            log.trace("TCP server accepted connection");
                         }
                     } finally {
                         if (! ok) {
+                            log.trace("TCP server failed to accept connection");
                             // do NOT call close handler, since open handler was either not called or it failed
                             IoUtils.safeClose(socketChannel);
                         }

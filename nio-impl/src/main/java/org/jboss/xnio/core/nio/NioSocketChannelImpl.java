@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -44,6 +45,8 @@ import org.jboss.xnio.spi.SpiUtils;
  *
  */
 public final class NioSocketChannelImpl implements TcpChannel {
+
+    private static final Logger log = Logger.getLogger(NioSocketChannelImpl.class);
 
     private final SocketChannel socketChannel;
     private final Socket socket;
@@ -86,6 +89,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (! callFlag.getAndSet(true)) {
+                log.trace("Closing channel %s", this);
                 SpiUtils.<TcpChannel>handleClosed(handler, this);
             }
         }

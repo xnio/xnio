@@ -101,6 +101,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
         receiveBuffer = ByteBuffer.wrap(recvBufferBytes);
         sendPacket = new DatagramPacket(sendBufferBytes, sendBufSize);
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
+        log.trace("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
     }
 
     protected void open() {
@@ -123,6 +124,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
                 readerTask.cancel();
             }
         }
+        log.trace("Channel %s opened", this);
     }
 
     public SocketAddress getLocalAddress() {
@@ -190,6 +192,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
         datagramSocket.close();
         if (! closeCalled.getAndSet(true)) {
             SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
+            log.trace("Closing channel %s", this);
         }
     }
 

@@ -226,6 +226,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
 
     private IoFuture<TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
+            log.trace("Connecting from %s to %s", src, dest);
             final SocketChannel socketChannel = SocketChannel.open();
             socketChannel.configureBlocking(false);
             final Socket socket = socketChannel.socket();
@@ -235,6 +236,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
                 executor.execute(new Runnable() {
                     public void run() {
+                        log.trace("Connection from %s to %s is up (immediate)", src, dest);
                         if (! SpiUtils.<TcpChannel>handleOpened(handler, channel)) {
                             IoUtils.safeClose(socketChannel);
                         }
@@ -345,11 +347,13 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         public void run() {
             try {
                 if (socketChannel.finishConnect()) {
+                    log.trace("Connection is up (deferred)");
                     final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
                     future.setResult(channel);
                     handler.handleOpened(channel);
                     handle.cancelKey();
                 } else {
+                    log.trace("Connection is not yet up (deferred)");
                     handle.getSelectionKey().interestOps(SelectionKey.OP_CONNECT).selector().wakeup();
                     return;
                 }

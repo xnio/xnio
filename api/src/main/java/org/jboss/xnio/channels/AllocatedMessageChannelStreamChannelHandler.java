@@ -315,6 +315,7 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                         readLengthBuf.flip();
                         final int len = readLengthBuf.getInt();
                         if (len > maxInboundMessageSize || len < 0) {
+                            log.trace("Received oversized message (%d), draining", Integer.valueOf(len));
                             readState = ReadState.DRAIN;
                             drainCnt = (long)len & 0xFFFFFFFFL;
                             break;
