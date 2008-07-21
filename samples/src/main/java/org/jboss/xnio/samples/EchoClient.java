@@ -26,6 +26,7 @@ import org.jboss.xnio.Xnio;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.CloseableTcpConnector;
 import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.TcpChannel;
@@ -48,7 +49,7 @@ public final class EchoClient {
         }
         final Xnio xnio = Xnio.createNio();
         try {
-            final ConfigurableFactory<TcpConnector> connectorFactory = xnio.createTcpConnector();
+            final ConfigurableFactory<CloseableTcpConnector> connectorFactory = xnio.createTcpConnector();
             final TcpConnector connector = connectorFactory.create();
             final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
             final ConnectedStreamChannel<SocketAddress> channel = ioFuture.get();
