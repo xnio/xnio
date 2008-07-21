@@ -203,4 +203,8 @@ public final class NioSocketChannelImpl implements TcpChannel {
             SpiUtils.<TcpChannel>handleWritable(handler, NioSocketChannelImpl.this);
         }
     }
+
+    public String toString() {
+        return String.format("socket channel (NIO) <%d>", Integer.valueOf(hashCode()));
+    }
 }
