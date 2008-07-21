@@ -219,7 +219,7 @@ public final class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<TcpConnector> createTcpConnector(final Executor executor) {
+    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(final Executor executor) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -233,7 +233,7 @@ public final class Xnio implements Closeable {
         }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
+        return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -242,7 +242,7 @@ public final class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<TcpConnector> createTcpConnector() {
+    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
         }
@@ -252,7 +252,7 @@ public final class Xnio implements Closeable {
         }
         final AtomicBoolean started = new AtomicBoolean(false);
         final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<TcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
+        return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
     /**
@@ -358,7 +358,7 @@ public final class Xnio implements Closeable {
         }
     }
 
-    private class LifecycleConnector extends LifecycleCloseable implements TcpConnector {
+    private class LifecycleConnector extends LifecycleCloseable implements CloseableTcpConnector {
         private final AtomicBoolean closed;
         private final TcpConnector realConnector;
 
