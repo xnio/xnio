@@ -662,7 +662,7 @@
     <!-- JAVADOCS                                       -->
     <!-- ============================================== -->
 
-    <target name="javadoc" depends="api,logging-jdk,nio-impl,spi,standalone,version">
+    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,spi,standalone,version">
         <delete dir="docs/target/main/javadoc"/>
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
