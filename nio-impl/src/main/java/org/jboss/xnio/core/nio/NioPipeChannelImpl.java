@@ -179,4 +179,8 @@ public final class NioPipeChannelImpl implements StreamChannel {
             }
         }
     }
+
+    public String toString() {
+        return String.format("pipe channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }

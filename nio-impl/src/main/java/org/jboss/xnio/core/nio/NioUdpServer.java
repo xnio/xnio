@@ -257,4 +257,8 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
             throw new IllegalStateException("Failed to set supported option: " + option);
         }
     }
+
+    public String toString() {
+        return String.format("UDP server (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }

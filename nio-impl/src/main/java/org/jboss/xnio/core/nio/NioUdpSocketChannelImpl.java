@@ -196,4 +196,8 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
             SpiUtils.<UdpChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
         }
     }
+
+    public String toString() {
+        return String.format("UDP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }

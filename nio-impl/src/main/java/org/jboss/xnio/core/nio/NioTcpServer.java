@@ -340,4 +340,7 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
         }
     }
 
+    public String toString() {
+        return String.format("TCP server (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }

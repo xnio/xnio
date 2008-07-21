@@ -120,4 +120,8 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
             SpiUtils.<StreamSinkChannel>handleWritable(handler, NioPipeSinkChannelImpl.this);
         }
     }
+
+    public String toString() {
+        return String.format("pipe sink channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }

@@ -205,6 +205,6 @@ public final class NioSocketChannelImpl implements TcpChannel {
     }
 
     public String toString() {
-        return String.format("socket channel (NIO) <%d>", Integer.valueOf(hashCode()));
+        return String.format("TCP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
     }
 }

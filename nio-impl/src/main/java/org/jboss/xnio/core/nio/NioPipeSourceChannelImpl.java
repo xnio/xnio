@@ -122,4 +122,8 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
             SpiUtils.<StreamSourceChannel>handleReadable(handler, NioPipeSourceChannelImpl.this); 
         }
     }
+
+    public String toString() {
+        return String.format("pipe source channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+    }
 }
