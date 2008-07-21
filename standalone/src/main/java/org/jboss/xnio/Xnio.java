@@ -60,7 +60,7 @@ public final class Xnio implements Closeable {
      * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
      *
      * @return a new provider
-     * @throws IOException if an I/o error occurs while starting the service
+     * @throws IOException if an I/O error occurs while starting the service
      */
     public static Xnio createNio() throws IOException {
         return createNio(1, 1, 1);
