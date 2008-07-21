@@ -24,9 +24,11 @@ package org.jboss.xnio;
 
 import java.io.IOException;
 import java.io.Closeable;
+import java.io.InterruptedIOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
 import java.nio.channels.Selector;
@@ -129,6 +131,38 @@ public final class IoUtils {
      */
     public static Executor nullExecutor() {
         return NULL_EXECUTOR;
+    }
+
+    /**
+     * Get a closeable executor wrapper for an {@code ExecutorService}.  The given timeout is used to determine how long
+     * the {@code close()} method will wait for a clean shutdown before the executor is shut down forcefully.
+     *
+     * @param executorService the executor service
+     * @param timeout the timeout
+     * @param unit the unit for the timeout
+     * @return a new closeable executor
+     */
+    public static CloseableExecutor closeableExecutor(final ExecutorService executorService, final long timeout, final TimeUnit unit) {
+        return new CloseableExecutor() {
+            public void close() throws IOException {
+                executorService.shutdown();
+                try {
+                    if (executorService.awaitTermination(timeout, unit)) {
+                        return;
+                    }
+                    executorService.shutdownNow();
+                    throw new IOException("Executor did not shut down cleanly (killed)");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    executorService.shutdownNow();
+                    throw new InterruptedIOException("Interrupted while awaiting executor shutdown");
+                }
+            }
+
+            public void execute(final Runnable command) {
+                executorService.execute(command);
+            }
+        };
     }
 
     /**
