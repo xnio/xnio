@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.core;
+package org.jboss.xnio.nio;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -33,38 +33,40 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
+public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
+    private static final Logger log = Logger.getLogger(NioPipeSourceChannelImpl.class);
 
-    private final Pipe.SinkChannel channel;
+    private final Pipe.SourceChannel channel;
     private final NioHandle handle;
     private final NioProvider nioProvider;
-    private final IoHandler<? super StreamSinkChannel> handler;
+    private final IoHandler<? super StreamSourceChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
 
-    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioProvider nioProvider) throws IOException {
+    public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioProvider nioProvider) throws IOException {
         this.channel = channel;
         this.handler = handler;
         this.nioProvider = nioProvider;
-        handle = nioProvider.addWriteHandler(channel, new Handler());
+        handle = nioProvider.addReadHandler(channel, new Handler());
     }
 
-    public int write(final ByteBuffer dst) throws IOException {
-        return channel.write(dst);
+    public int read(final ByteBuffer dst) throws IOException {
+        return channel.read(dst);
     }
 
-    public long write(final ByteBuffer[] dsts) throws IOException {
-        return channel.write(dsts);
+    public long read(final ByteBuffer[] dsts) throws IOException {
+        return channel.read(dsts);
     }
 
-    public long write(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        return channel.write(dsts, offset, length);
+    public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        return channel.read(dsts, offset, length);
     }
 
     public boolean isOpen() {
@@ -78,12 +80,12 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
             nioProvider.removeChannel(this);
             handle.cancelKey();
             if (! callFlag.getAndSet(true)) {
-                SpiUtils.<StreamSinkChannel>handleClosed(handler, this);
+                SpiUtils.<StreamSourceChannel>handleClosed(handler, this);
             }
         }
     }
 
-    public void suspendWrites() {
+    public void suspendReads() {
         try {
             handle.getSelectionKey().interestOps(0).selector().wakeup();
         } catch (CancelledKeyException ex) {
@@ -91,15 +93,15 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
         }
     }
 
-    public void resumeWrites() {
+    public void resumeReads() {
         try {
-            handle.getSelectionKey().interestOps(SelectionKey.OP_WRITE).selector().wakeup();
+            handle.getSelectionKey().interestOps(SelectionKey.OP_READ).selector().wakeup();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
-    public void shutdownWrites() throws IOException {
+    public void shutdownReads() throws IOException {
         channel.close();
     }
 
@@ -107,21 +109,21 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
         throw new UnsupportedOptionException("No options supported");
     }
 
-    public Set<ChannelOption<?>> getOptions() {
-        return Collections.emptySet();
-    }
-
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
         throw new UnsupportedOptionException("No options supported");
     }
 
+    public Set<ChannelOption<?>> getOptions() {
+        return Collections.emptySet();
+    }
+
     private final class Handler implements Runnable {
         public void run() {
-            SpiUtils.<StreamSinkChannel>handleWritable(handler, NioPipeSinkChannelImpl.this);
+            SpiUtils.<StreamSourceChannel>handleReadable(handler, NioPipeSourceChannelImpl.this); 
         }
     }
 
     public String toString() {
-        return String.format("pipe sink channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+        return String.format("pipe source channel (NIO) <%s>", Integer.toString(hashCode(), 16));
     }
 }
