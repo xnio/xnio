@@ -20,13 +20,14 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio;
+package org.jboss.xnio.nio.standalone;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
@@ -43,6 +44,18 @@ import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.spi.PipeService;
 import org.jboss.xnio.spi.PipeEnd;
+import org.jboss.xnio.Xnio;
+import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.CloseableTcpConnector;
+import org.jboss.xnio.ChannelSource;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.FailedIoFuture;
+import org.jboss.xnio.FinishedIoFuture;
+import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.TcpClient;
+import org.jboss.xnio.IoUtils;
 
 /**
  * An XNIO provider for a standalone application.
@@ -53,9 +66,51 @@ public class XnioNioImpl extends Xnio {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final Object lifecycleLock;
 
-    protected XnioNioImpl(NioProvider provider, final Object lifecycleLock) {
+    public XnioNioImpl() throws IOException, IllegalArgumentException {
+        this(1, 1, 1);
+    }
+
+    public XnioNioImpl(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        lifecycleLock = new Object();
+        final NioProvider provider;
+        synchronized (lifecycleLock) {
+            provider = new NioProvider();
+            provider.setExecutor(IoUtils.directExecutor());
+            provider.setReadSelectorThreads(readSelectorThreads);
+            provider.setWriteSelectorThreads(writeSelectorThreads);
+            provider.setConnectionSelectorThreads(connectSelectorThreads);
+            provider.start();
+        }
         this.provider = provider;
-        this.lifecycleLock = lifecycleLock;
+    }
+
+    public XnioNioImpl(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        lifecycleLock = new Object();
+        final NioProvider provider;
+        synchronized (lifecycleLock) {
+            provider = new NioProvider();
+            provider.setExecutor(handlerExecutor);
+            provider.setReadSelectorThreads(readSelectorThreads);
+            provider.setWriteSelectorThreads(writeSelectorThreads);
+            provider.setConnectionSelectorThreads(connectSelectorThreads);
+            provider.start();
+        }
+        this.provider = provider;
+    }
+
+    public XnioNioImpl(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        lifecycleLock = new Object();
+        final NioProvider provider;
+        synchronized (lifecycleLock) {
+            provider = new NioProvider();
+            provider.setExecutor(handlerExecutor);
+            provider.setSelectorThreadFactory(selectorThreadFactory);
+            provider.setReadSelectorThreads(readSelectorThreads);
+            provider.setWriteSelectorThreads(writeSelectorThreads);
+            provider.setConnectionSelectorThreads(connectSelectorThreads);
+            provider.start();
+        }
+        this.provider = provider;
     }
 
     public ConfigurableFactory<Closeable> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {

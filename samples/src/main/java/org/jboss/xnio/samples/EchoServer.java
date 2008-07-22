@@ -24,7 +24,7 @@ package org.jboss.xnio.samples;
 
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.XnioNioImpl;
+import org.jboss.xnio.Xnio;
 import org.jboss.xnio.channels.CommonOptions;
 import java.io.IOException;
 import java.io.Closeable;
@@ -38,7 +38,7 @@ public final class EchoServer {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        final XnioNioImpl xnio = XnioNioImpl.createNio();
+        final Xnio xnio = Xnio.create();
         try {
             final ConfigurableFactory<Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
             if (false) tcpServer.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);

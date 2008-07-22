@@ -34,17 +34,17 @@ import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.nio.core.NioProvider;
 
 /**
  * The XNIO entry point class.
  */
 public abstract class Xnio implements Closeable {
 
+    private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.standalone.XnioNioImpl";
     private static final String PROVIDER_CLASS;
 
     static {
-        String provider = System.getProperty("xnio.provider", "org.jboss.xnio.XnioNioImpl");
+        String provider = System.getProperty("xnio.provider", NIO_IMPL_CLASS_NAME);
         PROVIDER_CLASS = provider;
     }
 
@@ -56,11 +56,15 @@ public abstract class Xnio implements Closeable {
      * @return an XNIO instance
      * @throws IOException the the XNIO provider could not be created
      */
-    public static Xnio createXnio() throws IOException {
+    public static Xnio create() throws IOException {
+        return createInstance(PROVIDER_CLASS, new Class[0]);
+    }
+
+    private static Xnio createInstance(String className, Class[] paramTypes, Object... params) throws IOException {
         try {
-            Class<? extends Xnio> xnioClass = Class.forName(PROVIDER_CLASS).asSubclass(Xnio.class);
-            final Constructor<? extends Xnio> constructor = xnioClass.getConstructor();
-            return constructor.newInstance();
+            Class<? extends Xnio> xnioClass = Class.forName(className).asSubclass(Xnio.class);
+            final Constructor<? extends Xnio> constructor = xnioClass.getConstructor(paramTypes);
+            return constructor.newInstance(params);
         } catch (ClassCastException e) {
             final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" is not really an XNIO provider");
             ioe.initCause(e);
@@ -81,6 +85,8 @@ public abstract class Xnio implements Closeable {
             final Throwable cause = e.getCause();
             if (cause instanceof IOException) {
                 throw (IOException) cause;
+            } else if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
             } else {
                 final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" constructor threw an exception");
                 ioe.initCause(cause);
@@ -109,12 +115,11 @@ public abstract class Xnio implements Closeable {
      *
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
-     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
+     * @deprecated Will be removed in 1.2.  Please use {@link #create()} instead, or use the constructor of your desired implementation.
      */
-    @SuppressWarnings({"deprecation"})
     @Deprecated
     public static Xnio createNio() throws IOException {
-        return createNio(1, 1, 1);
+        return createInstance(NIO_IMPL_CLASS_NAME, new Class[0]);
     }
 
     /**
@@ -127,21 +132,11 @@ public abstract class Xnio implements Closeable {
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
-     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
+     * @deprecated Will be removed in 1.2.  Please use {@link #create()} instead, or use the constructor of your desired implementation.
      */
     @Deprecated
     public static Xnio createNio(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final Object lifecycleLock = new Object();
-        final NioProvider nioProvider;
-        synchronized (lifecycleLock) {
-            nioProvider = new NioProvider();
-            nioProvider.setExecutor(IoUtils.directExecutor());
-            nioProvider.setReadSelectorThreads(readSelectorThreads);
-            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-            nioProvider.start();
-        }
-        return new XnioNioImpl(nioProvider, lifecycleLock);
+        return createInstance(NIO_IMPL_CLASS_NAME, new Class[] { Integer.class, Integer.class, Integer.class }, Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
     }
 
     /**
@@ -155,21 +150,11 @@ public abstract class Xnio implements Closeable {
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
-     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
+     * @deprecated Will be removed in 1.2.  Please use {@link #create()} instead, or use the constructor of your desired implementation.
      */
     @Deprecated
     public static Xnio createNio(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final Object lifecycleLock = new Object();
-        final NioProvider nioProvider;
-        synchronized (lifecycleLock) {
-            nioProvider = new NioProvider();
-            nioProvider.setExecutor(handlerExecutor);
-            nioProvider.setReadSelectorThreads(readSelectorThreads);
-            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-            nioProvider.start();
-        }
-        return new XnioNioImpl(nioProvider, lifecycleLock);
+        return createInstance(NIO_IMPL_CLASS_NAME, new Class[] { Executor.class, Integer.class, Integer.class, Integer.class }, handlerExecutor, Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
     }
 
     /**
@@ -182,24 +167,13 @@ public abstract class Xnio implements Closeable {
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
      * @return a new provider
-     * @throws IOException
-     * @throws IllegalArgumentException
-     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
+     * @throws IOException if an I/O error occurs while starting the service
+     * @throws IllegalArgumentException if a given argument is not valid
+     * @deprecated Will be removed in 1.2.  Please use {@link #create()} instead, or use the constructor of your desired implementation.
      */
     @Deprecated
     public static Xnio createNio(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final Object lifecycleLock = new Object();
-        final NioProvider nioProvider;
-        synchronized (lifecycleLock) {
-            nioProvider = new NioProvider();
-            nioProvider.setExecutor(handlerExecutor);
-            nioProvider.setSelectorThreadFactory(selectorThreadFactory);
-            nioProvider.setReadSelectorThreads(readSelectorThreads);
-            nioProvider.setWriteSelectorThreads(writeSelectorThreads);
-            nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
-            nioProvider.start();
-        }
-        return new XnioNioImpl(nioProvider, lifecycleLock);
+        return createInstance(NIO_IMPL_CLASS_NAME, new Class[] { Executor.class, ThreadFactory.class, Integer.class, Integer.class, Integer.class }, handlerExecutor, selectorThreadFactory, Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
     }
 
     /**
