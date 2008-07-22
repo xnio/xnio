@@ -22,11 +22,11 @@
 
 package org.jboss.xnio.samples;
 
-import org.jboss.xnio.Xnio;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.CloseableTcpConnector;
+import org.jboss.xnio.XnioNioImpl;
 import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.TcpChannel;
@@ -47,7 +47,7 @@ public final class EchoClient {
             System.err.println("Usage: java " + EchoClient.class.getName() + " <host> <port>");
             return;
         }
-        final Xnio xnio = Xnio.createNio();
+        final XnioNioImpl xnio = XnioNioImpl.createNio();
         try {
             final ConfigurableFactory<CloseableTcpConnector> connectorFactory = xnio.createTcpConnector();
             final TcpConnector connector = connectorFactory.create();

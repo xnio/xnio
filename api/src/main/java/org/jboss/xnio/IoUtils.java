@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
 import java.nio.channels.Selector;
@@ -185,6 +186,25 @@ public final class IoUtils {
     @SuppressWarnings({"unchecked"})
     public static <T extends Channel> IoHandlerFactory<T> nullHandlerFactory() {
         return (IoHandlerFactory<T>) NULL_HANDLER_FACTORY;
+    }
+
+    /**
+     * Get a singleton handler factory that returns the given handler one time only.
+     *
+     * @param handler the handler to return
+     * @return a singleton handler factory
+     */
+    public static <T extends Channel> IoHandlerFactory<T> singletonHandlerFactory(final IoHandler<T> handler) {
+        final AtomicReference<IoHandler<T>> reference = new AtomicReference<IoHandler<T>>(handler);
+        return new IoHandlerFactory<T>() {
+            public IoHandler<? super T> createHandler() {
+                final IoHandler<T> handler = reference.getAndSet(null);
+                if (handler == null) {
+                    throw new IllegalStateException("Handler already taken from singleton handler factory");
+                }
+                return handler;
+            }
+        };
     }
 
     /**

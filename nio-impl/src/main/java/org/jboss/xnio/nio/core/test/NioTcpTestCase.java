@@ -20,14 +20,14 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.core.nio.test;
+package org.jboss.xnio.nio.core.test;
 
 import junit.framework.TestCase;
 import org.jboss.xnio.spi.Provider;
 import org.jboss.xnio.spi.TcpServerService;
 import org.jboss.xnio.spi.Lifecycle;
 import org.jboss.xnio.spi.TcpConnectorService;
-import org.jboss.xnio.core.nio.NioProvider;
+import org.jboss.xnio.nio.core.NioProvider;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;

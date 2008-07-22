@@ -25,6 +25,7 @@ package org.jboss.xnio.samples;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.XnioNioImpl;
 import java.io.IOException;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
@@ -37,7 +38,7 @@ public final class UdpEchoServer {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        final Xnio xnio = Xnio.createNio();
+        final Xnio xnio = XnioNioImpl.createNio();
         final ConfigurableFactory<Closeable> factory = xnio.createUdpServer(false, new UdpEchoServerHandlerFactory(), new InetSocketAddress(10007));
         final Closeable server = factory.create();
         try {

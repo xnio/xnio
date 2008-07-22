@@ -24,35 +24,83 @@ package org.jboss.xnio;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.SocketAddress;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.UdpChannel;
+import java.net.SocketAddress;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.core.nio.NioProvider;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpServerService;
-import org.jboss.xnio.spi.TcpConnectorService;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.UdpServerService;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.StreamChannel;
+import org.jboss.xnio.channels.StreamSourceChannel;
+import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.nio.core.NioProvider;
 
 /**
- * An XNIO provider for a standalone application.
+ * The XNIO entry point class.
  */
-public final class Xnio implements Closeable {
-    private final Provider provider;
+public abstract class Xnio implements Closeable {
 
-    private final AtomicBoolean closed = new AtomicBoolean(false);
-    private final Object lifecycleLock;
+    private static final String PROVIDER_CLASS;
 
-    private Xnio(Provider provider, final Object lifecycleLock) {
-        this.provider = provider;
-        this.lifecycleLock = lifecycleLock;
+    static {
+        String provider = System.getProperty("xnio.provider", "org.jboss.xnio.XnioNioImpl");
+        PROVIDER_CLASS = provider;
+    }
+
+    /**
+     * Create an instance of the default XNIO provider.  The class name of this provider can be specified through the
+     * {@code xnio.provider} system property.  Any failure to create the XNIO provider will cause an {@code java.io.IOException}
+     * to be thrown.
+     *
+     * @return an XNIO instance
+     * @throws IOException the the XNIO provider could not be created
+     */
+    public static Xnio createXnio() throws IOException {
+        try {
+            Class<? extends Xnio> xnioClass = Class.forName(PROVIDER_CLASS).asSubclass(Xnio.class);
+            final Constructor<? extends Xnio> constructor = xnioClass.getConstructor();
+            return constructor.newInstance();
+        } catch (ClassCastException e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" is not really an XNIO provider");
+            ioe.initCause(e);
+            throw ioe;
+        } catch (ClassNotFoundException e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not found");
+            ioe.initCause(e);
+            throw ioe;
+        } catch (IllegalAccessException e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an illegal access exception");
+            ioe.initCause(e);
+            throw ioe;
+        } catch (InstantiationException e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an instantiation exception");
+            ioe.initCause(e);
+            throw ioe;
+        } catch (InvocationTargetException e) {
+            final Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            } else {
+                final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" constructor threw an exception");
+                ioe.initCause(cause);
+                throw ioe;
+            }
+        } catch (NoSuchMethodException e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" does not have an accessible no-argument constructor");
+            ioe.initCause(e);
+            throw ioe;
+        } catch (ExceptionInInitializerError e) {
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an error in initialization");
+            ioe.initCause(e);
+            throw ioe;
+        }
+    }
+
+    /**
+     * Construct an XNIO provider instance.
+     */
+    protected Xnio() {
     }
 
     /**
@@ -61,7 +109,10 @@ public final class Xnio implements Closeable {
      *
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
+     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
      */
+    @SuppressWarnings({"deprecation"})
+    @Deprecated
     public static Xnio createNio() throws IOException {
         return createNio(1, 1, 1);
     }
@@ -76,7 +127,9 @@ public final class Xnio implements Closeable {
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
+     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
      */
+    @Deprecated
     public static Xnio createNio(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         final Object lifecycleLock = new Object();
         final NioProvider nioProvider;
@@ -88,7 +141,7 @@ public final class Xnio implements Closeable {
             nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
             nioProvider.start();
         }
-        return new Xnio(nioProvider, lifecycleLock);
+        return new XnioNioImpl(nioProvider, lifecycleLock);
     }
 
     /**
@@ -102,7 +155,9 @@ public final class Xnio implements Closeable {
      * @return a new provider
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
+     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
      */
+    @Deprecated
     public static Xnio createNio(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         final Object lifecycleLock = new Object();
         final NioProvider nioProvider;
@@ -114,7 +169,7 @@ public final class Xnio implements Closeable {
             nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
             nioProvider.start();
         }
-        return new Xnio(nioProvider, lifecycleLock);
+        return new XnioNioImpl(nioProvider, lifecycleLock);
     }
 
     /**
@@ -129,7 +184,9 @@ public final class Xnio implements Closeable {
      * @return a new provider
      * @throws IOException
      * @throws IllegalArgumentException
+     * @deprecated Will be removed in 1.2.  Please use {@link #createXnio()} instead.
      */
+    @Deprecated
     public static Xnio createNio(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         final Object lifecycleLock = new Object();
         final NioProvider nioProvider;
@@ -142,7 +199,7 @@ public final class Xnio implements Closeable {
             nioProvider.setConnectionSelectorThreads(connectSelectorThreads);
             nioProvider.start();
         }
-        return new Xnio(nioProvider, lifecycleLock);
+        return new XnioNioImpl(nioProvider, lifecycleLock);
     }
 
     /**
@@ -153,33 +210,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
-        }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
-        }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
-        }
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final TcpServerService tcpServerService;
-        synchronized (lifecycleLock) {
-            tcpServerService = provider.createTcpServer();
-            if (executor != null) tcpServerService.setExecutor(executor);
-            tcpServerService.setBindAddresses(bindAddresses);
-            tcpServerService.setHandlerFactory(handlerFactory);
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
-    }
+    public abstract ConfigurableFactory<Closeable> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses);
 
     /**
      * Create a TCP server.  The server will bind to the given addresses.  The provider's executor will be used
@@ -189,29 +220,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
-        }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
-        }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
-        }
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final TcpServerService tcpServerService;
-        synchronized (lifecycleLock) {
-            tcpServerService = provider.createTcpServer();
-            tcpServerService.setBindAddresses(bindAddresses);
-            tcpServerService.setHandlerFactory(handlerFactory);
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
-    }
+    public abstract ConfigurableFactory<Closeable> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses);
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.
@@ -219,22 +228,7 @@ public final class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(final Executor executor) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final TcpConnectorService connectorService;
-        synchronized (lifecycleLock) {
-            connectorService = provider.createTcpConnector();
-            connectorService.setExecutor(executor);
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
-    }
+    public abstract ConfigurableFactory<CloseableTcpConnector> createTcpConnector(Executor executor);
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
@@ -242,18 +236,7 @@ public final class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final TcpConnectorService connectorService;
-        synchronized (lifecycleLock) {
-            connectorService = provider.createTcpConnector();
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
-    }
+    public abstract ConfigurableFactory<CloseableTcpConnector> createTcpConnector();
 
     /**
      * Create a UDP server.  The server will bind to the given addresses.  The UDP server can be configured to be
@@ -266,33 +249,7 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
-        }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
-        }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
-        }
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final UdpServerService serverService;
-        synchronized (lifecycleLock) {
-            serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
-            serverService.setBindAddresses(bindAddresses);
-            //noinspection unchecked
-            serverService.setHandlerFactory(handlerFactory);
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
-    }
+    public abstract ConfigurableFactory<Closeable> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses);
 
     /**
      * Create a UDP server.  The server will bind to the given addresses.  The provider's executor will be used to
@@ -303,137 +260,57 @@ public final class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
-        }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
-        }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
-        }
-        if (closed.get()) {
-            throw new IllegalStateException("XNIO provider not open");
-        }
-        final UdpServerService serverService;
-        synchronized (lifecycleLock) {
-            serverService = multicast ? provider.createMulticastUdpServer() : provider.createUdpServer();
-            serverService.setBindAddresses(bindAddresses);
-            //noinspection unchecked
-            serverService.setHandlerFactory(handlerFactory);
-        }
-        final AtomicBoolean started = new AtomicBoolean(false);
-        final AtomicBoolean stopped = new AtomicBoolean(false);
-        return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
-    }
+    public abstract ConfigurableFactory<Closeable> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses);
+
+    /**
+     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
+     * The returned channel source is used to establish connections to the server.
+     *
+     * @param handlerFactory the server handler factory
+     * @return the client channel source
+     */
+    public abstract ChannelSource<StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory);
+
+    /**
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
+     * The returned channel source is used to establish connections to the server.  The data flows from the server to
+     * the client.
+     *
+     * @param handlerFactory the server handler factory
+     * @return the client channel source
+     */
+    public abstract ChannelSource<StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory);
+
+    /**
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
+     * The returned channel source is used to establish connections to the server.  The data flows from the server to
+     * the client.
+     *
+     * @param handlerFactory the server handler factory
+     * @return the client channel source
+     */
+    public abstract ChannelSource<StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory);
+
+    /**
+     * Create a single pipe connection.
+     *
+     * @param leftHandler the handler for the "left" side of the pipe
+     * @param rightHandler the handler for the "right" side of the pipe
+     * @return the future connection
+     */
+    public abstract IoFuture<Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler);
+
+    /**
+     * Create a single one-way pipe connection.
+     *
+     * @param sourceHandler the handler for the "source" side of the pipe
+     * @param sinkHandler the handler for the "sink" side of the pipe
+     * @return the future connection
+     */
+    public abstract IoFuture<Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler);
 
     /**
      * Close this XNIO provider.  Calling this method more than one time has no additional effect.
      */
-    public void close() throws IOException{
-        if (! closed.getAndSet(true)) {
-            synchronized (lifecycleLock) {
-                provider.stop();
-            }
-        }
-    }
-
-
-    private class LifecycleCloseable implements Closeable {
-        private final Lifecycle lifecycle;
-        private final AtomicBoolean closed;
-
-        private LifecycleCloseable(final Lifecycle lifecycle, final AtomicBoolean closed) {
-            this.closed = closed;
-            this.lifecycle = lifecycle;
-        }
-
-        public void close() throws IOException {
-            if (! closed.getAndSet(true)) {
-                synchronized (lifecycleLock) {
-                    lifecycle.stop();
-                }
-            }
-        }
-    }
-
-    private class LifecycleConnector extends LifecycleCloseable implements CloseableTcpConnector {
-        private final AtomicBoolean closed;
-        private final TcpConnector realConnector;
-
-        private <T extends Lifecycle & TcpConnector> LifecycleConnector(final T lifecycle, final AtomicBoolean closed) {
-            super(lifecycle, closed);
-            this.closed = closed;
-            realConnector = lifecycle;
-        }
-
-        public IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
-            if (closed.get()) {
-                throw new IllegalStateException("Connector closed");
-            }
-            return realConnector.connectTo(dest, ioHandler);
-        }
-
-        public IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
-            if (closed.get()) {
-                throw new IllegalStateException("Connector closed");
-            }
-            return realConnector.connectTo(src, dest, ioHandler);
-        }
-
-        public TcpClient createChannelSource(final SocketAddress dest) {
-            return new TcpClient() {
-                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
-                    return realConnector.connectTo(dest, handler);
-                }
-            };
-        }
-
-        public TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest) {
-            return new TcpClient() {
-                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
-                    return realConnector.connectTo(src, dest, handler);
-                }
-            };
-        }
-    }
-
-    private class SimpleConfigurableFactory<Q, Z extends Configurable & Lifecycle> implements ConfigurableFactory<Q> {
-        private final AtomicBoolean started;
-        private final Q resource;
-        private final Z configurableLifecycle;
-
-        private SimpleConfigurableFactory(final Z configurableLifecycle, final AtomicBoolean started, final Q resource) {
-            this.started = started;
-            this.resource = resource;
-            this.configurableLifecycle = configurableLifecycle;
-        }
-
-        public Q create() throws IOException {
-            if (started.get()) {
-                throw new IllegalStateException("Already created");
-            }
-            synchronized (lifecycleLock) {
-                configurableLifecycle.start();
-            }
-            return resource;
-        }
-
-        public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-            return configurableLifecycle.getOption(option);
-        }
-
-        public Set<ChannelOption<?>> getOptions() {
-            return configurableLifecycle.getOptions();
-        }
-
-        public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-            if (started.get()) {
-                throw new IllegalStateException("Already created");
-            }
-            configurableLifecycle.setOption(option, value);
-            return this;
-        }
-    }
+    public abstract void close() throws IOException;
 }
