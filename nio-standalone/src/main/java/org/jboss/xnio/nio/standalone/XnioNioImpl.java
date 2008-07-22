@@ -58,7 +58,7 @@ import org.jboss.xnio.TcpClient;
 import org.jboss.xnio.IoUtils;
 
 /**
- * An XNIO provider for a standalone application.
+ * An NIO-based XNIO provider for a standalone application.
  */
 public class XnioNioImpl extends Xnio {
     private final NioProvider provider;
@@ -66,10 +66,26 @@ public class XnioNioImpl extends Xnio {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final Object lifecycleLock;
 
-    public XnioNioImpl() throws IOException, IllegalArgumentException {
+    /**
+     * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will create its own
+     * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
+     *
+     * @throws IOException if an I/O error occurs while starting the service
+     */
+    public XnioNioImpl() throws IOException {
         this(1, 1, 1);
     }
 
+    /**
+     * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will
+     * create its own selector threads.
+     *
+     * @param readSelectorThreads the number of threads to assign for readable events
+     * @param writeSelectorThreads the number of threads to assign for writable events
+     * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @throws IOException if an I/O error occurs while starting the service
+     * @throws IllegalArgumentException if a given argument is not valid
+     */
     public XnioNioImpl(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         lifecycleLock = new Object();
         final NioProvider provider;
@@ -84,6 +100,17 @@ public class XnioNioImpl extends Xnio {
         this.provider = provider;
     }
 
+    /**
+     * Create an NIO-based XNIO provider.  The given handler executor is used for the handlers; the provider will
+     * create its own selector threads.
+     *
+     * @param handlerExecutor the executor to use to handle events
+     * @param readSelectorThreads the number of threads to assign for readable events
+     * @param writeSelectorThreads the number of threads to assign for writable events
+     * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @throws IOException if an I/O error occurs while starting the service
+     * @throws IllegalArgumentException if a given argument is not valid
+     */
     public XnioNioImpl(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         lifecycleLock = new Object();
         final NioProvider provider;
@@ -98,6 +125,18 @@ public class XnioNioImpl extends Xnio {
         this.provider = provider;
     }
 
+    /**
+     * Create an NIO-based XNIO provider.  The given handler executor is used for the handlers; the given thread
+     * factory is used to create selector threads.
+     *
+     * @param handlerExecutor the executor to use to handle events
+     * @param selectorThreadFactory the selector thread factory to use
+     * @param readSelectorThreads the number of threads to assign for readable events
+     * @param writeSelectorThreads the number of threads to assign for writable events
+     * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @throws IOException if an I/O error occurs while starting the service
+     * @throws IllegalArgumentException if a given argument is not valid
+     */
     public XnioNioImpl(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         lifecycleLock = new Object();
         final NioProvider provider;
@@ -113,6 +152,7 @@ public class XnioNioImpl extends Xnio {
         this.provider = provider;
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<Closeable> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -141,6 +181,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<Closeable> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
@@ -165,6 +206,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<Closeable, TcpServerService>(tcpServerService, started, new LifecycleCloseable(tcpServerService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(final Executor executor) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -182,6 +224,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
         if (closed.get()) {
             throw new IllegalStateException("XNIO provider not open");
@@ -195,6 +238,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<CloseableTcpConnector, TcpConnectorService>(connectorService, started, new LifecycleConnector(connectorService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<Closeable> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -223,6 +267,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ConfigurableFactory<Closeable> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
@@ -248,6 +293,7 @@ public class XnioNioImpl extends Xnio {
         return new SimpleConfigurableFactory<Closeable, UdpServerService>(serverService, started, new LifecycleCloseable(serverService, stopped));
     }
 
+    /** {@inheritDoc} */
     public ChannelSource<StreamChannel> createPipeServer(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
@@ -271,22 +317,27 @@ public class XnioNioImpl extends Xnio {
         }
     }
 
+    /** {@inheritDoc} */
     public ChannelSource<StreamSourceChannel> createPipeSourceServer(final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         return null;
     }
 
+    /** {@inheritDoc} */
     public ChannelSource<StreamSinkChannel> createPipeSinkServer(final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         return null;
     }
 
+    /** {@inheritDoc} */
     public IoFuture<Closeable> createPipeConnection(final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
         return null;
     }
 
+    /** {@inheritDoc} */
     public IoFuture<Closeable> createOneWayPipeConnection(final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
         return null;
     }
 
+    /** {@inheritDoc} */
     public void close() throws IOException{
         if (! closed.getAndSet(true)) {
             synchronized (lifecycleLock) {

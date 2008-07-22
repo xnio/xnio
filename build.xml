@@ -713,6 +713,7 @@
             <doclet name="net.gleamynode.apiviz.APIviz" path="${lib.apiviz.local}"/>
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
+            <packageset dir="nio-standalone/src/main/java"/>
             <packageset dir="standalone/src/main/java"/>
             <packageset dir="version/src/main/java"/>
             <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
