@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.standalone;
+package org.jboss.xnio.nio;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,7 +37,6 @@ import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.nio.NioProvider;
 import org.jboss.xnio.spi.TcpServerService;
 import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.spi.Lifecycle;
