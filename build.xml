@@ -657,7 +657,7 @@
         </jar>
     </target>
 
-    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,spi,standalone,version" description="Build the standalone JAR">
+    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,nio-standalone,spi,standalone,version" description="Build the standalone JAR">
         <delete file="xnio-standalone.jar" failonerror="false"/>
         <delete file="xnio-standalone-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-standalone.jar">
