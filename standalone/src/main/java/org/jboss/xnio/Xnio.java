@@ -40,7 +40,7 @@ import org.jboss.xnio.channels.StreamSinkChannel;
  */
 public abstract class Xnio implements Closeable {
 
-    private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.standalone.XnioNioImpl";
+    private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.XnioNioImpl";
     private static final String PROVIDER_CLASS;
 
     static {
