@@ -182,27 +182,36 @@ public abstract class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
      * @param bindAddresses the addresses to bind to
+     *
      * @return a factory that can be used to configure the new TCP server
      */
-    public abstract ConfigurableFactory<Closeable> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses);
+    public ConfigurableFactory<Closeable> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+        throw new UnsupportedOperationException("TCP Server");
+    }
 
     /**
-     * Create a TCP server.  The server will bind to the given addresses.  The provider's executor will be used
-     * to execute handler methods.
+     * Create a TCP server.  The server will bind to the given addresses.  The provider's executor will be used to
+     * execute handler methods.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
      * @param bindAddresses the addresses to bind to
+     *
      * @return a factory that can be used to configure the new TCP server
      */
-    public abstract ConfigurableFactory<Closeable> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses);
+    public ConfigurableFactory<Closeable> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+        throw new UnsupportedOperationException("TCP Server");
+    }
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.
      *
      * @param executor the executor to use to execute the handlers
+     *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public abstract ConfigurableFactory<CloseableTcpConnector> createTcpConnector(Executor executor);
+    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(Executor executor) {
+        throw new UnsupportedOperationException("TCP Connector");
+    }
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
@@ -210,7 +219,9 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public abstract ConfigurableFactory<CloseableTcpConnector> createTcpConnector();
+    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
+        throw new UnsupportedOperationException("TCP Connector");
+    }
 
     /**
      * Create a UDP server.  The server will bind to the given addresses.  The UDP server can be configured to be
@@ -221,9 +232,12 @@ public abstract class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for each channel
      * @param bindAddresses the addresses to bind
+     *
      * @return a factory that can be used to configure the new UDP server
      */
-    public abstract ConfigurableFactory<Closeable> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses);
+    public ConfigurableFactory<Closeable> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+        throw new UnsupportedOperationException("UDP Server");
+    }
 
     /**
      * Create a UDP server.  The server will bind to the given addresses.  The provider's executor will be used to
@@ -232,56 +246,74 @@ public abstract class Xnio implements Closeable {
      * @param multicast {@code true} if the UDP server should be multicast-capable
      * @param handlerFactory the factory which will produce handlers for each channel
      * @param bindAddresses the addresses to bind
+     *
      * @return a factory that can be used to configure the new UDP server
      */
-    public abstract ConfigurableFactory<Closeable> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses);
+    public ConfigurableFactory<Closeable> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+        throw new UnsupportedOperationException("UDP Server");
+    }
 
     /**
-     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
-     * The returned channel source is used to establish connections to the server.
+     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
+     * pipe. The returned channel source is used to establish connections to the server.
      *
      * @param handlerFactory the server handler factory
+     *
      * @return the client channel source
      */
-    public abstract ChannelSource<StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory);
+    public ChannelSource<StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+        throw new UnsupportedOperationException("Pipe Server");
+    }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
-     * The returned channel source is used to establish connections to the server.  The data flows from the server to
-     * the client.
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
+     * server to the client.
      *
      * @param handlerFactory the server handler factory
+     *
      * @return the client channel source
      */
-    public abstract ChannelSource<StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory);
+    public ChannelSource<StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+        throw new UnsupportedOperationException("One-way Pipe Server");
+    }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the pipe.
-     * The returned channel source is used to establish connections to the server.  The data flows from the server to
-     * the client.
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
+     * server to the client.
      *
      * @param handlerFactory the server handler factory
+     *
      * @return the client channel source
      */
-    public abstract ChannelSource<StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory);
+    public ChannelSource<StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+        throw new UnsupportedOperationException("One-way Pipe Server");
+    }
 
     /**
      * Create a single pipe connection.
      *
      * @param leftHandler the handler for the "left" side of the pipe
      * @param rightHandler the handler for the "right" side of the pipe
+     *
      * @return the future connection
      */
-    public abstract IoFuture<Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler);
+    public IoFuture<Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+        throw new UnsupportedOperationException("Pipe Connection");
+    }
 
     /**
      * Create a single one-way pipe connection.
      *
      * @param sourceHandler the handler for the "source" side of the pipe
      * @param sinkHandler the handler for the "sink" side of the pipe
+     *
      * @return the future connection
      */
-    public abstract IoFuture<Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler);
+    public IoFuture<Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+        throw new UnsupportedOperationException("One-way Pipe Connection");
+    }
 
     /**
      * Close this XNIO provider.  Calling this method more than one time has no additional effect.
