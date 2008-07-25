@@ -29,6 +29,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
@@ -311,6 +314,50 @@ public final class IoUtils {
             log.trace(t, "Closing resource failed");
         }
     }
+
+    /**
+     * Get a {@code java.util.concurrent}-style {@code Future} instance wrapper for an {@code IoFuture} instance.
+     *
+     * @param ioFuture the {@code IoFuture} to wrap
+     * @return a {@code Future}
+     */
+    public static <T> Future<T> getFuture(final IoFuture<T> ioFuture) {
+        return new Future<T>() {
+            public boolean cancel(final boolean mayInterruptIfRunning) {
+                ioFuture.cancel();
+                return ioFuture.await() == IoFuture.Status.CANCELLED;
+            }
+
+            public boolean isCancelled() {
+                return ioFuture.getStatus() == IoFuture.Status.CANCELLED;
+            }
+
+            public boolean isDone() {
+                return ioFuture.getStatus() == IoFuture.Status.DONE;
+            }
+
+            public T get() throws InterruptedException, ExecutionException {
+                try {
+                    return ioFuture.getInterruptibly();
+                } catch (IOException e) {
+                    throw new ExecutionException(e);
+                }
+            }
+
+            public T get(final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+                try {
+                    if (ioFuture.awaitInterruptibly(unit, timeout) == IoFuture.Status.TIMED_OUT) {
+                        throw new TimeoutException("Operation timed out");
+                    }
+                    return ioFuture.getInterruptibly();
+                } catch (IOException e) {
+                    throw new ExecutionException(e);
+                }
+            }
+        };
+    }
+
+    // nested classes
 
     private static final class Connection<T extends StreamChannel> implements Closeable {
 
