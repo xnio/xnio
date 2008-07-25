@@ -45,7 +45,7 @@ import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -191,7 +191,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
         datagramSocket.close();
         if (! closeCalled.getAndSet(true)) {
-            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
+            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
             log.trace("Closing channel %s", this);
         }
     }
@@ -420,13 +420,13 @@ public class BioDatagramChannelImpl implements UdpChannel {
 
     private final class ReadHandlerTask implements Runnable {
         public void run() {
-            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleReadable(handler, BioDatagramChannelImpl.this);
+            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleReadable(handler, BioDatagramChannelImpl.this);
         }
     }
 
     private final class WriteHandlerTask implements Runnable {
         public void run() {
-            SpiUtils.<MultipointDatagramChannel<SocketAddress>>handleWritable(handler, BioDatagramChannelImpl.this);
+            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleWritable(handler, BioDatagramChannelImpl.this);
         }
     }
 }

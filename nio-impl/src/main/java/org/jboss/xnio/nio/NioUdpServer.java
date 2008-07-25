@@ -38,14 +38,11 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.spi.UdpServerService;
 
 /**
  *
  */
-public final class NioUdpServer implements Lifecycle, UdpServerService {
+public final class NioUdpServer implements Lifecycle, Configurable {
 
     private static Logger log = Logger.getLogger(NioUdpServer.class);
 
@@ -133,6 +130,10 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
         this.executor = executor;
     }
 
+    public NioUdpSocketChannelImpl[] getChannels() {
+        return channels;
+    }
+
     public void start() throws IOException {
         if (nioProvider == null) {
             throw new NullPointerException("nioProvider is null");
@@ -167,7 +168,7 @@ public final class NioUdpServer implements Lifecycle, UdpServerService {
                     continue;
                 }
                 final NioUdpSocketChannelImpl channel = channels[i];
-                if (! SpiUtils.<UdpChannel>handleOpened(channel.getHandler(), channel)) {
+                if (! HandlerUtils.<UdpChannel>handleOpened(channel.getHandler(), channel)) {
                     IoUtils.safeClose(datagramChannels[i]);
                 }
                 nioProvider.addChannel(channel);

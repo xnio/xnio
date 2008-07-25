@@ -43,14 +43,11 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.spi.TcpServerService;
 
 /**
  *
  */
-public final class NioTcpServer implements Lifecycle, TcpServerService {
+public final class NioTcpServer implements Lifecycle, Configurable {
     private static final Logger log = Logger.getLogger(NioTcpServer.class);
 
     private NioHandle[] handles;
@@ -318,7 +315,7 @@ public final class NioTcpServer implements Lifecycle, TcpServerService {
                         //noinspection unchecked
                         final IoHandler<? super TcpChannel> streamIoHandler = handlerFactory.createHandler();
                         final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, streamIoHandler);
-                        ok = SpiUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
+                        ok = HandlerUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
                         if (ok) {
                             nioProvider.addChannel(channel);
                             log.trace("TCP server accepted connection");

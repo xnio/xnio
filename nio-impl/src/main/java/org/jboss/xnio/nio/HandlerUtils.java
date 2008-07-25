@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.spi;
+package org.jboss.xnio.nio;
 
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.log.Logger;
@@ -28,8 +28,8 @@ import org.jboss.xnio.log.Logger;
 /**
  * Helpful utility methods for SPI implementations.
  */
-public final class SpiUtils {
-    private SpiUtils() {}
+public final class HandlerUtils {
+    private HandlerUtils() {}
 
     private static final Logger handlerErrorLog = Logger.getLogger("org.jboss.xnio.handler-errors");
 

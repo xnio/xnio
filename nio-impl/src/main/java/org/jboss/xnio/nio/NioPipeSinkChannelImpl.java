@@ -35,7 +35,7 @@ import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -78,7 +78,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
             nioProvider.removeChannel(this);
             handle.cancelKey();
             if (! callFlag.getAndSet(true)) {
-                SpiUtils.<StreamSinkChannel>handleClosed(handler, this);
+                HandlerUtils.<StreamSinkChannel>handleClosed(handler, this);
             }
         }
     }
@@ -117,7 +117,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
 
     private final class Handler implements Runnable {
         public void run() {
-            SpiUtils.<StreamSinkChannel>handleWritable(handler, NioPipeSinkChannelImpl.this);
+            HandlerUtils.<StreamSinkChannel>handleWritable(handler, NioPipeSinkChannelImpl.this);
         }
     }
 

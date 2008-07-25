@@ -24,8 +24,6 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.OneWayPipeService;
 
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlElement;
@@ -79,20 +77,20 @@ public final class OneWayPipeMetaData implements IoMetaData {
     }
 
     public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, OneWayPipeService.class.getName());
+        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Object.class.getName());
         builder.setFactory(providerBean);
         builder.setFactoryMethod("createPipe");
         final NamedBeanMetaData pipeExecutorBean = executorBean;
         if (pipeExecutorBean != null) builder.addPropertyMetaData("executor", pipeExecutorBean.getName());
         final BeanMetaData pipeBeanMetaData = builder.getBeanMetaData();
 
-        final BeanMetaDataBuilder sourceBuilder = BeanMetaDataBuilder.createBuilder(PipeEnd.class.getName());
+        final BeanMetaDataBuilder sourceBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
         sourceBuilder.setFactory(pipeBeanMetaData);
         sourceBuilder.setFactoryMethod("getSourceEnd");
         final NamedBeanMetaData sourceExecutorBean = sourceEnd.getExecutorBean();
         if (sourceExecutorBean != null) sourceBuilder.addPropertyMetaData("executor", sourceExecutorBean.getName());
 
-        final BeanMetaDataBuilder sinkBuilder = BeanMetaDataBuilder.createBuilder(PipeEnd.class.getName());
+        final BeanMetaDataBuilder sinkBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
         sinkBuilder.setFactory(pipeBeanMetaData);
         sinkBuilder.setFactoryMethod("getSinkEnd");
         final NamedBeanMetaData sinkExecutorBean = sinkEnd.getExecutorBean();

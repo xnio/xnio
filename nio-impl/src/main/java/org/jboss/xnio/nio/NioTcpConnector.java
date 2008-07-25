@@ -44,15 +44,13 @@ import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.spi.TcpConnectorService;
 
 /**
  *
  */
-public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnectorService {
+public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnector {
 
     private static final Logger log = Logger.getLogger(NioTcpConnector.class);
 
@@ -237,7 +235,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
                 executor.execute(new Runnable() {
                     public void run() {
                         log.trace("Connection from %s to %s is up (immediate)", src, dest);
-                        if (! SpiUtils.<TcpChannel>handleOpened(handler, channel)) {
+                        if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
                             IoUtils.safeClose(socketChannel);
                         }
                     }
@@ -298,7 +296,7 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         return OPTIONS;
     }
 
-    public <T> TcpConnectorService setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == null) {
             throw new NullPointerException("name is null");
         }
@@ -340,6 +338,8 @@ public final class NioTcpConnector implements Lifecycle, TcpConnector, TcpConnec
         public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioProvider nioProvider, final IoHandler<? super TcpChannel> handler) throws IOException {
             this.socketChannel = socketChannel;
             this.handler = handler;
+            // *should* be safe...
+            //noinspection ThisEscapedInObjectConstruction
             handle = nioProvider.addConnectHandler(socketChannel, this);
             future = new FutureImpl(executor);
         }

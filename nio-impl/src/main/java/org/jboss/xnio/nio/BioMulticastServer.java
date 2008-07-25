@@ -42,14 +42,11 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.SpiUtils;
-import org.jboss.xnio.spi.UdpServerService;
 
 /**
  *
  */
-public final class BioMulticastServer implements Lifecycle, UdpServerService {
+public final class BioMulticastServer implements Lifecycle, Configurable {
     private static final Logger log = Logger.getLogger(BioMulticastServer.class);
 
     private IoHandlerFactory<? super UdpChannel> handlerFactory;
@@ -163,7 +160,7 @@ public final class BioMulticastServer implements Lifecycle, UdpServerService {
                 final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
                 channels[i] = new BioMulticastChannelImpl(sendBufferSize, receiveBufferSize, executor, handler, socket);
                 channels[i].open();
-                if (! SpiUtils.handleOpened(handler, channels[i])) {
+                if (! HandlerUtils.handleOpened(handler, channels[i])) {
                     IoUtils.safeClose(socket);
                 }
             }

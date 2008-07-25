@@ -29,15 +29,11 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.OneWayPipeService;
-import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeService {
+public final class NioOneWayPipeConnection implements Lifecycle {
 
     private NioProvider nioProvider;
     private IoHandler<? super StreamSourceChannel> sourceHandler;
@@ -47,26 +43,8 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeServi
     private Executor executor;
     private Executor sourceSideExecutor;
     private Executor sinkSideExecutor;
-    private final PipeEnd<StreamSourceChannel> sourceEnd = new PipeEnd<StreamSourceChannel>() {
-        public void setHandler(final IoHandler<? super StreamSourceChannel> ioHandler) {
-            sourceHandler = ioHandler;
-        }
 
-        public void setExecutor(final Executor executor) {
-            sourceSideExecutor = executor;
-        }
-    };
-    private final PipeEnd<StreamSinkChannel> sinkEnd = new PipeEnd<StreamSinkChannel>() {
-        public void setHandler(final IoHandler<? super StreamSinkChannel> ioHandler) {
-            sinkHandler = ioHandler;
-        }
-
-        public void setExecutor(final Executor executor) {
-            sinkSideExecutor = executor;
-        }
-    };
-
-    public NioProvider getNioCore() {
+    public NioProvider getNioProvider() {
         return nioProvider;
     }
 
@@ -114,12 +92,20 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeServi
         this.executor = executor;
     }
 
-    public PipeEnd<StreamSourceChannel> getSourceEnd() {
-        return sourceEnd;
+    public Executor getSourceSideExecutor() {
+        return sourceSideExecutor;
     }
 
-    public PipeEnd<StreamSinkChannel> getSinkEnd() {
-        return sinkEnd;
+    public void setSourceSideExecutor(final Executor sourceSideExecutor) {
+        this.sourceSideExecutor = sourceSideExecutor;
+    }
+
+    public Executor getSinkSideExecutor() {
+        return sinkSideExecutor;
+    }
+
+    public void setSinkSideExecutor(final Executor sinkSideExecutor) {
+        this.sinkSideExecutor = sinkSideExecutor;
     }
 
     public void start() throws IOException {
@@ -130,7 +116,7 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeServi
             throw new NullPointerException("rightHandler is null");
         }
         if (nioProvider == null) {
-            throw new NullPointerException("nioCore is null");
+            throw new NullPointerException("nioProvider is null");
         }
         if (executor == null) {
             executor = nioProvider.getExecutor();
@@ -152,12 +138,12 @@ public final class NioOneWayPipeConnection implements Lifecycle, OneWayPipeServi
         this.sinkSide = sinkSide;
         sourceSideExecutor.execute(new Runnable() {
             public void run() {
-                SpiUtils.<StreamSourceChannel>handleOpened(sourceHandler, sourceSide);
+                HandlerUtils.<StreamSourceChannel>handleOpened(sourceHandler, sourceSide);
             }
         });
         sinkSideExecutor.execute(new Runnable() {
             public void run() {
-                SpiUtils.<StreamSinkChannel>handleOpened(sinkHandler, sinkSide);
+                HandlerUtils.<StreamSinkChannel>handleOpened(sinkHandler, sinkSide);
             }
         });
         nioProvider.addChannel(sourceSide);

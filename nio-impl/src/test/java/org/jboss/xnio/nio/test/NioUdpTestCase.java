@@ -23,13 +23,11 @@
 package org.jboss.xnio.nio.test;
 
 import junit.framework.TestCase;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.UdpServerService;
 import org.jboss.xnio.nio.NioProvider;
+import org.jboss.xnio.nio.NioUdpServer;
+import org.jboss.xnio.nio.BioMulticastServer;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
-import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.Buffers;
 import org.jboss.xnio.IoUtils;
@@ -61,77 +59,55 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private synchronized void start(Lifecycle lifecycle) throws IOException {
-        lifecycle.start();
+    private synchronized void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
+        final NioProvider nioProvider = new NioProvider();
+        nioProvider.start();
+        doServerSidePart(multicast, handler, body, nioProvider);
+        nioProvider.stop();
     }
 
-    private synchronized void stop(Lifecycle lifecycle) throws IOException {
-        lifecycle.stop();
-    }
-
-    private void safeStop(Lifecycle lifecycle) {
-        try {
-            stop(lifecycle);
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    private void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
-        final Provider nioProvider = new NioProvider();
-        start(nioProvider);
-        try {
-            doServerSidePart(multicast, handler, body, nioProvider);
-            stop(nioProvider);
-        } finally {
-            safeStop(nioProvider);
-        }
-    }
-
-    private void doServerSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
+    private void doServerSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final NioProvider provider) throws IOException {
         final InetSocketAddress bindAddress = SERVER_SOCKET_ADDRESS;
-        doPart(multicast, handler, body, nioProvider, bindAddress);
+        doPart(multicast, handler, body, bindAddress, provider);
     }
 
-    private void doClientSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider) throws IOException {
+    private void doClientSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final NioProvider provider) throws IOException {
         final InetSocketAddress bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 0, 0, 0, 0 }), 0);
-        doPart(multicast, handler, body, nioProvider, bindAddress);
+        doPart(multicast, handler, body, bindAddress, provider);
     }
 
-    private void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Provider nioProvider, final InetSocketAddress bindAddress) throws IOException {
-        final UdpServerService serverService = multicast ? nioProvider.createMulticastUdpServer() : nioProvider.createUdpServer();
-        serverService.setBindAddresses(new SocketAddress[] { bindAddress });
-        serverService.setHandlerFactory(new IoHandlerFactory<UdpChannel>() {
-            public IoHandler<? super UdpChannel> createHandler() {
-                return handler;
-            }
-        });
-        start(serverService);
-        try {
+    private synchronized void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final NioProvider provider) throws IOException {
+        if (multicast) {
+            final BioMulticastServer bioMulticastServer = new BioMulticastServer();
+            bioMulticastServer.setBindAddresses(new SocketAddress[] { bindAddress });
+            bioMulticastServer.setHandlerFactory(IoUtils.singletonHandlerFactory(handler));
+            bioMulticastServer.start();
             body.run();
-            stop(serverService);
-        } finally {
-            safeStop(serverService);
+            bioMulticastServer.stop();
+        } else {
+            final NioUdpServer nioUdpServer = new NioUdpServer();
+            nioUdpServer.setNioProvider(provider);
+            nioUdpServer.setBindAddresses(new SocketAddress[] { bindAddress });
+            nioUdpServer.setHandlerFactory(IoUtils.singletonHandlerFactory(handler));
+            nioUdpServer.start();
+            body.run();
+            nioUdpServer.stop();
         }
     }
 
-    private void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
-        final Provider nioProvider = new NioProvider();
-        start(nioProvider);
-        try {
-            doServerSidePart(serverMulticast, serverHandler, new Runnable() {
-                public void run() {
-                    try {
-                        doClientSidePart(clientMulticast, clientHandler, body, nioProvider);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+    private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
+        final NioProvider nioProvider = new NioProvider();
+        nioProvider.start();
+        doServerSidePart(serverMulticast, serverHandler, new Runnable() {
+            public void run() {
+                try {
+                    doClientSidePart(clientMulticast, clientHandler, body, nioProvider);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-            }, nioProvider);
-            stop(nioProvider);
-        } finally {
-            safeStop(nioProvider);
-        }
+            }
+        }, nioProvider);
+        nioProvider.stop();
     }
 
     private void doServerCreate(boolean multicast) throws Exception {

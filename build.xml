@@ -204,7 +204,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
-                <path refid="spi.classpath"/>
                 <pathelement location="${lib.jaxb-api.local}"/>
                 <pathelement location="${lib.jboss-common-core.local}"/>
                 <pathelement location="${lib.jbossmc-kernel.local}"/>
@@ -218,7 +217,7 @@
         <delete dir="deployer/target"/>
     </target>
 
-    <target name="deployer" description="Build the deployer module" depends="api,spi,lib.jaxb-api,lib.jboss-common-core,lib.jbossmc-kernel,lib.jbossxb,api,nio-impl,deployer.compile">
+    <target name="deployer" description="Build the deployer module" depends="api,lib.jaxb-api,lib.jboss-common-core,lib.jbossmc-kernel,lib.jbossxb,api,nio-impl,deployer.compile">
         <path id="deployer.classpath">
             <pathelement location="deployer/target/main/classes"/>
         </path>
@@ -287,7 +286,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="logging-jdk.classpath"/>
             </classpath>
         </javac>
@@ -318,7 +316,6 @@
                 <path refid="api.classpath"/>
                 <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="test-support.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
             </classpath>
@@ -340,7 +337,6 @@
             <classpath>
                 <path refid="test-support.classpath"/>
                 <path refid="api.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
                 <pathelement location="nio-impl/target/test/classes"/>
@@ -372,7 +368,7 @@
         <delete dir="nio-impl/target"/>
     </target>
 
-    <target name="nio-impl" description="Build the nio-impl module" depends="api,spi,nio-impl.compile">
+    <target name="nio-impl" description="Build the nio-impl module" depends="api,nio-impl.compile">
         <path id="nio-impl.classpath">
             <pathelement location="nio-impl/target/main/classes"/>
         </path>
@@ -403,7 +399,6 @@
             <classpath>
                 <path refid="api.classpath"/>
                 <path refid="nio-impl.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="standalone.classpath"/>
             </classpath>
         </javac>
@@ -414,7 +409,7 @@
         <delete dir="nio-standalone/target"/>
     </target>
 
-    <target name="nio-standalone" description="Build the nio-standalone module" depends="api,nio-impl,spi,standalone,nio-standalone.compile">
+    <target name="nio-standalone" description="Build the nio-standalone module" depends="api,nio-impl,standalone,nio-standalone.compile">
         <path id="nio-standalone.classpath">
             <pathelement location="nio-standalone/target/main/classes"/>
         </path>
@@ -461,46 +456,6 @@
         </path>
     </target>
 
-    <!-- spi module -->
-
-    <target name="spi.compile.depcheck">
-        <mkdir dir="spi/target/main"/>
-        <uptodate property="spi.compile.uptodate" targetfile="spi/target/main/.lastcompile">
-            <srcfiles dir="spi/src/main/java">
-                <include name="**/"/>
-                <include name="**/*.java"/>
-                <exclude name="**/.*"/>
-            </srcfiles>
-        </uptodate>
-    </target>
-
-    <target name="spi.compile" depends="spi.compile.depcheck" unless="spi.compile.uptodate">
-        <mkdir dir="spi/target/main/classes"/>
-        <javac
-                source="${javac.source}"
-                target="${javac.target}"
-                srcdir="spi/src/main/java"
-                destdir="spi/target/main/classes"
-                debug="true">
-            <compilerarg value="-Xlint:unchecked"/>
-            <classpath>
-                <path refid="api.classpath"/>
-                <path refid="logging-jdk.classpath"/>
-            </classpath>
-        </javac>
-        <touch file="spi/target/main/.lastcompile" verbose="false"/>
-    </target>
-
-    <target name="spi.clean">
-        <delete dir="spi/target"/>
-    </target>
-
-    <target name="spi" description="Build the spi module" depends="api,logging-jdk,spi.compile">
-        <path id="spi.classpath">
-            <pathelement location="spi/target/main/classes"/>
-        </path>
-    </target>
-
     <!-- standalone module -->
 
     <target name="standalone.compile.depcheck">
@@ -525,7 +480,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
-                <path refid="spi.classpath"/>
                 <path refid="nio-impl.classpath"/>
             </classpath>
         </javac>
@@ -536,7 +490,7 @@
         <delete dir="standalone/target"/>
     </target>
 
-    <target name="standalone" description="Build the standalone module" depends="api,spi,nio-impl,standalone.compile">
+    <target name="standalone" description="Build the standalone module" depends="api,nio-impl,standalone.compile">
         <path id="standalone.classpath">
             <pathelement location="standalone/target/main/classes"/>
         </path>
@@ -657,7 +611,7 @@
         </jar>
     </target>
 
-    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,nio-standalone,spi,standalone,version" description="Build the standalone JAR">
+    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,nio-standalone,standalone,version" description="Build the standalone JAR">
         <delete file="xnio-standalone.jar" failonerror="false"/>
         <delete file="xnio-standalone-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-standalone.jar">
@@ -677,7 +631,6 @@
             <zipfileset dir="logging-jdk/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="nio-impl/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="nio-standalone/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="spi/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="standalone/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="version/target/main/classes" includes="**/*.class"/>
         </jar>
@@ -696,7 +649,6 @@
             <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
             <zipfileset dir="nio-impl/src/main/java" includes="**/*.java"/>
             <zipfileset dir="nio-standalone/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="spi/src/main/java" includes="**/*.java"/>
             <zipfileset dir="standalone/src/main/java" includes="**/*.java"/>
             <zipfileset dir="version/src/main/java" includes="**/*.java"/>
         </jar>
@@ -706,7 +658,7 @@
     <!-- JAVADOCS                                       -->
     <!-- ============================================== -->
 
-    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,spi,standalone,version">
+    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,standalone,version">
         <delete dir="docs/target/main/javadoc"/>
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
@@ -723,7 +675,6 @@
             <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
             <classpath>
                 <path refid="nio-impl.classpath"/>
-                <path refid="spi.classpath"/>
             </classpath>
         </javadoc>
     </target>
@@ -731,7 +682,7 @@
     <!-- Default targets - keep depends in alpha order by category name -->
     <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
 
-    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,nio-standalone,spi,standalone,test-support,version,javadoc"/>
+    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,nio-standalone,standalone,test-support,version,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer,samples"/>
 
@@ -739,6 +690,6 @@
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,nio-standalone.clean,spi.clean,standalone.clean,test-support.clean,version.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,nio-standalone.clean,standalone.clean,test-support.clean,version.clean"/>
 
 </project>

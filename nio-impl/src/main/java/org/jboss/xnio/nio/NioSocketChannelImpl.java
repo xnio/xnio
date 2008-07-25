@@ -39,7 +39,7 @@ import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -90,7 +90,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
             writeHandle.cancelKey();
             if (! callFlag.getAndSet(true)) {
                 log.trace("Closing channel %s", this);
-                SpiUtils.<TcpChannel>handleClosed(handler, this);
+                HandlerUtils.<TcpChannel>handleClosed(handler, this);
             }
         }
     }
@@ -194,13 +194,13 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     private final class ReadHandler implements Runnable {
         public void run() {
-            SpiUtils.<TcpChannel>handleReadable(handler, NioSocketChannelImpl.this);
+            HandlerUtils.<TcpChannel>handleReadable(handler, NioSocketChannelImpl.this);
         }
     }
 
     private final class WriteHandler implements Runnable {
         public void run() {
-            SpiUtils.<TcpChannel>handleWritable(handler, NioSocketChannelImpl.this);
+            HandlerUtils.<TcpChannel>handleWritable(handler, NioSocketChannelImpl.this);
         }
     }
 

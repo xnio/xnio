@@ -26,7 +26,6 @@ import org.jboss.beans.metadata.spi.BeanMetaDataFactory;
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import org.jboss.xb.annotations.JBossXmlSchema;
-import org.jboss.xnio.spi.Provider;
 
 import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlElement;
@@ -124,7 +123,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
     @XmlTransient
     public List<BeanMetaData> getBeans() {
 
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder("XnioProvider", Provider.class.getName());
+        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder("XnioProvider", Object.class.getName());
         BeanMetaData nioCoreBeanMetaData = builder.getBeanMetaData();
         final List<BeanMetaData> beans = new ArrayList<BeanMetaData>();
         beans.add(nioCoreBeanMetaData);

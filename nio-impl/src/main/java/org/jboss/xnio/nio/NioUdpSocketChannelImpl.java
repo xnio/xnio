@@ -39,7 +39,7 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.spi.SpiUtils;
+import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -91,7 +91,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (!callFlag.getAndSet(true)) {
-                SpiUtils.<UdpChannel>handleClosed(handler, this);
+                HandlerUtils.<UdpChannel>handleClosed(handler, this);
             }
         }
     }
@@ -187,13 +187,13 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public final class ReadHandler implements Runnable {
         public void run() {
-            SpiUtils.<UdpChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
+            HandlerUtils.<UdpChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 
     public final class WriteHandler implements Runnable {
         public void run() {
-            SpiUtils.<UdpChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
+            HandlerUtils.<UdpChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
         }
     }
 

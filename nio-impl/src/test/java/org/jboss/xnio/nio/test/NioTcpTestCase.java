@@ -23,11 +23,9 @@
 package org.jboss.xnio.nio.test;
 
 import junit.framework.TestCase;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpServerService;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.TcpConnectorService;
 import org.jboss.xnio.nio.NioProvider;
+import org.jboss.xnio.nio.NioTcpServer;
+import org.jboss.xnio.nio.NioTcpConnector;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
@@ -59,34 +57,28 @@ public final class NioTcpTestCase extends TestCase {
 
     private static final int SERVER_PORT = 12345;
 
-    private static final void stop(Lifecycle lifecycle) {
-        try {
-            lifecycle.stop();
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
     private void doConnectionTest(final Runnable body, final IoHandler<? super TcpChannel> clientHandler, final IoHandler<? super TcpChannel> serverHandler) throws Exception {
         synchronized (this) {
-            final Provider provider = new NioProvider();
+            final NioProvider provider = new NioProvider();
             provider.start();
             try {
-                final TcpServerService tcpServerService = provider.createTcpServer();
-                tcpServerService.setReuseAddress(true);
-                tcpServerService.setBindAddresses(new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
-                tcpServerService.setHandlerFactory(new IoHandlerFactory<TcpChannel>() {
+                final NioTcpServer nioTcpServer = new NioTcpServer();
+                nioTcpServer.setNioProvider(provider);
+                nioTcpServer.setReuseAddress(true);
+                nioTcpServer.setBindAddresses(new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
+                nioTcpServer.setHandlerFactory(new IoHandlerFactory<TcpChannel>() {
                     public IoHandler<? super TcpChannel> createHandler() {
                         return serverHandler;
                     }
                 });
-                tcpServerService.start();
+                nioTcpServer.start();
                 try {
-                    final TcpConnectorService connectorService = provider.createTcpConnector();
-                    connectorService.setConnectTimeout(10);
-                    connectorService.start();
+                    final NioTcpConnector nioTcpConnector = new NioTcpConnector();
+                    nioTcpConnector.setNioProvider(provider);
+                    nioTcpConnector.setConnectTimeout(10);
+                    nioTcpConnector.start();
                     try {
-                        final IoFuture<TcpChannel> ioFuture = connectorService.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
+                        final IoFuture<TcpChannel> ioFuture = nioTcpConnector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
                         final TcpChannel channel = ioFuture.get();
                         try {
                             body.run();
@@ -95,13 +87,13 @@ public final class NioTcpTestCase extends TestCase {
                             safeClose(channel);
                         }
                     } finally {
-                        stop(connectorService);
+                        nioTcpConnector.stop();
                     }
                 } finally {
-                    stop(tcpServerService);
+                    nioTcpServer.stop();
                 }
             } finally {
-                stop(provider);
+                provider.stop();
             }
         }
     }

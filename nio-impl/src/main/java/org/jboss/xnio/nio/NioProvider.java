@@ -41,18 +41,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.OneWayPipeService;
-import org.jboss.xnio.spi.PipeService;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.TcpConnectorService;
-import org.jboss.xnio.spi.TcpServerService;
-import org.jboss.xnio.spi.UdpServerService;
 
 /**
  *
  */
-public final class NioProvider implements Provider, Lifecycle {
+public final class NioProvider {
     private static final Logger log = Logger.getLogger(NioProvider.class);
 
     private Executor executor;
@@ -177,44 +170,6 @@ public final class NioProvider implements Provider, Lifecycle {
                 executorService = null;
             }
         }
-    }
-
-    // Provider SPI impl
-
-    public TcpServerService createTcpServer() {
-        final NioTcpServer tcpServer = new NioTcpServer();
-        tcpServer.setNioProvider(this);
-        return tcpServer;
-    }
-
-    public TcpConnectorService createTcpConnector() {
-        final NioTcpConnector tcpConnector = new NioTcpConnector();
-        tcpConnector.setNioProvider(this);
-        return tcpConnector;
-    }
-
-    public UdpServerService createUdpServer() {
-        NioUdpServer udpServer = new NioUdpServer();
-        udpServer.setNioProvider(this);
-        return udpServer;
-    }
-
-    public UdpServerService createMulticastUdpServer() {
-        BioMulticastServer bioMulticastServer = new BioMulticastServer();
-        bioMulticastServer.setExecutor(executor);
-        return bioMulticastServer;
-    }
-
-    public PipeService createPipe() {
-        NioPipeConnection pipeConnection = new NioPipeConnection();
-        pipeConnection.setNioProvider(this);
-        return pipeConnection;
-    }
-
-    public OneWayPipeService createOneWayPipe() {
-        NioOneWayPipeConnection pipeConnection = new NioOneWayPipeConnection();
-        pipeConnection.setNioProvider(this);
-        return pipeConnection;
     }
 
     // API

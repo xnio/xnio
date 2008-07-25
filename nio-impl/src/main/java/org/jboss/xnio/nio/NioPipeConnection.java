@@ -28,15 +28,11 @@ import java.util.concurrent.Executor;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.channels.StreamChannel;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.PipeEnd;
-import org.jboss.xnio.spi.PipeService;
-import org.jboss.xnio.spi.SpiUtils;
 
 /**
  *
  */
-public final class NioPipeConnection implements Lifecycle, PipeService {
+public final class NioPipeConnection implements Lifecycle {
 
     private NioProvider nioProvider;
     private IoHandler<? super StreamChannel> leftHandler;
@@ -46,26 +42,8 @@ public final class NioPipeConnection implements Lifecycle, PipeService {
     private Executor executor;
     private Executor leftSideExecutor;
     private Executor rightSideExecutor;
-    private final PipeEnd<StreamChannel> leftEnd = new PipeEnd<StreamChannel>() {
-        public void setHandler(final IoHandler<? super StreamChannel> ioHandler) {
-            leftHandler = ioHandler;
-        }
 
-        public void setExecutor(final Executor executor) {
-            leftSideExecutor = executor;
-        }
-    };
-    private final PipeEnd<StreamChannel> rightEnd = new PipeEnd<StreamChannel>() {
-        public void setHandler(final IoHandler<? super StreamChannel> ioHandler) {
-            rightHandler = ioHandler;
-        }
-
-        public void setExecutor(final Executor executor) {
-            rightSideExecutor = executor;
-        }
-    };
-
-    public NioProvider getNioCore() {
+    public NioProvider getNioProvider() {
         return nioProvider;
     }
 
@@ -113,12 +91,20 @@ public final class NioPipeConnection implements Lifecycle, PipeService {
         this.executor = executor;
     }
 
-    public PipeEnd<StreamChannel> getLeftEnd() {
-        return leftEnd;
+    public Executor getLeftSideExecutor() {
+        return leftSideExecutor;
     }
 
-    public PipeEnd<StreamChannel> getRightEnd() {
-        return rightEnd;
+    public void setLeftSideExecutor(final Executor leftSideExecutor) {
+        this.leftSideExecutor = leftSideExecutor;
+    }
+
+    public Executor getRightSideExecutor() {
+        return rightSideExecutor;
+    }
+
+    public void setRightSideExecutor(final Executor rightSideExecutor) {
+        this.rightSideExecutor = rightSideExecutor;
     }
 
     public void start() throws IOException {
@@ -156,7 +142,7 @@ public final class NioPipeConnection implements Lifecycle, PipeService {
         this.rightSide = rightSide;
         leftSideExecutor.execute(new Runnable() {
             public void run() {
-                if (! SpiUtils.<StreamChannel>handleOpened(leftHandler, leftSide)) {
+                if (! HandlerUtils.<StreamChannel>handleOpened(leftHandler, leftSide)) {
                     IoUtils.safeClose(leftToRightSource);
                     IoUtils.safeClose(leftToRightSink);
                     IoUtils.safeClose(rightToLeftSource);
@@ -166,7 +152,7 @@ public final class NioPipeConnection implements Lifecycle, PipeService {
         });
         rightSideExecutor.execute(new Runnable() {
             public void run() {
-                if (! SpiUtils.<StreamChannel>handleOpened(rightHandler, rightSide)) {
+                if (! HandlerUtils.<StreamChannel>handleOpened(rightHandler, rightSide)) {
                     IoUtils.safeClose(leftToRightSource);
                     IoUtils.safeClose(leftToRightSink);
                     IoUtils.safeClose(rightToLeftSource);

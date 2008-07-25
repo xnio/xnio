@@ -23,16 +23,14 @@
 package org.jboss.xnio.nio.test;
 
 import junit.framework.TestCase;
-import org.jboss.xnio.spi.Lifecycle;
-import org.jboss.xnio.spi.Provider;
-import org.jboss.xnio.spi.PipeService;
-import org.jboss.xnio.spi.OneWayPipeService;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.nio.NioProvider;
+import org.jboss.xnio.nio.NioOneWayPipeConnection;
+import org.jboss.xnio.nio.NioPipeConnection;
 import org.jboss.xnio.test.support.LoggingHelper;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.nullHandler;
@@ -51,50 +49,44 @@ public final class NioPipeTestCase extends TestCase {
         LoggingHelper.init();
     }
 
-    private static final void stop(Lifecycle lifecycle) {
-        try {
-            lifecycle.stop();
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
     private void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
         synchronized (this) {
-            final Provider provider = new NioProvider();
+            final NioProvider provider = new NioProvider();
             provider.start();
             try {
-                final OneWayPipeService pipeService = provider.createOneWayPipe();
-                pipeService.getSourceEnd().setHandler(sourceHandler);
-                pipeService.getSinkEnd().setHandler(sinkHandler);
-                pipeService.start();
+                final NioOneWayPipeConnection pipeConnection = new NioOneWayPipeConnection();
+                pipeConnection.setNioProvider(provider);
+                pipeConnection.setSourceHandler(sourceHandler);
+                pipeConnection.setSinkHandler(sinkHandler);
+                pipeConnection.start();
                 try {
                     body.run();
                 } finally {
-                    stop(pipeService);
+                    pipeConnection.stop();
                 }
             } finally {
-                stop(provider);
+                provider.stop();
             }
         }
     }
 
     private void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
         synchronized (this) {
-            final Provider provider = new NioProvider();
+            final NioProvider provider = new NioProvider();
             provider.start();
             try {
-                final PipeService pipeService = provider.createPipe();
-                pipeService.getLeftEnd().setHandler(leftHandler);
-                pipeService.getRightEnd().setHandler(rightHandler);
-                pipeService.start();
+                final NioPipeConnection pipeConnection = new NioPipeConnection();
+                pipeConnection.setNioProvider(provider);
+                pipeConnection.setLeftHandler(leftHandler);
+                pipeConnection.setRightHandler(rightHandler);
+                pipeConnection.start();
                 try {
                     body.run();
                 } finally {
-                    stop(pipeService);
+                    pipeConnection.stop();
                 }
             } finally {
-                stop(provider);
+                provider.stop();
             }
         }
     }

@@ -20,26 +20,15 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.spi;
+package org.jboss.xnio.nio;
 
-import org.jboss.xnio.channels.StreamSourceChannel;
-import org.jboss.xnio.channels.StreamSinkChannel;
+import java.io.IOException;
 
 /**
- * A one-way pipe connection between a source handler and a sink handler.
+ *
  */
-public interface OneWayPipeService extends ExecutorUser, Lifecycle {
-    /**
-     * Get the source end of the pipe.
-     *
-     * @return the source end
-     */
-    PipeEnd<StreamSourceChannel> getSourceEnd();
+public interface Lifecycle {
+    void start() throws IOException;
 
-    /**
-     * Get the sink end of the pipe.
-     *
-     * @return the sink end
-     */
-    PipeEnd<StreamSinkChannel> getSinkEnd();
+    void stop() throws IOException;
 }
