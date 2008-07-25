@@ -48,12 +48,11 @@ import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.TcpClient;
-import org.jboss.xnio.IoUtils;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
  */
-public class XnioNioImpl extends Xnio {
+public final class NioXnio extends Xnio {
     private final NioProvider provider;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -63,10 +62,11 @@ public class XnioNioImpl extends Xnio {
      * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will create its own
      * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
      *
+     * @returns a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      */
-    public XnioNioImpl() throws IOException {
-        this(1, 1, 1);
+    public static Xnio create() throws IOException {
+        return new NioXnio(null, null, 1, 1, 1);
     }
 
     /**
@@ -76,21 +76,12 @@ public class XnioNioImpl extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @returns a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
-    public XnioNioImpl(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        lifecycleLock = new Object();
-        final NioProvider provider;
-        synchronized (lifecycleLock) {
-            provider = new NioProvider();
-            provider.setExecutor(IoUtils.directExecutor());
-            provider.setReadSelectorThreads(readSelectorThreads);
-            provider.setWriteSelectorThreads(writeSelectorThreads);
-            provider.setConnectionSelectorThreads(connectSelectorThreads);
-            provider.start();
-        }
-        this.provider = provider;
+    public static Xnio create(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        return new NioXnio(null, null, readSelectorThreads, writeSelectorThreads, connectSelectorThreads);
     }
 
     /**
@@ -101,21 +92,15 @@ public class XnioNioImpl extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @returns a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
-    public XnioNioImpl(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        lifecycleLock = new Object();
-        final NioProvider provider;
-        synchronized (lifecycleLock) {
-            provider = new NioProvider();
-            provider.setExecutor(handlerExecutor);
-            provider.setReadSelectorThreads(readSelectorThreads);
-            provider.setWriteSelectorThreads(writeSelectorThreads);
-            provider.setConnectionSelectorThreads(connectSelectorThreads);
-            provider.start();
+    public static Xnio create(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        if (handlerExecutor == null) {
+            throw new NullPointerException("handlerExecutor is null");
         }
-        this.provider = provider;
+        return new NioXnio(handlerExecutor, null, readSelectorThreads, writeSelectorThreads, connectSelectorThreads);
     }
 
     /**
@@ -127,22 +112,33 @@ public class XnioNioImpl extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
+     * @returns a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
-    public XnioNioImpl(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+    public static Xnio create(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
+        if (handlerExecutor == null) {
+            throw new NullPointerException("handlerExecutor is null");
+        }
+        if (selectorThreadFactory == null) {
+            throw new NullPointerException("selectorThreadFactory is null");
+        }
+        return new NioXnio(handlerExecutor, selectorThreadFactory, readSelectorThreads, writeSelectorThreads, connectSelectorThreads);
+    }
+
+    private NioXnio(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
         lifecycleLock = new Object();
         final NioProvider provider;
         synchronized (lifecycleLock) {
             provider = new NioProvider();
-            provider.setExecutor(handlerExecutor);
-            provider.setSelectorThreadFactory(selectorThreadFactory);
+            if (handlerExecutor != null) provider.setExecutor(handlerExecutor);
+            if (selectorThreadFactory != null) provider.setSelectorThreadFactory(selectorThreadFactory);
             provider.setReadSelectorThreads(readSelectorThreads);
             provider.setWriteSelectorThreads(writeSelectorThreads);
             provider.setConnectionSelectorThreads(connectSelectorThreads);
             provider.start();
+            this.provider = provider;
         }
-        this.provider = provider;
     }
 
     /** {@inheritDoc} */
