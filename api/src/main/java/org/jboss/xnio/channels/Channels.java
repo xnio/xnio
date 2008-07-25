@@ -27,6 +27,7 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
+import java.nio.channels.Channel;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
@@ -75,6 +76,71 @@ public final class Channels {
             public IoHandler<? super StreamChannel> createHandler() {
                 //noinspection unchecked
                 return new AllocatedMessageChannelStreamChannelHandler(handlerFactory.createHandler(), maxInboundMessageSize, maxOutboundMessageSize);
+            }
+        };
+    }
+
+    /**
+     * Create a handler that is a merged view of two separate handlers, one for read operations and one for write operations.
+     * The {@code handleOpened()} and {@code handleClosed()} methods are called on each of the two sub-handlers.
+     *
+     * @param <T> the resultant channel type
+     * @param readSide the handler to handle read operations
+     * @param writeSide the handler to handle write operations
+     * @return a combined handler
+     */
+    public static <T extends SuspendableChannel> IoHandler<T> createMergedHandler(final IoHandler<? super T> readSide, final IoHandler<? super T> writeSide) {
+        return new IoHandler<T>() {
+            public void handleOpened(final T channel) {
+                readSide.handleOpened(channel);
+                boolean ok = false;
+                try {
+                    writeSide.handleOpened(channel);
+                    ok = true;
+                } finally {
+                    if (! ok) try {
+                        readSide.handleClosed(channel);
+                    } catch (Throwable t) {
+                        // todo log
+                    }
+                }
+            }
+
+            public void handleReadable(final T channel) {
+                readSide.handleReadable(channel);
+            }
+
+            public void handleWritable(final T channel) {
+                writeSide.handleReadable(channel);
+            }
+
+            public void handleClosed(final T channel) {
+                try {
+                    readSide.handleClosed(channel);
+                } catch (Throwable t) {
+                    // todo log
+                }
+                try {
+                    writeSide.handleClosed(channel);
+                } catch (Throwable t) {
+                    // todo log
+                }
+            }
+        };
+    }
+
+    /**
+     * Create a handler factory that is a merged view of two separate handler factories, one for read operations and one for write operations.
+     *
+     * @param <T> the resultant channel type
+     * @param readFactory the handler factory to create handlers that handle read operations
+     * @param writeFactory the handler factory to create handlers that handle write operations
+     * @return a combined handler factory
+     */
+    public static <T extends SuspendableChannel> IoHandlerFactory<T> createMergedHandlerFactory(final IoHandlerFactory<? super T> readFactory, final IoHandlerFactory<? super T> writeFactory) {
+        return new IoHandlerFactory<T>() {
+            public IoHandler<T> createHandler() {
+                return createMergedHandler(readFactory.createHandler(), writeFactory.createHandler());
             }
         };
     }
