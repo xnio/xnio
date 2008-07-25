@@ -47,7 +47,7 @@ public interface IoFuture<T> {
         /**
          * The operation was cancelled.
          */
-        CANCELLED,
+        CANCELED,
         /**
          * The operation did not succeed.
          */
@@ -56,6 +56,12 @@ public interface IoFuture<T> {
          * The request timed out before the operation was complete; otherwise equivalent to status {@link #WAITING}.
          */
         TIMED_OUT,
+        ;
+        /**
+         * @deprecated This status is mispelled; please use {@link #CANCELED} instead.
+         */
+        @Deprecated
+        public static final Status CANCELLED = CANCELED;
     }
 
     /**

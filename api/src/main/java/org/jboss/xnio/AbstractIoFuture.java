@@ -262,7 +262,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     protected boolean finishCancel() {
         synchronized (lock) {
             if (status == Status.WAITING) {
-                status = Status.CANCELLED;
+                status = Status.CANCELED;
                 runAllNotifiers();
                 lock.notifyAll();
                 return true;
