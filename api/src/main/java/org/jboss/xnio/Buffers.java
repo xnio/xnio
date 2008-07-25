@@ -30,6 +30,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
+import java.io.IOException;
 
 /**
  * Buffer utility methods.
@@ -440,5 +441,203 @@ public final class Buffers {
         }
         buffer.position(buffer.position() + cnt);
         return buffer;
+    }
+
+    /**
+     * Create an object that returns the dumped form of the given byte buffer when its {@code toString()} method is called.
+     * Useful for logging byte buffers; if the {@code toString()} method is never called, the process of dumping the
+     * buffer is never performed.
+     *
+     * @param buffer the buffer
+     * @param indent the indentation to use
+     * @param columns the number of 8-byte columns
+     * @return a stringable object
+     */
+    public static Object createDumper(final ByteBuffer buffer, final int indent, final int columns) {
+        return new Object() {
+            public String toString() {
+                StringBuilder b = new StringBuilder();
+                try {
+                    dump(buffer, b, indent, columns);
+                } catch (IOException e) {
+                    // ignore, not possible!
+                }
+                return b.toString();
+            }
+        };
+    }
+
+    /**
+     * Dump a byte buffer to the given target.
+     *
+     * @param buffer the buffer
+     * @param dest the target
+     * @param indent the indentation to use
+     * @param columns the number of 8-byte columns
+     * @throws IOException if an error occurs during append
+     */
+    public static void dump(final ByteBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
+        final int pos = buffer.position();
+        final int remaining = buffer.remaining();
+        final int rowLength = (8 << (columns - 1));
+        final int n = Math.max(Integer.toString(buffer.remaining(), 16).length(), 4);
+        for (int idx = 0; idx < remaining; idx += rowLength) {
+            // state: start of line
+            for (int i = 0; i < indent; i ++) {
+                dest.append(' ');
+            }
+            final String s = Integer.toString(idx, 16);
+            for (int i = n - s.length(); i > 0; i --) {
+                dest.append('0');
+            }
+            dest.append(s);
+            dest.append(" - ");
+            appendHexRow(buffer, dest, pos + idx, columns);
+            appendTextRow(buffer, dest, pos + idx, columns);
+            dest.append('\n');
+        }
+    }
+
+    private static void appendHexRow(final ByteBuffer buffer, final Appendable dest, final int startPos, final int columns) throws IOException {
+        final int limit = buffer.limit();
+        int pos = startPos;
+        for (int c = 0; c < columns; c ++) {
+            for (int i = 0; i < 8; i ++) {
+                if (pos >= limit) {
+                    dest.append("  ");
+                } else {
+                    final int v = buffer.get(pos++) & 0xff;
+                    final String hexVal = Integer.toString(v, 16);
+                    if (v < 16) {
+                        dest.append('0');
+                    }
+                    dest.append(hexVal);
+                }
+                dest.append(' ');
+            }
+            dest.append(' ');
+            dest.append(' ');
+        }
+    }
+
+    private static void appendTextRow(final ByteBuffer buffer, final Appendable dest, final int startPos, final int columns) throws IOException {
+        final int limit = buffer.limit();
+        int pos = startPos;
+        dest.append('[');
+        dest.append(' ');
+        for (int c = 0; c < columns; c ++) {
+            for (int i = 0; i < 8; i ++) {
+                if (pos >= limit) {
+                    dest.append(' ');
+                } else {
+                    final char v = (char) (buffer.get(pos++) & 0xff);
+                    if (Character.isISOControl(v)) {
+                        dest.append('.');
+                    } else {
+                        dest.append(v);
+                    }
+                }
+            }
+            dest.append(' ');
+        }
+        dest.append(']');
+    }
+
+    /**
+     * Create an object that returns the dumped form of the given character buffer when its {@code toString()} method is called.
+     * Useful for logging character buffers; if the {@code toString()} method is never called, the process of dumping the
+     * buffer is never performed.
+     *
+     * @param buffer the buffer
+     * @param indent the indentation to use
+     * @param columns the number of 8-byte columns
+     * @return a stringable object
+     */
+    public static Object createDumper(final CharBuffer buffer, final int indent, final int columns) {
+        return new Object() {
+            public String toString() {
+                StringBuilder b = new StringBuilder();
+                try {
+                    dump(buffer, b, indent, columns);
+                } catch (IOException e) {
+                    // ignore, not possible!
+                }
+                return b.toString();
+            }
+        };
+    }
+
+    /**
+     * Dump a character buffer to the given target.
+     *
+     * @param buffer the buffer
+     * @param dest the target
+     * @param indent the indentation to use
+     * @param columns the number of 8-byte columns
+     * @throws IOException if an error occurs during append
+     */
+    public static void dump(final CharBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
+        final int pos = buffer.position();
+        final int remaining = buffer.remaining();
+        final int rowLength = (8 << (columns - 1));
+        final int n = Math.max(Integer.toString(buffer.remaining(), 16).length(), 4);
+        for (int idx = 0; idx < remaining; idx += rowLength) {
+            // state: start of line
+            for (int i = 0; i < indent; i ++) {
+                dest.append(' ');
+            }
+            final String s = Integer.toString(idx, 16);
+            for (int i = n - s.length(); i > 0; i --) {
+                dest.append('0');
+            }
+            dest.append(s);
+            dest.append(" - ");
+            appendHexRow(buffer, dest, pos + idx, columns);
+            appendTextRow(buffer, dest, pos + idx, columns);
+            dest.append('\n');
+        }
+    }
+
+    private static void appendHexRow(final CharBuffer buffer, final Appendable dest, final int startPos, final int columns) throws IOException {
+        final int limit = buffer.limit();
+        int pos = startPos;
+        for (int c = 0; c < columns; c ++) {
+            for (int i = 0; i < 8; i ++) {
+                if (pos >= limit) {
+                    dest.append("  ");
+                } else {
+                    final char v = buffer.get(pos++);
+                    final String hexVal = Integer.toString(v, 16);
+                    dest.append("0000".substring(hexVal.length()));
+                    dest.append(hexVal);
+                }
+                dest.append(' ');
+            }
+            dest.append(' ');
+            dest.append(' ');
+        }
+    }
+
+    private static void appendTextRow(final CharBuffer buffer, final Appendable dest, final int startPos, final int columns) throws IOException {
+        final int limit = buffer.limit();
+        int pos = startPos;
+        dest.append('[');
+        dest.append(' ');
+        for (int c = 0; c < columns; c ++) {
+            for (int i = 0; i < 8; i ++) {
+                if (pos >= limit) {
+                    dest.append(' ');
+                } else {
+                    final char v = buffer.get(pos++);
+                    if (Character.isISOControl(v) || Character.isHighSurrogate(v) || Character.isLowSurrogate(v)) {
+                        dest.append('.');
+                    } else {
+                        dest.append(v);
+                    }
+                }
+            }
+            dest.append(' ');
+        }
+        dest.append(']');
     }
 }
