@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CancellationException;
 import java.io.IOException;
 
 /**
@@ -117,8 +118,9 @@ public interface IoFuture<T> {
      *
      * @return the result of the operation
      * @throws IOException if the operation failed
+     * @throws CancellationException if the operation was cancelled
      */
-    T get() throws IOException;
+    T get() throws IOException, CancellationException;
 
     /**
      * Get the result of the operation.  If the operation is not complete, blocks until the operation completes.  If
@@ -128,8 +130,9 @@ public interface IoFuture<T> {
      * @return the result of the operation
      * @throws IOException if the operation failed
      * @throws InterruptedException if the operation is interrupted
+     * @throws CancellationException if the operation was cancelled
      */
-    T getInterruptibly() throws IOException, InterruptedException;
+    T getInterruptibly() throws IOException, InterruptedException, CancellationException;
 
     /**
      * Get the failure reason.
