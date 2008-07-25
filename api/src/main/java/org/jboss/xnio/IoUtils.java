@@ -358,7 +358,7 @@ public final class IoUtils {
                         log.trace(future.getException(), "Connection failed");
                         break;
                     case CANCELED:
-                        log.trace("Connection cancelled");
+                        log.trace("Connection canceled");
                         break;
                 }
                 if (! stopFlag) {
