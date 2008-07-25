@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CancellationException;
 
 /**
  * An abstract base class for {@code IoFuture} objects.  Used to easily produce implementations.
@@ -149,11 +150,12 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     @SuppressWarnings({"unchecked"})
-    public T get() throws IOException {
+    public T get() throws IOException, CancellationException {
         synchronized (lock) {
             switch (await()) {
                 case DONE: return (T) result;
                 case FAILED: throw (IOException) result;
+                case CANCELLED: throw new CancellationException("Operation was cancelled");
                 default: throw new IllegalStateException("Unexpected state " + status);
             }
         }
@@ -163,11 +165,12 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     @SuppressWarnings({"unchecked"})
-    public T getInterruptibly() throws IOException, InterruptedException {
+    public T getInterruptibly() throws IOException, InterruptedException, CancellationException {
         synchronized (lock) {
             switch (awaitInterruptibly()) {
                 case DONE: return (T) result;
                 case FAILED: throw (IOException) result;
+                case CANCELLED: throw new CancellationException("Operation was cancelled");
                 default: throw new IllegalStateException("Unexpected state " + status);
             }
         }
