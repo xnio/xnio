@@ -27,12 +27,14 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
-import java.nio.channels.Channel;
+import org.jboss.xnio.log.Logger;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
  */
 public final class Channels {
+    private static final Logger log = Logger.getLogger(Channels.class);
+
     private Channels() {
     }
 
@@ -101,7 +103,7 @@ public final class Channels {
                     if (! ok) try {
                         readSide.handleClosed(channel);
                     } catch (Throwable t) {
-                        // todo log
+                        log.error(t, "Error in close handler");
                     }
                 }
             }
@@ -118,12 +120,12 @@ public final class Channels {
                 try {
                     readSide.handleClosed(channel);
                 } catch (Throwable t) {
-                    // todo log
+                    log.error(t, "Error in close handler");
                 }
                 try {
                     writeSide.handleClosed(channel);
                 } catch (Throwable t) {
-                    // todo log
+                    log.error(t, "Error in close handler");
                 }
             }
         };
