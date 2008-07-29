@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.Executor;
+import org.jboss.xnio.log.Logger;
 
 /**
  * An abstract base class for {@code IoFuture} objects.  Used to easily produce implementations.
@@ -35,6 +37,8 @@ import java.util.concurrent.CancellationException;
  * @param <T> the type of result that this operation produces
  */
 public abstract class AbstractIoFuture<T> implements IoFuture<T> {
+    private static final Logger log = Logger.getLogger(AbstractIoFuture.class);
+
     private Object lock = new Object();
     private Status status = Status.WAITING;
     private Object result;
@@ -285,9 +289,30 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     public abstract IoFuture<T> cancel();
 
     /**
-     * Run a notifier.  Implementors will run the notifier, preferably in another thread.
+     * Run a notifier.  Implementors will run the notifier, preferably in another thread.  The default implementation
+     * runs the notifier using the {@code Executor} retrieved via {@link #getNotifierExecutor()}.
      *
      * @param notifier the notifier to run
      */
-    protected abstract void runNotifier(Notifier<T> notifier);
+    protected void runNotifier(final Notifier<T> notifier) {
+        getNotifierExecutor().execute(new Runnable() {
+            public void run() {
+                try {
+                    notifier.notify(AbstractIoFuture.this);
+                } catch (Throwable t) {
+                    log.warn(t, "Running notifier failed");
+                }
+            }
+        });
+    }
+
+    /**
+     * Get the executor used to run asynchronous notifiers.  By default, this implementation simply returns the direct
+     * executor.
+     *
+     * @return the executor to use
+     */
+    protected Executor getNotifierExecutor() {
+        return IoUtils.directExecutor();
+    }
 }
