@@ -29,6 +29,8 @@ import java.util.concurrent.ThreadFactory;
 import java.net.SocketAddress;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.StreamChannel;
@@ -44,8 +46,17 @@ public abstract class Xnio implements Closeable {
     private static final String PROVIDER_CLASS;
 
     static {
-        String provider = System.getProperty("xnio.provider", NIO_IMPL_CLASS_NAME);
-        PROVIDER_CLASS = provider;
+        String providerClassName = NIO_IMPL_CLASS_NAME;
+        try {
+            providerClassName = AccessController.doPrivileged(new PrivilegedAction<String>() {
+                public String run() {
+                    return System.getProperty("xnio.provider", NIO_IMPL_CLASS_NAME);
+                }
+            });
+        } catch (Throwable t) {
+            // ignored
+        }
+        PROVIDER_CLASS = providerClassName;
     }
 
     /**
