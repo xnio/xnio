@@ -141,8 +141,9 @@ public final class Channels {
      */
     public static <T extends SuspendableChannel> IoHandlerFactory<T> createMergedHandlerFactory(final IoHandlerFactory<? super T> readFactory, final IoHandlerFactory<? super T> writeFactory) {
         return new IoHandlerFactory<T>() {
+            @SuppressWarnings({"unchecked"})
             public IoHandler<T> createHandler() {
-                return createMergedHandler(readFactory.createHandler(), writeFactory.createHandler());
+                return createMergedHandler((IoHandler)readFactory.createHandler(), (IoHandler)writeFactory.createHandler());
             }
         };
     }
