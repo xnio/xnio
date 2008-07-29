@@ -62,7 +62,7 @@ public final class NioXnio extends Xnio {
      * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will create its own
      * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
      *
-     * @returns a new XNIO instance
+     * @return a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      */
     public static Xnio create() throws IOException {
@@ -76,7 +76,7 @@ public final class NioXnio extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @returns a new XNIO instance
+     * @return a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
@@ -92,7 +92,7 @@ public final class NioXnio extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @returns a new XNIO instance
+     * @return a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
@@ -112,7 +112,7 @@ public final class NioXnio extends Xnio {
      * @param readSelectorThreads the number of threads to assign for readable events
      * @param writeSelectorThreads the number of threads to assign for writable events
      * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @returns a new XNIO instance
+     * @return a new XNIO instance
      * @throws IOException if an I/O error occurs while starting the service
      * @throws IllegalArgumentException if a given argument is not valid
      */
