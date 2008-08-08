@@ -25,6 +25,7 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.net.MulticastSocket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
@@ -141,7 +142,11 @@ public final class BioMulticastServer implements Lifecycle, Configurable {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-        final int bindCount = bindAddresses.length;
+        int bindCount = bindAddresses.length;
+        if (bindCount == 0) {
+            bindCount = 1;
+            bindAddresses = new SocketAddress[] { new InetSocketAddress(0) };
+        }
         final MulticastSocket[] sockets = new MulticastSocket[bindCount];
         boolean ok = false;
         try {

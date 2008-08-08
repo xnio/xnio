@@ -25,6 +25,7 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.DatagramChannel;
 import java.util.Collections;
 import java.util.HashSet;
@@ -141,7 +142,11 @@ public final class NioUdpServer implements Lifecycle, Configurable {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-        final int bindCount = bindAddresses.length;
+        int bindCount = bindAddresses.length;
+        if (bindCount == 0) {
+            bindCount = 1;
+            bindAddresses = new SocketAddress[] { new InetSocketAddress(0) };
+        }
         final DatagramChannel[] datagramChannels = new DatagramChannel[bindCount];
         channels = new NioUdpSocketChannelImpl[bindCount];
         for (int i = 0; i < bindCount; i++) {

@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -158,7 +159,11 @@ public final class NioTcpServer implements Lifecycle, Configurable {
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-        final int bindCount = bindAddresses.length;
+        int bindCount = bindAddresses.length;
+        if (bindCount == 0) {
+            bindCount = 1;
+            bindAddresses = new SocketAddress[] { new InetSocketAddress(0) };
+        }
         serverSocketChannels = new ServerSocketChannel[bindCount];
         serverSockets = new ServerSocket[bindCount];
         handles = new NioHandle[bindCount];

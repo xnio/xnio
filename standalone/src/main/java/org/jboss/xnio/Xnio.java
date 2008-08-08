@@ -188,7 +188,8 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP server.  The server will bind to the given addresses.
+     * Create a TCP server.  The server will bind to the given addresses.  If none are specified, then the server
+     * will attempt to bind to all addresses.
      *
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
@@ -201,7 +202,8 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP server.  The server will bind to the given addresses.  The provider's executor will be used to
+     * Create a TCP server.  The server will bind to the given addresses.    If none are specified, then the server
+     * will attempt to bind to all addresses.  The provider's executor will be used to
      * execute handler methods.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
