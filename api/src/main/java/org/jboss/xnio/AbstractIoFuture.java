@@ -83,7 +83,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public Status await(final TimeUnit timeUnit, long time) {
+    public Status await(long time, final TimeUnit timeUnit) {
         if (time < 0L) {
             time = 0L;
         }
@@ -129,7 +129,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public Status awaitInterruptibly(final TimeUnit timeUnit, long time) throws InterruptedException {
+    public Status awaitInterruptibly(long time, final TimeUnit timeUnit) throws InterruptedException {
         if (time < 0L) {
             time = 0L;
         }

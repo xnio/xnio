@@ -85,11 +85,11 @@ public interface IoFuture<T> {
      * or the given time elapses.  If the time elapses before the operation is complete, {@link Status#TIMED_OUT} is
      * returned.
      *
-     * @param timeUnit the time unit
      * @param time the amount of time to wait
+     * @param timeUnit the time unit
      * @return the new status, or {@link Status#TIMED_OUT} if the timeout expired
      */
-    Status await(TimeUnit timeUnit, long time);
+    Status await(long time, TimeUnit timeUnit);
 
     /**
      * Wait for the operation to complete.  This method will block until the status changes from {@link Status#WAITING},
@@ -105,12 +105,12 @@ public interface IoFuture<T> {
      * the given time elapses, or the current thread is interrupted.  If the time elapses before the operation is complete, {@link Status#TIMED_OUT} is
      * returned.
      *
-     * @param timeUnit the time unit
      * @param time the amount of time to wait
+     * @param timeUnit the time unit
      * @return the new status, or {@link Status#TIMED_OUT} if the timeout expired
      * @throws InterruptedException if the operation is interrupted
      */
-    Status awaitInterruptibly(TimeUnit timeUnit, long time) throws InterruptedException;
+    Status awaitInterruptibly(long time, TimeUnit timeUnit) throws InterruptedException;
 
     /**
      * Get the result of the operation.  If the operation is not complete, blocks until the operation completes.  If

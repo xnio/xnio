@@ -56,16 +56,16 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
         return delegate.await();
     }
 
-    public Status await(final TimeUnit timeUnit, final long time) {
-        return delegate.await(timeUnit, time);
+    public Status await(final long time, final TimeUnit timeUnit) {
+        return delegate.await(time, timeUnit);
     }
 
     public Status awaitInterruptibly() throws InterruptedException {
         return delegate.awaitInterruptibly();
     }
 
-    public Status awaitInterruptibly(final TimeUnit timeUnit, final long time) throws InterruptedException {
-        return delegate.awaitInterruptibly(timeUnit, time);
+    public Status awaitInterruptibly(final long time, final TimeUnit timeUnit) throws InterruptedException {
+        return delegate.awaitInterruptibly(time, timeUnit);
     }
 
     public IOException getException() throws IllegalStateException {
