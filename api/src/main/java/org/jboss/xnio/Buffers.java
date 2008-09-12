@@ -640,4 +640,15 @@ public final class Buffers {
         }
         dest.append(']');
     }
+
+    public static BufferAllocator<ByteBuffer> createHeapByteBufferAllocator(final int size) {
+        return new BufferAllocator<ByteBuffer>() {
+            public ByteBuffer allocate() {
+                return ByteBuffer.allocate(size);
+            }
+
+            public void free(final ByteBuffer buffer) {
+            }
+        };
+    }
 }
