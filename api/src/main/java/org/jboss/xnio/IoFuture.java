@@ -161,4 +161,57 @@ public interface IoFuture<T> {
          */
         void notify(IoFuture<T> ioFuture);
     }
+
+    /**
+     * A base notifier class that calls the designated handler method on notification.  Use this class to reduce
+     * boilerplate for standard {@link org.jboss.xnio.IoFuture.Notifier} implementations.
+     */
+    abstract class HandlingNotifier<T> implements Notifier<T> {
+        /**
+         * {@inheritDoc}
+         */
+        public void notify(final IoFuture<T> future) {
+            switch (future.getStatus()) {
+                case CANCELLED:
+                    handleCancelled();
+                    break;
+                case DONE:
+                    try {
+                        handleDone(future.get());
+                    } catch (IOException e) {
+                        // not possible
+                        throw new IllegalStateException();
+                    }
+                    break;
+                case FAILED:
+                    handleFailed(future.getException());
+                    break;
+                default:
+                    // not possible
+                    throw new IllegalStateException();
+            }
+        }
+
+        /**
+         * Handle cancellation.
+         */
+        public void handleCancelled() {
+        }
+
+        /**
+         * Handle failure.
+         *
+         * @param exception the failure reason
+         */
+        public void handleFailed(final IOException exception) {
+        }
+
+        /**
+         * Handle completion.
+         *
+         * @param result the result
+         */
+        public void handleDone(final T result) {
+        }
+    }
 }
