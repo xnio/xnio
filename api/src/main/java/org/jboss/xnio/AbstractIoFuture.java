@@ -102,7 +102,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                 } finally {
                     duration = deadline - System.currentTimeMillis();
                     if (duration <= 0L) {
-                        return Status.TIMED_OUT;
+                        return Status.WAITING;
                     }
                 }
             } finally {
@@ -143,7 +143,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                 lock.wait(duration);
                 duration = deadline - System.currentTimeMillis();
                 if (duration <= 0L) {
-                    return Status.TIMED_OUT;
+                    return Status.WAITING;
                 }
             }
             return status;

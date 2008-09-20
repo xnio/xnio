@@ -346,7 +346,7 @@ public final class IoUtils {
 
             public T get(final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
                 try {
-                    if (ioFuture.awaitInterruptibly(timeout, unit) == IoFuture.Status.TIMED_OUT) {
+                    if (ioFuture.awaitInterruptibly(timeout, unit) == IoFuture.Status.WAITING) {
                         throw new TimeoutException("Operation timed out");
                     }
                     return ioFuture.getInterruptibly();

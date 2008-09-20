@@ -53,10 +53,14 @@ public interface IoFuture<T> {
          * The operation did not succeed.
          */
         FAILED,
+        ;
         /**
          * The request timed out before the operation was complete; otherwise equivalent to status {@link #WAITING}.
+         *
+         * @deprecated This status value is redundant, and will be removed in a future version of XNIO; use {@link #WAITING} instead.
          */
-        TIMED_OUT,
+        @Deprecated
+        public static final Status TIMED_OUT = WAITING;
     }
 
     /**
@@ -82,12 +86,12 @@ public interface IoFuture<T> {
 
     /**
      * Wait for the operation to complete, with a timeout.  This method will block until the status changes from {@link Status#WAITING},
-     * or the given time elapses.  If the time elapses before the operation is complete, {@link Status#TIMED_OUT} is
+     * or the given time elapses.  If the time elapses before the operation is complete, {@link Status#WAITING} is
      * returned.
      *
      * @param time the amount of time to wait
      * @param timeUnit the time unit
-     * @return the new status, or {@link Status#TIMED_OUT} if the timeout expired
+     * @return the new status, or {@link Status#WAITING} if the timeout expired
      */
     Status await(long time, TimeUnit timeUnit);
 
@@ -102,12 +106,12 @@ public interface IoFuture<T> {
 
     /**
      * Wait for the operation to complete, with a timeout.  This method will block until the status changes from {@link Status#WAITING},
-     * the given time elapses, or the current thread is interrupted.  If the time elapses before the operation is complete, {@link Status#TIMED_OUT} is
+     * the given time elapses, or the current thread is interrupted.  If the time elapses before the operation is complete, {@link Status#WAITING} is
      * returned.
      *
      * @param time the amount of time to wait
      * @param timeUnit the time unit
-     * @return the new status, or {@link Status#TIMED_OUT} if the timeout expired
+     * @return the new status, or {@link Status#WAITING} if the timeout expired
      * @throws InterruptedException if the operation is interrupted
      */
     Status awaitInterruptibly(long time, TimeUnit timeUnit) throws InterruptedException;
