@@ -658,7 +658,7 @@
     <!-- JAVADOCS                                       -->
     <!-- ============================================== -->
 
-    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,standalone,version">
+    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,nio-standalone,standalone,version">
         <delete dir="docs/target/main/javadoc"/>
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
@@ -674,7 +674,12 @@
             <bottom><![CDATA[<i>Copyright &#169; 2008 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
             <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
             <classpath>
+                <path refid="api.classpath"/>
+                <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
+                <path refid="nio-standalone.classpath"/>
+                <path refid="standalone.classpath"/>
+                <path refid="version.classpath"/>
             </classpath>
         </javadoc>
     </target>
