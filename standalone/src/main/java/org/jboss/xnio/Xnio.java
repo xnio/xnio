@@ -294,7 +294,7 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
-     * server to the client.
+     * client to the server.
      *
      * @param handlerFactory the server handler factory
      *
