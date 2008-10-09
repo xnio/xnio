@@ -23,7 +23,6 @@
 package org.jboss.xnio;
 
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.ChannelOption;
 import java.io.IOException;
 
 /**
