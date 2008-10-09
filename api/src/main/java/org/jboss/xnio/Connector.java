@@ -22,7 +22,7 @@
 
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.ConnectedChannel;
+import java.nio.channels.Channel;
 
 /**
  * A connector.  Instances of this interface are used to connect to arbitrary peers.
@@ -30,7 +30,7 @@ import org.jboss.xnio.channels.ConnectedChannel;
  * @param <A> the address type
  * @param <T> the type of channel
  */
-public interface Connector<A, T extends ConnectedChannel<A>> {
+public interface Connector<A, T extends Channel> {
     /**
      * Establish a connection to a destination.
      *
