@@ -22,10 +22,10 @@
 
 package org.jboss.xnio;
 
-import java.io.Closeable;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
- * A TCP client that is closeable.
+ * A client specifically for connecting to TCP remote servers.
  */
-public interface CloseableTcpClient extends TcpClient, Closeable {
+public interface TcpChannelSource extends ChannelSource<TcpChannel> {
 }

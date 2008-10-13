@@ -38,7 +38,7 @@ import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.TcpClient;
+import org.jboss.xnio.TcpChannelSource;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
@@ -191,11 +191,11 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         return doConnectTo(src, dest, handler);
     }
 
-    public TcpClient createChannelSource(final SocketAddress dest) {
+    public TcpChannelSource createChannelSource(final SocketAddress dest) {
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
-        return new TcpClient() {
+        return new TcpChannelSource() {
             public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
@@ -205,14 +205,14 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         };
     }
 
-    public TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest) {
+    public TcpChannelSource createChannelSource(final SocketAddress src, final SocketAddress dest) {
         if (src == null) {
             throw new NullPointerException("src is null");
         }
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
-        return new TcpClient() {
+        return new TcpChannelSource() {
             public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");

@@ -55,7 +55,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param dest the destination to connect to
      * @return the client
      */
-    TcpClient createChannelSource(final SocketAddress dest);
+    TcpChannelSource createChannelSource(final SocketAddress dest);
 
     /**
      * Create a client that always connects to the given TCP from the given source address.
@@ -64,5 +64,5 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param dest the destination to connect to
      * @return the client
      */
-    TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest);
+    TcpChannelSource createChannelSource(final SocketAddress src, final SocketAddress dest);
 }

@@ -47,7 +47,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.TcpConnector;
-import org.jboss.xnio.TcpClient;
+import org.jboss.xnio.TcpChannelSource;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
@@ -497,16 +497,16 @@ public final class NioXnio extends Xnio {
             return realConnector.connectTo(src, dest, ioHandler);
         }
 
-        public TcpClient createChannelSource(final SocketAddress dest) {
-            return new TcpClient() {
+        public TcpChannelSource createChannelSource(final SocketAddress dest) {
+            return new TcpChannelSource() {
                 public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                     return realConnector.connectTo(dest, handler);
                 }
             };
         }
 
-        public TcpClient createChannelSource(final SocketAddress src, final SocketAddress dest) {
-            return new TcpClient() {
+        public TcpChannelSource createChannelSource(final SocketAddress src, final SocketAddress dest) {
+            return new TcpChannelSource() {
                 public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                     return realConnector.connectTo(src, dest, handler);
                 }
