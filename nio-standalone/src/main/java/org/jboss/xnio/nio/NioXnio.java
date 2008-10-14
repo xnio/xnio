@@ -37,6 +37,7 @@ import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoHandlerFactory;
@@ -483,14 +484,14 @@ public final class NioXnio extends Xnio {
             realConnector = lifecycle;
         }
 
-        public IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
+        public FutureConnection<SocketAddress,TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
             if (closed.get()) {
                 throw new IllegalStateException("Connector closed");
             }
             return realConnector.connectTo(dest, ioHandler);
         }
 
-        public IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
+        public FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> ioHandler) {
             if (closed.get()) {
                 throw new IllegalStateException("Connector closed");
             }

@@ -22,13 +22,21 @@
 
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.TcpChannel;
-import java.net.SocketAddress;
+import java.nio.channels.Channel;
 
 /**
- * A client specifically for connecting to TCP remote servers.
+ * A channel destination.  This is the inverse of {@code ChannelSource}; it is used to accept a single connection from a remote
+ * peer.
+ *
+ * @param <A> the address type
+ * @param <T> the channel type
  */
-public interface TcpChannelSource extends ChannelSource<TcpChannel> {
-    /** {@inheritDoc} */
-    FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler);
+public interface ChannelDestination<A, T extends Channel> {
+    /**
+     * Accept a connection.  The local address can be read at any time from the returned future connection.
+     *
+     * @param handler the handler for the new connection
+     * @return the future connection
+     */
+    FutureConnection<A, T> accept(IoHandler<? super T> handler);
 }

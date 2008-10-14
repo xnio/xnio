@@ -25,45 +25,30 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
- * A connector.  Instances of this interface are used to connect to arbitrary peers.
+ * An acceptor.  This is the inverse of {@code Connector}; it is used to accept a single connection from a remote
+ * peer.
  *
  * @param <A> the address type
- * @param <T> the type of channel
+ * @param <T> the channel type
  */
-public interface Connector<A, T extends Channel> {
+public interface Acceptor<A, T extends Channel> {
     /**
-     * Establish a connection to a destination.
+     * Accept a connection at a destination address.  If a wildcard address is specified, then a destination address
+     * is chosen in a manner specific to the OS and/or channel type.
      *
      * @param dest the destination address
-     * @param handler the handler for this connection
-     * @return the future result of this operation
+     * @param handler the handler for the new connection
+     * @return the future connection
      */
-    FutureConnection<A, T> connectTo(A dest, IoHandler<? super T> handler);
+    FutureConnection<A, T> acceptTo(A dest, IoHandler<? super T> handler);
 
     /**
-     * Establish a connection to a destination using an explicit source.
+     * Create a channel destination for this acceptor, which always uses a specific destination address.  If a wildcard
+     * address is specified, then a destination address is chosen in a manner specific to the OS and/or channel type for
+     * each accept operation.
      *
-     * @param src the source address
      * @param dest the destination address
-     * @param handler the handler for this connection
-     * @return the future result of this operation
+     * @return a channel destination instance
      */
-    FutureConnection<A, T> connectTo(A src, A dest, IoHandler<? super T> handler);
-
-    /**
-     * Create a client that always connects to the given destination.
-     *
-     * @param dest the destination to connect to
-     * @return the client
-     */
-    ChannelSource<T> createChannelSource(A dest);
-
-    /**
-     * Create a client that always connects to the given destination using an explicit source.
-     *
-     * @param src the source to connect from
-     * @param dest the destination to connect to
-     * @return the client
-     */
-    ChannelSource<T> createChannelSource(A src, A dest);
+    ChannelDestination<A, T> createChannelDestination(A dest);
 }

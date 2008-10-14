@@ -22,13 +22,34 @@
 
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.TcpChannel;
-import java.net.SocketAddress;
+import org.jboss.xnio.channels.BoundChannel;
 
 /**
- * A client specifically for connecting to TCP remote servers.
+ * An implementation of {@link FutureConnection} that represents an immediately-successful operation.
+ *
+ * @param <A> the address type
+ * @param <T> the type of result that this operation produces
  */
-public interface TcpChannelSource extends ChannelSource<TcpChannel> {
+public class FinishedFutureConnection<A, T extends BoundChannel<A>> extends FinishedIoFuture<T> implements FutureConnection<A, T> {
+    private final A localAddress;
+
+    /**
+     * Create an instance.
+     *
+     * @param result the operation result
+     */
+    public FinishedFutureConnection(final T result) {
+        super(result);
+        localAddress = result.getLocalAddress();
+    }
+
     /** {@inheritDoc} */
-    FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler);
+    public A getLocalAddress() {
+        return localAddress;
+    }
+
+    /** {@inheritDoc} */
+    public FutureConnection<A, T> cancel() {
+        return this;
+    }
 }

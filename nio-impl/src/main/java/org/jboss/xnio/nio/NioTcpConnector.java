@@ -32,9 +32,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import org.jboss.xnio.AbstractIoFuture;
-import org.jboss.xnio.FailedIoFuture;
-import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
@@ -45,6 +42,10 @@ import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.FutureConnection;
+import org.jboss.xnio.FinishedFutureConnection;
+import org.jboss.xnio.AbstractFutureConnection;
+import org.jboss.xnio.FailedFutureConnection;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -168,7 +169,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         socket.setTcpNoDelay(tcpNoDelay);
     }
 
-    public IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    public FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
@@ -178,7 +179,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         return doConnectTo(null, dest, handler);
     }
 
-    public IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    public FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         if (src == null) {
             throw new NullPointerException("src is null");
         }
@@ -222,7 +223,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         };
     }
 
-    private IoFuture<TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    private FutureConnection<SocketAddress, TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
             log.trace("Connecting from %s to %s", src, dest);
             final SocketChannel socketChannel = SocketChannel.open();
@@ -241,14 +242,14 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
                     }
                 });
                 nioProvider.addChannel(channel);
-                return new FinishedIoFuture<TcpChannel>(channel);
+                return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
             } else {
                 final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioProvider, handler);
                 connectionHandler.handle.getSelectionKey().interestOps(SelectionKey.OP_CONNECT).selector().wakeup();
                 return connectionHandler.future;
             }
         } catch (IOException e) {
-            return new FailedIoFuture<TcpChannel>(e);
+            return new FailedFutureConnection<SocketAddress, TcpChannel>(e, src);
         }
     }
 
@@ -341,7 +342,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             // *should* be safe...
             //noinspection ThisEscapedInObjectConstruction
             handle = nioProvider.addConnectHandler(socketChannel, this);
-            future = new FutureImpl(executor);
+            future = new FutureImpl(executor, socketChannel.socket().getLocalSocketAddress());
         }
 
         public void run() {
@@ -369,11 +370,13 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             }
         }
 
-        private final class FutureImpl extends AbstractIoFuture<TcpChannel> {
+        private final class FutureImpl extends AbstractFutureConnection<SocketAddress, TcpChannel> {
             private final Executor executor;
+            private final SocketAddress localAddress;
 
-            public FutureImpl(final Executor executor) {
+            public FutureImpl(final Executor executor, final SocketAddress address) {
                 this.executor = executor;
+                localAddress = address;
             }
 
             protected boolean setException(final IOException exception) {
@@ -400,7 +403,11 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
                 });
             }
 
-            public IoFuture<TcpChannel> cancel() {
+            public SocketAddress getLocalAddress() {
+                return localAddress;
+            }
+
+            public FutureConnection<SocketAddress, TcpChannel> cancel() {
                 IoUtils.safeClose(socketChannel);
                 return this;
             }

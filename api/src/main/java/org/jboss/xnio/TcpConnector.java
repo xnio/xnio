@@ -37,7 +37,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    IoFuture<TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
+    FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
 
     /**
      * Establish a connection to a TCP server.
@@ -47,7 +47,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    IoFuture<TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
+    FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler);
 
     /**
      * Create a client that always connects to the given TCP server.
@@ -58,7 +58,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
     TcpChannelSource createChannelSource(final SocketAddress dest);
 
     /**
-     * Create a client that always connects to the given TCP from the given source address.
+     * Create a client that always connects to the given TCP server from the given source address.
      *
      * @param src the source to connect from
      * @param dest the destination to connect to

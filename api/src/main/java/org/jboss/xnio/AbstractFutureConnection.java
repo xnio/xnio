@@ -22,13 +22,11 @@
 
 package org.jboss.xnio;
 
-import org.jboss.xnio.channels.TcpChannel;
-import java.net.SocketAddress;
-
 /**
- * A client specifically for connecting to TCP remote servers.
+ * Convenience abstract class for future connections.
+ *
+ * @param <A> the address type
+ * @param <T> the channel type
  */
-public interface TcpChannelSource extends ChannelSource<TcpChannel> {
-    /** {@inheritDoc} */
-    FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler);
+public abstract class AbstractFutureConnection<A, T> extends AbstractIoFuture<T> implements FutureConnection<A, T> {
 }
