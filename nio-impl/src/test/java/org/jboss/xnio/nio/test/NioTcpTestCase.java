@@ -26,6 +26,7 @@ import junit.framework.TestCase;
 import org.jboss.xnio.nio.NioProvider;
 import org.jboss.xnio.nio.NioTcpServer;
 import org.jboss.xnio.nio.NioTcpConnector;
+import org.jboss.xnio.nio.NioTcpAcceptor;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
@@ -33,6 +34,8 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.FutureConnection;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.test.support.LoggingHelper;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.safeClose;
@@ -54,6 +57,8 @@ public final class NioTcpTestCase extends TestCase {
     static {
         LoggingHelper.init();
     }
+
+    private static final Logger log = Logger.getLogger(NioTcpTestCase.class);
 
     private static final int SERVER_PORT = 12345;
 
@@ -516,5 +521,168 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
+    }
+
+    public void testAcceptor() throws Exception {
+        final CountDownLatch readLatch = new CountDownLatch(2);
+        final CountDownLatch closeLatch = new CountDownLatch(2);
+        final AtomicBoolean clientOpened = new AtomicBoolean();
+        final AtomicBoolean clientReadOnceOK = new AtomicBoolean();
+        final AtomicBoolean clientReadDoneOK = new AtomicBoolean();
+        final AtomicBoolean clientReadTooMuch = new AtomicBoolean();
+        final AtomicBoolean clientWriteOK = new AtomicBoolean();
+        final AtomicBoolean serverOpened = new AtomicBoolean();
+        final AtomicBoolean serverReadOnceOK = new AtomicBoolean();
+        final AtomicBoolean serverReadDoneOK = new AtomicBoolean();
+        final AtomicBoolean serverReadTooMuch = new AtomicBoolean();
+        final AtomicBoolean serverWriteOK = new AtomicBoolean();
+        final byte[] bytes = "Ummagumma!".getBytes("UTF-8");
+        synchronized (this) {
+            final NioProvider provider = new NioProvider();
+            provider.start();
+            try {
+                final NioTcpAcceptor nioTcpAcceptor = new NioTcpAcceptor();
+                nioTcpAcceptor.setNioProvider(provider);
+                nioTcpAcceptor.setReuseAddress(true);
+                nioTcpAcceptor.start();
+                final FutureConnection<SocketAddress,TcpChannel> futureConnection = nioTcpAcceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new IoHandler<TcpChannel>() {
+                    private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
+                    private int readCnt = 0;
+                    private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);
+
+                    public void handleOpened(final TcpChannel channel) {
+                        channel.resumeReads();
+                        channel.resumeWrites();
+                        serverOpened.set(true);
+                    }
+
+                    public void handleReadable(final TcpChannel channel) {
+                        try {
+                            final int res = channel.read(inboundBuf);
+                            if (res == 0) {
+                                channel.resumeReads();
+                            } else if (res == -1) {
+                                serverReadDoneOK.set(true);
+                                readLatch.countDown();
+                            } else {
+                                final int ttl = readCnt += res;
+                                if (ttl == bytes.length) {
+                                    serverReadOnceOK.set(true);
+                                } else if (ttl > bytes.length) {
+                                    serverReadTooMuch.set(true);
+                                    IoUtils.safeClose(channel);
+                                    return;
+                                }
+                                channel.resumeReads();
+                            }
+                        } catch (IOException e) {
+                            log.error(e, "Client read failed");
+                            IoUtils.safeClose(channel);
+                        }
+                    }
+
+                    public void handleWritable(final TcpChannel channel) {
+                        try {
+                            channel.write(outboundBuf);
+                            if (! outboundBuf.hasRemaining()) {
+                                serverWriteOK.set(true);
+                                channel.shutdownWrites();
+                            }
+                        } catch (IOException e) {
+                            log.error(e, "Client write failed");
+                            IoUtils.safeClose(channel);
+                        }
+                    }
+
+                    public void handleClosed(final TcpChannel channel) {
+                        closeLatch.countDown();
+                    }
+                });
+                final SocketAddress localAddress = futureConnection.getLocalAddress();
+                System.out.println("Connecting to... " + localAddress);
+                try {
+                    final NioTcpConnector nioTcpConnector = new NioTcpConnector();
+                    nioTcpConnector.setNioProvider(provider);
+                    nioTcpConnector.setConnectTimeout(10);
+                    nioTcpConnector.start();
+                    try {
+                        final IoFuture<TcpChannel> ioFuture = nioTcpConnector.connectTo(localAddress, new IoHandler<TcpChannel>() {
+                            private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
+                            private int readCnt = 0;
+                            private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);
+
+                            public void handleOpened(final TcpChannel channel) {
+                                channel.resumeReads();
+                                channel.resumeWrites();
+                                clientOpened.set(true);
+                            }
+
+                            public void handleReadable(final TcpChannel channel) {
+                                try {
+                                    final int res = channel.read(inboundBuf);
+                                    if (res == 0) {
+                                        channel.resumeReads();
+                                    } else if (res == -1) {
+                                        clientReadDoneOK.set(true);
+                                        readLatch.countDown();
+                                    } else {
+                                        final int ttl = readCnt += res;
+                                        if (ttl == bytes.length) {
+                                            clientReadOnceOK.set(true);
+                                        } else if (ttl > bytes.length) {
+                                            clientReadTooMuch.set(true);
+                                            IoUtils.safeClose(channel);
+                                            return;
+                                        }
+                                        channel.resumeReads();
+                                    }
+                                } catch (IOException e) {
+                                    log.error(e, "Server read failed");
+                                    IoUtils.safeClose(channel);
+                                }
+                            }
+
+                            public void handleWritable(final TcpChannel channel) {
+                                try {
+                                    channel.write(outboundBuf);
+                                    if (! outboundBuf.hasRemaining()) {
+                                        clientWriteOK.set(true);
+                                        channel.shutdownWrites();
+                                    }
+                                } catch (IOException e) {
+                                    log.error(e, "Server write failed");
+                                    IoUtils.safeClose(channel);
+                                }
+                            }
+
+                            public void handleClosed(final TcpChannel channel) {
+                                closeLatch.countDown();
+                            }
+                        });
+                        assertTrue("Read timed out", readLatch.await(500L, TimeUnit.MILLISECONDS));
+                        final TcpChannel clientChannel = ioFuture.get();
+                        final TcpChannel serverChannel = futureConnection.get();
+                        clientChannel.close();
+                        serverChannel.close();
+                        assertTrue("Close timed out", closeLatch.await(500L, TimeUnit.MILLISECONDS));
+                        assertFalse("Client read too much", clientReadTooMuch.get());
+                        assertTrue("Client read OK", clientReadOnceOK.get());
+                        assertTrue("Client read done", clientReadDoneOK.get());
+                        assertTrue("Client write OK", clientWriteOK.get());
+                        assertFalse("Server read too much", serverReadTooMuch.get());
+                        assertTrue("Server read OK", serverReadOnceOK.get());
+                        assertTrue("Server read done", serverReadDoneOK.get());
+                        assertTrue("Server write OK", serverWriteOK.get());
+                    } finally {
+                        nioTcpConnector.stop();
+                    }
+                } finally {
+                    futureConnection.cancel();
+                    nioTcpAcceptor.stop();
+                }
+            } finally {
+                provider.stop();
+            }
+        }
     }
 }

@@ -17,10 +17,7 @@ grant codeBase "file:${build.home}/spi/target/main/classes/-"
 
 grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
 {
-    // server side requirement
-    permission java.net.SocketPermission "127.0.0.1:*", "accept, resolve";
-    // client side requirement
-    permission java.net.SocketPermission "127.0.0.1:12345", "connect, resolve";
+    permission java.net.SocketPermission "127.0.0.1:*", "accept, connect, resolve";
 };
 
 // Support classes

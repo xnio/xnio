@@ -39,7 +39,6 @@ import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -54,7 +53,9 @@ public final class NioSocketChannelImpl implements TcpChannel {
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
     private final NioProvider nioProvider;
-    private final AtomicBoolean callFlag = new AtomicBoolean(false);
+    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
+    private final AtomicBoolean shutdownReads = new AtomicBoolean(false);
+    private final AtomicBoolean shutdownWrites = new AtomicBoolean(false);
 
     public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler) throws IOException {
         this.handler = handler;
@@ -88,7 +89,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
             nioProvider.removeChannel(this);
             readHandle.cancelKey();
             writeHandle.cancelKey();
-            if (! callFlag.getAndSet(true)) {
+            if (! closeCalled.getAndSet(true)) {
                 log.trace("Closing channel %s", this);
                 HandlerUtils.<TcpChannel>handleClosed(handler, this);
             }

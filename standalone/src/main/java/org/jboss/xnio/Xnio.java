@@ -330,6 +330,26 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Create a TCP acceptor.
+     *
+     * @return a factory that can be used to configure a TCP acceptor
+     */
+    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
+        throw new UnsupportedOperationException("TCP Acceptor");
+    }
+
+    /**
+     * Create a TCP acceptor.
+     *
+     * @param executor the executor to use to execute the handlers
+     *
+     * @return a factory that can be used to configure a TCP acceptor
+     */
+    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor(Executor executor) {
+        throw new UnsupportedOperationException("TCP Acceptor");
+    }
+
+    /**
      * Close this XNIO provider.  Calling this method more than one time has no additional effect.
      */
     public abstract void close() throws IOException;

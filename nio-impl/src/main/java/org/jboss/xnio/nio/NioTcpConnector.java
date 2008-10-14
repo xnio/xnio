@@ -32,7 +32,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpChannelSource;
@@ -197,7 +196,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             throw new NullPointerException("dest is null");
         }
         return new TcpChannelSource() {
-            public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+            public FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -214,7 +213,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             throw new NullPointerException("dest is null");
         }
         return new TcpChannelSource() {
-            public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+            public FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }

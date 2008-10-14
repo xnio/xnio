@@ -49,6 +49,9 @@ import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.TcpChannelSource;
+import org.jboss.xnio.TcpAcceptor;
+import org.jboss.xnio.CloseableTcpAcceptor;
+import org.jboss.xnio.TcpChannelDestination;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
@@ -448,6 +451,38 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
+    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
+        if (closed.get()) {
+            throw new IllegalStateException("XNIO provider not open");
+        }
+        synchronized (lifecycleLock) {
+            final NioTcpAcceptor acceptor = new NioTcpAcceptor();
+            acceptor.setNioProvider(provider);
+            final AtomicBoolean started = new AtomicBoolean(false);
+            final AtomicBoolean stopped = new AtomicBoolean(false);
+            return new SimpleConfigurableFactory<TcpAcceptor, NioTcpAcceptor>(acceptor, started, new LifecycleAcceptor(acceptor, stopped));
+        }
+    }
+
+    /** {@inheritDoc} */
+    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor(final Executor executor) {
+        if (executor == null) {
+            throw new NullPointerException("executor is null");
+        }
+        if (closed.get()) {
+            throw new IllegalStateException("XNIO provider not open");
+        }
+        synchronized (lifecycleLock) {
+            final NioTcpAcceptor acceptor = new NioTcpAcceptor();
+            acceptor.setNioProvider(provider);
+            acceptor.setExecutor(executor);
+            final AtomicBoolean started = new AtomicBoolean(false);
+            final AtomicBoolean stopped = new AtomicBoolean(false);
+            return new SimpleConfigurableFactory<TcpAcceptor, NioTcpAcceptor>(acceptor, started, new LifecycleAcceptor(acceptor, stopped));
+        }
+    }
+
+    /** {@inheritDoc} */
     public void close() throws IOException{
         if (! closed.getAndSet(true)) {
             synchronized (lifecycleLock) {
@@ -500,7 +535,10 @@ public final class NioXnio extends Xnio {
 
         public TcpChannelSource createChannelSource(final SocketAddress dest) {
             return new TcpChannelSource() {
-                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+                public FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+                    if (closed.get()) {
+                        throw new IllegalStateException("Acceptor closed");
+                    }
                     return realConnector.connectTo(dest, handler);
                 }
             };
@@ -508,8 +546,40 @@ public final class NioXnio extends Xnio {
 
         public TcpChannelSource createChannelSource(final SocketAddress src, final SocketAddress dest) {
             return new TcpChannelSource() {
-                public IoFuture<TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+                public FutureConnection<SocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+                    if (closed.get()) {
+                        throw new IllegalStateException("Acceptor closed");
+                    }
                     return realConnector.connectTo(src, dest, handler);
+                }
+            };
+        }
+    }
+
+    private class LifecycleAcceptor extends LifecycleCloseable implements CloseableTcpAcceptor {
+        private final AtomicBoolean closed;
+        private final TcpAcceptor realAcceptor;
+
+        private <T extends Lifecycle & TcpAcceptor> LifecycleAcceptor(final T lifecycle, final AtomicBoolean closed) {
+            super(lifecycle, closed);
+            this.closed = closed;
+            realAcceptor = lifecycle;
+        }
+
+        public FutureConnection<SocketAddress, TcpChannel> acceptTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+            if (closed.get()) {
+                throw new IllegalStateException("Acceptor closed");
+            }
+            return realAcceptor.acceptTo(dest, handler);
+        }
+
+        public TcpChannelDestination createChannelDestination(final SocketAddress dest) {
+            return new TcpChannelDestination() {
+                public FutureConnection<SocketAddress, TcpChannel> accept(final IoHandler<? super TcpChannel> handler) {
+                    if (closed.get()) {
+                        throw new IllegalStateException("Acceptor closed");
+                    }
+                    return realAcceptor.acceptTo(dest, handler);
                 }
             };
         }

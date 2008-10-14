@@ -25,7 +25,7 @@ package org.jboss.xnio;
 import java.io.Closeable;
 
 /**
- * A TCP channel source that is closeable.
+ * A TCP acceptor that is closeable.
  */
-public interface CloseableTcpChannelSource extends TcpChannelSource, Closeable {
+public interface CloseableTcpAcceptor extends TcpAcceptor, Closeable {
 }

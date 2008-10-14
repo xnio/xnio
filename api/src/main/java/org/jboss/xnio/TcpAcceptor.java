@@ -22,10 +22,13 @@
 
 package org.jboss.xnio;
 
-import java.io.Closeable;
+import java.net.SocketAddress;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
- * A TCP channel source that is closeable.
+ * An acceptor specifically for accepting connections from a TCP client.
  */
-public interface CloseableTcpChannelSource extends TcpChannelSource, Closeable {
+public interface TcpAcceptor extends Acceptor<SocketAddress, TcpChannel> {
+    /** {@inheritDoc} */
+    TcpChannelDestination createChannelDestination(SocketAddress dest);
 }
