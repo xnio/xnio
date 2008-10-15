@@ -73,12 +73,12 @@ public final class NioHandle {
         selectorRunnable.wakeup();
     }
 
-    public void suspend() {
+    void suspend() {
         selectionKey.interestOps(0);
         selectorRunnable.wakeup();
     }
 
-    public boolean isOneshot() {
+    boolean isOneshot() {
         return oneshot;
     }
 }
