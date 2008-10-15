@@ -44,7 +44,7 @@ public final class NioSelectorRunnable implements Runnable {
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
-    private final AtomicBoolean selecting = new AtomicBoolean(false);
+    private final AtomicBoolean selecting = new AtomicBoolean(true);
     private volatile int keyLoad;
     private volatile Thread thread;
 
