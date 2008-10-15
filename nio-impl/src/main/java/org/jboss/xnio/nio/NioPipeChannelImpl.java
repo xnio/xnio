@@ -108,7 +108,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
 
     public void suspendReads() {
         try {
-            sourceHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            sourceHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -116,7 +116,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
 
     public void suspendWrites() {
         try {
-            sinkHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            sinkHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -124,7 +124,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
 
     public void resumeReads() {
         try {
-            sourceHandle.getSelectionKey().interestOps(SelectionKey.OP_READ).selector().wakeup();
+            sourceHandle.resume(SelectionKey.OP_READ);
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -132,7 +132,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
 
     public void resumeWrites() {
         try {
-            sinkHandle.getSelectionKey().interestOps(SelectionKey.OP_WRITE).selector().wakeup();
+            sinkHandle.resume(SelectionKey.OP_WRITE);
         } catch (CancelledKeyException ex) {
             // ignore
         }

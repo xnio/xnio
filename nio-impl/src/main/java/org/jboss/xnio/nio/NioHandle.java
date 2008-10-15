@@ -34,15 +34,19 @@ public final class NioHandle {
     private final NioSelectorRunnable selectorRunnable;
     private final Runnable handler;
     private final Executor handlerExecutor;
+    private final Thread thread;
+    private final boolean oneshot;
 
-    NioHandle(final SelectionKey selectionKey, final NioSelectorRunnable selectorRunnable, final Runnable handler, final Executor handlerExecutor) {
+    NioHandle(final SelectionKey selectionKey, final NioSelectorRunnable selectorRunnable, final Runnable handler, final Executor handlerExecutor, final boolean oneshot) {
         this.selectionKey = selectionKey;
         this.selectorRunnable = selectorRunnable;
         this.handler = handler;
         this.handlerExecutor = handlerExecutor;
+        this.oneshot = oneshot;
+        thread = selectorRunnable.thread;
     }
 
-    public SelectionKey getSelectionKey() {
+    SelectionKey getSelectionKey() {
         return selectionKey;
     }
 
@@ -58,12 +62,32 @@ public final class NioHandle {
         return handlerExecutor;
     }
 
-    public void cancelKey() {
+    void cancelKey() {
         selectorRunnable.queueTask(new SelectorTask() {
             public void run(final Selector selector) {
                 selectionKey.cancel();
             }
         });
-        selectionKey.selector().wakeup();
+        if (Thread.currentThread() != thread) {
+            selectionKey.selector().wakeup();
+        }
+    }
+
+    void resume(final int op) {
+        selectionKey.interestOps(op);
+        if (Thread.currentThread() != thread) {
+            selectionKey.selector().wakeup();
+        }
+    }
+
+    public void suspend() {
+        selectionKey.interestOps(0);
+        if (Thread.currentThread() != thread) {
+            selectionKey.selector().wakeup();
+        }
+    }
+
+    public boolean isOneshot() {
+        return oneshot;
     }
 }

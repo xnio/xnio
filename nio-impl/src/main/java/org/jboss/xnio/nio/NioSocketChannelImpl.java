@@ -27,8 +27,8 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -110,7 +110,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void suspendReads() {
         try {
-            readHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            readHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -118,7 +118,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void suspendWrites() {
         try {
-            writeHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            readHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -126,7 +126,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void resumeReads() {
         try {
-            readHandle.getSelectionKey().interestOps(SelectionKey.OP_READ).selector().wakeup();
+            readHandle.resume(SelectionKey.OP_READ);
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -134,7 +134,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void resumeWrites() {
         try {
-            writeHandle.getSelectionKey().interestOps(SelectionKey.OP_WRITE).selector().wakeup();
+            writeHandle.resume(SelectionKey.OP_WRITE);
         } catch (CancelledKeyException ex) {
             // ignore
         }

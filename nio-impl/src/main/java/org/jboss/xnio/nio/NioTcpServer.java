@@ -176,7 +176,7 @@ public final class NioTcpServer implements Lifecycle, Configurable {
                 if (receiveBufferSize > 0) {
                     serverSocket.setReceiveBufferSize(receiveBufferSize);
                 }
-                NioHandle handle = nioProvider.addConnectHandler(serverSocketChannel, new Handler(i));
+                NioHandle handle = nioProvider.addConnectHandler(serverSocketChannel, new Handler(i), false);
                 final SocketAddress bindAddress = bindAddresses[i];
                 if (backlog > 0) {
                     log.trace("Binding TCP server to %s with a backlog of %d", bindAddress, Integer.valueOf(backlog));
@@ -197,7 +197,7 @@ public final class NioTcpServer implements Lifecycle, Configurable {
             }
         }
         for (int i = 0; i < bindCount; i++) {
-            handles[i].getSelectionKey().interestOps(SelectionKey.OP_ACCEPT).selector().wakeup();
+            handles[i].resume(SelectionKey.OP_ACCEPT);
         }
         log.trace("Successfully started TCP server");
     }

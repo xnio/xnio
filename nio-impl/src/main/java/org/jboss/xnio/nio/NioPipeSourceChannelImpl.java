@@ -87,7 +87,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     public void suspendReads() {
         try {
-            handle.getSelectionKey().interestOps(0).selector().wakeup();
+            handle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -95,7 +95,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     public void resumeReads() {
         try {
-            handle.getSelectionKey().interestOps(SelectionKey.OP_READ).selector().wakeup();
+            handle.resume(SelectionKey.OP_READ);
         } catch (CancelledKeyException ex) {
             // ignore
         }

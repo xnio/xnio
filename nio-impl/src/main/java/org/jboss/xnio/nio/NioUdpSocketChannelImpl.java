@@ -123,7 +123,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void suspendReads() {
         try {
-            readHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            readHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -131,7 +131,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void suspendWrites() {
         try {
-            writeHandle.getSelectionKey().interestOps(0).selector().wakeup();
+            writeHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -139,7 +139,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void resumeReads() {
         try {
-            readHandle.getSelectionKey().interestOps(SelectionKey.OP_READ).selector().wakeup();
+            readHandle.resume(SelectionKey.OP_READ);
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -147,7 +147,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void resumeWrites() {
         try {
-            writeHandle.getSelectionKey().interestOps(SelectionKey.OP_WRITE).selector().wakeup();
+            writeHandle.resume(SelectionKey.OP_WRITE);
         } catch (CancelledKeyException ex) {
             // ignore
         }

@@ -174,7 +174,7 @@ public final class NioProvider {
 
     // API
 
-    private NioHandle doAdd(final SelectableChannel channel, final Set<NioSelectorRunnable> runnableSet, final Runnable handler) throws IOException {
+    private NioHandle doAdd(final SelectableChannel channel, final Set<NioSelectorRunnable> runnableSet, final Runnable handler, final boolean oneshot) throws IOException {
         final SynchronousHolder<NioHandle, IOException> holder = new SynchronousHolder<NioHandle, IOException>();
         NioSelectorRunnable nioSelectorRunnable = null;
         int bestLoad = Integer.MAX_VALUE;
@@ -193,7 +193,7 @@ public final class NioProvider {
             public void run(final Selector selector) {
                 try {
                     final SelectionKey selectionKey = channel.register(selector, 0);
-                    final NioHandle handle = new NioHandle(selectionKey, actualSelectorRunnable, handler, executor);
+                    final NioHandle handle = new NioHandle(selectionKey, actualSelectorRunnable, handler, executor, oneshot);
                     selectionKey.attach(handle);
                     holder.set(handle);
                 } catch (ClosedChannelException e) {
@@ -205,16 +205,16 @@ public final class NioProvider {
         return holder.get();
     }
 
-    public NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, connectors, handler);
+    public NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler, final boolean oneshot) throws IOException {
+        return doAdd(channel, connectors, handler, oneshot);
     }
 
     public NioHandle addReadHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, readers, handler);
+        return doAdd(channel, readers, handler, true);
     }
 
     public NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, writers, handler);
+        return doAdd(channel, writers, handler, true);
     }
 
     public void addChannel(Channel channel) {

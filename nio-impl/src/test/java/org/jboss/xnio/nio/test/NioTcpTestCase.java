@@ -406,13 +406,7 @@ public final class NioTcpTestCase extends TestCase {
                     channel.resumeReads();
                 } catch (Throwable t) {
                     t.printStackTrace();
-                    try {
-                        channel.close();
-                    } catch (Throwable t2) {
-                        t2.printStackTrace();
-                        latch.countDown();
-                        throw new RuntimeException(t);
-                    }
+                    latch.countDown();
                     throw new RuntimeException(t);
                 }
             }
@@ -420,7 +414,6 @@ public final class NioTcpTestCase extends TestCase {
             public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
                     channel.read(ByteBuffer.allocate(100));
-                    channel.close();
                 } catch (IOException e) {
                     if (e.getMessage().contains("reset")) {
                         serverOK.set(true);
@@ -576,7 +569,7 @@ public final class NioTcpTestCase extends TestCase {
                                 channel.resumeReads();
                             }
                         } catch (IOException e) {
-                            log.error(e, "Client read failed");
+                            log.error(e, "Server read failed");
                             IoUtils.safeClose(channel);
                         }
                     }
@@ -589,7 +582,7 @@ public final class NioTcpTestCase extends TestCase {
                                 channel.shutdownWrites();
                             }
                         } catch (IOException e) {
-                            log.error(e, "Client write failed");
+                            log.error(e, "Server write failed");
                             IoUtils.safeClose(channel);
                         }
                     }
@@ -637,7 +630,7 @@ public final class NioTcpTestCase extends TestCase {
                                         channel.resumeReads();
                                     }
                                 } catch (IOException e) {
-                                    log.error(e, "Server read failed");
+                                    log.error(e, "Client read failed");
                                     IoUtils.safeClose(channel);
                                 }
                             }
@@ -650,7 +643,7 @@ public final class NioTcpTestCase extends TestCase {
                                         channel.shutdownWrites();
                                     }
                                 } catch (IOException e) {
-                                    log.error(e, "Server write failed");
+                                    log.error(e, "Client write failed");
                                     IoUtils.safeClose(channel);
                                 }
                             }

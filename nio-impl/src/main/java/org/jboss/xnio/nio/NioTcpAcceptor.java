@@ -149,8 +149,9 @@ public final class NioTcpAcceptor implements Configurable, Lifecycle, TcpAccepto
                 return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioSocketChannelImpl(nioProvider, socketChannel, handler));
             }
             final Handler nioHandler = new Handler(serverSocketChannel, handler);
-            final NioHandle handle = nioProvider.addConnectHandler(serverSocketChannel, nioHandler);
-            handle.getSelectionKey().interestOps(SelectionKey.OP_ACCEPT).selector().wakeup();
+            final NioHandle handle = nioProvider.addConnectHandler(serverSocketChannel, nioHandler, true);
+            nioHandler.handle = handle;
+            handle.resume(SelectionKey.OP_ACCEPT);
             return nioHandler.future;
         } catch (IOException e) {
             return new FailedFutureConnection<SocketAddress, TcpChannel>(e, dest);
@@ -169,6 +170,7 @@ public final class NioTcpAcceptor implements Configurable, Lifecycle, TcpAccepto
         private final FutureImpl future;
         private final ServerSocketChannel serverSocketChannel;
         private final IoHandler<? super TcpChannel> handler;
+        private volatile NioHandle handle;
 
         public Handler(final ServerSocketChannel serverSocketChannel, final IoHandler<? super TcpChannel> handler) {
             this.serverSocketChannel = serverSocketChannel;
@@ -181,6 +183,7 @@ public final class NioTcpAcceptor implements Configurable, Lifecycle, TcpAccepto
                 boolean ok = false;
                 final SocketChannel socketChannel = serverSocketChannel.accept();
                 if (socketChannel == null) {
+                    handle.resume(SelectionKey.OP_ACCEPT);
                     return;
                 }
                 try {

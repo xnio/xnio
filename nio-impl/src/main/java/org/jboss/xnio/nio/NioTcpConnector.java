@@ -244,7 +244,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
                 return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
             } else {
                 final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioProvider, handler);
-                connectionHandler.handle.getSelectionKey().interestOps(SelectionKey.OP_CONNECT).selector().wakeup();
+                connectionHandler.handle.resume(SelectionKey.OP_CONNECT);
                 return connectionHandler.future;
             }
         } catch (IOException e) {
@@ -340,7 +340,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             this.handler = handler;
             // *should* be safe...
             //noinspection ThisEscapedInObjectConstruction
-            handle = nioProvider.addConnectHandler(socketChannel, this);
+            handle = nioProvider.addConnectHandler(socketChannel, this, true);
             future = new FutureImpl(executor, socketChannel.socket().getLocalSocketAddress());
         }
 
@@ -354,7 +354,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
                     handle.cancelKey();
                 } else {
                     log.trace("Connection is not yet up (deferred)");
-                    handle.getSelectionKey().interestOps(SelectionKey.OP_CONNECT).selector().wakeup();
+                    handle.resume(SelectionKey.OP_CONNECT);
                     return;
                 }
             } catch (IOException e) {

@@ -85,7 +85,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
 
     public void suspendWrites() {
         try {
-            handle.getSelectionKey().interestOps(0).selector().wakeup();
+            handle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -93,7 +93,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
 
     public void resumeWrites() {
         try {
-            handle.getSelectionKey().interestOps(SelectionKey.OP_WRITE).selector().wakeup();
+            handle.resume(SelectionKey.OP_WRITE);
         } catch (CancelledKeyException ex) {
             // ignore
         }

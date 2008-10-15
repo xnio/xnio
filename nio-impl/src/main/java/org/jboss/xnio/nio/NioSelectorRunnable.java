@@ -32,6 +32,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -42,23 +43,27 @@ public final class NioSelectorRunnable implements Runnable {
     private static final Logger log = Logger.getLogger(NioSelectorRunnable.class);
 
     private final Selector selector;
-    private final Queue<SelectorTask> selectorWorkQueue = new LinkedList<SelectorTask>();
+    private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private volatile int keyLoad;
-    private volatile Thread thread;
+    volatile Thread thread;
 
     protected NioSelectorRunnable() throws IOException {
         selector = Selector.open();
     }
 
     public void queueTask(SelectorTask task) {
-        synchronized (selectorWorkQueue) {
+        if (Thread.currentThread() == thread) {
+            task.run(selector);
+        } else {
             selectorWorkQueue.add(task);
         }
     }
 
     public void wakeup() {
-        selector.wakeup();
+        if (Thread.currentThread() != thread) {
+            selector.wakeup();
+        }
     }
 
     public int getKeyLoad() {
@@ -82,6 +87,7 @@ public final class NioSelectorRunnable implements Runnable {
     }
 
     public void run() {
+        thread = Thread.currentThread();
         final Selector selector = this.selector;
         final Queue<SelectorTask> queue = selectorWorkQueue;
         for (; ;) {
@@ -91,15 +97,10 @@ public final class NioSelectorRunnable implements Runnable {
                 }
                 keyLoad = selector.keys().size();
                 selector.select();
-                synchronized (queue) {
-                    while (! queue.isEmpty()) {
-                        final SelectorTask task = queue.remove();
-                        try {
-                            task.run(selector);
-                        } catch (Throwable t) {
-                            log.trace(t, "NIO selector task failed");
-                        }
-                    }
+                for (SelectorTask task = queue.poll(); task != null; task = queue.poll()) try {
+                    task.run(selector);
+                } catch (Throwable t) {
+                    log.trace(t, "NIO selector task failed");
                 }
                 final Set<SelectionKey> selectedKeys = selector.selectedKeys();
                 final Iterator<SelectionKey> iterator = selectedKeys.iterator();
@@ -107,16 +108,15 @@ public final class NioSelectorRunnable implements Runnable {
                     final SelectionKey key = iterator.next();
                     iterator.remove();
                     try {
-                        key.interestOps(key.interestOps() & (SelectionKey.OP_ACCEPT));
-                        try {
-                            final NioHandle handle = (NioHandle) key.attachment();
-                            handle.getHandlerExecutor().execute(handle.getHandler());
-                        } catch (Throwable t) {
-                            log.trace(t, "Failed to execute handler");
+                        final NioHandle handle = (NioHandle) key.attachment();
+                        if (handle.isOneshot()) {
+                            key.interestOps(0);
                         }
+                        handle.getHandlerExecutor().execute(handle.getHandler());
                     } catch (CancelledKeyException e) {
                         log.trace("Key %s cancelled", key);
-                        continue;
+                    } catch (Throwable t) {
+                        log.trace(t, "Failed to execute handler");
                     }
                 }
             } catch (ClosedSelectorException e) {
