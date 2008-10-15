@@ -138,7 +138,7 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a TCP server.  The server will bind to the given addresses.    If none are specified, then the operating
      * system will assign a port and the server will attempt to bind to all addresses with that port number.  The
-     * provider's executor will be used to execute handler methods.
+     * provider's default executor will be used to execute handler methods.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
      * @param bindAddresses the addresses to bind to
@@ -162,7 +162,7 @@ public abstract class Xnio implements Closeable {
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
-     * provider's executor will be used to execute handler methods.
+     * provider's default executor will be used to execute handler methods.
      *
      * @return a factory that can be used to configure the new TCP connector
      */
@@ -187,7 +187,7 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a UDP server.  The server will bind to the given addresses.  The provider's executor will be used to
+     * Create a UDP server.  The server will bind to the given addresses.  The provider's default executor will be used to
      * execute handler methods.
      *
      * @param multicast {@code true} if the UDP server should be multicast-capable
@@ -204,6 +204,20 @@ public abstract class Xnio implements Closeable {
      * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
      * pipe. The returned channel source is used to establish connections to the server.
      *
+     * @param executor the executor to use to execute the handlers
+     * @param handlerFactory the server handler factory
+     *
+     * @return the client channel source
+     */
+    public ChannelSource<StreamChannel> createPipeServer(Executor executor, IoHandlerFactory<? super StreamChannel> handlerFactory) {
+        throw new UnsupportedOperationException("Pipe Server");
+    }
+
+    /**
+     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
+     * pipe. The returned channel source is used to establish connections to the server.  The provider's default executor will be used to
+     * execute handler methods.
+     *
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
@@ -216,6 +230,21 @@ public abstract class Xnio implements Closeable {
      * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * server to the client.
+     *
+     * @param executor the executor to use to execute the handlers
+     * @param handlerFactory the server handler factory
+     *
+     * @return the client channel source
+     */
+    public ChannelSource<StreamSourceChannel> createPipeSourceServer(Executor executor, IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+        throw new UnsupportedOperationException("One-way Pipe Server");
+    }
+
+    /**
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
+     * server to the client.  The provider's default executor will be used to
+     * execute handler methods.
      *
      * @param handlerFactory the server handler factory
      *
@@ -230,6 +259,21 @@ public abstract class Xnio implements Closeable {
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * client to the server.
      *
+     * @param executor the executor to use to execute the handlers
+     * @param handlerFactory the server handler factory
+     *
+     * @return the client channel source
+     */
+    public ChannelSource<StreamSinkChannel> createPipeSinkServer(Executor executor, IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+        throw new UnsupportedOperationException("One-way Pipe Server");
+    }
+
+    /**
+     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
+     * client to the server.  The provider's default executor will be used to
+     * execute handler methods.
+     *
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
@@ -240,6 +284,20 @@ public abstract class Xnio implements Closeable {
 
     /**
      * Create a single pipe connection.
+     *
+     * @param executor the executor to use to execute the handlers
+     * @param leftHandler the handler for the "left" side of the pipe
+     * @param rightHandler the handler for the "right" side of the pipe
+     *
+     * @return the future connection
+     */
+    public IoFuture<Closeable> createPipeConnection(Executor executor, IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+        throw new UnsupportedOperationException("Pipe Connection");
+    }
+
+    /**
+     * Create a single pipe connection.  The provider's default executor will be used to
+     * execute handler methods.
      *
      * @param leftHandler the handler for the "left" side of the pipe
      * @param rightHandler the handler for the "right" side of the pipe
@@ -253,6 +311,20 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a single one-way pipe connection.
      *
+     * @param executor the executor to use to execute the handlers
+     * @param sourceHandler the handler for the "source" side of the pipe
+     * @param sinkHandler the handler for the "sink" side of the pipe
+     *
+     * @return the future connection
+     */
+    public IoFuture<Closeable> createOneWayPipeConnection(Executor executor, IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+        throw new UnsupportedOperationException("One-way Pipe Connection");
+    }
+
+    /**
+     * Create a single one-way pipe connection.  The provider's default executor will be used to
+     * execute handler methods.
+     *
      * @param sourceHandler the handler for the "source" side of the pipe
      * @param sinkHandler the handler for the "sink" side of the pipe
      *
@@ -265,20 +337,21 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a TCP acceptor.
      *
-     * @return a factory that can be used to configure a TCP acceptor
-     */
-    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
-        throw new UnsupportedOperationException("TCP Acceptor");
-    }
-
-    /**
-     * Create a TCP acceptor.
-     *
      * @param executor the executor to use to execute the handlers
      *
      * @return a factory that can be used to configure a TCP acceptor
      */
     public ConfigurableFactory<TcpAcceptor> createTcpAcceptor(Executor executor) {
+        throw new UnsupportedOperationException("TCP Acceptor");
+    }
+
+    /**
+     * Create a TCP acceptor.  The provider's default executor will be used to
+     * execute handler methods.
+     *
+     * @return a factory that can be used to configure a TCP acceptor
+     */
+    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
