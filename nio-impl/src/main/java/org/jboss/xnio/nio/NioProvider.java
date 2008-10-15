@@ -189,7 +189,7 @@ public final class NioProvider {
             throw new IOException("No threads defined to handle this event type");
         }
         final NioSelectorRunnable actualSelectorRunnable = nioSelectorRunnable;
-        nioSelectorRunnable.queueTask(new SelectorTask() {
+        nioSelectorRunnable.runTask(new SelectorTask() {
             public void run(final Selector selector) {
                 try {
                     final SelectionKey selectionKey = channel.register(selector, 0);
@@ -201,7 +201,6 @@ public final class NioProvider {
                 }
             }
         });
-        nioSelectorRunnable.wakeup();
         return holder.get();
     }
 

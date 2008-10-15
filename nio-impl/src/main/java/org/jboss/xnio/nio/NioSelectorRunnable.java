@@ -28,7 +28,6 @@ import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,23 +44,27 @@ public final class NioSelectorRunnable implements Runnable {
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
+    private final AtomicBoolean selecting = new AtomicBoolean(false);
     private volatile int keyLoad;
-    volatile Thread thread;
+    private volatile Thread thread;
 
     protected NioSelectorRunnable() throws IOException {
         selector = Selector.open();
     }
 
-    public void queueTask(SelectorTask task) {
+    public void runTask(SelectorTask task) {
         if (Thread.currentThread() == thread) {
             task.run(selector);
         } else {
             selectorWorkQueue.add(task);
+            if (selecting.getAndSet(false)) {
+                selector.wakeup();
+            }
         }
     }
 
     public void wakeup() {
-        if (Thread.currentThread() != thread) {
+        if (selecting.getAndSet(false) && Thread.currentThread() != thread) {
             selector.wakeup();
         }
     }
@@ -97,6 +100,7 @@ public final class NioSelectorRunnable implements Runnable {
                 }
                 keyLoad = selector.keys().size();
                 selector.select();
+                selecting.set(true);
                 for (SelectorTask task = queue.poll(); task != null; task = queue.poll()) try {
                     task.run(selector);
                 } catch (Throwable t) {
