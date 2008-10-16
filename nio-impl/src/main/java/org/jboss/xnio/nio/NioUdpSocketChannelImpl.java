@@ -33,13 +33,13 @@ import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -159,6 +159,22 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
+    }
+
+    public void awaitReadable() throws IOException {
+        SelectorUtils.await(SelectionKey.OP_READ, datagramChannel);
+    }
+
+    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
+        SelectorUtils.await(SelectionKey.OP_READ, datagramChannel, time, timeUnit);
+    }
+
+    public void awaitWritable() throws IOException {
+        SelectorUtils.await(SelectionKey.OP_WRITE, datagramChannel);
+    }
+
+    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+        SelectorUtils.await(SelectionKey.OP_WRITE, datagramChannel, time, timeUnit);
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {

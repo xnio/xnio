@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<StreamChannel> {
 
@@ -386,6 +387,22 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                 writeState = WriteState.WAITING;
                 streamChannel.shutdownWrites();
             }
+        }
+
+        public void awaitReadable() throws IOException {
+            streamChannel.awaitReadable();
+        }
+
+        public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
+            streamChannel.awaitReadable(time, timeUnit);
+        }
+
+        public void awaitWritable() throws IOException {
+            streamChannel.awaitWritable();
+        }
+
+        public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+            streamChannel.awaitWritable(time, timeUnit);
         }
     }
 }

@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.Channel;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A suspendable readable channel.  This type of channel is associated with a handler which can suspend and resume
@@ -45,7 +46,25 @@ public interface SuspendableReadChannel extends Channel, Configurable {
     /**
      * Places this readable channel at "end of stream".  Further reads will result in EOF.
      *
-     * @throws java.io.IOException if an I/O error occurs
+     * @throws IOException if an I/O error occurs
      */
     void shutdownReads() throws IOException;
+
+    /**
+     * Block until this channel becomes readable again.  This method may return spuriously
+     * before the channel becomes readable.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    void awaitReadable() throws IOException;
+
+    /**
+     * Block until this channel becomes readable again, or until the timeout expires.  This method may return spuriously
+     * before the channel becomes readable or the timeout expires.
+     *
+     * @param time the time to wait
+     * @param timeUnit the time unit
+     * @throws IOException if an I/O error occurs
+     */
+    void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
 }

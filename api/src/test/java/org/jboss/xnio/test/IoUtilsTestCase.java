@@ -86,6 +86,12 @@ public final class IoUtilsTestCase extends TestCase {
                     public void shutdownWrites() throws IOException {
                     }
 
+                    public void awaitWritable() throws IOException {
+                    }
+
+                    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+                    }
+
                     public int write(final ByteBuffer src) throws IOException {
                         return 0;
                     }
@@ -99,6 +105,12 @@ public final class IoUtilsTestCase extends TestCase {
                     }
 
                     public void shutdownReads() throws IOException {
+                    }
+
+                    public void awaitReadable() throws IOException {
+                    }
+
+                    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
                     }
 
                     public int read(final ByteBuffer dst) throws IOException {

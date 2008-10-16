@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
@@ -45,7 +46,6 @@ import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.nio.HandlerUtils;
 
 /**
  *
@@ -278,6 +278,66 @@ public class BioDatagramChannelImpl implements UdpChannel {
 
     public void shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
+    }
+
+    public void awaitReadable() throws IOException {
+        try {
+            synchronized (readLock) {
+                if (! isOpen()) {
+                    return;
+                }
+                while (! readable) {
+                    readLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
+        try {
+            synchronized (readLock) {
+                if (! isOpen()) {
+                    return;
+                }
+                if (! readable) {
+                    timeUnit.timedWait(readLock, time);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void awaitWritable() throws IOException {
+        try {
+            synchronized (writeLock) {
+                if (! isOpen()) {
+                    return;
+                }
+                while (! writable) {
+                    writeLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+        try {
+            synchronized (writeLock) {
+                if (! isOpen()) {
+                    return;
+                }
+                if (! writable) {
+                    timeUnit.timedWait(writeLock, time);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     protected static final Set<ChannelOption<?>> OPTIONS;

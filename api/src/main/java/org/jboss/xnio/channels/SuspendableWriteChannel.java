@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.Channel;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A suspendable writable channel.  This type of channel is associated with a handler which can suspend and resume
@@ -46,7 +47,25 @@ public interface SuspendableWriteChannel extends Channel, Configurable {
      * Indicate that writing is complete for this channel.  Further attempts to write after shutdown will result in an
      * exception.
      *
-     * @throws java.io.IOException if an I/O error occurs
+     * @throws IOException if an I/O error occurs
      */
     void shutdownWrites() throws IOException;
+
+    /**
+     * Block until this channel becomes writable again.  This method may return spuriously
+     * before the channel becomes writable.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    void awaitWritable() throws IOException;
+
+    /**
+     * Block until this channel becomes writable again, or until the timeout expires.  This method may return spuriously
+     * before the channel becomes writable or the timeout expires.
+     *
+     * @param time the time to wait
+     * @param timeUnit the time unit
+     * @throws IOException if an I/O error occurs
+     */
+    void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
 }

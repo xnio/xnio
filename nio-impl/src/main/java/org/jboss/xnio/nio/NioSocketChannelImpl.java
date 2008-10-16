@@ -32,6 +32,7 @@ import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.CommonOptions;
@@ -146,6 +147,22 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void shutdownWrites() throws IOException {
         socket.shutdownOutput();
+    }
+
+    public void awaitReadable() throws IOException {
+        SelectorUtils.await(SelectionKey.OP_READ, socketChannel);
+    }
+
+    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
+        SelectorUtils.await(SelectionKey.OP_READ, socketChannel, time, timeUnit);
+    }
+
+    public void awaitWritable() throws IOException {
+        SelectorUtils.await(SelectionKey.OP_WRITE, socketChannel);
+    }
+
+    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+        SelectorUtils.await(SelectionKey.OP_WRITE, socketChannel, time, timeUnit);
     }
 
     public SocketAddress getPeerAddress() {
