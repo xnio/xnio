@@ -65,7 +65,7 @@ public final class Logger {
 
     private Logger(final String name) {
         // Log the main init message exactly once
-        final Class<Init> x = Init.class;
+        Init.class.getName();
         this.name = name;
         logger = java.util.logging.Logger.getLogger(name);
     }
