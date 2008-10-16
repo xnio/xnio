@@ -621,6 +621,13 @@ public final class NioXnio extends Xnio {
         }
     }
 
+    /**
+     * {@inheritDoc} This implementation relies on NIO mechanisms to awaken interrupted threads.
+     */
+    public void awaken(final Thread targetThread) {
+        // no-op
+    }
+
     /** {@inheritDoc} */
     public void close() throws IOException{
         if (! closed.getAndSet(true)) {
