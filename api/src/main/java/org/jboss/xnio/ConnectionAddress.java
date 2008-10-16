@@ -26,6 +26,7 @@ package org.jboss.xnio;
  * An immutable pair of addresses that define the two endpoints of a connection.
  *
  * @param <A> the address type
+ * @apiviz.exclude
  */
 public final class ConnectionAddress<A> {
     private final A localAddress;

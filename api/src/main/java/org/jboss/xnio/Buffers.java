@@ -34,6 +34,8 @@ import java.io.IOException;
 
 /**
  * Buffer utility methods.
+ *
+ * @apiviz.exclude
  */
 public final class Buffers {
     private Buffers() {}

@@ -374,47 +374,6 @@
         </path>
     </target>
 
-    <!-- nio-standalone module -->
-
-    <target name="nio-standalone.compile.depcheck">
-        <mkdir dir="nio-standalone/target/main"/>
-        <uptodate property="nio-standalone.compile.uptodate" targetfile="nio-standalone/target/main/.lastcompile">
-            <srcfiles dir="nio-standalone/src/main/java">
-                <include name="**/"/>
-                <include name="**/*.java"/>
-                <exclude name="**/.*"/>
-            </srcfiles>
-        </uptodate>
-    </target>
-
-    <target name="nio-standalone.compile" depends="nio-standalone.compile.depcheck" unless="nio-standalone.compile.uptodate">
-        <mkdir dir="nio-standalone/target/main/classes"/>
-        <javac
-                source="${javac.source}"
-                target="${javac.target}"
-                srcdir="nio-standalone/src/main/java"
-                destdir="nio-standalone/target/main/classes"
-                debug="true">
-            <compilerarg value="-Xlint:unchecked"/>
-            <classpath>
-                <path refid="api.classpath"/>
-                <path refid="nio-impl.classpath"/>
-                <path refid="standalone.classpath"/>
-            </classpath>
-        </javac>
-        <touch file="nio-standalone/target/main/.lastcompile" verbose="false"/>
-    </target>
-
-    <target name="nio-standalone.clean">
-        <delete dir="nio-standalone/target"/>
-    </target>
-
-    <target name="nio-standalone" description="Build the nio-standalone module" depends="api,nio-impl,standalone,nio-standalone.compile">
-        <path id="nio-standalone.classpath">
-            <pathelement location="nio-standalone/target/main/classes"/>
-        </path>
-    </target>
-
     <!-- samples module -->
 
     <target name="samples.compile.depcheck">
@@ -440,7 +399,6 @@
             <classpath>
                 <path refid="api.classpath"/>
                 <path refid="logging-jdk.classpath"/>
-                <path refid="standalone.classpath"/>
             </classpath>
         </javac>
         <touch file="samples/target/main/.lastcompile" verbose="false"/>
@@ -450,49 +408,9 @@
         <delete dir="samples/target"/>
     </target>
 
-    <target name="samples" description="Build the samples module" depends="api,logging-jdk,standalone,samples.compile">
+    <target name="samples" description="Build the samples module" depends="api,logging-jdk,samples.compile">
         <path id="samples.classpath">
             <pathelement location="samples/target/main/classes"/>
-        </path>
-    </target>
-
-    <!-- standalone module -->
-
-    <target name="standalone.compile.depcheck">
-        <mkdir dir="standalone/target/main"/>
-        <uptodate property="standalone.compile.uptodate" targetfile="standalone/target/main/.lastcompile">
-            <srcfiles dir="standalone/src/main/java">
-                <include name="**/"/>
-                <include name="**/*.java"/>
-                <exclude name="**/.*"/>
-            </srcfiles>
-        </uptodate>
-    </target>
-
-    <target name="standalone.compile" depends="standalone.compile.depcheck" unless="standalone.compile.uptodate">
-        <mkdir dir="standalone/target/main/classes"/>
-        <javac
-                source="${javac.source}"
-                target="${javac.target}"
-                srcdir="standalone/src/main/java"
-                destdir="standalone/target/main/classes"
-                debug="true">
-            <compilerarg value="-Xlint:unchecked"/>
-            <classpath>
-                <path refid="api.classpath"/>
-                <path refid="nio-impl.classpath"/>
-            </classpath>
-        </javac>
-        <touch file="standalone/target/main/.lastcompile" verbose="false"/>
-    </target>
-
-    <target name="standalone.clean">
-        <delete dir="standalone/target"/>
-    </target>
-
-    <target name="standalone" description="Build the standalone module" depends="api,nio-impl,standalone.compile">
-        <path id="standalone.classpath">
-            <pathelement location="standalone/target/main/classes"/>
         </path>
     </target>
 
@@ -611,46 +529,36 @@
         </jar>
     </target>
 
-    <target name="jar.standalone" depends="api,logging-jdk,nio-impl,nio-standalone,standalone,version" description="Build the standalone JAR">
-        <delete file="xnio-standalone.jar" failonerror="false"/>
-        <delete file="xnio-standalone-sources.jar" failonerror="false"/>
-        <jar jarfile="xnio-standalone.jar">
+    <target name="jar.nio-impl" depends="nio-impl" description="Build the NIO implementation JAR">
+        <delete file="xnio-nio.jar" failonerror="false"/>
+        <delete file="xnio-nio-sources.jar" failonerror="false"/>
+        <jar jarfile="xnio-nio.jar">
             <metainf dir="${basedir}">
                 <include name="COPYING.txt"/>
             </metainf>
             <manifest>
-                <attribute name="Specification-Title" value="XNIO Standalone"/>
+                <attribute name="Specification-Title" value="XNIO NIO Implementation"/>
                 <attribute name="Specification-Version" value="${version}"/>
                 <attribute name="Specification-Vendor" value="JBoss, a division of Red Hat, Inc."/>
-                <attribute name="Implementation-Title" value="XNIO Standalone"/>
+                <attribute name="Implementation-Title" value="XNIO NIO Implementation"/>
                 <attribute name="Implementation-Version" value="${version}"/>
                 <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
                 <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
             </manifest>
-            <zipfileset dir="api/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="logging-jdk/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="nio-impl/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="nio-standalone/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="standalone/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="version/target/main/classes" includes="**/*.class"/>
         </jar>
-        <jar jarfile="xnio-standalone-sources.jar">
+        <jar jarfile="xnio-nio-sources.jar">
             <manifest>
-                <attribute name="Specification-Title" value="XNIO Standalone Sources"/>
+                <attribute name="Specification-Title" value="XNIO NIO Implementation Sources"/>
                 <attribute name="Specification-Version" value="${version}"/>
                 <attribute name="Specification-Vendor" value="JBoss, a division of Red Hat, Inc."/>
-                <attribute name="Implementation-Title" value="XNIO Standalone Sources"/>
+                <attribute name="Implementation-Title" value="XNIO NIO Implementation Sources"/>
                 <attribute name="Implementation-Version" value="${version}"/>
                 <attribute name="Implementation-Vendor" value="JBoss, a division of Red Hat, Inc."/>
                 <attribute name="Implementation-URL" value="http://www.jboss.com/xnio"/>
             </manifest>
             <zipfileset dir="${basedir}" includesfile="COPYING.txt"/>
-            <zipfileset dir="api/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
             <zipfileset dir="nio-impl/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="nio-standalone/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="standalone/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="version/src/main/java" includes="**/*.java"/>
         </jar>
     </target>
 
@@ -658,15 +566,13 @@
     <!-- JAVADOCS                                       -->
     <!-- ============================================== -->
 
-    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,nio-standalone,standalone,version">
+    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,version">
         <delete dir="docs/target/main/javadoc"/>
         <mkdir dir="docs/target/main/javadoc"/>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
             <doclet name="net.gleamynode.apiviz.APIviz" path="${lib.apiviz.local}"/>
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
-            <packageset dir="nio-standalone/src/main/java"/>
-            <packageset dir="standalone/src/main/java"/>
             <packageset dir="version/src/main/java"/>
             <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
             <header><![CDATA[XNIO version ${version}]]></header>
@@ -677,8 +583,6 @@
                 <path refid="api.classpath"/>
                 <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
-                <path refid="nio-standalone.classpath"/>
-                <path refid="standalone.classpath"/>
                 <path refid="version.classpath"/>
             </classpath>
         </javadoc>
@@ -687,14 +591,14 @@
     <!-- Default targets - keep depends in alpha order by category name -->
     <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
 
-    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,nio-standalone,standalone,test-support,version,javadoc"/>
+    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,test-support,version,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer,samples"/>
 
-    <target name="jar" description="Build all JARs" depends="jar.api,jar.standalone"/>
+    <target name="jar" description="Build all JARs" depends="jar.api,jar.nio-impl"/>
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,nio-standalone.clean,standalone.clean,test-support.clean,version.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,test-support.clean,version.clean"/>
 
 </project>

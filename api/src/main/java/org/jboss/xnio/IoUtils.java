@@ -46,6 +46,8 @@ import java.util.logging.Handler;
 
 /**
  * General I/O utility methods.
+ *
+ * @apiviz.exclude
  */
 public final class IoUtils {
     private static final Logger log = Logger.getLogger(IoUtils.class);

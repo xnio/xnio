@@ -25,7 +25,6 @@ package org.jboss.xnio;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadFactory;
 import java.net.SocketAddress;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -39,6 +38,8 @@ import org.jboss.xnio.channels.StreamSinkChannel;
 
 /**
  * The XNIO entry point class.
+ *
+ * @apiviz.landmark
  */
 public abstract class Xnio implements Closeable {
 
@@ -353,6 +354,20 @@ public abstract class Xnio implements Closeable {
      */
     public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
+    }
+
+    /**
+     * Wake up any blocking I/O operation being carried out on a given thread.  Custom implementors of {@link Thread}
+     * may call this method from their implementation of {@link Thread#interrupt()} after the default implementation
+     * to ensure that any thread waiting in a blocking operation is woken up in a timely manner.  Some implementations
+     * may not implement this method, relying instead on the interruption mechanism built in to the JVM; as such this
+     * method should not be relied upon as a guaranteed way to awaken a blocking thread independently of thread
+     * interruption.
+     *
+     * @param targetThread the thread to awaken
+     */
+    public void awaken(Thread targetThread) {
+        // nothing by default
     }
 
     /**

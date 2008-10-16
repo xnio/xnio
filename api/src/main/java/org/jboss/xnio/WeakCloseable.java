@@ -29,6 +29,8 @@ import java.lang.ref.WeakReference;
 /**
  * A {@code Closeable} that holds a weak reference to another {@code Closeable}, which can be used to close the other
  * without creating a strong reference to it.
+ *
+ * @apiviz.exclude
  */
 public final class WeakCloseable implements Closeable {
     private final WeakReference<Closeable> resource;
