@@ -26,8 +26,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.net.SocketAddress;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import org.jboss.xnio.channels.TcpChannel;
@@ -45,6 +46,7 @@ public abstract class Xnio implements Closeable {
 
     private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.NioXnio";
     private static final String PROVIDER_CLASS;
+    private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
 
     static {
         String providerClassName = NIO_IMPL_CLASS_NAME;
@@ -69,14 +71,14 @@ public abstract class Xnio implements Closeable {
      * @throws IOException the the XNIO provider could not be created
      */
     public static Xnio create() throws IOException {
-        return createInstance(PROVIDER_CLASS, new Class[0]);
-    }
-
-    private static Xnio createInstance(String className, Class[] paramTypes, Object... params) throws IOException {
+        final Xnio result;
         try {
-            Class<? extends Xnio> xnioClass = Class.forName(className).asSubclass(Xnio.class);
-            final Constructor<? extends Xnio> constructor = xnioClass.getConstructor(paramTypes);
-            return constructor.newInstance(params);
+            Class<? extends Xnio> xnioClass = Class.forName(PROVIDER_CLASS).asSubclass(Xnio.class);
+            final Method method = xnioClass.getDeclaredMethod("create");
+            if ((method.getModifiers() & mask) != mask) {
+                throw new NoSuchMethodException("Not public and static");
+            }
+            result = (Xnio) method.invoke(null);
         } catch (ClassCastException e) {
             final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" is not really an XNIO provider");
             ioe.initCause(e);
@@ -89,10 +91,6 @@ public abstract class Xnio implements Closeable {
             final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an illegal access exception");
             ioe.initCause(e);
             throw ioe;
-        } catch (InstantiationException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an instantiation exception");
-            ioe.initCause(e);
-            throw ioe;
         } catch (InvocationTargetException e) {
             final Throwable cause = e.getCause();
             if (cause instanceof IOException) {
@@ -100,12 +98,12 @@ public abstract class Xnio implements Closeable {
             } else if (cause instanceof RuntimeException) {
                 throw (RuntimeException) cause;
             } else {
-                final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" constructor threw an exception");
+                final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" create() method threw an exception");
                 ioe.initCause(cause);
                 throw ioe;
             }
         } catch (NoSuchMethodException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" does not have an accessible no-argument constructor");
+            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" does not have an accessible no-argument static create() method");
             ioe.initCause(e);
             throw ioe;
         } catch (ExceptionInInitializerError e) {
@@ -113,6 +111,7 @@ public abstract class Xnio implements Closeable {
             ioe.initCause(e);
             throw ioe;
         }
+        return result;
     }
 
     /**
