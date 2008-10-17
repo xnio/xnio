@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <poll.h>
 
 JNIEXPORT void JNICALL method(init)(JNIEnv *env, jclass clazz) {
     init_buffers(env);
@@ -26,7 +27,7 @@ static void do_throw_msg(JNIEnv *env, const char *class_name, const char *msg, i
     strerror_r(err, buf + l + 2, 253);
     buf[l + 253] = 0;
     if (class) {
-        (*env)->ThrowNew(env, class, NULL);
+        (*env)->ThrowNew(env, class, buf);
     }
 }
 
@@ -74,5 +75,18 @@ void throw_ioe(JNIEnv *env, const char *msg, int err) {
     }
 }
 
+#ifndef POLLRDHUP
+#define POLLRDHUP 0
+#endif
+
+JNIEXPORT void JNICALL method(block)(JNIEnv *env, jclass clazz, jint fd, jboolean reads, jboolean writes) {
+    struct pollfd pfd = {
+        .fd = fd,
+        .events = (reads ? POLLIN | POLLRDHUP : 0) | (writes ? POLLOUT | POLLHUP | POLLERR : 0),
+    };
+    if (poll(&pfd, 1, 6000) == -1) {
+        throw_ioe(env, "poll failed", errno);
+    }
+}
 
 /* EOF */

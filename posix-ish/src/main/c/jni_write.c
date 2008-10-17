@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-JNIEXPORT jlong JNICALL method_buffer(write)(JNIEnv *env, jclass clazz, jint fd, jobject buffer) {
+JNIEXPORT jlong JNICALL method(write)(JNIEnv *env, jclass clazz, jint fd, jobject buffer) {
 
     struct buffer_iovec_info bii;
     struct iovec iov;
@@ -22,15 +22,15 @@ JNIEXPORT jlong JNICALL method_buffer(write)(JNIEnv *env, jclass clazz, jint fd,
     jlong ret = (jlong) read(fd, iov.iov_base, iov.iov_len);
     if (ret == -1) {
         int err = errno;
-        throw_ioe(env, "write() failed", err);
         free_iov(env, &bii, false);
+        throw_ioe(env, "write() failed", err);
         return -1L;
     }
     free_iov(env, &bii, true);
     return ret;
 }
 
-JNIEXPORT jlong JNICALL method_buffer_offs_len(write)(JNIEnv *env, jclass clazz, jint fd, jobjectArray bufferArray, jint offs, jint len) {
+JNIEXPORT jlong JNICALL method(writev)(JNIEnv *env, jclass clazz, jint fd, jobjectArray bufferArray, jint offs, jint len) {
 
     struct buffer_iovec_info iovi[len];
     struct iovec iov[len];
@@ -38,7 +38,8 @@ JNIEXPORT jlong JNICALL method_buffer_offs_len(write)(JNIEnv *env, jclass clazz,
     for (int i = 0; i < len; i ++) {
         jobject buffer = (*env)->GetObjectArrayElement(env, bufferArray, i + offs);
         if (! init_iov(env, buffer, iovi + i, iov + i)) {
-            printf("Fail in init iov\n");
+            int err = errno;
+            throw_ioe(env, "write() failed", err);
             // todo - unwind with frees
             return -1L;
         }

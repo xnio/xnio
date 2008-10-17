@@ -35,6 +35,9 @@ public class PosixChannel implements Channel {
     private boolean close;
     private int refcnt;
 
+    private volatile long blockingThreadID;
+
+    private final Object blockLock = new Object();
     private final Object fdlock = new Object();
 
     PosixChannel(int fd) {

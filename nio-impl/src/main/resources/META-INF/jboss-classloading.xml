@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<classloading name="xnio-impl-nio" version="${version}" xmlns="urn:jboss:classloading:1.0">
+    <capabilities>
+        <package name="org.jboss.xnio.nio" version="${version}"/>
+    </capabilities>
+    <requirements>
+        <module name="xnio-api" version="${version}"/>
+    </requirements>
+</classloading>

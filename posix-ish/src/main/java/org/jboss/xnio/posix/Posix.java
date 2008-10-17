@@ -54,15 +54,17 @@ public final class Posix {
 
     static native long read(int fd, ByteBuffer buf) throws IOException;
 
-    static native long read(int fd, ByteBuffer[] buf, int off, int len) throws IOException;
+    static native long readv(int fd, ByteBuffer[] buf, int off, int len) throws IOException;
 
     static native long write(int fd, ByteBuffer buf) throws IOException;
 
-    static native long write(int fd, ByteBuffer[] buf, int off, int len) throws IOException;
+    static native long writev(int fd, ByteBuffer[] buf, int off, int len) throws IOException;
 
     static native void preClose(int fd) throws IOException;
 
     static native void close(int fd) throws IOException;
+
+    static native void shutdown(int fd, int mode) throws IOException;
 
     static native int tcpSocket() throws IOException;
 
@@ -74,9 +76,11 @@ public final class Posix {
 
     static native void unixBind(int fd, String path) throws IOException;
 
-    
+    static native void block(int fd, boolean reads, boolean writes) throws IOException;
 
     static native void listen(int fd, int backlog) throws IOException;
+
+    static native void unblockThread(long threadId);
 
     static void safeClose(int fd) {
         try {
@@ -94,25 +98,30 @@ public final class Posix {
                     ByteBuffer.allocate(150),
                     ByteBuffer.allocateDirect(150),
             };
+            final Thread t = Thread.currentThread();
             new Thread(new Runnable() {
                 public void run() {
                     try {
-                        sleep(5);
+                        sleep(1000L);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     try {
-                        preClose(0);
+                        System.out.println("Closing!");
+                        close(0);
+                        System.out.println("Closed!");
+                        t.interrupt();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
             }).start();
-            long b = read(0, bufs, 0, bufs.length);
-            long c = write(2, bufs, 0, bufs.length);
-            preClose(2);
+            block(0, true, true);
+            long b = readv(0, bufs, 0, bufs.length);
+            long c = writev(2, bufs, 0, bufs.length);
+//            preClose(2);
             long d = 0;
-            d = write(2, bufs, 0, bufs.length);
+//            d = write(2, bufs, 0, bufs.length);
             System.out.println("Read " + b + " bytes, Write " + c + " bytes, fail " + d);
         } catch (Throwable e) {
             e.printStackTrace(System.out);

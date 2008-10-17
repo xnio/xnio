@@ -39,6 +39,13 @@ JNIEXPORT void JNICALL method(close)(JNIEnv *env, jclass clazz, jint fd) {
     }
 }
 
+JNIEXPORT void JNICALL method(shutdown)(JNIEnv *env, jclass clazz, jint fd, jint mode) {
+    if (shutdown(fd, mode) == -1) {
+        throw_ioe(env, "shutdown failed", errno);
+        return;
+    }
+}
+
 
 
 /* EOF */

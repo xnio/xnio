@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 
-JNIEXPORT jlong JNICALL method_buffer(read)(JNIEnv *env, jclass clazz, jint fd, jobject buffer) {
+JNIEXPORT jlong JNICALL method(read)(JNIEnv *env, jclass clazz, jint fd, jobject buffer) {
 
     struct buffer_iovec_info bii;
     struct iovec iov;
@@ -29,7 +29,7 @@ JNIEXPORT jlong JNICALL method_buffer(read)(JNIEnv *env, jclass clazz, jint fd, 
     return ret;
 }
 
-JNIEXPORT jlong JNICALL method_buffer_offs_len(read)(JNIEnv *env, jclass clazz, jint fd, jobjectArray bufferArray, jint offs, jint len) {
+JNIEXPORT jlong JNICALL method(readv)(JNIEnv *env, jclass clazz, jint fd, jobjectArray bufferArray, jint offs, jint len) {
 
     struct buffer_iovec_info iovi[len];
     struct iovec iov[len];
