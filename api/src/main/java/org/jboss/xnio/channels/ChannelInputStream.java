@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -46,6 +47,12 @@ public class ChannelInputStream extends InputStream {
         this.channel = channel;
     }
 
+    private static InterruptedIOException interrupted(int cnt) {
+        final InterruptedIOException ex = new InterruptedIOException();
+        ex.bytesTransferred = cnt;
+        return ex;
+    }
+
     /** {@inheritDoc} */
     public int read() throws IOException {
         if (closed) return -1;
@@ -60,6 +67,9 @@ public class ChannelInputStream extends InputStream {
                 return array[0] & 0xff;
             }
             channel.awaitReadable();
+            if (Thread.interrupted()) {
+                throw interrupted(0);
+            }
             if (closed) return -1;
         }
     }
@@ -77,6 +87,9 @@ public class ChannelInputStream extends InputStream {
                 return res;
             }
             channel.awaitReadable();
+            if (Thread.interrupted()) {
+                throw interrupted(buffer.position());
+            }
             if (closed) return -1;
         }
     }
@@ -94,6 +107,9 @@ public class ChannelInputStream extends InputStream {
                 return res;
             }
             channel.awaitReadable();
+            if (Thread.interrupted()) {
+                throw interrupted(buffer.position());
+            }
             if (closed) return -1;
         }
     }
