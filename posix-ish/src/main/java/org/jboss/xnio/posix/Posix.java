@@ -26,6 +26,8 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.io.IOError;
+import static java.lang.Thread.sleep;
 
 /**
  *
@@ -38,13 +40,17 @@ public final class Posix {
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
             public Void run() {
                 System.loadLibrary("xnio");
-                init();
+                try {
+                    init();
+                } catch (IOException e) {
+                    throw new IOError(e);
+                }
                 return null;
             }
         });
     }
 
-    static native void init();
+    static native void init() throws IOException;
 
     static native long read(int fd, ByteBuffer buf) throws IOException;
 
@@ -54,21 +60,62 @@ public final class Posix {
 
     static native long write(int fd, ByteBuffer[] buf, int off, int len) throws IOException;
 
+    static native void preClose(int fd) throws IOException;
 
-    public synchronized static void main(String[] args) throws IOException {
-        final ByteBuffer[] bufs = new ByteBuffer[] {
-                ByteBuffer.allocate(150),
-                ByteBuffer.allocateDirect(150),
-                ByteBuffer.allocate(150),
-                ByteBuffer.allocateDirect(150),
-        };
-        long b = read(0, bufs, 0, bufs.length);
-        long c = write(2, bufs, 0, bufs.length);
-//        final byte[] bytes = new byte[600];
-//        bufs[0].get(bytes, 0, 150);
-//        bufs[1].get(bytes, 150, 150);
-//        bufs[2].get(bytes, 300, 150);
-//        bufs[3].get(bytes, 450, 150);
-        System.out.println("Read " + b + " bytes, Write " + c + " bytes");
+    static native void close(int fd) throws IOException;
+
+    static native int tcpSocket() throws IOException;
+
+    static native int udpSocket() throws IOException;
+
+    static native int unixStreamSocket() throws IOException;
+
+    static native int unixDatagramSocket() throws IOException;
+
+    static native void unixBind(int fd, String path) throws IOException;
+
+    
+
+    static native void listen(int fd, int backlog) throws IOException;
+
+    static void safeClose(int fd) {
+        try {
+            close(fd);
+        } catch (IOException e) {
+            // todo log?
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            final ByteBuffer[] bufs = new ByteBuffer[] {
+                    ByteBuffer.allocate(150),
+                    ByteBuffer.allocateDirect(150),
+                    ByteBuffer.allocate(150),
+                    ByteBuffer.allocateDirect(150),
+            };
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        sleep(5);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        preClose(0);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
+            long b = read(0, bufs, 0, bufs.length);
+            long c = write(2, bufs, 0, bufs.length);
+            preClose(2);
+            long d = 0;
+            d = write(2, bufs, 0, bufs.length);
+            System.out.println("Read " + b + " bytes, Write " + c + " bytes, fail " + d);
+        } catch (Throwable e) {
+            e.printStackTrace(System.out);
+        }
     }
 }
