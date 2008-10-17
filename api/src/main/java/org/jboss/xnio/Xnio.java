@@ -208,6 +208,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.2
      */
     public ChannelSource<StreamChannel> createPipeServer(Executor executor, IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Pipe Server");
@@ -221,6 +223,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.1
      */
     public ChannelSource<StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Pipe Server");
@@ -235,6 +239,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.2
      */
     public ChannelSource<StreamSourceChannel> createPipeSourceServer(Executor executor, IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
@@ -249,6 +255,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.1
      */
     public ChannelSource<StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
@@ -263,6 +271,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.2
      */
     public ChannelSource<StreamSinkChannel> createPipeSinkServer(Executor executor, IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
@@ -277,6 +287,8 @@ public abstract class Xnio implements Closeable {
      * @param handlerFactory the server handler factory
      *
      * @return the client channel source
+     *
+     * @since 1.1
      */
     public ChannelSource<StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
@@ -290,6 +302,8 @@ public abstract class Xnio implements Closeable {
      * @param rightHandler the handler for the "right" side of the pipe
      *
      * @return the future connection
+     *
+     * @since 1.2
      */
     public IoFuture<Closeable> createPipeConnection(Executor executor, IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
@@ -303,6 +317,8 @@ public abstract class Xnio implements Closeable {
      * @param rightHandler the handler for the "right" side of the pipe
      *
      * @return the future connection
+     *
+     * @since 1.1
      */
     public IoFuture<Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
@@ -316,6 +332,8 @@ public abstract class Xnio implements Closeable {
      * @param sinkHandler the handler for the "sink" side of the pipe
      *
      * @return the future connection
+     *
+     * @since 1.2
      */
     public IoFuture<Closeable> createOneWayPipeConnection(Executor executor, IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
@@ -329,6 +347,8 @@ public abstract class Xnio implements Closeable {
      * @param sinkHandler the handler for the "sink" side of the pipe
      *
      * @return the future connection
+     *
+     * @since 1.1
      */
     public IoFuture<Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
@@ -340,6 +360,8 @@ public abstract class Xnio implements Closeable {
      * @param executor the executor to use to execute the handlers
      *
      * @return a factory that can be used to configure a TCP acceptor
+     *
+     * @since 1.2
      */
     public ConfigurableFactory<TcpAcceptor> createTcpAcceptor(Executor executor) {
         throw new UnsupportedOperationException("TCP Acceptor");
@@ -350,6 +372,8 @@ public abstract class Xnio implements Closeable {
      * execute handler methods.
      *
      * @return a factory that can be used to configure a TCP acceptor
+     *
+     * @since 1.2
      */
     public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
@@ -364,6 +388,8 @@ public abstract class Xnio implements Closeable {
      * interruption.
      *
      * @param targetThread the thread to awaken
+     *
+     * @since 1.2
      */
     public void awaken(Thread targetThread) {
         // nothing by default
