@@ -30,6 +30,8 @@ import java.nio.ByteBuffer;
  * An output stream which writes to a stream sink channel.  All write operations are directly
  * performed upon the channel, so for optimal performance, a buffering output stream should be
  * used to wrap this class.
+ *
+ * @since 1.2
  */
 public class ChannelOutputStream extends OutputStream {
     protected volatile boolean closed;

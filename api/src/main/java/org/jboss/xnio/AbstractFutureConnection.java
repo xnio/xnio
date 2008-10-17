@@ -27,6 +27,8 @@ package org.jboss.xnio;
  *
  * @param <A> the address type
  * @param <T> the channel type
+ *
+ * @since 1.2
  */
 public abstract class AbstractFutureConnection<A, T> extends AbstractIoFuture<T> implements FutureConnection<A, T> {
 }

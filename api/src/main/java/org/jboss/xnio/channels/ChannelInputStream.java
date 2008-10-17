@@ -30,6 +30,8 @@ import java.nio.ByteBuffer;
  * An input stream which reads from a stream source channel.  All read operations are directly
  * performed upon the channel, so for optimal performance, a buffering input stream should be
  * used to wrap this class.
+ *
+ * @since 1.2
  */
 public class ChannelInputStream extends InputStream {
     protected final StreamSourceChannel channel;

@@ -28,6 +28,8 @@ package org.jboss.xnio;
  *
  * @param <A> the address type
  * @param <T> the channel type
+ *
+ * @since 1.2
  */
 public interface FutureConnection<A, T> extends IoFuture<T> {
     /**

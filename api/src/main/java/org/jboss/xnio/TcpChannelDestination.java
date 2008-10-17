@@ -27,6 +27,8 @@ import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A channel destination specifically for accepting TCP connections from remote clients.
+ *
+ * @since 1.2
  */
 public interface TcpChannelDestination extends ChannelDestination<SocketAddress, TcpChannel> {
 }

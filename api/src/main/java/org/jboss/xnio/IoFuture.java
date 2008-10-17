@@ -53,14 +53,6 @@ public interface IoFuture<T> {
          * The operation did not succeed.
          */
         FAILED,
-        ;
-        /**
-         * The request timed out before the operation was complete; otherwise equivalent to status {@link #WAITING}.
-         *
-         * @deprecated This status value is redundant, and will be removed in a future version of XNIO; use {@link #WAITING} instead.
-         */
-        @Deprecated
-        public static final Status TIMED_OUT = WAITING;
     }
 
     /**
@@ -169,6 +161,8 @@ public interface IoFuture<T> {
     /**
      * A base notifier class that calls the designated handler method on notification.  Use this class to reduce
      * boilerplate for standard {@link org.jboss.xnio.IoFuture.Notifier} implementations.
+     *
+     * @since 1.1
      */
     abstract class HandlingNotifier<T> implements Notifier<T> {
         /**

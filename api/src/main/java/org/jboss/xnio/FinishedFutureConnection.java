@@ -29,6 +29,8 @@ import org.jboss.xnio.channels.BoundChannel;
  *
  * @param <A> the address type
  * @param <T> the type of result that this operation produces
+ *
+ * @since 1.2
  */
 public class FinishedFutureConnection<A, T extends BoundChannel<A>> extends FinishedIoFuture<T> implements FutureConnection<A, T> {
     private final A localAddress;

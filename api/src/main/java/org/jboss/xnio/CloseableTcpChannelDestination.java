@@ -26,6 +26,8 @@ import java.io.Closeable;
 
 /**
  * A TCP channel destination that is closeable.
+ *
+ * @since 1.2
  */
 public interface CloseableTcpChannelDestination extends TcpChannelDestination, Closeable {
 }

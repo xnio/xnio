@@ -30,6 +30,8 @@ import java.nio.channels.Channel;
  *
  * @param <A> the address type
  * @param <T> the channel type
+ * 
+ * @since 1.2
  */
 public interface Acceptor<A, T extends Channel> {
     /**

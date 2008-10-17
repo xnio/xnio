@@ -29,6 +29,8 @@ import java.io.IOException;
  *
  * @param <A> the address type
  * @param <T> the type of result that this operation produces
+ *
+ * @since 1.2
  */
 public class FailedFutureConnection<A, T> extends FailedIoFuture<T> implements FutureConnection<A, T> {
     private final A localAddress;

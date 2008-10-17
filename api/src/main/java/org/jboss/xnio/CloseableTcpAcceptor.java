@@ -26,6 +26,8 @@ import java.io.Closeable;
 
 /**
  * A TCP acceptor that is closeable.
+ *
+ * @since 1.2
  */
 public interface CloseableTcpAcceptor extends TcpAcceptor, Closeable {
 }
