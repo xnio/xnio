@@ -56,6 +56,8 @@ public interface SuspendableWriteChannel extends Channel, Configurable {
      * before the channel becomes writable.
      *
      * @throws IOException if an I/O error occurs
+     *
+     * @since 1.2
      */
     void awaitWritable() throws IOException;
 
@@ -66,6 +68,8 @@ public interface SuspendableWriteChannel extends Channel, Configurable {
      * @param time the time to wait
      * @param timeUnit the time unit
      * @throws IOException if an I/O error occurs
+     *
+     * @since 1.2
      */
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
 }

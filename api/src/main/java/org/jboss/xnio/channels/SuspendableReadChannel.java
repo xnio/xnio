@@ -55,6 +55,8 @@ public interface SuspendableReadChannel extends Channel, Configurable {
      * before the channel becomes readable.
      *
      * @throws IOException if an I/O error occurs
+     *
+     * @since 1.2
      */
     void awaitReadable() throws IOException;
 
@@ -65,6 +67,8 @@ public interface SuspendableReadChannel extends Channel, Configurable {
      * @param time the time to wait
      * @param timeUnit the time unit
      * @throws IOException if an I/O error occurs
+     *
+     * @since 1.2
      */
     void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
 }
