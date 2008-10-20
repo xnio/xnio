@@ -119,7 +119,7 @@ public final class NioSocketChannelImpl implements TcpChannel {
 
     public void suspendWrites() {
         try {
-            readHandle.suspend();
+            writeHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
