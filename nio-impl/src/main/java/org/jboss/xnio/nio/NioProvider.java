@@ -28,15 +28,12 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import org.jboss.xnio.IoUtils;
@@ -49,7 +46,6 @@ public final class NioProvider {
     private static final Logger log = Logger.getLogger(NioProvider.class);
 
     private Executor executor;
-    private ExecutorService executorService;
     private ThreadFactory selectorThreadFactory;
 
     private final Set<NioSelectorRunnable> readers = new HashSet<NioSelectorRunnable>();
@@ -113,7 +109,7 @@ public final class NioProvider {
             selectorThreadFactory = Executors.defaultThreadFactory();
         }
         if (executor == null) {
-            executor = executorService = Executors.newCachedThreadPool();
+            executor = IoUtils.directExecutor();
         }
         for (int i = 0; i < readSelectorThreads; i ++) {
             readers.add(new NioSelectorRunnable());
@@ -156,20 +152,6 @@ public final class NioProvider {
         readers.clear();
         writers.clear();
         connectors.clear();
-        if (executorService != null) {
-            try {
-                AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                    public Void run() {
-                        executorService.shutdown();
-                        return null;
-                    }
-                });
-            } catch (Throwable t) {
-                log.trace(t, "Failed to shut down executor service");
-            } finally {
-                executorService = null;
-            }
-        }
     }
 
     // API
