@@ -40,6 +40,8 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.management.MBeanUtils;
+import org.jboss.xnio.management.NioUdpProperties;
 
 /**
  *
@@ -53,6 +55,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioProvider nioProvider;
+    private final NioUdpProperties mBeanCounters;
 
     public NioUdpSocketChannelImpl(final NioProvider nioProvider, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler) throws IOException {
         this.nioProvider = nioProvider;
@@ -60,6 +63,8 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         writeHandle = nioProvider.addWriteHandler(datagramChannel, new WriteHandler());
         this.datagramChannel = datagramChannel;
         this.handler = handler;
+        mBeanCounters = new NioUdpProperties(this, datagramChannel.socket(), toString());
+        MBeanUtils.registerMBean(mBeanCounters, mBeanCounters.getObjectName());
     }
 
     public SocketAddress getLocalAddress() {
@@ -68,6 +73,8 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
         final SocketAddress sourceAddress = datagramChannel.receive(buffer);
+        final int bytesRead = buffer.remaining();
+        mBeanCounters.bytesRead(sourceAddress, bytesRead);
         return sourceAddress == null ? null : new MultipointReadResult<SocketAddress>() {
             public SocketAddress getSourceAddress() {
                 return sourceAddress;
@@ -93,11 +100,14 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
             if (!callFlag.getAndSet(true)) {
                 HandlerUtils.<UdpChannel>handleClosed(handler, this);
             }
+            mBeanCounters.close();
         }
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
-        return datagramChannel.send(buffer, target) != 0;
+        int bytesWritten = datagramChannel.send(buffer, target);
+        mBeanCounters.bytesWritten(bytesWritten);
+        return  bytesWritten != 0;
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer[] dsts) throws IOException {

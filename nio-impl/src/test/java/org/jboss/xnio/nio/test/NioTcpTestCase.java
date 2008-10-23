@@ -366,6 +366,8 @@ public final class NioTcpTestCase extends TestCase {
         assertEquals(clientSent.get(), serverReceived.get());
     }
 
+    //TODO public void testJmxTcpCounters() throws Exception {}
+    
     public void testClientTcpNastyClose() throws Exception {
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);

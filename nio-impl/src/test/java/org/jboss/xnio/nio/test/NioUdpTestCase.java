@@ -253,4 +253,7 @@ public final class NioUdpTestCase extends TestCase {
     public void testClientToServerTransmitBioToBio() throws Exception {
         doClientToServerTransmitTest(true, true);
     }
+    
+    //TODO public void testJmxUdpProperties() throws Exception {}
+    
 }
