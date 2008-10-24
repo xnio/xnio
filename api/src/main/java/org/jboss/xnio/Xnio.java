@@ -36,6 +36,8 @@ import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.BoundServer;
 
 /**
  * The XNIO entry point class.
@@ -377,6 +379,34 @@ public abstract class Xnio implements Closeable {
      */
     public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
+    }
+
+    /**
+     * Create a local stream server.  The stream server is bound to one or more files in the filesystem.  If no bind
+     * addresses are specified, one is created.
+     *
+     * @param executor the executor to use to execute the handlers
+     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param bindAddresses the addresses to bind to
+     *
+     * @return a factory that can be used to configure the new stream server
+     */
+    public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, String... bindAddresses) {
+        throw new UnsupportedOperationException("createStreamServer");
+    }
+
+    /**
+     * Create a local stream server.  The stream server is bound to one or more files in the filesystem.  If no bind
+     * addresses are specified, one is created.  The provider's default executor will be used to
+     * execute handler methods.
+     *
+     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param bindAddresses the addresses to bind to
+     *
+     * @return a factory that can be used to configure the new stream server
+     */
+    public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory, String... bindAddresses) {
+        throw new UnsupportedOperationException("createStreamServer");
     }
 
     /**
