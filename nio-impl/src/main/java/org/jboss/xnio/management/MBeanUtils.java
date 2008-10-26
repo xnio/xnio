@@ -35,32 +35,59 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.NameValuePair;
 
 /**
  *
  */
 public class MBeanUtils {
 
-    private static final Logger LOG = Logger.getLogger(MBeanUtils.class);
+    private static final Logger log = Logger.getLogger(MBeanUtils.class);
     private static final String JMXDOMAIN = "org.jboss.xnio";
     private static final String AGENTID = JMXDOMAIN + ".agentid";
+    private static final List<NameValuePair> NO_ADDL_PROPS = new ArrayList<NameValuePair>();
 
     public static ObjectName getObjectName(final Object mBean) {
+        return getObjectName(mBean, NO_ADDL_PROPS);
+    }
+
+    public static ObjectName getObjectName(final Object mBean, final List<NameValuePair> additionalAttributes) {
 
         if (mBean == null) {
             throw new IllegalArgumentException("MBean cannot be null");
         }
 
-        String nameString = JMXDOMAIN + ":" + "Instance=" + mBean;
+        StringBuilder nameString = new StringBuilder();
+        NameValuePair instanceAttribute = new NameValuePair("Instance", mBean.toString());
+        appendProperty(nameString, instanceAttribute);
+        if (additionalAttributes != null) {
+            for (final NameValuePair nameValuePair : additionalAttributes) {
+                appendProperty(nameString, nameValuePair);
+            }
+        }
+        nameString.insert(0,":");
+        nameString.insert(0,JMXDOMAIN);
+
         ObjectName name = null;
         try {
-            name = new ObjectName(nameString);
+            name = new ObjectName(nameString.toString());
         } catch (final MalformedObjectNameException e) {
-            LOG.error(String.format(
-                    "MalformedObjectNameException for argument '%s'", name));
+            log.error(e,
+                    "MalformedObjectNameException for argument '%s'",
+                    nameString.toString());
             // rethrow as an unchecked exception
         }
         return name;
+    }
+
+    private static void appendProperty(final StringBuilder stringBuilder, final NameValuePair nameValuePair) {
+        if (stringBuilder.length() > 0) {
+            stringBuilder.append(",");
+        }
+        stringBuilder.append(nameValuePair.getName());
+        stringBuilder.append("=");
+        stringBuilder.append(nameValuePair.getValue());
+
     }
 
     @SuppressWarnings("unchecked")
@@ -70,26 +97,22 @@ public class MBeanUtils {
         List<MBeanServer> mBeanServers = getMBeanServers();
 
         if (mBeanServers.isEmpty()) {
-            LOG.warn(String.format("No MBean servers to register MBean '%s'",
-                    mBeanName));
+            log.warn("No MBean servers to register MBean '%s'", mBeanName);
         }
 
         for (MBeanServer server : mBeanServers) {
             try {
                 server.registerMBean(mBean, mBeanName);
             } catch (final InstanceAlreadyExistsException e) {
-                LOG.warn(String.format(
-                        "MBean name '%s' already registered in MBeanServer '%s'",
-                        mBeanName, server));
+                log.warn("MBean name '%s' already registered in MBeanServer '%s'",
+                        mBeanName, server);
             } catch (final MBeanRegistrationException e) {
-                LOG.warn(String.format(
-                        "MBean name '%s' was not registered in an MBean server because preregister of '%s' threw an exception",
-                        mBeanName, mBean), e);
+                log.warn(e, "MBean name '%s' was not registered in an MBean server because preregister of '%s' threw an exception",
+                        mBeanName, mBean);
                 break;
             } catch (final NotCompliantMBeanException e) {
-                LOG.warn(String.format(
-                        "MBean '%s' (name '%s') is not a JMX compliant MBean",
-                        mBean, mBeanName),e);
+                log.warn(e, "MBean '%s' (name '%s') is not a JMX compliant MBean",
+                        mBean, mBeanName);
                 break;
             }
         }
@@ -100,16 +123,11 @@ public class MBeanUtils {
             try {
                 server.unregisterMBean(mBeanName);
             } catch (final InstanceNotFoundException e) {
-                LOG.debug(String.format(
-                        "MBean name '%s' not found in MBeanServer '%s'",
-                        mBeanName, server));
+                log.debug("MBean name '%s' not found in MBeanServer '%s'",
+                        mBeanName, server);
             } catch (final MBeanRegistrationException e) {
-                LOG
-                        .warn(
-                                String
-                                        .format(
-                                                "MBean name '%s' was not deregistered because prederegister of the MBean threw an exception",
-                                                mBeanName), e);
+                log.warn(e, "MBean name '%s' was not deregistered because prederegister of the MBean threw an exception",
+                        mBeanName);
                 break;
             }
         }
@@ -132,11 +150,9 @@ public class MBeanUtils {
             String[] ids = agentIds.split("[,;:]+");
             mBeanServers = new ArrayList<MBeanServer>();
             for (String id : ids) {
-                List<MBeanServer> servers = MBeanServerFactory
-                        .findMBeanServer(id);
+                List<MBeanServer> servers = MBeanServerFactory.findMBeanServer(id);
                 if (servers == null) {
-                    LOG.warn(String
-                            .format("Couldn't find MBeanServer '%s'", id));
+                    log.warn("Couldn't find MBeanServer '%s'", id);
                 } else {
                     mBeanServers.addAll(servers);
                 }
@@ -144,7 +160,6 @@ public class MBeanUtils {
         } else {
             mBeanServers = MBeanServerFactory.findMBeanServer(null);
         }
-
         return mBeanServers;
     }
 }

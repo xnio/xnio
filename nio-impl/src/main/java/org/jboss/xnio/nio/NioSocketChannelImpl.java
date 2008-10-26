@@ -28,21 +28,22 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SocketChannel;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.management.MBeanUtils;
-import org.jboss.xnio.management.NioTcpProperties;
+import org.jboss.xnio.management.ConnectedInetChannel;
 
 /**
  *
@@ -60,7 +61,7 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
     private final AtomicBoolean shutdownReads = new AtomicBoolean(false);
     private final AtomicBoolean shutdownWrites = new AtomicBoolean(false);
-    private final NioTcpProperties mBeanCounters;
+    private final ConnectedInetChannel mBeanCounters;
 
     public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler) throws IOException {
         this.handler = handler;
@@ -69,7 +70,7 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
         socket = socketChannel.socket();
         readHandle = nioProvider.addReadHandler(socketChannel, new ReadHandler());
         writeHandle = nioProvider.addWriteHandler(socketChannel, new WriteHandler());
-        mBeanCounters = new NioTcpProperties(this, socket, toString());
+        mBeanCounters = new ConnectedInetChannel(this, socket);
     }
 
     public long write(final ByteBuffer[] srcs, final int offset,
@@ -242,6 +243,7 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
         }
     }
 
+    @Override
     public String toString() {
         return String.format("TCP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
     }

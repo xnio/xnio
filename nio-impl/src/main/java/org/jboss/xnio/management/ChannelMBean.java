@@ -27,14 +27,14 @@ import java.io.Closeable;
 /**
  *
  */
-public interface BasicCountersMBean extends Closeable{
+public interface ChannelMBean extends Closeable{
 
-    public Long getBytesRead();
+    long getBytesRead();
 
-    public Long getBytesWritten();
+    long getBytesWritten();
 
-    public Long getMessagesRead();
+    long getMessagesRead();
 
-    public Long getMessagesWritten();
+    long getMessagesWritten();
 
 }
