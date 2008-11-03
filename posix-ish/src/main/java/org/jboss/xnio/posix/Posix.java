@@ -82,6 +82,8 @@ public final class Posix {
 
     static native void unblockThread(long threadId);
 
+    static native long getThreadId();
+
     static void safeClose(int fd) {
         try {
             close(fd);
