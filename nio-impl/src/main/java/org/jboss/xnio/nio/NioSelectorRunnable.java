@@ -130,6 +130,10 @@ public final class NioSelectorRunnable implements Runnable {
             } catch (IOException e) {
                 log.trace(e, "I/O error in selector loop");
             }
+            if (Thread.interrupted()) {
+                log.trace("Selector thread interrupted");
+                // do nothing else.  Shutdown is tested at the top of the loop
+            }
         }
     }
 }
