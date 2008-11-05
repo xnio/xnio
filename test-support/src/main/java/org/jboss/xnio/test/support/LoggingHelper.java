@@ -35,6 +35,8 @@ import java.util.logging.LogRecord;
  *
  */
 public final class LoggingHelper {
+    private static final long startTime = System.currentTimeMillis();
+
     private static final class Once {
         static {
             AccessController.doPrivileged(new PrivilegedAction<Void>() {
@@ -47,15 +49,20 @@ public final class LoggingHelper {
                         handler.setFormatter(new Formatter() {
                             public String format(final LogRecord record) {
                                 StringBuilder builder = new StringBuilder();
+                                long offs = record.getMillis() - startTime;
+                                final String sign = offs < 0 ? "-" : "+";
+                                offs = Math.abs(offs);
+                                int ms = (int) (offs % 1000L);
+                                long s = offs / 1000L;
+                                builder.append(String.format("%s%04d.%03d ", sign, Long.valueOf(s), Long.valueOf(ms)));
+                                builder.append(String.format("tid:%d ", Integer.valueOf(record.getThreadID())));
                                 builder.append(record.getLevel().toString());
                                 builder.append(" [").append(record.getLoggerName()).append("] ");
                                 builder.append(String.format(record.getMessage(), record.getParameters()));
                                 Throwable t = record.getThrown();
                                 while (t != null) {
                                     builder.append("\n    Caused by: ");
-                                    builder.append(t.getClass().getName());
-                                    builder.append(": ");
-                                    builder.append(t.getMessage());
+                                    builder.append(t.toString());
                                     for (StackTraceElement e : t.getStackTrace()) {
                                         builder.append("\n        at ");
                                         builder.append(e.getClassName()).append('.').append(e.getMethodName());
