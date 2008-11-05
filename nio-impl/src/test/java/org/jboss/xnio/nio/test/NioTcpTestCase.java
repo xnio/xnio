@@ -65,6 +65,7 @@ public final class NioTcpTestCase extends TestCase {
     private void doConnectionTest(final Runnable body, final IoHandler<? super TcpChannel> clientHandler, final IoHandler<? super TcpChannel> serverHandler) throws Exception {
         synchronized (this) {
             final NioProvider provider = new NioProvider();
+            provider.setConnectionSelectorThreads(2);
             provider.start();
             try {
                 final NioTcpServer nioTcpServer = new NioTcpServer();
@@ -454,6 +455,7 @@ public final class NioTcpTestCase extends TestCase {
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
+                    log.info("Client opened");
                     serverLatch.countDown();
                     channel.resumeReads();
                 } catch (Throwable t) {
@@ -493,6 +495,7 @@ public final class NioTcpTestCase extends TestCase {
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
+                    log.info("Server opened");
                     serverLatch.await(3000L, TimeUnit.MILLISECONDS);
                     channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
