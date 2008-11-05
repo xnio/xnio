@@ -91,16 +91,16 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
     }
 
     public void close() throws IOException {
-        try {
-            datagramChannel.close();
-        } finally {
-            nioProvider.removeChannel(this);
-            readHandle.cancelKey();
-            writeHandle.cancelKey();
-            if (!callFlag.getAndSet(true)) {
+        if (!callFlag.getAndSet(true)) {
+            try {
+                datagramChannel.close();
+            } finally {
+                nioProvider.removeChannel(this);
+                readHandle.cancelKey();
+                writeHandle.cancelKey();
                 HandlerUtils.<UdpChannel>handleClosed(handler, this);
+                mBeanCounters.close();
             }
-            mBeanCounters.close();
         }
     }
 
