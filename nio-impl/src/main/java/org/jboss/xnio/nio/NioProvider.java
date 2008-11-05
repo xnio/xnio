@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 
@@ -48,9 +49,9 @@ public final class NioProvider {
     private Executor executor;
     private ThreadFactory selectorThreadFactory;
 
-    private final Set<NioSelectorRunnable> readers = new HashSet<NioSelectorRunnable>();
-    private final Set<NioSelectorRunnable> writers = new HashSet<NioSelectorRunnable>();
-    private final Set<NioSelectorRunnable> connectors = new HashSet<NioSelectorRunnable>();
+    private final List<NioSelectorRunnable> readers = new ArrayList<NioSelectorRunnable>();
+    private final List<NioSelectorRunnable> writers = new ArrayList<NioSelectorRunnable>();
+    private final List<NioSelectorRunnable> connectors = new ArrayList<NioSelectorRunnable>();
 
     private int readSelectorThreads = 2;
     private int writeSelectorThreads = 1;
@@ -156,20 +157,11 @@ public final class NioProvider {
 
     // API
 
-    private NioHandle doAdd(final SelectableChannel channel, final Set<NioSelectorRunnable> runnableSet, final Runnable handler, final boolean oneshot) throws IOException {
+    private final AtomicInteger loadSequence = new AtomicInteger();
+
+    private NioHandle doAdd(final SelectableChannel channel, final List<NioSelectorRunnable> runnableSet, final Runnable handler, final boolean oneshot) throws IOException {
         final SynchronousHolder<NioHandle, IOException> holder = new SynchronousHolder<NioHandle, IOException>();
-        NioSelectorRunnable nioSelectorRunnable = null;
-        int bestLoad = Integer.MAX_VALUE;
-        for (NioSelectorRunnable item : runnableSet) {
-            final int load = item.getKeyLoad();
-            if (load < bestLoad) {
-                nioSelectorRunnable = item;
-                bestLoad = load;
-            }
-        }
-        if (nioSelectorRunnable == null) {
-            throw new IOException("No threads defined to handle this event type");
-        }
+        NioSelectorRunnable nioSelectorRunnable = runnableSet.get(loadSequence.getAndIncrement() % runnableSet.size());
         final NioSelectorRunnable actualSelectorRunnable = nioSelectorRunnable;
         nioSelectorRunnable.runTask(new SelectorTask() {
             public void run(final Selector selector) {
