@@ -5,9 +5,12 @@ grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
 {
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
     permission java.lang.RuntimePermission "modifyThread";
+    // TODO : Temporary until management stuff moves to api
+    permission java.util.PropertyPermission "org.jboss.xnio.*", "read";
+    permission javax.management.MBeanServerPermission "findMBeanServer";
 };
 
-grant codeBase "file:${build.home}/spi/target/main/classes/-"
+grant codeBase "file:${build.home}/api/target/main/classes/-"
 {
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
 };
@@ -17,7 +20,7 @@ grant codeBase "file:${build.home}/spi/target/main/classes/-"
 
 grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
 {
-    permission java.net.SocketPermission "127.0.0.1:*", "accept, connect, resolve";
+    permission java.net.SocketPermission "*:*", "accept, connect, resolve";
 };
 
 // Support classes

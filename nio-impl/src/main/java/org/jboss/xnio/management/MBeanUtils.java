@@ -24,6 +24,8 @@ package org.jboss.xnio.management;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
@@ -144,7 +146,11 @@ public class MBeanUtils {
      */
     @SuppressWarnings("unchecked")
     private static List<MBeanServer> getMBeanServers() {
-        String agentIds = System.getProperty(AGENTID);
+        String agentIds = AccessController.doPrivileged(new PrivilegedAction<String>() {
+            public String run() {
+                return System.getProperty(AGENTID);
+            }
+        });
         List<MBeanServer> mBeanServers;
         if ((agentIds != null) && (agentIds.length() == 0)) {
             String[] ids = agentIds.split("[,;:]+");
@@ -158,7 +164,11 @@ public class MBeanUtils {
                 }
             }
         } else {
-            mBeanServers = MBeanServerFactory.findMBeanServer(null);
+            mBeanServers = AccessController.doPrivileged(new PrivilegedAction<List<MBeanServer>>() {
+                public List<MBeanServer> run() {
+                    return MBeanServerFactory.findMBeanServer(null);
+                }
+            });
         }
         return mBeanServers;
     }
