@@ -6,7 +6,7 @@
         attributeFormDefault="unqualified"
         >
 
-    <xs:complexType name="deployment">
+    <xs:complexType name="io">
         <xs:sequence minOccurs="1" maxOccurs="1">
             <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
             <xs:sequence minOccurs="0" maxOccurs="unbounded">
@@ -222,5 +222,5 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:element name="deployment" type="deployment"/>
+    <xs:element name="io" type="io"/>
 </xs:schema>

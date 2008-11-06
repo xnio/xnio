@@ -31,6 +31,7 @@ import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlNsForm;
 
 import java.io.Serializable;
 import java.util.List;
@@ -39,9 +40,9 @@ import java.util.ArrayList;
 /**
  *
  */
-@XmlType(name = "deployment", namespace = "urn:jboss:io:1.0")
-@XmlRootElement(namespace = "urn:jboss:io:1.0", name = "deployment")
-@JBossXmlSchema(namespace = "urn:jboss:io:1.0")
+@XmlType(name = "xnio", namespace = "urn:jboss:xnio:1.0")
+@XmlRootElement(namespace = "urn:jboss:xnio:1.0", name = "xnio")
+@JBossXmlSchema(namespace = "urn:jboss:xnio:1.0", elementFormDefault = XmlNsForm.QUALIFIED)
 public final class DeploymentMetaData implements BeanMetaDataFactory, Serializable {
     private static final long serialVersionUID = -1616974182990862225L;
 
@@ -61,7 +62,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean")
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
     }
@@ -70,7 +71,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return tcpServers;
     }
 
-    @XmlElement(name = "tcp-server", namespace = "urn:jboss:io:1.0", type = TcpServerMetaData.class)
+    @XmlElement(name = "tcp-server", type = TcpServerMetaData.class)
     public void setTcpServers(final List<TcpServerMetaData> tcpServers) {
         this.tcpServers = tcpServers;
     }
@@ -79,7 +80,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return tcpConnectors;
     }
 
-    @XmlElement(name = "tcp-connector", namespace = "urn:jboss:io:1.0", type = TcpConnectorMetaData.class)
+    @XmlElement(name = "tcp-connector", type = TcpConnectorMetaData.class)
     public void setTcpConnectors(final List<TcpConnectorMetaData> tcpConnectors) {
         this.tcpConnectors = tcpConnectors;
     }
@@ -88,7 +89,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return tcpClients;
     }
 
-    @XmlElement(name = "tcp-client", namespace = "urn:jboss:io:1.0", type = TcpClientMetaData.class)
+    @XmlElement(name = "tcp-client", type = TcpClientMetaData.class)
     public void setTcpClients(final List<TcpClientMetaData> tcpClients) {
         this.tcpClients = tcpClients;
     }
@@ -97,7 +98,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return tcpConnections;
     }
 
-    @XmlElement(name = "tcp-connection", namespace = "urn:jboss:io:1.0", type = TcpConnectionMetaData.class)
+    @XmlElement(name = "tcp-connection", type = TcpConnectionMetaData.class)
     public void setTcpConnections(final List<TcpConnectionMetaData> tcpConnections) {
         this.tcpConnections = tcpConnections;
     }
@@ -106,7 +107,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return udpServers;
     }
 
-    @XmlElement(name = "udp-server", namespace = "urn:jboss:io:1.0", type = UdpServerMetaData.class)
+    @XmlElement(name = "udp-server", type = UdpServerMetaData.class)
     public void setUdpServers(final List<UdpServerMetaData> udpServers) {
         this.udpServers = udpServers;
     }
@@ -115,7 +116,7 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return pipes;
     }
 
-    @XmlElement(name = "pipe", namespace = "urn:jboss:io:1.0", type = PipeMetaData.class)
+    @XmlElement(name = "pipe", type = PipeMetaData.class)
     public void setPipes(final List<PipeMetaData> pipes) {
         this.pipes = pipes;
     }
