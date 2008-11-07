@@ -6,23 +6,33 @@
         attributeFormDefault="unqualified"
         >
 
-    <xs:complexType name="io">
+    <xs:complexType name="xnio">
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="one-way-pipe" type="one-way-pipe"/>
+            <xs:element name="pipe-connection" type="pipe-connection"/>
+            <xs:element name="pipe-server" type="pipe-server"/>
+            <xs:element name="pipe-source-server" type="pipe-server"/>
+            <xs:element name="pipe-sink-server" type="pipe-server"/>
+            <xs:element name="tcp-connector" type="tcp-connector"/>
+            <xs:element name="tcp-server" type="tcp-server"/>
+            <xs:element name="tcp-client" type="tcp-client"/>
+            <xs:element name="tcp-connection" type="tcp-connection"/>
+            <xs:element name="udp-server" type="udp-server"/>
+            <!--<xs:element name="serial-port" type="serial-port-connection"/>-->
+            <!--<xs:element name="parallel-port" type="parallel-port-connection"/>-->
+        </xs:sequence>
         <xs:sequence minOccurs="1" maxOccurs="1">
             <xs:element name="executor-bean" minOccurs="0" maxOccurs="1" type="bean"/>
             <xs:sequence minOccurs="0" maxOccurs="unbounded">
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
-                    <xs:element name="tcp-server" type="tcp-server"/>
-                    <xs:element name="tcp-connector" type="tcp-connector"/>
-                    <xs:element name="tcp-client" type="tcp-client"/>
-                    <xs:element name="tcp-connection" type="tcp-connection"/>
-                    <xs:element name="udp-server" type="udp-server"/>
-                    <xs:element name="pipe" type="pipe"/>
-                    <xs:element name="one-way-pipe" type="one-way-pipe"/>
-                    <!--<xs:element name="serial-port" type="serial-port-connection"/>-->
-                    <!--<xs:element name="parallel-port" type="parallel-port-connection"/>-->
                 </xs:choice>
             </xs:sequence>
         </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="option">
+        <xs:attribute name="field" type="xs:string" use="required"/>
+        <xs:attribute name="value" type="xs:all" use="required"/>
     </xs:complexType>
 
     <xs:complexType name="tcp-server">
@@ -222,5 +232,5 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:element name="io" type="io"/>
+    <xs:element name="xnio" type="xnio"/>
 </xs:schema>
