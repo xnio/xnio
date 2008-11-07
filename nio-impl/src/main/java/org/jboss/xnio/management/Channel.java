@@ -40,21 +40,18 @@ abstract class Channel implements ChannelMBean{
     private final ObjectName objectName;
     private final WeakReference<? extends Closeable> mBeanRef;
 
-    @SuppressWarnings("unchecked")
     public Channel(final Closeable mBean) {
-        mBeanRef = new WeakReference(mBean);
+        mBeanRef = new WeakReference<Closeable>(mBean);
         objectName = MBeanUtils.getObjectName(mBean.toString());
         MBeanUtils.registerMBean(this, objectName);
     }
 
-    @SuppressWarnings("unchecked")
     public Channel(final Closeable mBean, final Object object) {
         this(mBean, new Object[] { object } );
     }
 
-    @SuppressWarnings("unchecked")
     public Channel(final Closeable mBean, final Object[] objects) {
-        mBeanRef = new WeakReference(mBean);
+        mBeanRef = new WeakReference<Closeable>(mBean);
         List<NameValuePair> additionalAttributes = AttributeResolver.getAdditionalAttributes(objects);
         objectName = MBeanUtils.getObjectName(mBean.toString(), additionalAttributes);
         MBeanUtils.registerMBean(this, objectName);
@@ -97,6 +94,5 @@ abstract class Channel implements ChannelMBean{
     public void close() throws IOException{
         Closeable mBean = mBeanRef.get();
         mBean.close();
-        MBeanUtils.unregisterMBean(objectName);
     }
 }

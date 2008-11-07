@@ -32,16 +32,17 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.management.MBeanUtils;
 import org.jboss.xnio.management.BoundInetChannel;
+import org.jboss.xnio.management.MBeanUtils;
 
 /**
  *
@@ -64,7 +65,6 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         this.datagramChannel = datagramChannel;
         this.handler = handler;
         mBeanCounters = new BoundInetChannel(this, datagramChannel.socket());
-        MBeanUtils.registerMBean(mBeanCounters, mBeanCounters.getObjectName());
     }
 
     public SocketAddress getLocalAddress() {
@@ -73,8 +73,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
 
     public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
         final SocketAddress sourceAddress = datagramChannel.receive(buffer);
-        final int bytesRead = buffer.remaining();
-        mBeanCounters.bytesRead(bytesRead);
+        mBeanCounters.bytesRead(buffer.remaining());
         return sourceAddress == null ? null : new MultipointReadResult<SocketAddress>() {
             public SocketAddress getSourceAddress() {
                 return sourceAddress;
@@ -99,7 +98,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
                 readHandle.cancelKey();
                 writeHandle.cancelKey();
                 HandlerUtils.<UdpChannel>handleClosed(handler, this);
-                mBeanCounters.close();
+                MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
             }
         }
     }
@@ -118,9 +117,9 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         // todo - gather not supported in NIO.1 so we have to fake it...
         long total = 0L;
         for (int i = 0; i < length; i++) {
-            total += (long) dsts[offset + i].remaining();
+            total += dsts[offset + i].remaining();
         }
-        if (total > (long)Integer.MAX_VALUE) {
+        if (total > Integer.MAX_VALUE) {
             throw new IOException("Source data is too large");
         }
         ByteBuffer buf = ByteBuffer.allocate((int)total);
@@ -223,6 +222,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
         }
     }
 
+    @Override
     public String toString() {
         return String.format("UDP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
     }

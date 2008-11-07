@@ -37,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
@@ -46,6 +47,8 @@ import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.BioChannel;
+import org.jboss.xnio.management.MBeanUtils;
 
 /**
  *
@@ -80,6 +83,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
     private IOException readException;
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
+    private final BioChannel mBeanCounters;
 
     protected BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
         this.datagramSocket = datagramSocket;
@@ -101,6 +105,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
         receiveBuffer = ByteBuffer.wrap(recvBufferBytes);
         sendPacket = new DatagramPacket(sendBufferBytes, sendBufSize);
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
+        mBeanCounters = new BioChannel(this);
         log.trace("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
     }
 
@@ -150,6 +155,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
             buffer.put(receiveBuffer);
             readLock.notify();
             final SocketAddress socketAddress = receivePacket.getSocketAddress();
+            mBeanCounters.bytesRead(receiveBuffer.remaining());
             return new MultipointReadResult<SocketAddress>() {
                 public SocketAddress getSourceAddress() {
                     return socketAddress;
@@ -194,6 +200,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
             HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
             log.trace("Closing channel %s", this);
         }
+        MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
@@ -226,9 +233,9 @@ public class BioDatagramChannelImpl implements UdpChannel {
             sendBuffer.clear();
             long t = 0;
             for (int i = 0; i < length; i ++) {
-                t += (long) dsts[i + offset].remaining();
+                t += dsts[i + offset].remaining();
             }
-            if ((long)sendBuffer.remaining() < t) {
+            if (sendBuffer.remaining() < t) {
                 throw new IOException("Insufficient room in send buffer (send will never succeed); send buffer is " + sendBuffer.remaining() + " bytes, but transmitted datagram is " + t + " bytes");
             }
             for (int i = 0; i < length; i ++) {
@@ -399,10 +406,12 @@ public class BioDatagramChannelImpl implements UdpChannel {
             try {
                 for (;;) {
                     synchronized (readLock) {
-                        while (readable) try {
-                            readLock.wait();
-                        } catch (InterruptedException e) {
-                            return;
+                        while (readable) {
+                            try {
+                                readLock.wait();
+                            } catch (InterruptedException e) {
+                                return;
+                            }
                         }
                     }
                     try {
@@ -453,10 +462,12 @@ public class BioDatagramChannelImpl implements UdpChannel {
                             enableWrite = false;
                             handlerExecutor.execute(writeHandlerTask);
                         }
-                        while (writable) try {
-                            writeLock.wait();
-                        } catch (InterruptedException e) {
-                            return;
+                        while (writable) {
+                            try {
+                                writeLock.wait();
+                            } catch (InterruptedException e) {
+                                return;
+                            }
                         }
                     }
                     try {

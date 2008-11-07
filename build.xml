@@ -332,6 +332,7 @@
             <sysproperty key="build.home" value="${basedir}"/>
             <sysproperty key="ant.library.dir" value="${ant.home}/lib"/>
             <sysproperty key="lib.junit.local" value="${lib.junit.local}"/>
+            <sysproperty key="com.sun.management.jmxremote" value=""/>
             <jvmarg line="${test.jvmargs}"/>
             <formatter type="plain" extension="${extension}"/>
             <classpath>

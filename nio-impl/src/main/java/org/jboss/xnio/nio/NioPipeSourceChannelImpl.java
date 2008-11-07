@@ -29,14 +29,17 @@ import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.MBeanUtils;
+import org.jboss.xnio.management.PipeSourceChannel;
 
 /**
  *
@@ -49,24 +52,32 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
     private final NioProvider nioProvider;
     private final IoHandler<? super StreamSourceChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
+    private final PipeSourceChannel mBeanCounters;
 
     public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioProvider nioProvider) throws IOException {
         this.channel = channel;
         this.handler = handler;
         this.nioProvider = nioProvider;
         handle = nioProvider.addReadHandler(channel, new Handler());
+        mBeanCounters = new PipeSourceChannel(this);
     }
 
     public int read(final ByteBuffer dst) throws IOException {
-        return channel.read(dst);
+        int read = channel.read(dst);
+        mBeanCounters.bytesRead(read);
+        return read;
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
-        return channel.read(dsts);
+        long read = channel.read(dsts);
+        mBeanCounters.bytesRead(read);
+        return read;
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        return channel.read(dsts, offset, length);
+        long read = channel.read(dsts, offset, length);
+        mBeanCounters.bytesRead(read);
+        return read;
     }
 
     public boolean isOpen() {
@@ -82,6 +93,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
             if (! callFlag.getAndSet(true)) {
                 HandlerUtils.<StreamSourceChannel>handleClosed(handler, this);
             }
+            MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
         }
     }
 
@@ -131,6 +143,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
         }
     }
 
+    @Override
     public String toString() {
         return String.format("pipe source channel (NIO) <%s>", Integer.toString(hashCode(), 16));
     }

@@ -120,7 +120,7 @@ public final class NioTcpTestCase extends TestCase {
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(4200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(14200L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -369,8 +369,6 @@ public final class NioTcpTestCase extends TestCase {
         assertEquals(clientSent.get(), serverReceived.get());
     }
 
-    //TODO public void testJmxTcpCounters() throws Exception {}
-    
     public void testClientTcpNastyClose() throws Exception {
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
