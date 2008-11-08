@@ -25,27 +25,15 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
- * A channel I/O handler.  Implementations of this interface handle traffic over a {@code Channel}.
  *
- * @param <T> the type of channel that the handler can handle
  */
-public interface IoHandler<T extends Channel> extends IoReadHandler<T>, IoWriteHandler<T> {
+public interface IoReadHandler<T extends Channel> {
 
     /**
-     * Handle channel open.  This method is called exactly once per channel.  When a channel is opened, both reads and
-     * writes are suspended initially, and must be resumed manually.  If this method fails by throwing an exception,
-     * the channel open is aborted and the underlying channel is terminated without invoking the {@link #handleClosed(java.nio.channels.Channel)}
-     * method.
+     * Handle channel readability.  Called when the channel may be read from.  Further read notifications from the
+     * channel are automatically suspended.
      *
-     * @param channel the channel that was opened
+     * @param channel the channel that is readable
      */
-    void handleOpened(T channel);
-
-    /**
-     * Handle channel close.  This method is called exactly once when the channel is closed.  If the channel's
-     * {@link java.nio.channels.Channel#close()} method is called again, this method is not invoked.
-     *
-     * @param channel the channel that was closed
-     */
-    void handleClosed(T channel);
+    void handleReadable(T channel);
 }
