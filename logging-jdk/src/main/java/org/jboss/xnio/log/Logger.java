@@ -99,22 +99,20 @@ public final class Logger {
         return logger.isLoggable(TRACE);
     }
 
-    private void doLog(java.util.logging.Level level, String msg, Throwable ex, Object[] params) {
+    private void doLog(java.util.logging.Level level, String msg, Throwable ex, Object... params) {
         try {
-            if (logger.isLoggable(level)) {
-                final String fmtMsg;
-                if (params != null && params.length > 0) {
-                    fmtMsg = String.format(msg, params);
-                } else {
-                    fmtMsg = msg;
-                }
-                LogRecord record = new LogRecord(level, fmtMsg);
-                record.setLoggerName(name);
-                if (ex != null) record.setThrown(ex);
-                record.setSourceMethodName("");
-                record.setSourceClassName("");
-                logger.log(record);
+            final String fmtMsg;
+            if (params != null && params.length > 0) {
+                fmtMsg = String.format(msg, params);
+            } else {
+                fmtMsg = msg;
             }
+            LogRecord record = new LogRecord(level, fmtMsg);
+            record.setLoggerName(name);
+            if (ex != null) record.setThrown(ex);
+            record.setSourceMethodName("");
+            record.setSourceClassName("");
+            logger.log(record);
         } catch (Throwable t) {
             // ignore it, I guess...
         }
@@ -126,7 +124,9 @@ public final class Logger {
      * @param msg the message to log
      */
     public void error(String msg) {
-        doLog(ERROR, msg, null, null);
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, null, (Object[]) null);
+        }
     }
 
     /**
@@ -137,7 +137,51 @@ public final class Logger {
      * @param params the message parameters
      */
     public void error(Throwable ex, String msg, Object... params) {
-        doLog(ERROR, msg, ex, params);
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, ex, params);
+        }
+    }
+
+    /**
+     * Log a message at error level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void error(Throwable ex, String msg, Object param1) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, ex, param1);
+        }
+    }
+
+    /**
+     * Log a message at error level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void error(Throwable ex, String msg, Object param1, Object param2) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, ex, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at error level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void error(Throwable ex, String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, ex, param1, param2, param3);
+        }
     }
 
     /**
@@ -147,7 +191,48 @@ public final class Logger {
      * @param params the message parameters
      */
     public void error(String msg, Object... params) {
-        doLog(ERROR, msg, null, params);
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, null, params);
+        }
+    }
+
+    /**
+     * Log a message at error level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void error(String msg, Object param1) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, null, param1);
+        }
+    }
+
+    /**
+     * Log a message at error level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void error(String msg, Object param1, Object param2) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, null, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at error level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void error(String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(ERROR)) {
+            doLog(ERROR, msg, null, param1, param2, param3);
+        }
     }
 
     /**
@@ -156,7 +241,9 @@ public final class Logger {
      * @param msg the message to log
      */
     public void warn(String msg) {
-        doLog(WARN, msg, null, null);
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, null, (Object[]) null);
+        }
     }
 
     /**
@@ -167,7 +254,51 @@ public final class Logger {
      * @param params the message parameters
      */
     public void warn(Throwable ex, String msg, Object... params) {
-        doLog(WARN, msg, ex, params);
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, ex, params);
+        }
+    }
+
+    /**
+     * Log a message at warn level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void warn(Throwable ex, String msg, Object param1) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, ex, param1);
+        }
+    }
+
+    /**
+     * Log a message at warn level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void warn(Throwable ex, String msg, Object param1, Object param2) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, ex, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at warn level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void warn(Throwable ex, String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, ex, param1, param2, param3);
+        }
     }
 
     /**
@@ -177,7 +308,48 @@ public final class Logger {
      * @param params the message parameters
      */
     public void warn(String msg, Object... params) {
-        doLog(WARN, msg, null, params);
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, null, params);
+        }
+    }
+
+    /**
+     * Log a message at warn level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void warn(String msg, Object param1) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, null, param1);
+        }
+    }
+
+    /**
+     * Log a message at warn level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void warn(String msg, Object param1, Object param2) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, null, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at warn level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void warn(String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(WARN)) {
+            doLog(WARN, msg, null, param1, param2, param3);
+        }
     }
 
     /**
@@ -186,7 +358,9 @@ public final class Logger {
      * @param msg the message to log
      */
     public void info(String msg) {
-        doLog(INFO, msg, null, null);
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, null, (Object[]) null);
+        }
     }
 
     /**
@@ -197,7 +371,51 @@ public final class Logger {
      * @param params the message parameters
      */
     public void info(Throwable ex, String msg, Object... params) {
-        doLog(INFO, msg, ex, params);
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, ex, params);
+        }
+    }
+
+    /**
+     * Log a message at info level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void info(Throwable ex, String msg, Object param1) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, ex, param1);
+        }
+    }
+
+    /**
+     * Log a message at info level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void info(Throwable ex, String msg, Object param1, Object param2) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, ex, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at info level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void info(Throwable ex, String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, ex, param1, param2, param3);
+        }
     }
 
     /**
@@ -207,7 +425,48 @@ public final class Logger {
      * @param params the message parameters
      */
     public void info(String msg, Object... params) {
-        doLog(INFO, msg, null, params);
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, null, params);
+        }
+    }
+
+    /**
+     * Log a message at info level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void info(String msg, Object param1) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, null, param1);
+        }
+    }
+
+    /**
+     * Log a message at info level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void info(String msg, Object param1, Object param2) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, null, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at info level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void info(String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(INFO)) {
+            doLog(INFO, msg, null, param1, param2, param3);
+        }
     }
 
     /**
@@ -216,7 +475,9 @@ public final class Logger {
      * @param msg the message to log
      */
     public void debug(String msg) {
-        doLog(DEBUG, msg, null, null);
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, null, (Object[]) null);
+        }
     }
 
     /**
@@ -227,7 +488,51 @@ public final class Logger {
      * @param params the message parameters
      */
     public void debug(Throwable ex, String msg, Object... params) {
-        doLog(DEBUG, msg, ex, params);
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, ex, params);
+        }
+    }
+
+    /**
+     * Log a message at debug level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void debug(Throwable ex, String msg, Object param1) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, ex, param1);
+        }
+    }
+
+    /**
+     * Log a message at debug level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void debug(Throwable ex, String msg, Object param1, Object param2) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, ex, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at debug level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void debug(Throwable ex, String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, ex, param1, param2, param3);
+        }
     }
 
     /**
@@ -237,7 +542,48 @@ public final class Logger {
      * @param params the message parameters
      */
     public void debug(String msg, Object... params) {
-        doLog(DEBUG, msg, null, params);
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, null, params);
+        }
+    }
+
+    /**
+     * Log a message at debug level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void debug(String msg, Object param1) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, null, param1);
+        }
+    }
+
+    /**
+     * Log a message at debug level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void debug(String msg, Object param1, Object param2) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, null, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at debug level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void debug(String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(DEBUG)) {
+            doLog(DEBUG, msg, null, param1, param2, param3);
+        }
     }
 
     /**
@@ -246,7 +592,9 @@ public final class Logger {
      * @param msg the message to log
      */
     public void trace(String msg) {
-        doLog(TRACE, msg, null, null);
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, null, (Object[]) null);
+        }
     }
 
     /**
@@ -257,7 +605,51 @@ public final class Logger {
      * @param params the message parameters
      */
     public void trace(Throwable ex, String msg, Object... params) {
-        doLog(TRACE, msg, ex, params);
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, ex, params);
+        }
+    }
+
+    /**
+     * Log a message at trace level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void trace(Throwable ex, String msg, Object param1) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, ex, param1);
+        }
+    }
+
+    /**
+     * Log a message at trace level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void trace(Throwable ex, String msg, Object param1, Object param2) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, ex, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at trace level with an exception.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param ex the exception to log
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void trace(Throwable ex, String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, ex, param1, param2, param3);
+        }
     }
 
     /**
@@ -267,6 +659,47 @@ public final class Logger {
      * @param params the message parameters
      */
     public void trace(String msg, Object... params) {
-        doLog(TRACE, msg, null, params);
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, null, params);
+        }
+    }
+
+    /**
+     * Log a message at trace level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     */
+    public void trace(String msg, Object param1) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, null, param1);
+        }
+    }
+
+    /**
+     * Log a message at trace level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     */
+    public void trace(String msg, Object param1, Object param2) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, null, param1, param2);
+        }
+    }
+
+    /**
+     * Log a message at trace level.  The message will be formatted using {@link String#format(String, Object[])}.
+     *
+     * @param msg the message to log
+     * @param param1 the first message parameter
+     * @param param2 the second message parameter
+     * @param param3 the third message parameter
+     */
+    public void trace(String msg, Object param1, Object param2, Object param3) {
+        if (logger.isLoggable(TRACE)) {
+            doLog(TRACE, msg, null, param1, param2, param3);
+        }
     }
 }
