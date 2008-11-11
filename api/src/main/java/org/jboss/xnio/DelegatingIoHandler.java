@@ -52,7 +52,7 @@ public abstract class DelegatingIoHandler<T extends Channel> implements IoHandle
      *
      * @param channel the channel that is writable
      */
-    public void handleWritable(final T channel) {
+    public final void handleWritable(final T channel) {
         final IoWriteHandler<T> writeHandler = this.writeHandler;
         if (writeHandler != null) {
             writeHandler.handleWritable(channel);
