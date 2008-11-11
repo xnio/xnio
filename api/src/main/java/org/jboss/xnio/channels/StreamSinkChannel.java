@@ -24,7 +24,6 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.WritableByteChannel;
 import java.nio.channels.GatheringByteChannel;
-import java.io.IOException;
 
 /**
  * A stream sink channel.  This type of channel is a writable desination for bytes.

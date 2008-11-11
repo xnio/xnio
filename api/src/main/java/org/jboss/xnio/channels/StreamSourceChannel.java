@@ -24,7 +24,6 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.io.IOException;
 
 /**
  * A stream source channel.  This type of channel is a readable source for bytes.
