@@ -643,6 +643,13 @@ public final class Buffers {
         dest.append(']');
     }
 
+    /**
+     * Create a heap-based buffer allocator.
+     *
+     * @param size the size of the returned buffers
+     * @return the buffer allocator
+     * @since 1.1
+     */
     public static BufferAllocator<ByteBuffer> createHeapByteBufferAllocator(final int size) {
         return new BufferAllocator<ByteBuffer>() {
             public ByteBuffer allocate() {
