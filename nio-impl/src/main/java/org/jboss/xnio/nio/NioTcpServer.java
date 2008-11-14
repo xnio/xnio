@@ -49,7 +49,7 @@ import org.jboss.xnio.log.Logger;
  *
  */
 public final class NioTcpServer implements Lifecycle, Configurable {
-    private static final Logger log = Logger.getLogger(NioTcpServer.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.server");
 
     private NioHandle[] handles;
     private ServerSocket[] serverSockets;

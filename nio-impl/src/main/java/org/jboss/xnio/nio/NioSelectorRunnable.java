@@ -39,7 +39,7 @@ import org.jboss.xnio.log.Logger;
  */
 public final class NioSelectorRunnable implements Runnable {
 
-    private static final Logger log = Logger.getLogger(NioSelectorRunnable.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.selector");
 
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();

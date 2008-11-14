@@ -44,7 +44,7 @@ import org.jboss.xnio.log.Logger;
  *
  */
 public final class NioProvider {
-    private static final Logger log = Logger.getLogger(NioProvider.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio");
 
     private Executor executor;
     private ThreadFactory selectorThreadFactory;

@@ -54,7 +54,7 @@ import org.jboss.xnio.management.MBeanUtils;
  *
  */
 public class BioDatagramChannelImpl implements UdpChannel {
-    private static final Logger log = Logger.getLogger(BioDatagramChannelImpl.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-channel");
 
     private final DatagramSocket datagramSocket;
     private final DatagramPacket receivePacket;

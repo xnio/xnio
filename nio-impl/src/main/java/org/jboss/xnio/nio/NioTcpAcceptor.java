@@ -50,7 +50,7 @@ import java.nio.channels.SelectionKey;
  *
  */
 public final class NioTcpAcceptor implements Configurable, Lifecycle, TcpAcceptor {
-    private static final Logger log = Logger.getLogger(NioTcpAcceptor.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.acceptor");
 
     private NioProvider nioProvider;
     private Executor executor;

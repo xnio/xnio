@@ -45,7 +45,7 @@ import org.jboss.xnio.log.Logger;
  */
 public final class NioUdpServer implements Lifecycle, Configurable {
 
-    private static Logger log = Logger.getLogger(NioUdpServer.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.server");
 
     private NioProvider nioProvider;
     private IoHandlerFactory<? super UdpChannel> handlerFactory;

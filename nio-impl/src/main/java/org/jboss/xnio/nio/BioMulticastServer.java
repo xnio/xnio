@@ -48,7 +48,7 @@ import org.jboss.xnio.log.Logger;
  *
  */
 public final class BioMulticastServer implements Lifecycle, Configurable {
-    private static final Logger log = Logger.getLogger(BioMulticastServer.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-server");
 
     private IoHandlerFactory<? super UdpChannel> handlerFactory;
     private BioMulticastChannelImpl[] channels = new BioMulticastChannelImpl[0];

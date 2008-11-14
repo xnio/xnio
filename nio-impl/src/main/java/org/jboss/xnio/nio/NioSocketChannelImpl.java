@@ -50,8 +50,8 @@ import org.jboss.xnio.management.ConnectedInetChannel;
  */
 public final class NioSocketChannelImpl implements TcpChannel, Closeable {
 
-    private static final Logger log = Logger
-            .getLogger(NioSocketChannelImpl.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.channel");
+
     private final SocketChannel socketChannel;
     private final Socket socket;
     private final IoHandler<? super TcpChannel> handler;

@@ -211,7 +211,7 @@ public final class IoUtils {
         };
     }
 
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.safe-close");
+    private static final Logger closeLog = Logger.getLogger("org.jboss.xnio.safe-close");
 
     /**
      * Close a resource, logging an error if an error occurs.
@@ -224,7 +224,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -239,7 +239,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -254,7 +254,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -269,7 +269,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -284,7 +284,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -299,7 +299,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -314,7 +314,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            log.trace(t, "Closing resource failed");
+            closeLog.trace(t, "Closing resource failed");
         }
     }
 
@@ -384,7 +384,7 @@ public final class IoUtils {
         }
 
         private void connect() {
-            log.trace("Establishing connection");
+            closeLog.trace("Establishing connection");
             final IoFuture<T> ioFuture = channelSource.open(handlerWrapper);
             ioFuture.addNotifier(notifier);
             currentFuture = ioFuture;

@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamSinkChannel;
@@ -44,6 +45,8 @@ import org.jboss.xnio.management.PipeSinkChannel;
  *
  */
 public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
+
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.sink-channel");
 
     private final Pipe.SinkChannel channel;
     private final NioHandle handle;

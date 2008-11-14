@@ -43,7 +43,7 @@ import org.jboss.xnio.log.Logger;
  *
  */
 public final class NioPipeChannelImpl implements StreamChannel {
-    public static final Logger log = Logger.getLogger(NioPipeChannelImpl.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.channel");
 
     private final Pipe.SourceChannel sourceChannel;
     private final Pipe.SinkChannel sinkChannel;

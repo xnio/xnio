@@ -45,7 +45,7 @@ import org.jboss.xnio.management.PipeSourceChannel;
  *
  */
 public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
-    private static final Logger log = Logger.getLogger(NioPipeSourceChannelImpl.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.source-channel");
 
     private final Pipe.SourceChannel channel;
     private final NioHandle handle;

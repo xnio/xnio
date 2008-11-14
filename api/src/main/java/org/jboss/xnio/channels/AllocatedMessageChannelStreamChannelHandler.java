@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<StreamChannel> {
 
-    private static final Logger log = Logger.getLogger(AllocatedMessageChannelStreamChannelHandler.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.channels.allocated-message");
 
     private volatile AllocatedMessageChannelImpl messageChannel;
     private final int maxInboundMessageSize;

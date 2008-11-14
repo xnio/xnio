@@ -52,7 +52,7 @@ import org.jboss.xnio.log.Logger;
  */
 public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnector {
 
-    private static final Logger log = Logger.getLogger(NioTcpConnector.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.connector");
 
     private NioProvider nioProvider;
     private Executor executor;

@@ -33,7 +33,6 @@ import org.jboss.xnio.log.Logger;
  * A utility class containing static methods to convert from one channel type to another.
  */
 public final class Channels {
-    private static final Logger log = Logger.getLogger(Channels.class);
 
     private Channels() {
     }
@@ -82,6 +81,8 @@ public final class Channels {
         };
     }
 
+    private static final Logger mergedLog = Logger.getLogger("org.jboss.xnio.channels.merged");
+
     /**
      * Create a handler that is a merged view of two separate handlers, one for read operations and one for write operations.
      * The {@code handleOpened()} and {@code handleClosed()} methods are called on each of the two sub-handlers.
@@ -103,7 +104,7 @@ public final class Channels {
                     if (! ok) try {
                         readSide.handleClosed(channel);
                     } catch (Throwable t) {
-                        log.error(t, "Error in close handler");
+                        mergedLog.error(t, "Error in close handler");
                     }
                 }
             }
@@ -120,12 +121,12 @@ public final class Channels {
                 try {
                     readSide.handleClosed(channel);
                 } catch (Throwable t) {
-                    log.error(t, "Error in close handler");
+                    mergedLog.error(t, "Error in close handler");
                 }
                 try {
                     writeSide.handleClosed(channel);
                 } catch (Throwable t) {
-                    log.error(t, "Error in close handler");
+                    mergedLog.error(t, "Error in close handler");
                 }
             }
         };
