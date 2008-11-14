@@ -39,7 +39,7 @@ import org.jboss.xnio.log.Logger;
 public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     private static final Logger log = Logger.getLogger(AbstractIoFuture.class);
 
-    private Object lock = new Object();
+    private final Object lock = new Object();
     private Status status = Status.WAITING;
     private Object result;
     private List<Notifier<T>> notifierList;
@@ -209,7 +209,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         }
     }
 
-    private final void runAllNotifiers() {
+    private void runAllNotifiers() {
         if (notifierList != null) {
             Iterator<Notifier<T>> it = notifierList.iterator();
             while (it.hasNext()) {
@@ -281,12 +281,14 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
 
     /**
      * Cancel an operation.  The actual cancel may be synchronous or asynchronous.  Implementors will use this method
-     * to initiate the cancel; use the {@link #finishCancel()} method to indicate that the cancel was successful.  If
-     * cancellation is not supported, this method may be a no-op.
+     * to initiate the cancel; use the {@link #finishCancel()} method to indicate that the cancel was successful.  The
+     * default implementation does nothing.
      *
      * @return this {@code IoFuture} instance
      */
-    public abstract IoFuture<T> cancel();
+    public IoFuture<T> cancel() {
+        return this;
+    }
 
     /**
      * Run a notifier.  Implementors will run the notifier, preferably in another thread.  The default implementation
