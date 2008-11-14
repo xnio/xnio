@@ -31,4 +31,9 @@ package org.jboss.xnio;
  * @since 1.2
  */
 public abstract class AbstractFutureConnection<A, T> extends AbstractIoFuture<T> implements FutureConnection<A, T> {
+
+    /** {@inheritDoc} */
+    public FutureConnection<A, T> cancel() {
+        return this;
+    }
 }

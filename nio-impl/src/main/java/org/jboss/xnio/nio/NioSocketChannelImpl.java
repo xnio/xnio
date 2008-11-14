@@ -245,6 +245,6 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
 
     @Override
     public String toString() {
-        return String.format("TCP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+        return String.format("TCP socket channel (NIO) <%s> (local: %s, remote: %s)", Integer.toString(hashCode(), 16), getLocalAddress(), getPeerAddress());
     }
 }
