@@ -390,6 +390,8 @@ public abstract class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      *
      * @return a factory that can be used to configure the new stream server
+     *
+     * @since 1.2
      */
     public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, String... bindAddresses) {
         throw new UnsupportedOperationException("createStreamServer");
@@ -404,6 +406,8 @@ public abstract class Xnio implements Closeable {
      * @param bindAddresses the addresses to bind to
      *
      * @return a factory that can be used to configure the new stream server
+     *
+     * @since 1.2
      */
     public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory, String... bindAddresses) {
         throw new UnsupportedOperationException("createStreamServer");
