@@ -44,6 +44,15 @@ public final class WeakCloseable implements Closeable {
         this.resource = resource;
     }
 
+    /**
+     * Construct a new instance.
+     *
+     * @param resource the target resource
+     */
+    public WeakCloseable(final Closeable resource) {
+        this.resource = new WeakReference<Closeable>(resource);
+    }
+
     /** {@inheritDoc} In addition, if the resource has already been garbage collected, this operation has no effect. */
     public void close() throws IOException {
         final Closeable closeable = resource.get();
