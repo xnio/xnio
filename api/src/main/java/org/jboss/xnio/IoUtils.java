@@ -50,7 +50,6 @@ import java.util.logging.Handler;
  * @apiviz.exclude
  */
 public final class IoUtils {
-    private static final Logger log = Logger.getLogger(IoUtils.class);
 
     private static final Executor NULL_EXECUTOR = new Executor() {
         public void execute(final Runnable command) {
@@ -212,6 +211,8 @@ public final class IoUtils {
         };
     }
 
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.safe-close");
+
     /**
      * Close a resource, logging an error if an error occurs.
      *
@@ -361,6 +362,8 @@ public final class IoUtils {
 
     // nested classes
 
+    private static final Logger connLog = Logger.getLogger("org.jboss.xnio.connection");
+
     private static final class Connection<T extends StreamChannel> implements Closeable {
 
         private final ChannelSource<T> channelSource;
@@ -395,21 +398,22 @@ public final class IoUtils {
             }
         }
 
-        private final class NotifierImpl implements IoFuture.Notifier<T> {
+        private final class NotifierImpl extends IoFuture.HandlingNotifier<T> {
+
+            public void handleCancelled() {
+                connLog.trace("Connection cancelled");
+            }
+
+            public void handleFailed(final IOException exception) {
+                connLog.trace(exception, "Connection failed");
+            }
+
+            public void handleDone(final T result) {
+                connLog.trace("Connection established");
+            }
 
             public void notify(final IoFuture<T> future) {
-                currentFuture = null;
-                switch (future.getStatus()) {
-                    case DONE:
-                        log.trace("Connection established");
-                        return;
-                    case FAILED:
-                        log.trace(future.getException(), "Connection failed");
-                        break;
-                    case CANCELLED:
-                        log.trace("Connection cancelled");
-                        break;
-                }
+                super.notify(future);
                 if (! stopFlag) {
                     reconnectExecutor.execute(reconnectTask);
                 }
@@ -432,7 +436,7 @@ public final class IoUtils {
 
             public void handleClosed(final T channel) {
                 try {
-                    log.trace("Connection closed");
+                    connLog.trace("Connection closed");
                     if (! stopFlag) {
                         reconnectExecutor.execute(reconnectTask);
                     }

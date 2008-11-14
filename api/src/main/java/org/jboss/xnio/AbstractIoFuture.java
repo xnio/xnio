@@ -37,7 +37,7 @@ import org.jboss.xnio.log.Logger;
  * @param <T> the type of result that this operation produces
  */
 public abstract class AbstractIoFuture<T> implements IoFuture<T> {
-    private static final Logger log = Logger.getLogger(AbstractIoFuture.class);
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.future");
 
     private final Object lock = new Object();
     private Status status = Status.WAITING;
