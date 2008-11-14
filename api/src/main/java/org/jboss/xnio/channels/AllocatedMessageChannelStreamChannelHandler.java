@@ -406,5 +406,9 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
         public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
             streamChannel.awaitWritable(time, timeUnit);
         }
+
+        public String toString() {
+            return "allocated message channel <" + Integer.toHexString(hashCode()) + "> over " + streamChannel;
+        }
     }
 }
