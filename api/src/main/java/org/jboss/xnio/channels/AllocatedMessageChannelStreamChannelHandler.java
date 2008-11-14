@@ -221,8 +221,10 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                     writeException = null;
                     throw e;
                 }
+                final StreamChannel streamChannel = this.streamChannel;
                 switch (writeState) {
                     case WAITING: {
+                        final ByteBuffer writeLengthBuf = AllocatedMessageChannelStreamChannelHandler.this.writeLengthBuf;
                         writeLengthBuf.clear();
                         writeLengthBuf.putInt((int)total);
                         writeLengthBuf.flip();
