@@ -49,16 +49,16 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     private final Pipe.SourceChannel channel;
     private final NioHandle handle;
-    private final NioProvider nioProvider;
+    private final NioXnio nioXnio;
     private final IoHandler<? super StreamSourceChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final PipeSourceChannel mBeanCounters;
 
-    public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioProvider nioProvider) throws IOException {
+    public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioXnio nioXnio) throws IOException {
         this.channel = channel;
         this.handler = handler;
-        this.nioProvider = nioProvider;
-        handle = nioProvider.addReadHandler(channel, new Handler());
+        this.nioXnio = nioXnio;
+        handle = nioXnio.addReadHandler(channel, new Handler());
         mBeanCounters = new PipeSourceChannel(this);
     }
 
@@ -88,7 +88,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
         try {
             channel.close();
         } finally {
-            nioProvider.removeChannel(this);
+            nioXnio.removeManaged(this);
             handle.cancelKey();
             if (! callFlag.getAndSet(true)) {
                 HandlerUtils.<StreamSourceChannel>handleClosed(handler, this);

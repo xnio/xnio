@@ -28,144 +28,64 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpChannelSource;
-import org.jboss.xnio.TcpConnector;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.FinishedFutureConnection;
 import org.jboss.xnio.AbstractFutureConnection;
 import org.jboss.xnio.FailedFutureConnection;
+import org.jboss.xnio.CloseableTcpConnector;
 import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
-public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnector {
+public final class NioTcpConnector implements CloseableTcpConnector {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.connector");
 
-    private NioProvider nioProvider;
-    private Executor executor;
-    private boolean keepAlive = false;
-    private boolean oobInline = false;
-    private int receiveBufferSize = -1;
-    private boolean reuseAddress = false;
-    private int sendBufferSize = -1;
-    private boolean tcpNoDelay = false;
-    private int connectTimeout = -1;
+    private final NioXnio nioXnio;
+    private final Executor executor;
 
-    // accessors - configuration
+    private final Object lock = new Object();
 
-    public boolean isKeepAlive() {
-        return keepAlive;
-    }
+    private boolean closed;
 
-    public void setKeepAlive(final boolean keepAlive) {
-        this.keepAlive = keepAlive;
-    }
+    private final Boolean keepAlive;
+    private final Boolean oobInline;
+    private final Integer receiveBufferSize;
+    private final Boolean reuseAddress;
+    private final Integer sendBufferSize;
+    private final Boolean tcpNoDelay;
 
-    public boolean isOobInline() {
-        return oobInline;
-    }
-
-    public void setOobInline(final boolean oobInline) {
-        this.oobInline = oobInline;
-    }
-
-    public int getReceiveBufferSize() {
-        return receiveBufferSize;
-    }
-
-    public void setReceiveBufferSize(final int receiveBufferSize) {
-        this.receiveBufferSize = receiveBufferSize;
-    }
-
-    public boolean isReuseAddress() {
-        return reuseAddress;
-    }
-
-    public void setReuseAddress(final boolean reuseAddress) {
-        this.reuseAddress = reuseAddress;
-    }
-
-    public int getSendBufferSize() {
-        return sendBufferSize;
-    }
-
-    public void setSendBufferSize(final int sendBufferSize) {
-        this.sendBufferSize = sendBufferSize;
-    }
-
-    public boolean isTcpNoDelay() {
-        return tcpNoDelay;
-    }
-
-    public void setTcpNoDelay(final boolean tcpNoDelay) {
-        this.tcpNoDelay = tcpNoDelay;
-    }
-
-    public int getConnectTimeout() {
-        return connectTimeout;
-    }
-
-    public void setConnectTimeout(final int connectTimeout) {
-        this.connectTimeout = connectTimeout;
-    }
-
-    // accessors - dependencies
-
-    public NioProvider getNioProvider() {
-        return nioProvider;
-    }
-
-    public void setNioProvider(final NioProvider nioProvider) {
-        this.nioProvider = nioProvider;
-    }
-
-    public Executor getExecutor() {
-        return executor;
-    }
-
-    public void setExecutor(final Executor executor) {
-        this.executor = executor;
-    }
-
-    // lifecycle
-
-    public void start() {
-        if (nioProvider == null) {
-            throw new NullPointerException("nioProvider is null");
+    private NioTcpConnector(NioTcpConnectorConfig config) {
+        nioXnio = config.getXnio();
+        executor = config.getExecutor();
+        if (nioXnio == null) {
+            throw new NullPointerException("nioXnio is null");
         }
         if (executor == null) {
-            executor = nioProvider.getExecutor();
+            throw new NullPointerException("executor is null");
         }
-    }
-
-    public void stop() {
-        executor = null;
+        keepAlive = config.getKeepAlive();
+        oobInline = config.getOobInline();
+        receiveBufferSize = config.getReceiveBuffer();
+        reuseAddress = config.getReuseAddresses();
+        sendBufferSize = config.getSendBuffer();
+        tcpNoDelay = config.getNoDelay();
     }
 
     private void configureStream(final Socket socket) throws SocketException {
-        socket.setKeepAlive(keepAlive);
-        socket.setOOBInline(oobInline);
-        if (receiveBufferSize > 0) {
-            socket.setReceiveBufferSize(receiveBufferSize);
-        }
-        socket.setReuseAddress(reuseAddress);
-        if (sendBufferSize > 0) {
-            socket.setSendBufferSize(sendBufferSize);
-        }
-        socket.setTcpNoDelay(tcpNoDelay);
+        if (keepAlive != null) socket.setKeepAlive(keepAlive.booleanValue());
+        if (oobInline != null) socket.setOOBInline(oobInline.booleanValue());
+        if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
+        if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
+        if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
+        if (tcpNoDelay != null) socket.setTcpNoDelay(tcpNoDelay.booleanValue());
     }
 
     public FutureConnection<SocketAddress, TcpChannel> connectTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
@@ -224,106 +144,47 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
 
     private FutureConnection<SocketAddress, TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
-            log.trace("Connecting from %s to %s", src, dest);
-            final SocketChannel socketChannel = SocketChannel.open();
-            socketChannel.configureBlocking(false);
-            final Socket socket = socketChannel.socket();
-            if (src != null) socket.bind(src);
-            configureStream(socket);
-            if (socketChannel.connect(dest)) {
-                final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
-                executor.execute(new Runnable() {
-                    public void run() {
-                        log.trace("Connection from %s to %s is up (immediate)", src, dest);
-                        if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
-                            IoUtils.safeClose(socketChannel);
+            synchronized (lock) {
+                if (closed) {
+                    throw new ClosedChannelException();
+                }
+                log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
+                final SocketChannel socketChannel = SocketChannel.open();
+                socketChannel.configureBlocking(false);
+                final Socket socket = socketChannel.socket();
+                if (src != null) socket.bind(src);
+                configureStream(socket);
+                if (socketChannel.connect(dest)) {
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
+                    executor.execute(new Runnable() {
+                        public void run() {
+                            log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
+                            if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
+                                IoUtils.safeClose(socketChannel);
+                            }
                         }
-                    }
-                });
-                nioProvider.addChannel(channel);
-                return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
-            } else {
-                final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioProvider, handler);
-                connectionHandler.handle.resume(SelectionKey.OP_CONNECT);
-                return connectionHandler.future;
+                    });
+                    nioXnio.addManaged(channel);
+                    return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
+                } else {
+                    final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioXnio, handler);
+                    connectionHandler.handle.resume(SelectionKey.OP_CONNECT);
+                    return connectionHandler.future;
+                }
             }
         } catch (IOException e) {
             return new FailedFutureConnection<SocketAddress, TcpChannel>(e, src);
         }
     }
 
-    private static final Set<ChannelOption<?>> OPTIONS;
-
-    static {
-        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
-        options.add(CommonOptions.KEEP_ALIVE);
-        options.add(CommonOptions.TCP_OOB_INLINE);
-        options.add(CommonOptions.RECEIVE_BUFFER);
-        options.add(CommonOptions.REUSE_ADDRESSES);
-        options.add(CommonOptions.SEND_BUFFER);
-        options.add(CommonOptions.TCP_NODELAY);
-        OPTIONS = Collections.unmodifiableSet(options);
-    }
-
-    @SuppressWarnings({"unchecked"})
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        if (option == null) {
-            throw new NullPointerException("option is null");
-        }
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
-        if (CommonOptions.KEEP_ALIVE.equals(option)) {
-            return (T) Boolean.valueOf(keepAlive);
-        } else if (CommonOptions.TCP_OOB_INLINE.equals(option)) {
-            return (T) Boolean.valueOf(oobInline);
-        } else if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
-            final int v = receiveBufferSize;
-            return v == -1 ? null : (T) Integer.valueOf(v);
-        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
-            return (T) Boolean.valueOf(reuseAddress);
-        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
-            final int v = sendBufferSize;
-            return v == -1 ? null : (T) Integer.valueOf(v);
-        } else if (CommonOptions.TCP_NODELAY.equals(option)) {
-            return (T) Boolean.valueOf(tcpNoDelay);
-        } else {
-            throw new IllegalStateException("Failed to get supported option: " + option);
+    public void close() throws IOException {
+        synchronized (lock) {
+            closed = true;
         }
     }
 
-    public Set<ChannelOption<?>> getOptions() {
-        return OPTIONS;
-    }
-
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (option == null) {
-            throw new NullPointerException("name is null");
-        }
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
-        if (CommonOptions.KEEP_ALIVE.equals(option)) {
-            setKeepAlive(((Boolean)value).booleanValue());
-            return this;
-        } else if (CommonOptions.TCP_OOB_INLINE.equals(option)) {
-            setOobInline(((Boolean)value).booleanValue());
-            return this;
-        } else if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
-            setReceiveBufferSize(((Integer)value).intValue());
-            return this;
-        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
-            setReuseAddress(((Boolean)value).booleanValue());
-            return this;
-        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
-            setSendBufferSize(((Integer)value).intValue());
-            return this;
-        } else if (CommonOptions.TCP_NODELAY.equals(option)) {
-            setTcpNoDelay(((Boolean)value).booleanValue());
-            return this;
-        } else {
-            throw new IllegalStateException("Failed to set supported option: " + option);
-        }
+    static NioTcpConnector create(final NioTcpConnectorConfig config) {
+        return new NioTcpConnector(config);
     }
 
     /**
@@ -335,12 +196,12 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
         private final NioHandle handle;
         private final IoHandler<? super TcpChannel> handler;
 
-        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioProvider nioProvider, final IoHandler<? super TcpChannel> handler) throws IOException {
+        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioXnio nioXnio, final IoHandler<? super TcpChannel> handler) throws IOException {
             this.socketChannel = socketChannel;
             this.handler = handler;
             // *should* be safe...
             //noinspection ThisEscapedInObjectConstruction
-            handle = nioProvider.addConnectHandler(socketChannel, this, true);
+            handle = nioXnio.addConnectHandler(socketChannel, this, true);
             future = new FutureImpl(executor, socketChannel.socket().getLocalSocketAddress());
         }
 
@@ -348,7 +209,7 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             try {
                 if (socketChannel.finishConnect()) {
                     log.trace("Connection is up (deferred)");
-                    final NioSocketChannelImpl channel = new NioSocketChannelImpl(nioProvider, socketChannel, handler);
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
                     future.setResult(channel);
                     handler.handleOpened(channel);
                     handle.cancelKey();
@@ -407,7 +268,9 @@ public final class NioTcpConnector implements Configurable, Lifecycle, TcpConnec
             }
 
             public FutureConnection<SocketAddress, TcpChannel> cancel() {
-                IoUtils.safeClose(socketChannel);
+                if (finishCancel()) {
+                    IoUtils.safeClose(socketChannel);
+                }
                 return this;
             }
         }

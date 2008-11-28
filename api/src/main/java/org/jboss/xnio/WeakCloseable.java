@@ -53,7 +53,11 @@ public final class WeakCloseable implements Closeable {
         this.resource = new WeakReference<Closeable>(resource);
     }
 
-    /** {@inheritDoc} In addition, if the resource has already been garbage collected, this operation has no effect. */
+    /**
+     * Closes this resource and releases any system resources associated with it. If the resource is already closed,
+     * then invoking this method has no effect.  In addition, if the resource has already been garbage collected, this
+     * operation has no effect.
+     */
     public void close() throws IOException {
         final Closeable closeable = resource.get();
         if (closeable != null) {

@@ -25,7 +25,7 @@ package org.jboss.xnio.management;
 import java.net.Socket;
 import java.net.SocketAddress;
 
-import org.jboss.xnio.nio.NioSocketChannelImpl;
+import org.jboss.xnio.nio.NioTcpChannel;
 
 /**
  *
@@ -35,13 +35,13 @@ public class ConnectedInetChannel extends Channel implements ConnectedInetChanne
     final Socket socket;
 
     /**
-     * @param nioSocketChannelImpl
+     * @param nioTcpChannel
      * @param socket
      * @param string
      */
-    public ConnectedInetChannel(final NioSocketChannelImpl nioSocketChannelImpl,
+    public ConnectedInetChannel(final NioTcpChannel nioTcpChannel,
             final Socket socket) {
-        super(nioSocketChannelImpl, socket);
+        super(nioTcpChannel, socket);
         this.socket = socket;
     }
 

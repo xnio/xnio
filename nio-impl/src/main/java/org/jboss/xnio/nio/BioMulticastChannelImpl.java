@@ -44,11 +44,11 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 /**
  *
  */
-public final class BioMulticastChannelImpl extends BioDatagramChannelImpl implements UdpChannel {
+public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements UdpChannel {
     private final MulticastSocket multicastSocket;
 
     @SuppressWarnings({"unchecked"})
-    protected BioMulticastChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super UdpChannel> handler, final MulticastSocket multicastSocket) {
+    BioMulticastChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super UdpChannel> handler, final MulticastSocket multicastSocket) {
         super(sendBufSize, recvBufSize, handlerExecutor, (IoHandler<? super MultipointDatagramChannel<SocketAddress>>) handler, multicastSocket);
         this.multicastSocket = multicastSocket;
     }

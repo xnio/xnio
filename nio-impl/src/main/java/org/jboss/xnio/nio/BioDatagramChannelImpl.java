@@ -85,7 +85,7 @@ public class BioDatagramChannelImpl implements UdpChannel {
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
     private final BioChannel mBeanCounters;
 
-    protected BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
+    BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
         this.datagramSocket = datagramSocket;
         this.handlerExecutor = handlerExecutor;
         this.handler = handler;

@@ -37,6 +37,7 @@ public interface ConfigurableFactory<T> extends Configurable {
      *
      * @return the instance
      * @throws java.io.IOException if an error occurs starting the instance
+     * @throws IllegalStateException if the instance was already created
      */
-    T create() throws IOException;
+    T create() throws IOException, IllegalStateException;
 }

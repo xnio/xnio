@@ -95,6 +95,7 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="logging-jdk.classpath"/>
+                <path refid="version.classpath"/>
             </classpath>
         </javac>
         <touch file="api/target/main/.lastcompile" verbose="false"/>
@@ -177,6 +178,8 @@
     <target name="api" description="Build the api module" depends="version,logging-jdk,api.compile">
         <path id="api.classpath">
             <pathelement location="api/target/main/classes"/>
+            <path refid="logging-jdk.classpath"/>
+            <path refid="version.classpath"/>
         </path>
     </target>
 
@@ -286,7 +289,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
-                <path refid="logging-jdk.classpath"/>
             </classpath>
         </javac>
         <touch file="nio-impl/target/main/.lastcompile" verbose="false"/>
@@ -314,7 +316,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="api.classpath"/>
-                <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
                 <path refid="test-support.classpath"/>
                 <pathelement location="${lib.junit.local}"/>
@@ -338,7 +339,6 @@
             <classpath>
                 <path refid="test-support.classpath"/>
                 <path refid="api.classpath"/>
-                <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
                 <pathelement location="nio-impl/target/test/classes"/>
                 <pathelement location="${lib.junit.local}"/>
@@ -569,12 +569,21 @@
 
     <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,version">
         <delete dir="docs/target/main/javadoc"/>
+        <delete dir="docs/target/nio-holder"/>
         <mkdir dir="docs/target/main/javadoc"/>
+        <mkdir dir="docs/target/nio-holder"/>
+        <copy todir="docs/target/nio-holder">
+            <fileset dir="nio-impl/src/main/java">
+                <include name="**/NioXnio.java"/>
+                <include name="**/NioXnioConfiguration.java"/>
+            </fileset>
+        </copy>
         <javadoc destdir="docs/target/main/javadoc" author="false" version="false" use="false" windowtitle="XNIO API">
             <doclet name="net.gleamynode.apiviz.APIviz" path="${lib.apiviz.local}"/>
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
             <packageset dir="version/src/main/java"/>
+            <packageset dir="docs/target/nio-holder"/>
             <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
             <header><![CDATA[XNIO version ${version}]]></header>
             <footer><![CDATA[XNIO version ${version}]]></footer>
@@ -587,6 +596,7 @@
                 <path refid="version.classpath"/>
             </classpath>
         </javadoc>
+        <delete dir="docs/target/nio-holder"/>
     </target>
 
     <!-- Default targets - keep depends in alpha order by category name -->

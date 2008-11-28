@@ -22,8 +22,6 @@
 
 package org.jboss.xnio.log;
 
-import org.jboss.xnio.Version;
-
 import java.util.logging.LogRecord;
 
 
@@ -31,12 +29,6 @@ import java.util.logging.LogRecord;
  * A logger that may be used by XNIO applications.
  */
 public final class Logger {
-    private static final class Init {
-        static {
-            getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
-        }
-    }
-
     /**
      * A base class for the XNIO custom log levels for JDK logging.
      */
@@ -64,8 +56,6 @@ public final class Logger {
     private final String name;
 
     private Logger(final String name) {
-        // Log the main init message exactly once
-        Init.class.getName();
         this.name = name;
         logger = java.util.logging.Logger.getLogger(name);
     }

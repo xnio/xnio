@@ -33,6 +33,7 @@ import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.xnio.IoHandler;
@@ -47,7 +48,7 @@ import org.jboss.xnio.management.MBeanUtils;
 /**
  *
  */
-public final class NioUdpSocketChannelImpl implements UdpChannel {
+public class NioUdpSocketChannelImpl implements UdpChannel {
 
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
@@ -55,13 +56,18 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
     private final IoHandler<? super UdpChannel> handler;
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
-    private final NioProvider nioProvider;
+    private final NioXnio nioXnio;
     private final BoundInetChannel mBeanCounters;
 
-    public NioUdpSocketChannelImpl(final NioProvider nioProvider, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler) throws IOException {
-        this.nioProvider = nioProvider;
-        readHandle = nioProvider.addReadHandler(datagramChannel, new ReadHandler());
-        writeHandle = nioProvider.addWriteHandler(datagramChannel, new WriteHandler());
+    NioUdpSocketChannelImpl(final NioXnio nioXnio, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler, final Executor executor) throws IOException {
+        this.nioXnio = nioXnio;
+        if (executor != null) {
+            readHandle = nioXnio.addReadHandler(datagramChannel, new ReadHandler(), executor);
+            writeHandle = nioXnio.addWriteHandler(datagramChannel, new WriteHandler(), executor);
+        } else {
+            readHandle = nioXnio.addReadHandler(datagramChannel, new ReadHandler());
+            writeHandle = nioXnio.addWriteHandler(datagramChannel, new WriteHandler());
+        }
         this.datagramChannel = datagramChannel;
         this.handler = handler;
         mBeanCounters = new BoundInetChannel(this, datagramChannel.socket());
@@ -94,7 +100,7 @@ public final class NioUdpSocketChannelImpl implements UdpChannel {
             try {
                 datagramChannel.close();
             } finally {
-                nioProvider.removeChannel(this);
+                nioXnio.removeManaged(this);
                 readHandle.cancelKey();
                 writeHandle.cancelKey();
                 HandlerUtils.<UdpChannel>handleClosed(handler, this);

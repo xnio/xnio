@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.nio.channels.Pipe;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.IoHandler;
@@ -32,100 +33,12 @@ import org.jboss.xnio.channels.StreamChannel;
 /**
  *
  */
-public final class NioPipeConnection implements Lifecycle {
+public final class NioPipeConnection implements Closeable {
 
-    private NioProvider nioProvider;
-    private IoHandler<? super StreamChannel> leftHandler;
-    private IoHandler<? super StreamChannel> rightHandler;
-    private NioPipeChannelImpl leftSide;
-    private NioPipeChannelImpl rightSide;
-    private Executor executor;
-    private Executor leftSideExecutor;
-    private Executor rightSideExecutor;
+    private final NioPipeChannelImpl leftSide;
+    private final NioPipeChannelImpl rightSide;
 
-    public NioProvider getNioProvider() {
-        return nioProvider;
-    }
-
-    public void setNioProvider(final NioProvider nioProvider) {
-        this.nioProvider = nioProvider;
-    }
-
-    public NioPipeChannelImpl getLeftSide() {
-        return leftSide;
-    }
-
-    public void setLeftSide(final NioPipeChannelImpl leftSide) {
-        this.leftSide = leftSide;
-    }
-
-    public NioPipeChannelImpl getRightSide() {
-        return rightSide;
-    }
-
-    public void setRightSide(final NioPipeChannelImpl rightSide) {
-        this.rightSide = rightSide;
-    }
-
-    public IoHandler<? super StreamChannel> getLeftHandler() {
-        return leftHandler;
-    }
-
-    public void setLeftHandler(final IoHandler<? super StreamChannel> leftHandler) {
-        this.leftHandler = leftHandler;
-    }
-
-    public IoHandler<? super StreamChannel> getRightHandler() {
-        return rightHandler;
-    }
-
-    public void setRightHandler(final IoHandler<? super StreamChannel> rightHandler) {
-        this.rightHandler = rightHandler;
-    }
-
-    public Executor getExecutor() {
-        return executor;
-    }
-
-    public void setExecutor(final Executor executor) {
-        this.executor = executor;
-    }
-
-    public Executor getLeftSideExecutor() {
-        return leftSideExecutor;
-    }
-
-    public void setLeftSideExecutor(final Executor leftSideExecutor) {
-        this.leftSideExecutor = leftSideExecutor;
-    }
-
-    public Executor getRightSideExecutor() {
-        return rightSideExecutor;
-    }
-
-    public void setRightSideExecutor(final Executor rightSideExecutor) {
-        this.rightSideExecutor = rightSideExecutor;
-    }
-
-    public void start() throws IOException {
-        if (leftHandler == null) {
-            throw new NullPointerException("leftHandler is null");
-        }
-        if (rightHandler == null) {
-            throw new NullPointerException("rightHandler is null");
-        }
-        if (nioProvider == null) {
-            throw new NullPointerException("nioProvider is null");
-        }
-        if (executor == null) {
-            executor = nioProvider.getExecutor();
-        }
-        if (leftSideExecutor == null) {
-            leftSideExecutor = executor;
-        }
-        if (rightSideExecutor == null) {
-            rightSideExecutor = executor;
-        }
+    NioPipeConnection(final NioXnio nioXnio, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler, final Executor executor) throws IOException {
         final Pipe leftToRight = Pipe.open();
         final Pipe rightToLeft = Pipe.open();
         final Pipe.SourceChannel leftToRightSource = leftToRight.source();
@@ -136,11 +49,13 @@ public final class NioPipeConnection implements Lifecycle {
         leftToRightSink.configureBlocking(false);
         rightToLeftSource.configureBlocking(false);
         rightToLeftSink.configureBlocking(false);
-        final NioPipeChannelImpl leftSide = new NioPipeChannelImpl(leftToRightSource, leftToRightSink, leftHandler, nioProvider);
-        final NioPipeChannelImpl rightSide = new NioPipeChannelImpl(rightToLeftSource, rightToLeftSink, rightHandler, nioProvider);
+        final NioPipeChannelImpl leftSide = new NioPipeChannelImpl(leftToRightSource, leftToRightSink, leftHandler, nioXnio);
+        final NioPipeChannelImpl rightSide = new NioPipeChannelImpl(rightToLeftSource, rightToLeftSink, rightHandler, nioXnio);
         this.leftSide = leftSide;
         this.rightSide = rightSide;
-        leftSideExecutor.execute(new Runnable() {
+        nioXnio.addManaged(leftSide);
+        nioXnio.addManaged(rightSide);
+        executor.execute(new Runnable() {
             public void run() {
                 if (! HandlerUtils.<StreamChannel>handleOpened(leftHandler, leftSide)) {
                     IoUtils.safeClose(leftToRightSource);
@@ -150,7 +65,7 @@ public final class NioPipeConnection implements Lifecycle {
                 }
             }
         });
-        rightSideExecutor.execute(new Runnable() {
+        executor.execute(new Runnable() {
             public void run() {
                 if (! HandlerUtils.<StreamChannel>handleOpened(rightHandler, rightSide)) {
                     IoUtils.safeClose(leftToRightSource);
@@ -160,14 +75,18 @@ public final class NioPipeConnection implements Lifecycle {
                 }
             }
         });
-        nioProvider.addChannel(leftSide);
-        nioProvider.addChannel(rightSide);
     }
 
-    public void stop() throws IOException {
+    public NioPipeChannelImpl getLeftSide() {
+        return leftSide;
+    }
+
+    public NioPipeChannelImpl getRightSide() {
+        return rightSide;
+    }
+
+    public void close() throws IOException {
         IoUtils.safeClose(leftSide);
         IoUtils.safeClose(rightSide);
-        leftSide = null;
-        rightSide = null;
     }
 }

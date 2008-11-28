@@ -23,18 +23,18 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
-import java.net.DatagramSocket;
+import java.net.MulticastSocket;
 import java.net.SocketAddress;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.ClosedChannelException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
+import java.nio.channels.ClosedChannelException;
+import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.channels.ChannelOption;
@@ -48,16 +48,14 @@ import org.jboss.xnio.log.Logger;
 /**
  *
  */
-public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
+public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-server");
 
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.server");
-
-    private final NioXnio nioXnio;
     private final IoHandlerFactory<? super UdpChannel> handlerFactory;
     private final Executor executor;
 
     private final Object lock = new Object();
-    private final Set<NioUdpSocketChannelImpl> boundChannels = new LinkedHashSet<NioUdpSocketChannelImpl>();
+    private final Set<BioMulticastChannelImpl> boundChannels = new LinkedHashSet<BioMulticastChannelImpl>();
 
     private boolean closed;
 
@@ -67,9 +65,8 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
     private Integer trafficClass;
     private Boolean broadcast;
 
-    NioUdpServer(final NioUdpServerConfig config) {
+    BioUdpServer(final BioUdpServerConfig config) {
         synchronized (lock) {
-            nioXnio = config.getXnio();
             handlerFactory = config.getHandlerFactory();
             executor = config.getExecutor();
             reuseAddress = config.getReuseAddresses();
@@ -78,6 +75,10 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
             trafficClass = config.getTrafficClass();
             broadcast = config.getBroadcast();
         }
+    }
+
+    static BioUdpServer create(final BioUdpServerConfig config) {
+        return new BioUdpServer(config);
     }
 
     protected static final Set<ChannelOption<?>> OPTIONS;
@@ -136,14 +137,6 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
         }
     }
 
-    public String toString() {
-        return String.format("UDP server (NIO) <%s>", Integer.toHexString(hashCode()));
-    }
-
-    static NioUdpServer create(final NioUdpServerConfig config) {
-        return new NioUdpServer(config);
-    }
-
     public Collection<UdpChannel> getChannels() {
         synchronized (lock) {
             return new ArrayList<UdpChannel>(boundChannels);
@@ -155,23 +148,18 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
             if (closed) {
                 throw new ClosedChannelException();
             }
-            final DatagramChannel datagramChannel = DatagramChannel.open();
-            datagramChannel.configureBlocking(false);
-            final DatagramSocket socket = datagramChannel.socket();
+            MulticastSocket socket = new MulticastSocket(address);
             if (broadcast != null) socket.setBroadcast(broadcast.booleanValue());
             if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
             if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
             if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
             if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
-            final NioUdpSocketChannelImpl udpSocketChannel = createChannel(datagramChannel);
-            boundChannels.add(udpSocketChannel);
-            return udpSocketChannel;
+            //noinspection unchecked
+            final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
+            final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket);
+            boundChannels.add(channel);
+            return channel;
         }
-    }
-
-    NioUdpSocketChannelImpl createChannel(final DatagramChannel datagramChannel) throws IOException {
-        //noinspection unchecked
-        return new NioUdpSocketChannelImpl(nioXnio, datagramChannel, handlerFactory.createHandler(), executor);
     }
 
     public void close() throws IOException {
@@ -179,7 +167,7 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
             if (! closed) {
                 log.trace("Closing %s", this);
                 closed = true;
-                final Iterator<NioUdpSocketChannelImpl> it = boundChannels.iterator();
+                final Iterator<BioMulticastChannelImpl> it = boundChannels.iterator();
                 while (it.hasNext()) {
                     IoUtils.safeClose(it.next());
                     it.remove();
@@ -188,4 +176,3 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
         }
     }
 }
-

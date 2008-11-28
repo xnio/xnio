@@ -28,9 +28,9 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.nio.NioProvider;
-import org.jboss.xnio.nio.NioOneWayPipeConnection;
-import org.jboss.xnio.nio.NioPipeConnection;
+import org.jboss.xnio.Xnio;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.test.support.LoggingHelper;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.nullHandler;
@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.io.Closeable;
 
 /**
  *
@@ -49,45 +50,33 @@ public final class NioPipeTestCase extends TestCase {
         LoggingHelper.init();
     }
 
-    private void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
-        synchronized (this) {
-            final NioProvider provider = new NioProvider();
-            provider.start();
+    private static void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
+        Xnio xnio = NioXnio.create();
+        try {
+            final IoFuture<Closeable> future = xnio.createOneWayPipeConnection(sourceHandler, sinkHandler);
+            final Closeable closeable = future.get();
             try {
-                final NioOneWayPipeConnection pipeConnection = new NioOneWayPipeConnection();
-                pipeConnection.setNioProvider(provider);
-                pipeConnection.setSourceHandler(sourceHandler);
-                pipeConnection.setSinkHandler(sinkHandler);
-                pipeConnection.start();
-                try {
-                    body.run();
-                } finally {
-                    pipeConnection.stop();
-                }
+                body.run();
             } finally {
-                provider.stop();
+                IoUtils.safeClose(closeable);
             }
+        } finally {
+            IoUtils.safeClose(xnio);
         }
     }
 
-    private void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
-        synchronized (this) {
-            final NioProvider provider = new NioProvider();
-            provider.start();
+    private static void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
+        Xnio xnio = NioXnio.create();
+        try {
+            final IoFuture<Closeable> future = xnio.createPipeConnection(leftHandler, rightHandler);
+            final Closeable closeable = future.get();
             try {
-                final NioPipeConnection pipeConnection = new NioPipeConnection();
-                pipeConnection.setNioProvider(provider);
-                pipeConnection.setLeftHandler(leftHandler);
-                pipeConnection.setRightHandler(rightHandler);
-                pipeConnection.start();
-                try {
-                    body.run();
-                } finally {
-                    pipeConnection.stop();
-                }
+                body.run();
             } finally {
-                provider.stop();
+                IoUtils.safeClose(closeable);
             }
+        } finally {
+            IoUtils.safeClose(xnio);
         }
     }
 

@@ -50,16 +50,16 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
 
     private final Pipe.SinkChannel channel;
     private final NioHandle handle;
-    private final NioProvider nioProvider;
+    private final NioXnio nioXnio;
     private final IoHandler<? super StreamSinkChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final PipeSinkChannel mBeanCounters;
 
-    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioProvider nioProvider) throws IOException {
+    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioXnio nioXnio) throws IOException {
         this.channel = channel;
         this.handler = handler;
-        this.nioProvider = nioProvider;
-        handle = nioProvider.addWriteHandler(channel, new Handler());
+        this.nioXnio = nioXnio;
+        handle = nioXnio.addWriteHandler(channel, new Handler());
         mBeanCounters = new PipeSinkChannel(this);
     }
 
@@ -89,7 +89,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
         try {
             channel.close();
         } finally {
-            nioProvider.removeChannel(this);
+            nioXnio.removeManaged(this);
             handle.cancelKey();
             if (! callFlag.getAndSet(true)) {
                 HandlerUtils.<StreamSinkChannel>handleClosed(handler, this);

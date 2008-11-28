@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.io.Closeable;
 
 /**
- * A UDP channel.  UDP channels are a multipoint datagram channel always use a {@link java.net.SocketAddress} and that
+ * A UDP channel.  UDP channels are multipoint datagram channels which always use a {@link java.net.SocketAddress} and
  * additionally support multicast registration.
  */
 public interface UdpChannel extends MultipointDatagramChannel<SocketAddress> {

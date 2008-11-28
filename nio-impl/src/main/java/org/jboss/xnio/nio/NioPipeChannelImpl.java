@@ -51,16 +51,21 @@ public final class NioPipeChannelImpl implements StreamChannel {
     private final NioHandle sourceHandle;
     private final NioHandle sinkHandle;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
-    private final NioProvider nioProvider;
+    private final NioXnio nioXnio;
 
-    public NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioProvider nioProvider) throws IOException {
+    NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio) throws IOException {
         this.sourceChannel = sourceChannel;
         this.sinkChannel = sinkChannel;
         this.handler = handler;
-        this.nioProvider = nioProvider;
+        this.nioXnio = nioXnio;
         // todo leaking [this]
-        sourceHandle = nioProvider.addReadHandler(sourceChannel, new ReadHandler());
-        sinkHandle = nioProvider.addWriteHandler(sinkChannel, new WriteHandler());
+        sourceHandle = nioXnio.addReadHandler(sourceChannel, new ReadHandler());
+        sinkHandle = nioXnio.addWriteHandler(sinkChannel, new WriteHandler());
+    }
+
+    static NioPipeChannelImpl create(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio) throws IOException {
+        final NioPipeChannelImpl channel = new NioPipeChannelImpl(sourceChannel, sinkChannel, handler, nioXnio);
+        return channel;
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
@@ -85,7 +90,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
         try {
             sinkChannel.close();
         } finally {
-            nioProvider.removeChannel(this);
+            nioXnio.removeManaged(this);
             if (callFlag.getAndSet(true) == false) {
                 HandlerUtils.<StreamChannel>handleClosed(handler, this);
             }

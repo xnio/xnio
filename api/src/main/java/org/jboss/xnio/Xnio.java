@@ -38,6 +38,8 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.log.Logger;
 
 /**
  * The XNIO entry point class.
@@ -45,6 +47,10 @@ import org.jboss.xnio.channels.BoundServer;
  * @apiviz.landmark
  */
 public abstract class Xnio implements Closeable {
+
+    static {
+        Logger.getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
+    }
 
     private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.NioXnio";
     private static final String PROVIDER_CLASS;
@@ -133,7 +139,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
@@ -147,7 +153,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<Closeable> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
@@ -184,7 +190,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -198,7 +204,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<Closeable> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -365,7 +371,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor(Executor executor) {
+    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor(Executor executor) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
@@ -377,7 +383,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<TcpAcceptor> createTcpAcceptor() {
+    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
@@ -393,7 +399,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, String... bindAddresses) {
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, String... bindAddresses) {
         throw new UnsupportedOperationException("createStreamServer");
     }
 
@@ -409,7 +415,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory, String... bindAddresses) {
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory, String... bindAddresses) {
         throw new UnsupportedOperationException("createStreamServer");
     }
 

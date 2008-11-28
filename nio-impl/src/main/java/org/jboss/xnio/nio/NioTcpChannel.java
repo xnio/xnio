@@ -33,6 +33,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.xnio.IoHandler;
@@ -48,7 +49,7 @@ import org.jboss.xnio.management.ConnectedInetChannel;
 /**
  *
  */
-public final class NioSocketChannelImpl implements TcpChannel, Closeable {
+public final class NioTcpChannel implements TcpChannel, Closeable {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.channel");
 
@@ -57,19 +58,22 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
     private final IoHandler<? super TcpChannel> handler;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
-    private final NioProvider nioProvider;
+    private final NioXnio nioXnio;
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final AtomicBoolean shutdownReads = new AtomicBoolean(false);
-    private final AtomicBoolean shutdownWrites = new AtomicBoolean(false);
     private final ConnectedInetChannel mBeanCounters;
 
-    public NioSocketChannelImpl(final NioProvider nioProvider, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler) throws IOException {
+    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler, final Executor executor) throws IOException {
         this.handler = handler;
         this.socketChannel = socketChannel;
-        this.nioProvider = nioProvider;
+        this.nioXnio = nioXnio;
         socket = socketChannel.socket();
-        readHandle = nioProvider.addReadHandler(socketChannel, new ReadHandler());
-        writeHandle = nioProvider.addWriteHandler(socketChannel, new WriteHandler());
+        if (executor != null) {
+            readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler(), executor);
+            writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler(), executor);
+        } else {
+            readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler());
+            writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
+        }
         mBeanCounters = new ConnectedInetChannel(this, socket);
     }
 
@@ -100,7 +104,7 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
         try {
             socketChannel.close();
         } finally {
-            nioProvider.removeChannel(this);
+            nioXnio.removeManaged(this);
             readHandle.cancelKey();
             writeHandle.cancelKey();
             if (! closeCalled.getAndSet(true)) {
@@ -233,13 +237,13 @@ public final class NioSocketChannelImpl implements TcpChannel, Closeable {
 
     private final class ReadHandler implements Runnable {
         public void run() {
-            HandlerUtils.<TcpChannel>handleReadable(handler, NioSocketChannelImpl.this);
+            HandlerUtils.<TcpChannel>handleReadable(handler, NioTcpChannel.this);
         }
     }
 
     private final class WriteHandler implements Runnable {
         public void run() {
-            HandlerUtils.<TcpChannel>handleWritable(handler, NioSocketChannelImpl.this);
+            HandlerUtils.<TcpChannel>handleWritable(handler, NioTcpChannel.this);
         }
     }
 
