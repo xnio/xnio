@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import org.jboss.xnio.Buffers;
@@ -67,7 +66,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create(Executors.newCachedThreadPool(), 2, 1, 1);
+        final Xnio xnio = NioXnio.create();
         try {
             doServerSidePart(multicast, handler, body, xnio);
             xnio.close();
@@ -98,7 +97,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create(Executors.newCachedThreadPool(), 2, 2, 2);
+        final Xnio xnio = NioXnio.create();
         try {
             doServerSidePart(serverMulticast, serverHandler, new Runnable() {
                 public void run() {

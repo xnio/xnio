@@ -38,7 +38,7 @@ public final class UdpEchoServer {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
-        final ConfigurableFactory<Closeable> factory = xnio.createUdpServer(false, new UdpEchoServerHandlerFactory(), new InetSocketAddress(10007));
+        final ConfigurableFactory<? extends Closeable> factory = xnio.createUdpServer(false, new UdpEchoServerHandlerFactory(), new InetSocketAddress(10007));
         final Closeable server = factory.create();
         try {
             while (true) {

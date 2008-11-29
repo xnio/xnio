@@ -40,7 +40,7 @@ public final class EchoServer {
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
         try {
-            final ConfigurableFactory<Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
+            final ConfigurableFactory<? extends Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
             if (false) tcpServer.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
             final Closeable tcpServerHandle = tcpServer.create();
             try {
