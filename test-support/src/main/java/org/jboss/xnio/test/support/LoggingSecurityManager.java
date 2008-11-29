@@ -25,17 +25,20 @@ package org.jboss.xnio.test.support;
 import java.security.Permission;
 import java.io.FileDescriptor;
 import java.net.InetAddress;
+import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
 public final class LoggingSecurityManager extends SecurityManager {
 
+    private static final Logger log = Logger.getLogger("ACCESS_EXCEPTION");
+
     public LoggingSecurityManager() {
     }
 
     private static <T extends Throwable> T logged(T se) {
-        se.printStackTrace(System.err);
+        log.error(se, "Access violation!");
         return se;
     }
 

@@ -437,6 +437,9 @@
                 destdir="test-support/target/main/classes"
                 debug="true">
             <compilerarg value="-Xlint:unchecked"/>
+            <classpath>
+                <path refid="logging-jdk.classpath"/>
+            </classpath>
         </javac>
         <touch file="test-support/target/main/.lastcompile" verbose="false"/>
     </target>
@@ -445,7 +448,7 @@
         <delete dir="test-support/target"/>
     </target>
 
-    <target name="test-support" description="Build the test-support module" depends="test-support.compile">
+    <target name="test-support" description="Build the test-support module" depends="logging-jdk,test-support.compile">
         <path id="test-support.classpath">
             <pathelement location="test-support/target/main/classes"/>
         </path>
