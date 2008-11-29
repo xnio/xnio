@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
@@ -55,10 +56,18 @@ public final class IoUtils {
         public void execute(final Runnable command) {
             // no operation
         }
+
+        public String toString() {
+            return "null executor <" + Integer.toHexString(hashCode()) + ">";
+        }
     };
     private static final Executor DIRECT_EXECUTOR = new Executor() {
         public void execute(final Runnable command) {
             command.run();
+        }
+
+        public String toString() {
+            return "direct executor <" + Integer.toHexString(hashCode()) + ">";
         }
     };
     private static final IoHandler<Channel> NULL_HANDLER = new IoHandler<Channel>() {
@@ -73,10 +82,18 @@ public final class IoUtils {
 
         public void handleClosed(final Channel channel) {
         }
+
+        public String toString() {
+            return "null handler <" + Integer.toHexString(hashCode()) + ">";
+        }
     };
     private static final IoHandlerFactory<Channel> NULL_HANDLER_FACTORY = new IoHandlerFactory<Channel>() {
         public IoHandler<Channel> createHandler() {
             return NULL_HANDLER;
+        }
+
+        public String toString() {
+            return "null handler factory <" + Integer.toHexString(hashCode()) + ">";
         }
     };
 
@@ -357,7 +374,52 @@ public final class IoUtils {
                     throw new ExecutionException(e);
                 }
             }
+
+            public String toString() {
+                return String.format("java.util.concurrent.Future wrapper <%s> for %s", Integer.toHexString(hashCode()), ioFuture);
+            }
         };
+    }
+
+    @SuppressWarnings({ "unchecked" })
+    public static void awaitAll(IoFuture<?>... futures) {
+        final int len = futures.length;
+        final CountDownLatch cdl = new CountDownLatch(len);
+        for (IoFuture<?> future : futures) {
+            future.addNotifier(new IoFuture.Notifier() {
+                public void notify(final IoFuture future) {
+                    cdl.countDown();
+                }
+            });
+        }
+        boolean intr = false;
+        try {
+            while (cdl.getCount() > 0L) {
+                try {
+                    cdl.await();
+                } catch (InterruptedException e) {
+                    intr = true;
+                }
+            }
+        } finally {
+            if (intr) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    @SuppressWarnings({ "unchecked" })
+    public static void awaitAllInterruptibly(IoFuture<?>... futures) throws InterruptedException {
+        final int len = futures.length;
+        final CountDownLatch cdl = new CountDownLatch(len);
+        for (IoFuture<?> future : futures) {
+            future.addNotifier(new IoFuture.Notifier() {
+                public void notify(final IoFuture future) {
+                    cdl.countDown();
+                }
+            });
+        }
+        cdl.await();
     }
 
     // nested classes
@@ -396,6 +458,10 @@ public final class IoUtils {
             if (future != null) {
                 future.cancel();
             }
+        }
+
+        public String toString() {
+            return String.format("persistent connection <%s> via %s", Integer.toHexString(hashCode()), channelSource);
         }
 
         private final class NotifierImpl extends IoFuture.HandlingNotifier<T> {
@@ -444,6 +510,10 @@ public final class IoUtils {
                     handler.handleClosed(channel);
                 }
             }
+
+            public String toString() {
+                return String.format("persistent connection handler <%s> wrapping %s", Integer.toHexString(hashCode()), handler);
+            }
         }
 
         private final class ReconnectTask implements Runnable {
@@ -451,6 +521,10 @@ public final class IoUtils {
                 if (! stopFlag) {
                     connect();
                 }
+            }
+
+            public String toString() {
+                return String.format("reconnect task <%s> for %s", Integer.toHexString(hashCode()), Connection.this);
             }
         }
     }

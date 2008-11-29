@@ -107,6 +107,7 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testTcpConnect() throws Exception {
+        log.info("Test: testTcpConnect");
         doConnectionTest(new Runnable() {
             public void run() {
             }
@@ -114,13 +115,14 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testClientTcpClose() throws Exception {
+        log.info("Test: testClientTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(14200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -187,13 +189,14 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testServerTcpClose() throws Exception {
+        log.info("Test: testServerTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(1200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -259,6 +262,7 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testTwoWayTransfer() throws Exception {
+        log.info("Test: testTwoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
         final AtomicInteger clientReceived = new AtomicInteger(0);
@@ -269,7 +273,7 @@ public final class NioTcpTestCase extends TestCase {
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(1200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -370,13 +374,14 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testClientTcpNastyClose() throws Exception {
+        log.info("Test: testClientTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(4200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -440,6 +445,7 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testServerTcpNastyClose() throws Exception {
+        log.info("Test: testServerTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
@@ -447,7 +453,7 @@ public final class NioTcpTestCase extends TestCase {
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(4200L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -496,7 +502,7 @@ public final class NioTcpTestCase extends TestCase {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
                 try {
                     log.info("Server opened");
-                    serverLatch.await(3000L, TimeUnit.MILLISECONDS);
+                    serverLatch.await(500L, TimeUnit.MILLISECONDS);
                     channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
                     serverOK.set(true);
@@ -522,6 +528,7 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testAcceptor() throws Exception {
+        log.info("Test: testAcceptor");
         final CountDownLatch readLatch = new CountDownLatch(2);
         final CountDownLatch closeLatch = new CountDownLatch(2);
         final AtomicBoolean clientOpened = new AtomicBoolean();

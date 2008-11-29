@@ -228,6 +228,7 @@ public final class NioXnio extends Xnio {
             for (NioSelectorRunnable runnable : connectors) {
                 selectorThreadFactory.newThread(runnable).start();
             }
+            log.debug("Creating NioXnio instance using executor %s, %d read threads, %d write threads, %d connect threads", this.executor, Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
         }
     }
 

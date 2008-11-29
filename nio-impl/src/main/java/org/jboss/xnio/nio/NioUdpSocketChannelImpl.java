@@ -37,6 +37,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
@@ -50,6 +51,8 @@ import org.jboss.xnio.management.MBeanUtils;
  */
 public class NioUdpSocketChannelImpl implements UdpChannel {
 
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.server.channel");
+
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
@@ -57,7 +60,7 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioXnio nioXnio;
-    private final BoundInetChannel mBeanCounters;
+//    private final BoundInetChannel mBeanCounters;
 
     NioUdpSocketChannelImpl(final NioXnio nioXnio, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler, final Executor executor) throws IOException {
         this.nioXnio = nioXnio;
@@ -70,7 +73,7 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
         }
         this.datagramChannel = datagramChannel;
         this.handler = handler;
-        mBeanCounters = new BoundInetChannel(this, datagramChannel.socket());
+//        mBeanCounters = new BoundInetChannel(this, datagramChannel.socket());
     }
 
     public SocketAddress getLocalAddress() {
@@ -79,7 +82,7 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
 
     public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
         final SocketAddress sourceAddress = datagramChannel.receive(buffer);
-        mBeanCounters.bytesRead(buffer.remaining());
+//        mBeanCounters.bytesRead(buffer.remaining());
         return sourceAddress == null ? null : new MultipointReadResult<SocketAddress>() {
             public SocketAddress getSourceAddress() {
                 return sourceAddress;
@@ -97,21 +100,20 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
 
     public void close() throws IOException {
         if (!callFlag.getAndSet(true)) {
+            log.trace("Closing %s", this);
             try {
                 datagramChannel.close();
             } finally {
                 nioXnio.removeManaged(this);
-                readHandle.cancelKey();
-                writeHandle.cancelKey();
                 HandlerUtils.<UdpChannel>handleClosed(handler, this);
-                MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
+//                MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
             }
         }
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
         int bytesWritten = datagramChannel.send(buffer, target);
-        mBeanCounters.bytesWritten(bytesWritten);
+//        mBeanCounters.bytesWritten(bytesWritten);
         return  bytesWritten != 0;
     }
 
@@ -230,6 +232,6 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
 
     @Override
     public String toString() {
-        return String.format("UDP socket channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+        return String.format("UDP socket channel (NIO) <%s> @ %s", Integer.toString(hashCode(), 16), getLocalAddress());
     }
 }

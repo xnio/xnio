@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
@@ -44,7 +45,11 @@ import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.management.MBeanUtils;
-import org.jboss.xnio.management.ConnectedInetChannel;
+import org.jboss.xnio.management.ChannelMBean;
+
+import javax.management.StandardMBean;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
 
 /**
  *
@@ -60,7 +65,11 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     private final NioHandle writeHandle;
     private final NioXnio nioXnio;
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final ConnectedInetChannel mBeanCounters;
+    private final AtomicLong bytesRead = new AtomicLong();
+    private final AtomicLong bytesWritten = new AtomicLong();
+    private final AtomicLong msgsRead = new AtomicLong();
+    private final AtomicLong msgsWritten = new AtomicLong();
+    private final ObjectName objectName;
 
     public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler, final Executor executor) throws IOException {
         this.handler = handler;
@@ -74,25 +83,41 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
             readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler());
             writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
         }
-        mBeanCounters = new ConnectedInetChannel(this, socket);
+        try {
+            final MBean mbean = new MBean();
+            ObjectName objectName = MBeanUtils.getObjectName(mbean.toString());
+            this.objectName = objectName;
+            MBeanUtils.registerMBean(mbean, objectName);
+        } catch (NotCompliantMBeanException e) {
+            throw new IOException("Failed to register channel mbean: " + e);
+        }
     }
 
     public long write(final ByteBuffer[] srcs, final int offset,
             final int length) throws IOException {
         long written = socketChannel.write(srcs, offset, length);
-        mBeanCounters.bytesWritten(written);
+        if (written > 0) {
+            bytesWritten.addAndGet(written);
+            msgsWritten.incrementAndGet();
+        }
         return written;
     }
 
     public long write(final ByteBuffer[] srcs) throws IOException {
         long written = socketChannel.write(srcs);
-        mBeanCounters.bytesWritten(written);
+        if (written > 0) {
+            bytesWritten.addAndGet(written);
+            msgsWritten.incrementAndGet();
+        }
         return written;
     }
 
     public int write(final ByteBuffer src) throws IOException {
         int written = socketChannel.write(src);
-        mBeanCounters.bytesWritten(written);
+        if (written > 0) {
+            bytesWritten.addAndGet(written);
+            msgsWritten.incrementAndGet();
+        }
         return written;
     }
 
@@ -101,36 +126,40 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public void close() throws IOException {
-        try {
-            socketChannel.close();
-        } finally {
+        if (! closeCalled.getAndSet(true)) {
+            log.trace("Closing %s", this);
+            HandlerUtils.<TcpChannel>handleClosed(handler, this);
             nioXnio.removeManaged(this);
-            readHandle.cancelKey();
-            writeHandle.cancelKey();
-            if (! closeCalled.getAndSet(true)) {
-                log.trace("Closing channel %s", this);
-                HandlerUtils.<TcpChannel>handleClosed(handler, this);
-            }
-            MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
+            MBeanUtils.unregisterMBean(objectName);
+            socketChannel.close();
         }
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length)
             throws IOException {
         long read = socketChannel.read(dsts, offset, length);
-        mBeanCounters.bytesRead(read);
+        if (read > 0) {
+            bytesRead.addAndGet(read);
+            msgsRead.incrementAndGet();
+        }
         return read;
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
         long read = socketChannel.read(dsts);
-        mBeanCounters.bytesRead(read);
+        if (read > 0) {
+            bytesRead.addAndGet(read);
+            msgsRead.incrementAndGet();
+        }
         return read;
     }
 
     public int read(final ByteBuffer dst) throws IOException {
         int read = socketChannel.read(dst);
-        mBeanCounters.bytesRead(read);
+        if (read > 0) {
+            bytesRead.addAndGet(read);
+            msgsRead.incrementAndGet();
+        }
         return read;
     }
 
@@ -250,5 +279,32 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     @Override
     public String toString() {
         return String.format("TCP socket channel (NIO) <%s> (local: %s, remote: %s)", Integer.toString(hashCode(), 16), getLocalAddress(), getPeerAddress());
+    }
+
+    public final class MBean extends StandardMBean implements ChannelMBean {
+
+        public MBean() throws NotCompliantMBeanException {
+            super(ChannelMBean.class);
+        }
+
+        public long getBytesRead() {
+            return bytesRead.get();
+        }
+
+        public long getBytesWritten() {
+            return bytesWritten.get();
+        }
+
+        public long getMessagesRead() {
+            return msgsRead.get();
+        }
+
+        public long getMessagesWritten() {
+            return msgsWritten.get();
+        }
+
+        public String toString() {
+            return "ChannelMBean";
+        }
     }
 }

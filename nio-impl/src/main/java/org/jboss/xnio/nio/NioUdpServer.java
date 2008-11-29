@@ -37,6 +37,9 @@ import java.util.Iterator;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
@@ -140,8 +143,24 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
         return String.format("UDP server (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    static NioUdpServer create(final NioUdpServerConfig config) {
-        return new NioUdpServer(config);
+    static NioUdpServer create(final NioUdpServerConfig config) throws IOException {
+        final NioUdpServer server = new NioUdpServer(config);
+        boolean ok = false;
+        try {
+            final SocketAddress[] addresses = config.getInitialAddresses();
+            if (addresses != null) {
+                for (SocketAddress address : addresses) {
+                    server.bind(address).get();
+                }
+            }
+            ok = true;
+            log.trace("Successfully started UDP server");
+            return server;
+        } finally {
+            if (! ok) {
+                IoUtils.safeClose(server);
+            }
+        }
     }
 
     public Collection<UdpChannel> getChannels() {
@@ -150,28 +169,57 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
         }
     }
 
-    public UdpChannel bind(final SocketAddress address) throws IOException {
+    public IoFuture<UdpChannel> bind(final SocketAddress address) {
         synchronized (lock) {
-            if (closed) {
-                throw new ClosedChannelException();
+            try {
+                if (closed) {
+                    throw new ClosedChannelException();
+                }
+                final DatagramChannel datagramChannel = DatagramChannel.open();
+                datagramChannel.configureBlocking(false);
+                final DatagramSocket socket = datagramChannel.socket();
+                if (broadcast != null) socket.setBroadcast(broadcast.booleanValue());
+                if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
+                if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
+                if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
+                if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
+                socket.bind(address);
+                //noinspection unchecked
+                final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
+                final NioUdpSocketChannelImpl udpSocketChannel = createChannel(datagramChannel, handler);
+                final FutureUdpChannel futureUdpChannel = new FutureUdpChannel(udpSocketChannel, datagramChannel);
+                boundChannels.add(udpSocketChannel);
+                executor.execute(new Runnable() {
+                    public void run() {
+                        try {
+                            handler.handleOpened(udpSocketChannel);
+                            if (! futureUdpChannel.done()) {
+                                IoUtils.safeClose(udpSocketChannel);
+                            }
+                            log.trace("Successfully bound to %s on %s", address, NioUdpServer.this);
+                        } catch (Throwable t) {
+                            IoUtils.safeClose(datagramChannel);
+                            synchronized (lock) {
+                                boundChannels.remove(udpSocketChannel);
+                            }
+                            final IOException ioe = new IOException("Failed to open UDP channel: " + t.toString());
+                            ioe.initCause(t);
+                            if (! futureUdpChannel.setException(ioe)) {
+                                // if the operation is cancelled before this point, the exception will be lost
+                                log.trace(ioe, "UDP channel open failed, but the operation was cancelled before the exception could be relayed");
+                            }
+                        }
+                    }
+                });
+                return futureUdpChannel;
+            } catch (IOException e) {
+                return new FailedIoFuture<UdpChannel>(e);
             }
-            final DatagramChannel datagramChannel = DatagramChannel.open();
-            datagramChannel.configureBlocking(false);
-            final DatagramSocket socket = datagramChannel.socket();
-            if (broadcast != null) socket.setBroadcast(broadcast.booleanValue());
-            if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
-            if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
-            if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
-            if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
-            final NioUdpSocketChannelImpl udpSocketChannel = createChannel(datagramChannel);
-            boundChannels.add(udpSocketChannel);
-            return udpSocketChannel;
         }
     }
 
-    NioUdpSocketChannelImpl createChannel(final DatagramChannel datagramChannel) throws IOException {
-        //noinspection unchecked
-        return new NioUdpSocketChannelImpl(nioXnio, datagramChannel, handlerFactory.createHandler(), executor);
+    NioUdpSocketChannelImpl createChannel(final DatagramChannel datagramChannel, IoHandler<? super UdpChannel> handler) throws IOException {
+        return new NioUdpSocketChannelImpl(nioXnio, datagramChannel, handler, executor);
     }
 
     public void close() throws IOException {

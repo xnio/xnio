@@ -156,15 +156,16 @@ public final class NioTcpConnector implements CloseableTcpConnector {
                 configureStream(socket);
                 if (socketChannel.connect(dest)) {
                     final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
+                    nioXnio.addManaged(channel);
                     executor.execute(new Runnable() {
                         public void run() {
                             log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
                             if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
                                 IoUtils.safeClose(socketChannel);
+                                nioXnio.removeManaged(channel);
                             }
                         }
                     });
-                    nioXnio.addManaged(channel);
                     return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
                 } else {
                     final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioXnio, handler);
@@ -179,8 +180,13 @@ public final class NioTcpConnector implements CloseableTcpConnector {
 
     public void close() throws IOException {
         synchronized (lock) {
+            log.trace("Closing %s", this);
             closed = true;
         }
+    }
+
+    public String toString() {
+        return String.format("TCP connector (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
     static NioTcpConnector create(final NioTcpConnectorConfig config) {

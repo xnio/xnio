@@ -120,6 +120,7 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
     public void close() throws IOException {
         synchronized (lock) {
             if (! closed) {
+                log.trace("Closing %s", this);
                 closed = true;
             }
         }

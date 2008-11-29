@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import org.jboss.xnio.Buffers;
@@ -38,6 +39,7 @@ import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
@@ -50,18 +52,22 @@ import org.jboss.xnio.test.support.LoggingHelper;
 public final class NioUdpTestCase extends TestCase {
     private static final int SERVER_PORT = 12345;
     private static final InetSocketAddress SERVER_SOCKET_ADDRESS;
+    private static final InetSocketAddress CLIENT_SOCKET_ADDRESS;
+
+    private static final Logger log = Logger.getLogger(NioUdpTestCase.class);
 
     static {
         LoggingHelper.init();
         try {
             SERVER_SOCKET_ADDRESS = new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), SERVER_PORT);
+            CLIENT_SOCKET_ADDRESS = new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), 0);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
     }
 
     private synchronized void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create();
+        final Xnio xnio = NioXnio.create(Executors.newCachedThreadPool(), 2, 1, 1);
         try {
             doServerSidePart(multicast, handler, body, xnio);
             xnio.close();
@@ -76,7 +82,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private void doClientSidePart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
-        final InetSocketAddress bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 0, 0, 0, 0 }), 0);
+        final InetSocketAddress bindAddress = CLIENT_SOCKET_ADDRESS;
         doPart(multicast, handler, body, bindAddress, xnio);
     }
 
@@ -92,7 +98,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create();
+        final Xnio xnio = NioXnio.create(Executors.newCachedThreadPool(), 2, 2, 2);
         try {
             doServerSidePart(serverMulticast, serverHandler, new Runnable() {
                 public void run() {
@@ -114,16 +120,20 @@ public final class NioUdpTestCase extends TestCase {
         final AtomicBoolean closedOk = new AtomicBoolean(false);
         doServerSideTest(multicast, new IoHandler<UdpChannel>() {
             public void handleOpened(final UdpChannel channel) {
+                log.info("In handleOpened for %s", channel);
                 openedOk.set(true);
             }
 
             public void handleReadable(final UdpChannel channel) {
+                log.info("In handleReadable for %s", channel);
             }
 
             public void handleWritable(final UdpChannel channel) {
+                log.info("In handleWritable for %s", channel);
             }
 
             public void handleClosed(final UdpChannel channel) {
+                log.info("In handleClosed for %s", channel);
                 closedOk.set(true);
             }
         }, new Runnable() {
@@ -135,10 +145,12 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     public void testServerCreate() throws Exception {
+        log.info("Test: testServerCreate");
         doServerCreate(false);
     }
 
     public void testServerCreateMulticast() throws Exception {
+        log.info("Test: testServerCreateMulticast");
         doServerCreate(true);
     }
 
@@ -151,11 +163,13 @@ public final class NioUdpTestCase extends TestCase {
         final byte[] payload = new byte[] { 10, 5, 15, 10, 100, -128, 30, 0, 0 };
         doClientServerSide(clientMulticast, serverMulticast, new IoHandler<UdpChannel>() {
             public void handleOpened(final UdpChannel channel) {
+                log.info("In handleOpened for %s", channel);
                 channel.resumeReads();
                 startLatch.countDown();
             }
 
             public void handleReadable(final UdpChannel channel) {
+                log.info("In handleReadable for %s", channel);
                 try {
                     final ByteBuffer buffer = ByteBuffer.allocate(50);
                     final MultipointReadResult<SocketAddress> result = channel.receive(buffer);
@@ -186,15 +200,18 @@ public final class NioUdpTestCase extends TestCase {
             }
 
             public void handleWritable(final UdpChannel channel) {
+                log.info("In handleWritable for %s", channel);
             }
 
             public void handleClosed(final UdpChannel channel) {
+                log.info("In handleClosed for %s", channel);
             }
         }, new IoHandler<UdpChannel>() {
             public void handleOpened(final UdpChannel channel) {
+                log.info("In handleOpened for %s", channel);
                 try {
                     // wait until server is ready
-                    assertTrue(startLatch.await(1500L, TimeUnit.MILLISECONDS));
+                    assertTrue(startLatch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -202,14 +219,16 @@ public final class NioUdpTestCase extends TestCase {
             }
 
             public void handleReadable(final UdpChannel channel) {
+                log.info("In handleReadable for %s", channel);
             }
 
             public void handleWritable(final UdpChannel channel) {
+                log.info("In handleWritable for %s", channel);
                 try {
                     if (! channel.send(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
                         channel.resumeWrites();
                     } else {
-                        assertTrue(receivedLatch.await(1500L, TimeUnit.MILLISECONDS));
+                        assertTrue(receivedLatch.await(500L, TimeUnit.MILLISECONDS));
                         channel.close();
                         clientOK.set(true);
                         doneLatch.countDown();
@@ -223,11 +242,12 @@ public final class NioUdpTestCase extends TestCase {
             }
 
             public void handleClosed(final UdpChannel channel) {
+                log.info("In handleClosed for %s", channel);
             }
         }, new Runnable() {
             public void run() {
                 try {
-                    assertTrue(doneLatch.await(1500L, TimeUnit.MILLISECONDS));
+                    assertTrue(doneLatch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -238,18 +258,22 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     public void testClientToServerTransmitNioToNio() throws Exception {
+        log.info("Test: testClientToServerTransmitNioToNio");
         doClientToServerTransmitTest(false, false);
     }
 
     public void testClientToServerTransmitBioToNio() throws Exception {
+        log.info("Test: testClientToServerTransmitBioToNio");
         doClientToServerTransmitTest(true, false);
     }
 
     public void testClientToServerTransmitNioToBio() throws Exception {
+        log.info("Test: testClientToServerTransmitNioToBio");
         doClientToServerTransmitTest(false, true);
     }
 
     public void testClientToServerTransmitBioToBio() throws Exception {
+        log.info("Test: testClientToServerTransmitBioToBio");
         doClientToServerTransmitTest(true, true);
     }
     

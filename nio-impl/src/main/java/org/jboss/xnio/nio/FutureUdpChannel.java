@@ -20,35 +20,40 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.channels;
+package org.jboss.xnio.nio;
 
-import java.util.Collection;
-import java.io.Closeable;
+import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.AbstractIoFuture;
 import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.IoUtils;
+import java.io.IOException;
+import java.io.Closeable;
 
 /**
- * A server that is bound to a local address.
  *
- * @param <A> the type of address associated with this server
- * @param <T> the channel type
- * @since 1.2
  */
-public interface BoundServer<A, T extends BoundChannel<A>> extends Closeable, Configurable {
-    /**
-     * Get the channels representing the individual bound servers.  The collection is a snapshot view of the bound
-     * channels; modifications to the collection are not allowed.  However the channels within the collection are
-     * live references to the bindings that exist at the time this method is called; these channels may be closed
-     * to unbind the channel.
-     *
-     * @return the channels
-     */
-    Collection<T> getChannels();
+public class FutureUdpChannel extends AbstractIoFuture<UdpChannel> {
 
-    /**
-     * Add a binding.  The returned channel may be used to close the binding.
-     *
-     * @param address the address to bind to
-     * @return a future channel representing the binding
-     */
-    IoFuture<T> bind(A address);
+    private final UdpChannel channel;
+    private final Closeable underlyingChannel;
+
+    FutureUdpChannel(final UdpChannel channel, final Closeable underlyingChannel) {
+        this.channel = channel;
+        this.underlyingChannel = underlyingChannel;
+    }
+
+    protected boolean setException(final IOException exception) {
+        return super.setException(exception);
+    }
+
+    protected boolean done() {
+        return setResult(channel);
+    }
+
+    public IoFuture<UdpChannel> cancel() {
+        if (finishCancel()) {
+            IoUtils.safeClose(underlyingChannel);
+        }
+        return this;
+    }
 }

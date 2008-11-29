@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.net.MulticastSocket;
 import java.net.SocketAddress;
 import java.util.Collections;
@@ -37,6 +38,8 @@ import java.nio.channels.ClosedChannelException;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
@@ -77,8 +80,24 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
         }
     }
 
-    static BioUdpServer create(final BioUdpServerConfig config) {
-        return new BioUdpServer(config);
+    static BioUdpServer create(final BioUdpServerConfig config) throws IOException {
+        final BioUdpServer server = new BioUdpServer(config);
+        boolean ok = false;
+        try {
+            final SocketAddress[] addresses = config.getInitialAddresses();
+            if (addresses != null) {
+                for (SocketAddress address : addresses) {
+                    server.bind(address).get();
+                }
+            }
+            ok = true;
+            log.trace("Successfully started UDP server %s", server);
+            return server;
+        } finally {
+            if (! ok) {
+                IoUtils.safeClose(server);
+            }
+        }
     }
 
     protected static final Set<ChannelOption<?>> OPTIONS;
@@ -143,22 +162,55 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
         }
     }
 
-    public UdpChannel bind(final SocketAddress address) throws IOException {
+    public IoFuture<UdpChannel> bind(final SocketAddress address) {
         synchronized (lock) {
-            if (closed) {
-                throw new ClosedChannelException();
+            try {
+                if (closed) {
+                    throw new ClosedChannelException();
+                }
+                final MulticastSocket socket = new MulticastSocket(null);
+                if (broadcast != null) socket.setBroadcast(broadcast.booleanValue());
+                if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
+                if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
+                if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
+                if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
+                socket.bind(address);
+                //noinspection unchecked
+                final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
+                final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket);
+                final FutureUdpChannel futureUdpChannel = new FutureUdpChannel(channel, new Closeable() {
+                    public void close() throws IOException {
+                        socket.close();
+                    }
+                });
+                channel.open();
+                boundChannels.add(channel);
+                executor.execute(new Runnable() {
+                    public void run() {
+                        try {
+                            handler.handleOpened(channel);
+                            if (! futureUdpChannel.done()) {
+                                IoUtils.safeClose(channel);
+                            }
+                            log.trace("Successfully bound to %s on %s", address, BioUdpServer.this);
+                        } catch (Throwable t) {
+                            IoUtils.safeClose(socket);
+                            synchronized (lock) {
+                                boundChannels.remove(channel);
+                            }
+                            final IOException ioe = new IOException("Failed to open UDP channel: " + t.toString());
+                            ioe.initCause(t);
+                            if (! futureUdpChannel.setException(ioe)) {
+                                // if the operation is cancelled before this point, the exception will be lost
+                                log.trace(ioe, "UDP channel open failed, but the operation was cancelled before the exception could be relayed");
+                            }
+                        }
+                    }
+                });
+                return futureUdpChannel;
+            } catch (IOException e) {
+                return new FailedIoFuture<UdpChannel>(e);
             }
-            MulticastSocket socket = new MulticastSocket(address);
-            if (broadcast != null) socket.setBroadcast(broadcast.booleanValue());
-            if (receiveBufferSize != null) socket.setReceiveBufferSize(receiveBufferSize.intValue());
-            if (sendBufferSize != null) socket.setSendBufferSize(sendBufferSize.intValue());
-            if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
-            if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
-            //noinspection unchecked
-            final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
-            final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket);
-            boundChannels.add(channel);
-            return channel;
         }
     }
 

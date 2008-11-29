@@ -24,6 +24,7 @@ package org.jboss.xnio.management;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
@@ -37,7 +38,6 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.management.NameValuePair;
 
 /**
  *
@@ -47,7 +47,10 @@ public class MBeanUtils {
     private static final Logger log = Logger.getLogger(MBeanUtils.class);
     private static final String JMXDOMAIN = "org.jboss.xnio";
     private static final String AGENTID = JMXDOMAIN + ".agentid";
-    private static final List<NameValuePair> NO_ADDL_PROPS = new ArrayList<NameValuePair>();
+    private static final List<NameValuePair> NO_ADDL_PROPS = Collections.emptyList();
+
+    private MBeanUtils() {
+    }
 
     public static ObjectName getObjectName(final Object mBean) {
         return getObjectName(mBean, NO_ADDL_PROPS);

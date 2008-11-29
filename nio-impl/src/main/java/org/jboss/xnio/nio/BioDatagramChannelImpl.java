@@ -54,7 +54,7 @@ import org.jboss.xnio.management.MBeanUtils;
  *
  */
 public class BioDatagramChannelImpl implements UdpChannel {
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-channel");
+    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-server.channel");
 
     private final DatagramSocket datagramSocket;
     private final DatagramPacket receivePacket;
@@ -173,30 +173,30 @@ public class BioDatagramChannelImpl implements UdpChannel {
     }
 
     public void close() throws IOException {
-        synchronized (writeLock) {
-            enableWrite = false;
-        }
-        synchronized (readLock) {
-            enableRead = false;
-        }
-        try {
-            readerTask.cancel();
-        } catch (Throwable t) {
-            log.trace(t, "Reader task cancel failed");
-        }
-        try {
-            writerTask.cancel();
-        } catch (Throwable t) {
-            log.trace(t, "Writer task cancel failed");
-        }
-        synchronized (writeLock) {
-            writable = false;
-        }
-        synchronized (readLock) {
-            readable = false;
-        }
-        datagramSocket.close();
         if (! closeCalled.getAndSet(true)) {
+            synchronized (writeLock) {
+                enableWrite = false;
+            }
+            synchronized (readLock) {
+                enableRead = false;
+            }
+            try {
+                readerTask.cancel();
+            } catch (Throwable t) {
+                log.trace(t, "Reader task cancel failed");
+            }
+            try {
+                writerTask.cancel();
+            } catch (Throwable t) {
+                log.trace(t, "Writer task cancel failed");
+            }
+            synchronized (writeLock) {
+                writable = false;
+            }
+            synchronized (readLock) {
+                readable = false;
+            }
+            datagramSocket.close();
             HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
             log.trace("Closing channel %s", this);
         }
