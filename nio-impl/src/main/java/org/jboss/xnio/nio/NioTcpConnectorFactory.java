@@ -51,6 +51,7 @@ public final class NioTcpConnectorFactory extends AbstractConfigurable implement
         optionSet.add(CommonOptions.KEEP_ALIVE);
         optionSet.add(CommonOptions.TCP_OOB_INLINE);
         optionSet.add(CommonOptions.TCP_NODELAY);
+        optionSet.add(CommonOptions.MANAGE_CONNECTIONS);
         options = Collections.unmodifiableSet(optionSet);
     }
 
@@ -74,6 +75,8 @@ public final class NioTcpConnectorFactory extends AbstractConfigurable implement
             config.setKeepAlive(getOption(CommonOptions.KEEP_ALIVE));
             config.setOobInline(getOption(CommonOptions.TCP_OOB_INLINE));
             config.setNoDelay(getOption(CommonOptions.TCP_NODELAY));
+            final Boolean manage = getOption(CommonOptions.MANAGE_CONNECTIONS);
+            config.setManageConnections(manage != null ? manage.booleanValue() : false);
             final NioTcpConnector nioTcpConnector = NioTcpConnector.create(config);
             created = true;
             return nioTcpConnector;

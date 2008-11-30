@@ -61,6 +61,7 @@ public final class NioTcpConnector implements CloseableTcpConnector {
     private final Boolean reuseAddress;
     private final Integer sendBufferSize;
     private final Boolean tcpNoDelay;
+    private final boolean manageConnections;
 
     private NioTcpConnector(NioTcpConnectorConfig config) {
         nioXnio = config.getXnio();
@@ -77,6 +78,7 @@ public final class NioTcpConnector implements CloseableTcpConnector {
         reuseAddress = config.getReuseAddresses();
         sendBufferSize = config.getSendBuffer();
         tcpNoDelay = config.getNoDelay();
+        manageConnections = config.isManageConnections();
     }
 
     private void configureStream(final Socket socket) throws SocketException {
@@ -155,7 +157,7 @@ public final class NioTcpConnector implements CloseableTcpConnector {
                 if (src != null) socket.bind(src);
                 configureStream(socket);
                 if (socketChannel.connect(dest)) {
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
                     nioXnio.addManaged(channel);
                     executor.execute(new Runnable() {
                         public void run() {
@@ -215,7 +217,7 @@ public final class NioTcpConnector implements CloseableTcpConnector {
             try {
                 if (socketChannel.finishConnect()) {
                     log.trace("Connection is up (deferred)");
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
                     future.setResult(channel);
                     handler.handleOpened(channel);
                     handle.cancelKey();

@@ -36,6 +36,7 @@ public final class NioTcpConnectorConfig {
     private Boolean keepAlive;
     private Boolean oobInline;
     private Boolean noDelay;
+    private boolean manageConnections;
 
     public NioXnio getXnio() {
         return xnio;
@@ -99,5 +100,13 @@ public final class NioTcpConnectorConfig {
 
     public void setSendBuffer(final Integer sendBuffer) {
         this.sendBuffer = sendBuffer;
+    }
+
+    public boolean isManageConnections() {
+        return manageConnections;
+    }
+
+    public void setManageConnections(final boolean manageConnections) {
+        this.manageConnections = manageConnections;
     }
 }

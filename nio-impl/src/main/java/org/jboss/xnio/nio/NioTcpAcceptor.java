@@ -60,6 +60,7 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
     private final Integer receiveBufferSize;
     private final Boolean reuseAddress;
     private final Boolean tcpNoDelay;
+    private final boolean manageConnections;
 
     private NioTcpAcceptor(NioTcpAcceptorConfig config) {
         nioXnio = config.getXnio();
@@ -75,6 +76,7 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
         receiveBufferSize = config.getReceiveBuffer();
         reuseAddress = config.getReuseAddresses();
         tcpNoDelay = config.getNoDelay();
+        manageConnections = config.isManageConnections();
     }
 
     static NioTcpAcceptor create(NioTcpAcceptorConfig config) {
@@ -96,7 +98,7 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
                 final SocketChannel socketChannel = serverSocketChannel.accept();
                 // unlikely, but...
                 if (socketChannel != null) {
-                    return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor));
+                    return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections));
                 }
                 final Handler nioHandler = new Handler(serverSocketChannel, handler);
                 final NioHandle handle = nioXnio.addConnectHandler(serverSocketChannel, nioHandler, true);
@@ -153,7 +155,7 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
                     if (keepAlive != null) socket.setKeepAlive(keepAlive.booleanValue());
                     if (oobInline != null) socket.setOOBInline(oobInline.booleanValue());
                     if (tcpNoDelay != null) socket.setTcpNoDelay(tcpNoDelay.booleanValue());
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor);
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
                     ok = HandlerUtils.<TcpChannel>handleOpened(handler, channel);
                     if (ok) {
                         nioXnio.addManaged(channel);

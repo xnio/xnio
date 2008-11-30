@@ -83,6 +83,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
     private Boolean keepAlive;
     private Boolean oobInline;
     private Boolean tcpNoDelay;
+    private boolean manageConnections;
 
     private static final Set<ChannelOption<?>> options;
     private final Closeable mbeanHandle;
@@ -134,6 +135,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
             keepAlive = config.getKeepAlive();
             oobInline = config.getOobInline();
             tcpNoDelay = config.getNoDelay();
+            manageConnections = config.isManageConnections();
         }
     }
 
@@ -264,7 +266,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
                         // IDEA thinks this is an unsafe cast, but it really isn't.  But to shut it up...
                         //noinspection unchecked
                         final IoHandler<? super TcpChannel> streamIoHandler = handlerFactory.createHandler();
-                        final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, streamIoHandler, executor);
+                        final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, streamIoHandler, executor, manageConnections);
                         ok = HandlerUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
                         if (ok) {
                             acceptedConnections.incrementAndGet();

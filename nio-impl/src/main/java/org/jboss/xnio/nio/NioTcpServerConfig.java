@@ -41,6 +41,7 @@ public final class NioTcpServerConfig {
     private Boolean keepAlive;
     private Boolean oobInline;
     private Boolean noDelay;
+    private boolean manageConnections;
 
     public NioXnio getXnio() {
         return xnio;
@@ -120,5 +121,13 @@ public final class NioTcpServerConfig {
 
     public void setNoDelay(final Boolean noDelay) {
         this.noDelay = noDelay;
+    }
+
+    public boolean isManageConnections() {
+        return manageConnections;
+    }
+
+    public void setManageConnections(final boolean manageConnections) {
+        this.manageConnections = manageConnections;
     }
 }

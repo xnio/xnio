@@ -539,10 +539,6 @@ public final class NioXnio extends Xnio {
         return "NIO " + super.toString();
     }
 
-    protected Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
-        return super.registerMBean(mBean, mBeanName);
-    }
-
     protected Closeable registerMBean(final TcpServerMBean mBean) {
         return super.registerMBean(mBean);
     }

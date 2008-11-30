@@ -70,7 +70,7 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     private final AtomicLong msgsWritten = new AtomicLong();
     private final Closeable mbeanHandle;
 
-    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler, final Executor executor) throws IOException {
+    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final IoHandler<? super TcpChannel> handler, final Executor executor, final boolean manage) throws IOException {
         this.handler = handler;
         this.socketChannel = socketChannel;
         this.nioXnio = nioXnio;
@@ -83,7 +83,7 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
             writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
         }
         try {
-            mbeanHandle = nioXnio.registerMBean(new MBean());
+            mbeanHandle = manage ? nioXnio.registerMBean(new MBean()) : IoUtils.nullCloseable();
         } catch (NotCompliantMBeanException e) {
             throw new IOException("Failed to register channel mbean: " + e);
         }
