@@ -34,12 +34,14 @@ import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.nio.channels.ClosedChannelException;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.FailedIoFuture;
+import org.jboss.xnio.management.UdpServerMBean;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
@@ -47,6 +49,9 @@ import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.log.Logger;
+
+import javax.management.NotCompliantMBeanException;
+import javax.management.StandardMBean;
 
 /**
  *
@@ -67,8 +72,14 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
     private Integer sendBufferSize;
     private Integer trafficClass;
     private Boolean broadcast;
+    private final Closeable mbeanHandle;
 
-    BioUdpServer(final BioUdpServerConfig config) {
+    private final AtomicLong globalBytesRead = new AtomicLong();
+    private final AtomicLong globalBytesWritten = new AtomicLong();
+    private final AtomicLong globalMessagesRead = new AtomicLong();
+    private final AtomicLong globalMessagesWritten = new AtomicLong();
+
+    BioUdpServer(final BioUdpServerConfig config, final NioXnio nioXnio) throws IOException {
         synchronized (lock) {
             handlerFactory = config.getHandlerFactory();
             executor = config.getExecutor();
@@ -77,11 +88,16 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
             sendBufferSize = config.getSendBuffer();
             trafficClass = config.getTrafficClass();
             broadcast = config.getBroadcast();
+            try {
+                mbeanHandle = nioXnio.registerMBean(new MBean());
+            } catch (NotCompliantMBeanException e) {
+                throw new IOException("Cannot construct server mbean: " + e);
+            }
         }
     }
 
-    static BioUdpServer create(final BioUdpServerConfig config) throws IOException {
-        final BioUdpServer server = new BioUdpServer(config);
+    static BioUdpServer create(final BioUdpServerConfig config, final NioXnio nioXnio) throws IOException {
+        final BioUdpServer server = new BioUdpServer(config, nioXnio);
         boolean ok = false;
         try {
             final SocketAddress[] addresses = config.getInitialAddresses();
@@ -177,7 +193,7 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
                 socket.bind(address);
                 //noinspection unchecked
                 final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
-                final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket);
+                final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
                 final FutureUdpChannel futureUdpChannel = new FutureUdpChannel(channel, new Closeable() {
                     public void close() throws IOException {
                         socket.close();
@@ -219,12 +235,75 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
             if (! closed) {
                 log.trace("Closing %s", this);
                 closed = true;
+                IoUtils.safeClose(mbeanHandle);
                 final Iterator<BioMulticastChannelImpl> it = boundChannels.iterator();
                 while (it.hasNext()) {
                     IoUtils.safeClose(it.next());
                     it.remove();
                 }
             }
+        }
+    }
+
+    private final class MBean extends StandardMBean implements UdpServerMBean {
+
+        private MBean() throws NotCompliantMBeanException {
+            super(UdpServerMBean.class);
+        }
+
+        public Channel[] getBoundChannels() {
+            synchronized (lock) {
+                final Channel[] channels = new Channel[boundChannels.size()];
+                int i = 0;
+                for (final BioMulticastChannelImpl channel : boundChannels) {
+                    channels[i++] = new Channel() {
+                        public long getBytesRead() {
+                            return channel.bytesRead.get();
+                        }
+
+                        public long getBytesWritten() {
+                            return channel.bytesWritten.get();
+                        }
+
+                        public long getMessagesRead() {
+                            return channel.messagesRead.get();
+                        }
+
+                        public long getMessagesWritten() {
+                            return channel.messagesWritten.get();
+                        }
+
+                        public SocketAddress getBindAddress() {
+                            return channel.getLocalAddress();
+                        }
+
+                        public void close() {
+                            IoUtils.safeClose(channel);
+                        }
+                    };
+                }
+                return channels;
+            }
+        }
+
+        public long getBytesRead() {
+            return globalBytesRead.get();
+        }
+
+        public long getBytesWritten() {
+            return globalBytesWritten.get();
+        }
+
+        public long getMessagesRead() {
+            return globalMessagesRead.get();
+        }
+
+        public long getMessagesWritten() {
+            return globalMessagesWritten.get();
+        }
+
+        public void close() {
+            IoUtils.safeClose(BioUdpServer.this);
         }
     }
 }

@@ -28,6 +28,7 @@ import static org.jboss.xnio.channels.PlainChannelOption.createOption;
  * Common channel options.
  */
 public final class CommonOptions {
+
     private CommonOptions() {}
 
     /**
@@ -94,4 +95,11 @@ public final class CommonOptions {
      * Configure a server with the specified backlog.  The value type for this option is {@code int}.
      */
     public static final ChannelOption<Integer> BACKLOG = createOption("BACKLOG", Integer.class);
+
+    /**
+     * Configure an acceptor to manage connections or to leave them unmanaged.  A managed entity will appear in any registered MBean server,
+     * but there may be a performance penalty associated with management.  In general it is recommended to always
+     * enable management, unless a specific performance problem is identified.
+     */
+    public static final ChannelOption<Boolean> MANAGE_CONNECTIONS = createOption("MANAGE_CONNECTIONS", Boolean.class);
 }

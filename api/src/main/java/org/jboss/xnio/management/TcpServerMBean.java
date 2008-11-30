@@ -25,6 +25,9 @@ package org.jboss.xnio.management;
 /**
  *
  */
-public interface TcpServerMBean extends BoundMBean {
+public interface TcpServerMBean extends AcceptorStats, InetBindable, ManagedCloseable {
+    Listener[] getBoundListeners();
 
+    interface Listener extends InetBound, AcceptorStats {
+    }
 }

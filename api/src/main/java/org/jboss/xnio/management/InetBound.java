@@ -22,9 +22,11 @@
 
 package org.jboss.xnio.management;
 
+import java.net.SocketAddress;
+
 /**
  *
  */
-public interface PipeSinkChannelMBean extends WritableChannelMBean {
-
+public interface InetBound {
+    SocketAddress getBindAddress();
 }

@@ -22,11 +22,9 @@
 
 package org.jboss.xnio.management;
 
-import java.net.SocketAddress;
-
 /**
  *
  */
-public interface BoundMBean {
-    SocketAddress[] getBindAddresses();
+public interface TcpConnectionMBean extends ChannelStats, InetConnected, ManagedCloseable {
+
 }

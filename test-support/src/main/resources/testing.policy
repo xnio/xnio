@@ -5,23 +5,21 @@ grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
 {
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
     permission java.lang.RuntimePermission "modifyThread";
-    // TODO : Temporary until management stuff moves to api
-    permission java.util.PropertyPermission "org.jboss.xnio.*", "read";
-    permission javax.management.MBeanServerPermission "findMBeanServer";
 };
 
 grant codeBase "file:${build.home}/api/target/main/classes/-"
 {
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
     permission java.util.PropertyPermission "xnio.*", "read";
+    permission javax.management.MBeanServerPermission "findMBeanServer";
 };
-
 
 // Permissions to run the nio-impl test suite
 
 grant codeBase "file:${build.home}/nio-impl/target/test/classes/-"
 {
     permission java.net.SocketPermission "*:*", "accept, connect, resolve";
+    permission java.lang.RuntimePermission "modifyThread";
 };
 
 // Support classes

@@ -80,7 +80,7 @@ public final class BioUdpServerFactory extends AbstractConfigurable implements C
             config.setSendBuffer(getOption(CommonOptions.SEND_BUFFER));
             config.setTrafficClass(getOption(CommonOptions.IP_TRAFFIC_CLASS));
             config.setBroadcast(getOption(CommonOptions.BROADCAST));
-            final BioUdpServer udpServer = BioUdpServer.create(config);
+            final BioUdpServer udpServer = BioUdpServer.create(config, xnio);
             xnio.addManaged(udpServer);
             created = true;
             return udpServer;

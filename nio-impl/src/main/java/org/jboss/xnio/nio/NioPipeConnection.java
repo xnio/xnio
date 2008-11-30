@@ -26,9 +26,14 @@ import java.io.IOException;
 import java.io.Closeable;
 import java.nio.channels.Pipe;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.management.PipeConnectionMBean;
 import org.jboss.xnio.channels.StreamChannel;
+
+import javax.management.StandardMBean;
+import javax.management.NotCompliantMBeanException;
 
 /**
  *
@@ -49,8 +54,15 @@ public final class NioPipeConnection implements Closeable {
         leftToRightSink.configureBlocking(false);
         rightToLeftSource.configureBlocking(false);
         rightToLeftSink.configureBlocking(false);
-        final NioPipeChannelImpl leftSide = new NioPipeChannelImpl(leftToRightSource, leftToRightSink, leftHandler, nioXnio);
-        final NioPipeChannelImpl rightSide = new NioPipeChannelImpl(rightToLeftSource, rightToLeftSink, rightHandler, nioXnio);
+        final MBean mbean;
+        try {
+            mbean = new MBean();
+        } catch (NotCompliantMBeanException e) {
+            throw new IOException("Failed to register channel mbean: " + e);
+        }
+        final Closeable mbeanHandle = nioXnio.registerMBean(mbean);
+        final NioPipeChannelImpl leftSide = NioPipeChannelImpl.create(leftToRightSource, leftToRightSink, leftHandler, nioXnio, mbean.bytesRead, mbean.messagesRead, mbeanHandle);
+        final NioPipeChannelImpl rightSide = NioPipeChannelImpl.create(rightToLeftSource, rightToLeftSink, rightHandler, nioXnio, mbean.bytesWritten, mbean.messagesWritten, mbeanHandle);
         this.leftSide = leftSide;
         this.rightSide = rightSide;
         nioXnio.addManaged(leftSide);
@@ -88,5 +100,37 @@ public final class NioPipeConnection implements Closeable {
     public void close() throws IOException {
         IoUtils.safeClose(leftSide);
         IoUtils.safeClose(rightSide);
+    }
+
+    private final class MBean extends StandardMBean implements PipeConnectionMBean {
+
+        private final AtomicLong bytesRead = new AtomicLong();
+        private final AtomicLong bytesWritten = new AtomicLong();
+        private final AtomicLong messagesRead = new AtomicLong();
+        private final AtomicLong messagesWritten = new AtomicLong();
+
+        private MBean() throws NotCompliantMBeanException {
+            super(PipeConnectionMBean.class);
+        }
+
+        public long getBytesRead() {
+            return bytesRead.get();
+        }
+
+        public long getMessagesRead() {
+            return messagesRead.get();
+        }
+
+        public long getBytesWritten() {
+            return bytesWritten.get();
+        }
+
+        public long getMessagesWritten() {
+            return messagesWritten.get();
+        }
+
+        public void close() {
+            IoUtils.safeClose(NioPipeConnection.this);
+        }
     }
 }

@@ -27,10 +27,13 @@ import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Hashtable;
 import java.net.SocketAddress;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -45,7 +48,16 @@ import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.channels.DatagramChannel;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.TcpServerMBean;
+import org.jboss.xnio.management.TcpConnectionMBean;
+import org.jboss.xnio.management.UdpServerMBean;
+import org.jboss.xnio.management.OneWayPipeConnectionMBean;
+import org.jboss.xnio.management.PipeConnectionMBean;
+import org.jboss.xnio.management.PipeServerMBean;
+import org.jboss.xnio.management.PipeSourceServerMBean;
+import org.jboss.xnio.management.PipeSinkServerMBean;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -55,6 +67,7 @@ import javax.management.RuntimeOperationsException;
 import javax.management.ObjectInstance;
 import javax.management.InstanceNotFoundException;
 import javax.management.MBeanServerFactory;
+import javax.management.MalformedObjectNameException;
 
 /**
  * The XNIO entry point class.
@@ -72,6 +85,9 @@ public abstract class Xnio implements Closeable {
     private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.NioXnio";
     private static final String PROVIDER_CLASS;
     private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
+    private static final String MANAGEMENT_DOMAIN = "org.jboss.Xnio";
+
+    private static final AtomicLong mbeanSequence = new AtomicLong();
 
     private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction("xnio.provider", NIO_IMPL_CLASS_NAME);
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction("xnio.agentid", null); 
@@ -268,8 +284,8 @@ public abstract class Xnio implements Closeable {
      * multicast-capable; this should only be done if multicast is needed, since some providers have a performance
      * penalty associated with multicast.
      *
-     * @param multicast {@code true} if the UDP server should be multicast-capable
      * @param executor the executor to use to execute the handlers
+     * @param multicast {@code true} if the UDP server should be multicast-capable
      * @param handlerFactory the factory which will produce handlers for each channel
      * @param bindAddresses the addresses to bind
      *
@@ -503,6 +519,86 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Create a configurable local stream connector.  The connector can be configured before it is actually created.
+     *
+     * @param executor the executor to use to execute the handlers
+     *
+     * @return a factory that can be used to configure the new local stream connector
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
+        throw new UnsupportedOperationException("Local IPC Stream Connector");
+    }
+
+    /**
+     * Create a configurable local stream connector.  The connector can be configured before it is actually created.
+     * The provider's default executor will be used to execute handler methods.
+     *
+     * @return a factory that can be used to configure the new local stream connector
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
+        throw new UnsupportedOperationException("Local IPC Stream Connector");
+    }
+
+    /**
+     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.  If no
+     * bind addresses are specified, one is created.
+     *
+     * @param executor the executor to use to execute the handlers
+     * @param handlerFactory the factory which will produce handlers for inbound connections
+     *
+     * @return a factory that can be used to configure the new datagram server
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+        throw new UnsupportedOperationException("Local IPC Datagram Server");
+    }
+
+    /**
+     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.  If no
+     * bind addresses are specified, one is created.  The provider's default executor will be used to
+     * execute handler methods.
+     *
+     * @param handlerFactory the factory which will produce handlers for inbound connections
+     *
+     * @return a factory that can be used to configure the new datagram server
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+        throw new UnsupportedOperationException("Local IPC Datagram Server");
+    }
+
+    /**
+     * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
+     *
+     * @param executor the executor to use to execute the handlers
+     *
+     * @return a factory that can be used to configure the new local datagram connector
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
+        throw new UnsupportedOperationException("Local IPC Datagram Connector");
+    }
+
+    /**
+     * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
+     * The provider's default executor will be used to execute handler methods.
+     *
+     * @return a factory that can be used to configure the new local datagram connector
+     *
+     * @since 1.2
+     */
+    public ConfigurableFactory<CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
+        throw new UnsupportedOperationException("Local IPC Datagram Connector");
+    }
+
+    /**
      * Wake up any blocking I/O operation being carried out on a given thread.  Custom implementors of {@link Thread}
      * may call this method from their implementation of {@link Thread#interrupt()} after the default implementation
      * to ensure that any thread waiting in a blocking operation is woken up in a timely manner.  Some implementations
@@ -570,6 +666,163 @@ public abstract class Xnio implements Closeable {
                 } while (it.hasNext());
                 return new RegHandle(registrations);
             }
+        }
+    }
+
+    private interface Entry extends Map.Entry<String, String> {}
+
+    private static Entry entry(final String k, final String v) {
+        return new Entry() {
+            public String getKey() {
+                return k;
+            }
+
+            public String getValue() {
+                return v;
+            }
+
+            public String setValue(final String value) {
+                throw new UnsupportedOperationException("setValue");
+            }
+        };
+    }
+
+    private static Hashtable<String, String> hashtable(Entry... entries) {
+        final Hashtable<String, String> table = new Hashtable<String, String>(entries.length);
+        for (Entry entry : entries) {
+            table.put(entry.getKey(), entry.getValue());
+        }
+        return table;
+    }
+
+    protected Closeable registerMBean(final TcpServerMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "server"),
+                    entry("protocol", "tcp"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+                    /* TODO: name? */
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final TcpConnectionMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "connection"),
+                    entry("protocol", "tcp"),
+                    entry("duplex", "full"),
+                    entry("bindAddress", ObjectName.quote(mBean.getBindAddress().toString())),
+                    entry("peerAddress", ObjectName.quote(mBean.getPeerAddress().toString())),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final UdpServerMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "server"),
+                    entry("protocol", "udp"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final OneWayPipeConnectionMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "connection"),
+                    entry("protocol", "local"),
+                    entry("duplex", "half"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final PipeConnectionMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "connection"),
+                    entry("protocol", "local"),
+                    entry("duplex", "full"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final PipeServerMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "server"),
+                    entry("protocol", "local"),
+                    entry("duplex", "full"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final PipeSourceServerMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "server"),
+                    entry("protocol", "local"),
+                    entry("duplex", "half"),
+                    entry("direction", "source"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
+        }
+    }
+
+    protected Closeable registerMBean(final PipeSinkServerMBean mBean) {
+        try {
+            final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
+                    entry("provider", ObjectName.quote(getName())),
+                    entry("providerType", ObjectName.quote(getClass().getName())),
+                    entry("type", "server"),
+                    entry("protocol", "local"),
+                    entry("duplex", "half"),
+                    entry("direction", "sink"),
+                    entry("id", Long.toString(mbeanSequence.getAndIncrement()))
+            ));
+            return registerMBean(mBean, mbeanName);
+        } catch (MalformedObjectNameException e) {
+            throw new IllegalStateException("Unexpected exception", e);
         }
     }
 

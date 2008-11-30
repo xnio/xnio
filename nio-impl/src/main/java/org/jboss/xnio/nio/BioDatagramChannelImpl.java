@@ -37,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.channels.ChannelOption;
@@ -47,8 +48,6 @@ import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.management.BioChannel;
-import org.jboss.xnio.management.MBeanUtils;
 
 /**
  *
@@ -83,12 +82,23 @@ public class BioDatagramChannelImpl implements UdpChannel {
     private IOException readException;
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final BioChannel mBeanCounters;
+    private final AtomicLong globalBytesRead;
+    private final AtomicLong globalBytesWritten;
+    private final AtomicLong globalMessagesRead;
+    private final AtomicLong globalMessagesWritten;
+    final AtomicLong bytesRead = new AtomicLong();
+    final AtomicLong bytesWritten = new AtomicLong();
+    final AtomicLong messagesRead = new AtomicLong();
+    final AtomicLong messagesWritten = new AtomicLong();
 
-    BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket) {
+    BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
         this.datagramSocket = datagramSocket;
         this.handlerExecutor = handlerExecutor;
         this.handler = handler;
+        this.globalBytesRead = globalBytesRead;
+        this.globalBytesWritten = globalBytesWritten;
+        this.globalMessagesRead = globalMessagesRead;
+        this.globalMessagesWritten = globalMessagesWritten;
         if (sendBufSize == -1) {
             sendBufSize = 4096;
         } else if (sendBufSize < 0) {
@@ -105,7 +115,6 @@ public class BioDatagramChannelImpl implements UdpChannel {
         receiveBuffer = ByteBuffer.wrap(recvBufferBytes);
         sendPacket = new DatagramPacket(sendBufferBytes, sendBufSize);
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
-        mBeanCounters = new BioChannel(this);
         log.trace("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
     }
 
@@ -155,7 +164,10 @@ public class BioDatagramChannelImpl implements UdpChannel {
             buffer.put(receiveBuffer);
             readLock.notify();
             final SocketAddress socketAddress = receivePacket.getSocketAddress();
-            mBeanCounters.bytesRead(receiveBuffer.remaining());
+            bytesRead.addAndGet(size);
+            globalBytesRead.addAndGet(size);
+            messagesRead.incrementAndGet();
+            globalMessagesRead.incrementAndGet();
             return new MultipointReadResult<SocketAddress>() {
                 public SocketAddress getSourceAddress() {
                     return socketAddress;
@@ -200,7 +212,6 @@ public class BioDatagramChannelImpl implements UdpChannel {
             HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
             log.trace("Closing channel %s", this);
         }
-        MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
     }
 
     public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
@@ -212,6 +223,11 @@ public class BioDatagramChannelImpl implements UdpChannel {
             if (sendBuffer.remaining() < buffer.remaining()) {
                 throw new IOException("Insufficient room in send buffer (send will never succeed); send buffer is " + sendBuffer.remaining() + " bytes, but transmitted datagram is " + buffer.remaining() + " bytes");
             }
+            final int cnt = buffer.remaining();
+            bytesWritten.addAndGet(cnt);
+            globalBytesWritten.addAndGet(cnt);
+            messagesWritten.incrementAndGet();
+            globalMessagesWritten.incrementAndGet();
             sendBuffer.put(buffer);
             sendPacket.setSocketAddress(target);
             sendPacket.setData(sendBuffer.array(), sendBuffer.arrayOffset(), sendBuffer.position());

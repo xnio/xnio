@@ -23,15 +23,18 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.SelectionKey;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.Collection;
 import java.util.Set;
 import java.util.ArrayList;
@@ -45,7 +48,6 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.management.TcpServerMBean;
-import org.jboss.xnio.management.MBeanUtils;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.BoundChannel;
@@ -54,7 +56,6 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 
-import javax.management.ObjectName;
 import javax.management.StandardMBean;
 import javax.management.NotCompliantMBeanException;
 
@@ -73,6 +74,8 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
 
     private final Set<NioTcpServerChannel> boundChannels = new LinkedHashSet<NioTcpServerChannel>();
 
+    private final AtomicLong globalAcceptedConnections = new AtomicLong();
+
     private boolean closed;
     private Boolean reuseAddress;
     private Integer receiveBufferSize;
@@ -82,7 +85,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
     private Boolean tcpNoDelay;
 
     private static final Set<ChannelOption<?>> options;
-    private final ObjectName objectName;
+    private final Closeable mbeanHandle;
 
     static {
         final Set<ChannelOption<?>> optionSet = new HashSet<ChannelOption<?>>();
@@ -117,16 +120,12 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
 
     private NioTcpServer(final NioTcpServerConfig config) throws IOException {
         synchronized (lock) {
-            MBean mbean;
+            xnio = config.getXnio();
             try {
-                mbean = new MBean();
-                ObjectName objectName = MBeanUtils.getObjectName(mbean.toString());
-                this.objectName = objectName;
-                MBeanUtils.registerMBean(mbean, objectName);
+                mbeanHandle = xnio.registerMBean(new MBean());
             } catch (NotCompliantMBeanException e) {
                 throw new IOException("Cannot construct server mbean: " + e);
             }
-            xnio = config.getXnio();
             executor = config.getExecutor();
             handlerFactory = config.getHandlerFactory();
             reuseAddress = config.getReuseAddresses();
@@ -181,7 +180,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
                 for (final NioTcpServerChannel boundChannel : list) {
                     IoUtils.safeClose(boundChannel);
                 }
-                MBeanUtils.unregisterMBean(objectName);
+                IoUtils.safeClose(mbeanHandle);
             }
         }
     }
@@ -236,13 +235,19 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
     private final class Handler implements Runnable {
         private final ServerSocketChannel socketChannel;
         private final Executor executor;
+        private final AtomicLong globalAcceptedConnections;
+        private final AtomicLong acceptedConnections;
 
-        public Handler(final ServerSocketChannel channel, final Executor executor) {
+        public Handler(final ServerSocketChannel channel, final Executor executor, final AtomicLong acceptedConnections, final AtomicLong connections) {
             socketChannel = channel;
             this.executor = executor;
+            globalAcceptedConnections = acceptedConnections;
+            this.acceptedConnections = connections;
         }
 
         public void run() {
+            final AtomicLong acceptedConnections = this.acceptedConnections;
+            final AtomicLong globalAcceptedConnections = this.globalAcceptedConnections;
             try {
                 final SocketChannel socketChannel = this.socketChannel.accept();
                 if (socketChannel != null) {
@@ -262,6 +267,8 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
                         final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, streamIoHandler, executor);
                         ok = HandlerUtils.<TcpChannel>handleOpened(streamIoHandler, channel);
                         if (ok) {
+                            acceptedConnections.incrementAndGet();
+                            globalAcceptedConnections.incrementAndGet();
                             xnio.addManaged(channel);
                             log.trace("TCP server accepted connection");
                         }
@@ -299,6 +306,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
         private final ServerSocket serverSocket;
         private final SocketAddress address;
         private final ServerSocketChannel channel;
+        private final AtomicLong acceptedConnections = new AtomicLong();
 
         private final AtomicBoolean open = new AtomicBoolean(true);
 
@@ -306,7 +314,7 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
             this.channel = channel;
             serverSocket = channel.socket();
             address = serverSocket.getLocalSocketAddress();
-            handle = xnio.addConnectHandler(channel, new Handler(channel, executor), false);
+            handle = xnio.addConnectHandler(channel, new Handler(channel, executor, globalAcceptedConnections, acceptedConnections), false);
             handle.resume(SelectionKey.OP_ACCEPT);
         }
 
@@ -324,11 +332,6 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
                 try {
                     channel.close();
                 } finally {
-                    try {
-                        handle.cancelKey();
-                    } catch (Throwable t) {
-                        chanLog.warn(t, "Error closing handle for %s", this);
-                    }
                     xnio.removeManaged(this);
                 }
             }
@@ -345,19 +348,67 @@ public final class NioTcpServer implements BoundServer<SocketAddress, BoundChann
             super(TcpServerMBean.class);
         }
 
-        public SocketAddress[] getBindAddresses() {
-            final Collection<BoundChannel<SocketAddress>> channels = getChannels();
-            final int len = channels.size();
-            final SocketAddress[] addresses = new SocketAddress[len];
-            int i = 0;
-            for (BoundChannel<SocketAddress> channel : channels) {
-                addresses[i++] = channel.getLocalAddress();
-            }
-            return addresses;
-        }
-
         public String toString() {
             return "TCPServerMBean";
+        }
+
+        public Listener[] getBoundListeners() {
+            synchronized (lock) {
+                final Listener[] listeners = new Listener[boundChannels.size()];
+                int i = 0;
+                for (NioTcpServerChannel channel : boundChannels) {
+                    final SocketAddress bindAddress = channel.address;
+                    final long acceptedConnections = channel.acceptedConnections.get();
+                    listeners[i ++] = new Listener() {
+                        public SocketAddress getBindAddress() {
+                            return bindAddress;
+                        }
+
+                        public long getAcceptedConnections() {
+                            return acceptedConnections;
+                        }
+                    };
+                }
+                return listeners;
+            }
+        }
+
+        public long getAcceptedConnections() {
+            return globalAcceptedConnections.get();
+        }
+
+        public void bind(final SocketAddress address) throws IOException {
+            if (address == null) {
+                throw new NullPointerException("address is null");
+            }
+            NioTcpServer.this.bind(address).get();
+        }
+
+        public void bind(final String hostName, final int port) throws IOException {
+            bind(new InetSocketAddress(hostName, port));
+        }
+
+        public void unbind(final SocketAddress address) throws IOException {
+            if (address == null) {
+                throw new NullPointerException("address is null");
+            }
+            synchronized (lock) {
+                for (NioTcpServerChannel channel : boundChannels) {
+                    if (channel.address.equals(address)) {
+                        channel.close();
+                        return;
+                    }
+                }
+            }
+            throw new IOException("No channel bound to address " + address);
+        }
+
+        public void unbind(final String hostName, final int port) throws IOException {
+            unbind(new InetSocketAddress(hostName, port));
+        }
+
+        public void close() {
+            IoUtils.safeClose(NioTcpServer.this);
         }
     }
 }

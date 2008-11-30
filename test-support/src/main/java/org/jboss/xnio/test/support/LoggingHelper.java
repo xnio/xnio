@@ -24,12 +24,14 @@ package org.jboss.xnio.test.support;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.io.PrintStream;
 
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.logging.Handler;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
+import java.util.logging.StreamHandler;
 
 /**
  *
@@ -45,36 +47,38 @@ public final class LoggingHelper {
                     rootLogger.setLevel(Level.ALL);
                     final Handler[] handlers = rootLogger.getHandlers();
                     for (Handler handler : handlers) {
-                        handler.setLevel(Level.ALL);
-                        handler.setFormatter(new Formatter() {
-                            public String format(final LogRecord record) {
-                                StringBuilder builder = new StringBuilder();
-                                long offs = record.getMillis() - startTime;
-                                final String sign = offs < 0 ? "-" : "+";
-                                offs = Math.abs(offs);
-                                int ms = (int) (offs % 1000L);
-                                long s = offs / 1000L;
-                                builder.append(String.format("%s%04d.%03d ", sign, Long.valueOf(s), Long.valueOf(ms)));
-                                builder.append(String.format("tid:%d ", Integer.valueOf(record.getThreadID())));
-                                builder.append(record.getLevel().toString());
-                                builder.append(" [").append(record.getLoggerName()).append("] ");
-                                builder.append(String.format(record.getMessage(), record.getParameters()));
-                                Throwable t = record.getThrown();
-                                while (t != null) {
-                                    builder.append("\n    Caused by: ");
-                                    builder.append(t.toString());
-                                    for (StackTraceElement e : t.getStackTrace()) {
-                                        builder.append("\n        at ");
-                                        builder.append(e.getClassName()).append('.').append(e.getMethodName());
-                                        builder.append("(").append(e.getFileName()).append(':').append(e.getLineNumber()).append(')');
-                                    }
-                                    t = t.getCause();
-                                }
-                                builder.append('\n');
-                                return builder.toString();
-                            }
-                        });
+                        rootLogger.removeHandler(handler);
                     }
+                    final Handler handler = new StreamHandler(new PrintStream(System.out, true), new Formatter() {
+                        public String format(final LogRecord record) {
+                            StringBuilder builder = new StringBuilder();
+                            long offs = record.getMillis() - startTime;
+                            final String sign = offs < 0 ? "-" : "+";
+                            offs = Math.abs(offs);
+                            int ms = (int) (offs % 1000L);
+                            long s = offs / 1000L;
+                            builder.append(String.format("%s%04d.%03d ", sign, Long.valueOf(s), Long.valueOf(ms)));
+                            builder.append(String.format("tid:%d ", Integer.valueOf(record.getThreadID())));
+                            builder.append(record.getLevel().toString());
+                            builder.append(" [").append(record.getLoggerName()).append("] ");
+                            builder.append(String.format(record.getMessage(), record.getParameters()));
+                            Throwable t = record.getThrown();
+                            while (t != null) {
+                                builder.append("\n    Caused by: ");
+                                builder.append(t.toString());
+                                for (StackTraceElement e : t.getStackTrace()) {
+                                    builder.append("\n        at ");
+                                    builder.append(e.getClassName()).append('.').append(e.getMethodName());
+                                    builder.append("(").append(e.getFileName()).append(':').append(e.getLineNumber()).append(')');
+                                }
+                                t = t.getCause();
+                            }
+                            builder.append('\n');
+                            return builder.toString();
+                        }
+                    });
+                    handler.setLevel(Level.ALL);
+                    rootLogger.addHandler(handler);
                     return null;
                 }
             });

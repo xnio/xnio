@@ -5,14 +5,14 @@
  * full listing of individual contributors.
  *
  * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General License as
+ * under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation; either version 2.1 of
  * the License, or (at your option) any later version.
  *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General License for more details.
+ * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this software; if not, write to the Free
@@ -22,23 +22,18 @@
 
 package org.jboss.xnio.management;
 
-import java.io.Closeable;
-
+import java.net.SocketAddress;
+import java.io.IOException;
 
 /**
  *
  */
-public abstract class ReadableChannel extends Channel{
+public interface InetBindable {
+    void bind(SocketAddress address) throws IOException;
 
-    public ReadableChannel(final Closeable mBean) {
-        super(mBean);
-    }
+    void bind(String hostName, int port) throws IOException;
 
-    public ReadableChannel(final Closeable mBean, final Object object) {
-        this(mBean, new Object[] { object } );
-    }
+    void unbind(SocketAddress address) throws IOException;
 
-    public ReadableChannel(final Closeable mBean, final Object[] objects) {
-        super(mBean, objects);
-    }
+    void unbind(String hostName, int port) throws IOException;
 }

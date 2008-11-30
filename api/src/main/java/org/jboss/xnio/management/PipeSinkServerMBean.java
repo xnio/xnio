@@ -22,15 +22,8 @@
 
 package org.jboss.xnio.management;
 
-import org.jboss.xnio.channels.StreamSinkChannel;
-
 /**
  *
  */
-public class PipeSinkChannel extends ReadableChannel implements PipeSinkChannelMBean {
-
-    public PipeSinkChannel(final StreamSinkChannel streamSinkChannel) {
-        super(streamSinkChannel);
-    }
-
+public interface PipeSinkServerMBean extends AcceptorStats, ManagedCloseable {
 }

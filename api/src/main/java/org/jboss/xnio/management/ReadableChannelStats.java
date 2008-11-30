@@ -25,39 +25,10 @@ package org.jboss.xnio.management;
 /**
  *
  */
-public class BoundServer extends Server implements BoundServerMBean{
+public interface ReadableChannelStats {
 
-    public BoundServer(final BoundServerMBean bean) {
-        super(bean);
-    }
+    long getBytesRead();
 
-    public int getTrafficClass() {
-        BoundServerMBean bean = (BoundServerMBean) getServerMBean();
-        if (bean != null) {
-            return bean.getTrafficClass();
-        }
-        return -1;
-    }
+    long getMessagesRead();
 
-    public boolean isBroadcast() {
-        BoundServerMBean bean = (BoundServerMBean) getServerMBean();
-        if (bean != null) {
-            return bean.isBroadcast();
-        }
-        return false;
-    }
-
-    public void setBroadcast(final boolean broadcast) {
-        BoundServerMBean bean = (BoundServerMBean) getServerMBean();
-        if (bean != null) {
-            bean.setBroadcast(broadcast);
-        }
-    }
-
-    public void setTrafficClass(final int trafficClass) {
-        BoundServerMBean bean = (BoundServerMBean) getServerMBean();
-        if (bean != null) {
-            bean.setTrafficClass(trafficClass);
-        }
-    }
 }

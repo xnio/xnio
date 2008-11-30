@@ -20,8 +20,10 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-/**
- * JMX utility classes for XNIO implementations.
- */
 package org.jboss.xnio.management;
 
+/**
+ *
+ */
+public interface PipeServerMBean extends AcceptorStats, ManagedCloseable {
+}

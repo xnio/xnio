@@ -22,21 +22,11 @@
 
 package org.jboss.xnio.management;
 
-public class NameValuePair {
+import java.net.SocketAddress;
 
-    private String name;
-    private String value;
-
-    public String getName() {
-        return name;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    public NameValuePair(final String name, final String value) {
-        this.name = name;
-        this.value = value;
-    }
+/**
+ * An IP-type connected entity.
+ */
+public interface InetConnected extends InetBound {
+    SocketAddress getPeerAddress();
 }

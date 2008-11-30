@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
@@ -30,6 +31,7 @@ import java.nio.channels.SelectionKey;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
@@ -38,6 +40,7 @@ import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
+
 
 /**
  *
@@ -52,32 +55,53 @@ public final class NioPipeChannelImpl implements StreamChannel {
     private final NioHandle sinkHandle;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioXnio nioXnio;
+    private final AtomicLong bytes;
+    private final AtomicLong messages;
+    private final Closeable mbeanHandle;
 
-    NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio) throws IOException {
+    private NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
         this.sourceChannel = sourceChannel;
         this.sinkChannel = sinkChannel;
         this.handler = handler;
         this.nioXnio = nioXnio;
+        this.bytes = bytes;
+        this.messages = messages;
+        this.mbeanHandle = mbeanHandle;
         // todo leaking [this]
         sourceHandle = nioXnio.addReadHandler(sourceChannel, new ReadHandler());
         sinkHandle = nioXnio.addWriteHandler(sinkChannel, new WriteHandler());
     }
 
-    static NioPipeChannelImpl create(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio) throws IOException {
-        final NioPipeChannelImpl channel = new NioPipeChannelImpl(sourceChannel, sinkChannel, handler, nioXnio);
+    static NioPipeChannelImpl create(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
+        final NioPipeChannelImpl channel = new NioPipeChannelImpl(sourceChannel, sinkChannel, handler, nioXnio, bytes, messages, mbeanHandle);
         return channel;
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
-        return sinkChannel.write(srcs, offset, length);
+        final long ret = sinkChannel.write(srcs, offset, length);
+        if (ret > 0) {
+            bytes.addAndGet(ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public long write(final ByteBuffer[] srcs) throws IOException {
-        return sinkChannel.write(srcs);
+        final long ret = sinkChannel.write(srcs);
+        if (ret > 0) {
+            bytes.addAndGet(ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public int write(final ByteBuffer src) throws IOException {
-        return sinkChannel.write(src);
+        final int ret = sinkChannel.write(src);
+        if (ret > 0) {
+            bytes.addAndGet(ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public boolean isOpen() {
@@ -94,21 +118,23 @@ public final class NioPipeChannelImpl implements StreamChannel {
             if (callFlag.getAndSet(true) == false) {
                 HandlerUtils.<StreamChannel>handleClosed(handler, this);
             }
-            sinkHandle.cancelKey();
-            sourceHandle.cancelKey();
+            IoUtils.safeClose(mbeanHandle);
         }
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        return sourceChannel.read(dsts, offset, length);
+        final long ret = sourceChannel.read(dsts, offset, length);
+        return ret;
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
-        return sourceChannel.read(dsts);
+        final long ret = sourceChannel.read(dsts);
+        return ret;
     }
 
     public int read(final ByteBuffer dst) throws IOException {
-        return sourceChannel.read(dst);
+        final int ret = sourceChannel.read(dst);
+        return ret;
     }
 
     public void suspendReads() {

@@ -25,6 +25,6 @@ package org.jboss.xnio.management;
 /**
  *
  */
-public interface PipeSourceChannelMBean extends ReadableChannelMBean {
+public interface PipeConnectionMBean extends ReadableChannelStats, WritableChannelStats, ManagedCloseable {
 
 }

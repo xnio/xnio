@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.net.DatagramSocket;
 import java.net.SocketAddress;
 import java.nio.channels.DatagramChannel;
@@ -35,11 +36,13 @@ import java.util.LinkedHashSet;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.FailedIoFuture;
+import org.jboss.xnio.management.UdpServerMBean;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
@@ -47,6 +50,9 @@ import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.log.Logger;
+
+import javax.management.StandardMBean;
+import javax.management.NotCompliantMBeanException;
 
 /**
  *
@@ -69,8 +75,14 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
     private Integer sendBufferSize;
     private Integer trafficClass;
     private Boolean broadcast;
+    private final Closeable mbeanHandle;
 
-    NioUdpServer(final NioUdpServerConfig config) {
+    private final AtomicLong globalBytesRead = new AtomicLong();
+    private final AtomicLong globalBytesWritten = new AtomicLong();
+    private final AtomicLong globalMessagesRead = new AtomicLong();
+    private final AtomicLong globalMessagesWritten = new AtomicLong();
+
+    NioUdpServer(final NioUdpServerConfig config) throws IOException {
         synchronized (lock) {
             nioXnio = config.getXnio();
             handlerFactory = config.getHandlerFactory();
@@ -80,6 +92,11 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
             sendBufferSize = config.getSendBuffer();
             trafficClass = config.getTrafficClass();
             broadcast = config.getBroadcast();
+            try {
+                mbeanHandle = nioXnio.registerMBean(new MBean());
+            } catch (NotCompliantMBeanException e) {
+                throw new IOException("Cannot construct server mbean: " + e);
+            }
         }
     }
 
@@ -219,7 +236,7 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
     }
 
     NioUdpSocketChannelImpl createChannel(final DatagramChannel datagramChannel, IoHandler<? super UdpChannel> handler) throws IOException {
-        return new NioUdpSocketChannelImpl(nioXnio, datagramChannel, handler, executor);
+        return new NioUdpSocketChannelImpl(nioXnio, datagramChannel, handler, executor, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
     }
 
     public void close() throws IOException {
@@ -232,7 +249,70 @@ public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
                     IoUtils.safeClose(it.next());
                     it.remove();
                 }
+                IoUtils.safeClose(mbeanHandle);
             }
+        }
+    }
+
+    private final class MBean extends StandardMBean implements UdpServerMBean {
+
+        private MBean() throws NotCompliantMBeanException {
+            super(UdpServerMBean.class);
+        }
+
+        public Channel[] getBoundChannels() {
+            synchronized (lock) {
+                final Channel[] channels = new Channel[boundChannels.size()];
+                int i = 0;
+                for (final NioUdpSocketChannelImpl channel : boundChannels) {
+                    channels[i++] = new Channel() {
+                        public long getBytesRead() {
+                            return channel.bytesRead.get();
+                        }
+
+                        public long getBytesWritten() {
+                            return channel.bytesWritten.get();
+                        }
+
+                        public long getMessagesRead() {
+                            return channel.messagesRead.get();
+                        }
+
+                        public long getMessagesWritten() {
+                            return channel.messagesWritten.get();
+                        }
+
+                        public SocketAddress getBindAddress() {
+                            return channel.getLocalAddress();
+                        }
+
+                        public void close() {
+                            IoUtils.safeClose(channel);
+                        }
+                    };
+                }
+                return channels;
+            }
+        }
+
+        public long getBytesRead() {
+            return globalBytesRead.get();
+        }
+
+        public long getBytesWritten() {
+            return globalBytesWritten.get();
+        }
+
+        public long getMessagesRead() {
+            return globalMessagesRead.get();
+        }
+
+        public long getMessagesWritten() {
+            return globalMessagesWritten.get();
+        }
+
+        public void close() {
+            IoUtils.safeClose(NioUdpServer.this);
         }
     }
 }

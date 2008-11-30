@@ -3,6 +3,7 @@
 <classloading name="xnio-api" version="${version}" xmlns="urn:jboss:classloading:1.0">
     <capabilities>
         <package name="org.jboss.xnio" version="${version}"/>
+        <package name="org.jboss.xnio.management" version="${version}"/>
         <package name="org.jboss.xnio.channels" version="${version}"/>
         <package name="org.jboss.xnio.log" version="${version}"/>
     </capabilities>

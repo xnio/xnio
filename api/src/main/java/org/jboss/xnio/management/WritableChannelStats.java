@@ -7,7 +7,7 @@ package org.jboss.xnio.management;
  * @author robhadfield
  *
  */
-public interface WritableChannelMBean {
+public interface WritableChannelStats {
 
     long getBytesWritten();
 

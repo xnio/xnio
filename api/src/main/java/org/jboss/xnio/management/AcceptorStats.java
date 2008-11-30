@@ -23,12 +23,14 @@
 package org.jboss.xnio.management;
 
 /**
- *
+ * Statistics for entities which accept connections.
  */
-public interface ConnectedInetChannelMBean extends BoundInetChannelMBean{
+public interface AcceptorStats {
 
-    String getRemoteAddress();
-
-    int getRemotePort();
-
+    /**
+     * Get the total count of accepted connections.
+     *
+     * @return the count
+     */
+    long getAcceptedConnections();
 }

@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
@@ -31,15 +32,15 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.management.MBeanUtils;
-import org.jboss.xnio.management.PipeSinkChannel;
 
 /**
  *
@@ -53,32 +54,45 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
     private final NioXnio nioXnio;
     private final IoHandler<? super StreamSinkChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
-    private final PipeSinkChannel mBeanCounters;
+    private final AtomicLong bytes;
+    private final AtomicLong messages;
+    private final Closeable mbeanHandle;
 
-    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioXnio nioXnio) throws IOException {
+    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
         this.channel = channel;
         this.handler = handler;
         this.nioXnio = nioXnio;
+        this.bytes = bytes;
+        this.messages = messages;
+        this.mbeanHandle = mbeanHandle;
         handle = nioXnio.addWriteHandler(channel, new Handler());
-        mBeanCounters = new PipeSinkChannel(this);
     }
 
     public int write(final ByteBuffer dst) throws IOException {
-        int written = channel.write(dst);
-        mBeanCounters.bytesWritten(written);
-        return written;
+        int ret = channel.write(dst);
+        if (ret > 0) {
+            bytes.addAndGet((long) ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public long write(final ByteBuffer[] dsts) throws IOException {
-        long written = channel.write(dsts);
-        mBeanCounters.bytesWritten(written);
-        return written;
+        long ret = channel.write(dsts);
+        if (ret > 0) {
+            bytes.addAndGet(ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public long write(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        long written = channel.write(dsts, offset, length);
-        mBeanCounters.bytesWritten(written);
-        return written;
+        long ret = channel.write(dsts, offset, length);
+        if (ret > 0) {
+            bytes.addAndGet(ret);
+            messages.incrementAndGet();
+        }
+        return ret;
     }
 
     public boolean isOpen() {
@@ -86,15 +100,11 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
     }
 
     public void close() throws IOException {
-        try {
-            channel.close();
-        } finally {
+        if (! callFlag.getAndSet(true)) {
+            HandlerUtils.<StreamSinkChannel>handleClosed(handler, this);
             nioXnio.removeManaged(this);
-            handle.cancelKey();
-            if (! callFlag.getAndSet(true)) {
-                HandlerUtils.<StreamSinkChannel>handleClosed(handler, this);
-            }
-            MBeanUtils.unregisterMBean(mBeanCounters.getObjectName());
+            IoUtils.safeClose(mbeanHandle);
+            channel.close();
         }
     }
 

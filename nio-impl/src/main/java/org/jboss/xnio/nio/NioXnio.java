@@ -50,6 +50,14 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.management.TcpServerMBean;
+import org.jboss.xnio.management.TcpConnectionMBean;
+import org.jboss.xnio.management.UdpServerMBean;
+import org.jboss.xnio.management.OneWayPipeConnectionMBean;
+import org.jboss.xnio.management.PipeConnectionMBean;
+import org.jboss.xnio.management.PipeServerMBean;
+import org.jboss.xnio.management.PipeSourceServerMBean;
+import org.jboss.xnio.management.PipeSinkServerMBean;
 import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.StreamChannel;
@@ -533,6 +541,38 @@ public final class NioXnio extends Xnio {
 
     protected Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
         return super.registerMBean(mBean, mBeanName);
+    }
+
+    protected Closeable registerMBean(final TcpServerMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final TcpConnectionMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final UdpServerMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final OneWayPipeConnectionMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final PipeConnectionMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final PipeServerMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final PipeSourceServerMBean mBean) {
+        return super.registerMBean(mBean);
+    }
+
+    protected Closeable registerMBean(final PipeSinkServerMBean mBean) {
+        return super.registerMBean(mBean);
     }
 
     private final AtomicInteger loadSequence = new AtomicInteger();
