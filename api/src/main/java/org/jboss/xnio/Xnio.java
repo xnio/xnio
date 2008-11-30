@@ -89,8 +89,10 @@ public abstract class Xnio implements Closeable {
 
     private static final AtomicLong mbeanSequence = new AtomicLong();
 
-    private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction("xnio.provider", NIO_IMPL_CLASS_NAME);
-    private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction("xnio.agentid", null); 
+    private static String AGENTID_PROPNAME = "xnio.agentid";
+    private static String PROVIDER_PROPNAME = "xnio.provider";
+    private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction(PROVIDER_PROPNAME, NIO_IMPL_CLASS_NAME);
+    private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
 
     static {
         String providerClassName = NIO_IMPL_CLASS_NAME;
@@ -167,6 +169,7 @@ public abstract class Xnio implements Closeable {
         if (configuration == null) {
             throw new NullPointerException("configuration is null");
         }
+        final SecurityManager sm = System.getSecurityManager();
         final String name = configuration.getName();
         final int seq = xnioSequence.getAndIncrement();
         this.name = name != null ? name : String.format("%s-%d", getClass().getName(), Integer.valueOf(seq));
@@ -185,7 +188,7 @@ public abstract class Xnio implements Closeable {
             } else {
                 final String agentidpropval;
                 try {
-                    agentidpropval = AccessController.doPrivileged(GET_AGENTID_ACTION);
+                    agentidpropval = sm != null ? AccessController.doPrivileged(GET_AGENTID_ACTION) : System.getProperty(AGENTID_PROPNAME);
                 } catch (SecurityException e) {
                     // not allowed; leave mbean servers empty
                     mlog.debug("Unable to read agentid property (%s); JMX features disabled", e);
@@ -194,7 +197,7 @@ public abstract class Xnio implements Closeable {
                 if (agentidpropval == null || agentidpropval.length() == 0) {
                     final Collection<? extends MBeanServer> fullList;
                     try {
-                        fullList = AccessController.doPrivileged(new GetMBeanServersAction(null));
+                        fullList = sm != null ? AccessController.doPrivileged(new GetMBeanServersAction(null)) : MBeanServerFactory.findMBeanServer(null);
                     } catch (SecurityException e) {
                         mlog.debug("Unable to detect installed mbean servers (%s); JMX features disabled", e);
                         return;
@@ -212,7 +215,7 @@ public abstract class Xnio implements Closeable {
                         }
                         Collection<? extends MBeanServer> matches;
                         try {
-                            matches = AccessController.doPrivileged(new GetMBeanServersAction(properName));
+                            matches = sm != null ? AccessController.doPrivileged(new GetMBeanServersAction(properName)) : MBeanServerFactory.findMBeanServer(null);
                         } catch (SecurityException e) {
                             mlog.debug("Unable to locate any MBeanServer for ID \"%s\" (%s); skipping", properName, e);
                             continue;
@@ -646,6 +649,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     private Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
+        final SecurityManager sm = System.getSecurityManager();
         final List<MBeanServer> servers = mBeanServers;
         synchronized (servers) {
             final Iterator<MBeanServer> it = servers.iterator();
@@ -655,22 +659,30 @@ public abstract class Xnio implements Closeable {
                 final List<Registration> registrations = new ArrayList<Registration>(servers.size());
                 do {
                     final MBeanServer server = it.next();
-                    AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                        public Void run() {
-                            try {
-                                final ObjectInstance instance = server.registerMBean(mBean, mBeanName);
-                                registrations.add(new Registration(server, instance.getObjectName()));
-                            } catch (JMException e) {
-                                mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
-                            } catch (RuntimeOperationsException e) {
-                                mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+                    if (sm != null) {
+                        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                            public Void run() {
+                                doRegister(mBean, mBeanName, registrations, server);
+                                return null;
                             }
-                            return null;
-                        }
-                    });
+                        });
+                    } else {
+                        doRegister(mBean, mBeanName, registrations, server);
+                    }
                 } while (it.hasNext());
                 return new RegHandle(registrations);
             }
+        }
+    }
+
+    private static void doRegister(final Object mBean, final ObjectName mBeanName, final List<Registration> registrations, final MBeanServer server) {
+        try {
+            final ObjectInstance instance = server.registerMBean(mBean, mBeanName);
+            registrations.add(new Registration(server, instance.getObjectName()));
+        } catch (JMException e) {
+            mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+        } catch (RuntimeOperationsException e) {
+            mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
         }
     }
 
@@ -851,22 +863,31 @@ public abstract class Xnio implements Closeable {
 
         public void close() throws IOException {
             if (open.getAndSet(false)) {
+                final SecurityManager sm = System.getSecurityManager();
                 for (final Registration registration : registrations) {
-                    AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                        public Void run() {
-                            final MBeanServer server = registration.server;
-                            final ObjectName mBeanName = registration.objectName;
-                            try {
-                                server.unregisterMBean(mBeanName);
-                            } catch (InstanceNotFoundException e) {
-                                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
-                            } catch (MBeanRegistrationException e) {
-                                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+                    if (sm != null) {
+                        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                            public Void run() {
+                                doUnregister(registration);
+                                return null;
                             }
-                            return null;
-                        }
-                    });
+                        });
+                    } else {
+                        doUnregister(registration);
+                    }
                 }
+            }
+        }
+
+        private static void doUnregister(final Registration registration) {
+            final MBeanServer server = registration.server;
+            final ObjectName mBeanName = registration.objectName;
+            try {
+                server.unregisterMBean(mBeanName);
+            } catch (InstanceNotFoundException e) {
+                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+            } catch (MBeanRegistrationException e) {
+                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
             }
         }
     }
