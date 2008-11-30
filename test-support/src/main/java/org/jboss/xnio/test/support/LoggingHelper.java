@@ -24,14 +24,15 @@ package org.jboss.xnio.test.support;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.io.PrintStream;
+import java.io.IOException;
 
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.logging.Handler;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
-import java.util.logging.StreamHandler;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
 
 /**
  *
@@ -49,7 +50,7 @@ public final class LoggingHelper {
                     for (Handler handler : handlers) {
                         rootLogger.removeHandler(handler);
                     }
-                    final Handler handler = new StreamHandler(new PrintStream(System.out, true), new Formatter() {
+                    final Formatter formatter = new Formatter() {
                         public String format(final LogRecord record) {
                             StringBuilder builder = new StringBuilder();
                             long offs = record.getMillis() - startTime;
@@ -76,9 +77,31 @@ public final class LoggingHelper {
                             builder.append('\n');
                             return builder.toString();
                         }
-                    });
+                    };
+                    final Handler handler = new ConsoleHandler() {
+                        @Override
+                        public void publish(final LogRecord record) {
+                            super.publish(record);
+                            flush();
+                        }
+                    };
+                    handler.setFormatter(formatter);
                     handler.setLevel(Level.ALL);
                     rootLogger.addHandler(handler);
+                    if (false) try {
+                        final FileHandler fileHandler = new FileHandler("test-output.log", true) {
+                            @Override
+                            public void publish(final LogRecord record) {
+                                super.publish(record);
+                                flush();
+                            }
+                        };
+                        fileHandler.setFormatter(formatter);
+                        fileHandler.setLevel(Level.ALL);
+                        rootLogger.addHandler(fileHandler);
+                    } catch (IOException e) {
+                        // oh well
+                    }
                     return null;
                 }
             });

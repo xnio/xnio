@@ -645,7 +645,7 @@ public abstract class Xnio implements Closeable {
      * @return a handle to deregister the registrations
      * @since 1.2
      */
-    protected Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
+    private Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
         final List<MBeanServer> servers = mBeanServers;
         synchronized (servers) {
             final Iterator<MBeanServer> it = servers.iterator();
@@ -654,15 +654,20 @@ public abstract class Xnio implements Closeable {
             } else {
                 final List<Registration> registrations = new ArrayList<Registration>(servers.size());
                 do {
-                    MBeanServer server = it.next();
-                    try {
-                        final ObjectInstance instance = server.registerMBean(mBean, mBeanName);
-                        registrations.add(new Registration(server, instance.getObjectName()));
-                    } catch (JMException e) {
-                        mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
-                    } catch (RuntimeOperationsException e) {
-                        mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
-                    }
+                    final MBeanServer server = it.next();
+                    AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                        public Void run() {
+                            try {
+                                final ObjectInstance instance = server.registerMBean(mBean, mBeanName);
+                                registrations.add(new Registration(server, instance.getObjectName()));
+                            } catch (JMException e) {
+                                mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+                            } catch (RuntimeOperationsException e) {
+                                mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+                            }
+                            return null;
+                        }
+                    });
                 } while (it.hasNext());
                 return new RegHandle(registrations);
             }
@@ -846,16 +851,21 @@ public abstract class Xnio implements Closeable {
 
         public void close() throws IOException {
             if (open.getAndSet(false)) {
-                for (Registration registration : registrations) {
-                    final MBeanServer server = registration.server;
-                    final ObjectName mBeanName = registration.objectName;
-                    try {
-                        server.unregisterMBean(mBeanName);
-                    } catch (InstanceNotFoundException e) {
-                        mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
-                    } catch (MBeanRegistrationException e) {
-                        mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
-                    }
+                for (final Registration registration : registrations) {
+                    AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                        public Void run() {
+                            final MBeanServer server = registration.server;
+                            final ObjectName mBeanName = registration.objectName;
+                            try {
+                                server.unregisterMBean(mBeanName);
+                            } catch (InstanceNotFoundException e) {
+                                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+                            } catch (MBeanRegistrationException e) {
+                                mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+                            }
+                            return null;
+                        }
+                    });
                 }
             }
         }

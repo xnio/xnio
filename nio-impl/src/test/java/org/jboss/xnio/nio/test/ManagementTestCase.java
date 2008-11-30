@@ -46,7 +46,7 @@ public class ManagementTestCase extends TestCase{
         LoggingHelper.init();
     }
     private static final int SERVER_PORT = 12345;
-    private static final Logger log = Logger.getLogger(ManagementTestCase.class);
+    private static final Logger log = Logger.getLogger("TEST");
     private static final byte[] TESTDATA = new byte[] {0,11,22,33,44,55,66,77};
 
     MBeanServer mBeanServer;
@@ -54,7 +54,7 @@ public class ManagementTestCase extends TestCase{
 
     @Override
     public void setUp() throws IOException {
-        mBeanServer = MBeanServerFactory.createMBeanServer("org.jboss.xnio");
+        mBeanServer = MBeanServerFactory.createMBeanServer("org.jboss.Xnio");
         xnio = Xnio.create();
     }
 

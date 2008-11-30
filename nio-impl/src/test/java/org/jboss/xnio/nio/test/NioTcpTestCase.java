@@ -65,7 +65,7 @@ public final class NioTcpTestCase extends TestCase {
         LoggingHelper.init();
     }
 
-    private static final Logger log = Logger.getLogger(NioTcpTestCase.class);
+    private static final Logger log = Logger.getLogger("TEST");
 
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 

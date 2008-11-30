@@ -329,7 +329,7 @@
         <echo message="${message}"/>
         <echo message="============================================="/>
         <mkdir dir="nio-impl/target/test-results"/>
-        <junit printsummary="true" fork="yes" includeantruntime="true">
+        <junit printsummary="true" fork="yes" includeantruntime="true" timeout="25000">
             <sysproperty key="build.home" value="${basedir}"/>
             <sysproperty key="ant.library.dir" value="${ant.home}/lib"/>
             <sysproperty key="lib.junit.local" value="${lib.junit.local}"/>

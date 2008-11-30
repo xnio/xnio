@@ -30,6 +30,7 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
@@ -51,6 +52,8 @@ public final class NioPipeTestCase extends TestCase {
     static {
         LoggingHelper.init();
     }
+
+    private static final Logger log = Logger.getLogger("TEST");
 
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 
