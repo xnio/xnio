@@ -31,6 +31,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import org.jboss.xnio.Buffers;
@@ -38,12 +40,15 @@ import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.CloseableExecutor;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.nio.NioXnio;
+import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
+import org.jboss.xnio.test.support.TestThreadFactory;
 
 /**
  *
@@ -53,7 +58,9 @@ public final class NioUdpTestCase extends TestCase {
     private static final InetSocketAddress SERVER_SOCKET_ADDRESS;
     private static final InetSocketAddress CLIENT_SOCKET_ADDRESS;
 
-    private static final Logger log = Logger.getLogger(NioUdpTestCase.class);
+    private static final Logger log = Logger.getLogger("TEST");
+
+    private final TestThreadFactory threadFactory = new TestThreadFactory();
 
     static {
         LoggingHelper.init();
@@ -66,12 +73,20 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doServerSideTest(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create();
+        final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
-            doServerSidePart(multicast, handler, body, xnio);
-            xnio.close();
+            final NioXnioConfiguration config = new NioXnioConfiguration();
+            config.setSelectorThreadFactory(threadFactory);
+            config.setExecutor(closeableExecutor);
+            final Xnio xnio = NioXnio.create(config);
+            try {
+                doServerSidePart(multicast, handler, body, xnio);
+                xnio.close();
+            } finally {
+                IoUtils.safeClose(xnio);
+            }
         } finally {
-            IoUtils.safeClose(xnio);
+            IoUtils.safeClose(closeableExecutor);
         }
     }
 
@@ -86,7 +101,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final ConfigurableFactory<BoundServer<SocketAddress,UdpChannel>> serverFactory = xnio.createUdpServer(multicast, IoUtils.singletonHandlerFactory(handler), bindAddress);
+        final ConfigurableFactory<BoundServer<SocketAddress,UdpChannel>> serverFactory = xnio.createUdpServer(multicast, IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)), bindAddress);
         final BoundServer<SocketAddress, UdpChannel> server = serverFactory.create();
         try {
             body.run();
@@ -97,20 +112,28 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final IoHandler<UdpChannel> serverHandler, final IoHandler<UdpChannel> clientHandler, final Runnable body) throws IOException {
-        final Xnio xnio = NioXnio.create();
+        final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
-            doServerSidePart(serverMulticast, serverHandler, new Runnable() {
-                public void run() {
-                    try {
-                        doClientSidePart(clientMulticast, clientHandler, body, xnio);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+            final NioXnioConfiguration config = new NioXnioConfiguration();
+            config.setSelectorThreadFactory(threadFactory);
+            config.setExecutor(closeableExecutor);
+            final Xnio xnio = NioXnio.create(config);
+            try {
+                doServerSidePart(serverMulticast, serverHandler, new Runnable() {
+                    public void run() {
+                        try {
+                            doClientSidePart(clientMulticast, clientHandler, body, xnio);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
-                }
-            }, xnio);
-            xnio.close();
+                }, xnio);
+                xnio.close();
+            } finally {
+                IoUtils.safeClose(xnio);
+            }
         } finally {
-            IoUtils.safeClose(xnio);
+            IoUtils.safeClose(closeableExecutor);
         }
     }
 
@@ -146,11 +169,13 @@ public final class NioUdpTestCase extends TestCase {
     public void testServerCreate() throws Exception {
         log.info("Test: testServerCreate");
         doServerCreate(false);
+        threadFactory.await();
     }
 
     public void testServerCreateMulticast() throws Exception {
         log.info("Test: testServerCreateMulticast");
         doServerCreate(true);
+        threadFactory.await();
     }
 
     private void doClientToServerTransmitTest(boolean clientMulticast, boolean serverMulticast) throws Exception {
@@ -173,12 +198,14 @@ public final class NioUdpTestCase extends TestCase {
                     final ByteBuffer buffer = ByteBuffer.allocate(50);
                     final MultipointReadResult<SocketAddress> result = channel.receive(buffer);
                     if (result == null) {
+                        log.info("Whoops, spurious read notification for %s", channel);
                         channel.resumeReads();
                         return;
                     }
                     try {
                         final byte[] testPayload = new byte[payload.length];
                         Buffers.flip(buffer).get(testPayload);
+                        log.info("We received the packet on %s", channel);
                         assertTrue(Arrays.equals(testPayload, payload));
                         assertFalse(buffer.hasRemaining());
                         assertNotNull(result.getSourceAddress());
@@ -224,9 +251,13 @@ public final class NioUdpTestCase extends TestCase {
             public void handleWritable(final UdpChannel channel) {
                 log.info("In handleWritable for %s", channel);
                 try {
-                    if (! channel.send(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
+                    if (clientOK.get()) {
+                        log.info("Extra writable notification on %s (?!)", channel);
+                    } else if (! channel.send(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
+                        log.info("Whoops, spurious write notification for %s", channel);
                         channel.resumeWrites();
                     } else {
+                        log.info("We sent the packet on %s", channel);
                         assertTrue(receivedLatch.await(500L, TimeUnit.MILLISECONDS));
                         channel.close();
                         clientOK.set(true);
@@ -259,21 +290,25 @@ public final class NioUdpTestCase extends TestCase {
     public void testClientToServerTransmitNioToNio() throws Exception {
         log.info("Test: testClientToServerTransmitNioToNio");
         doClientToServerTransmitTest(false, false);
+        threadFactory.await();
     }
 
     public void testClientToServerTransmitBioToNio() throws Exception {
         log.info("Test: testClientToServerTransmitBioToNio");
         doClientToServerTransmitTest(true, false);
+        threadFactory.await();
     }
 
     public void testClientToServerTransmitNioToBio() throws Exception {
         log.info("Test: testClientToServerTransmitNioToBio");
         doClientToServerTransmitTest(false, true);
+        threadFactory.await();
     }
 
     public void testClientToServerTransmitBioToBio() throws Exception {
         log.info("Test: testClientToServerTransmitBioToBio");
         doClientToServerTransmitTest(true, true);
+        threadFactory.await();
     }
     
     //TODO public void testJmxUdpProperties() throws Exception {}

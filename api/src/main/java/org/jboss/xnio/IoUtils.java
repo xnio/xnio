@@ -53,24 +53,30 @@ import java.util.logging.Handler;
 public final class IoUtils {
 
     private static final Executor NULL_EXECUTOR = new Executor() {
+        private final String string = String.format("null executor <%s>", Integer.toHexString(hashCode()));
+
         public void execute(final Runnable command) {
             // no operation
         }
 
         public String toString() {
-            return "null executor <" + Integer.toHexString(hashCode()) + ">";
+            return string;
         }
     };
     private static final Executor DIRECT_EXECUTOR = new Executor() {
+        private final String string = String.format("direct executor <%s>", Integer.toHexString(hashCode()));
+
         public void execute(final Runnable command) {
             command.run();
         }
 
         public String toString() {
-            return "direct executor <" + Integer.toHexString(hashCode()) + ">";
+            return string;
         }
     };
     private static final IoHandler<Channel> NULL_HANDLER = new IoHandler<Channel>() {
+        private final String string = String.format("null handler <%s>", Integer.toHexString(hashCode()));
+
         public void handleOpened(final Channel channel) {
         }
 
@@ -84,16 +90,28 @@ public final class IoUtils {
         }
 
         public String toString() {
-            return "null handler <" + Integer.toHexString(hashCode()) + ">";
+            return string;
         }
     };
     private static final IoHandlerFactory<Channel> NULL_HANDLER_FACTORY = new IoHandlerFactory<Channel>() {
+        private final String string = String.format("null handler factory <%s>", Integer.toHexString(hashCode()));
+
         public IoHandler<Channel> createHandler() {
             return NULL_HANDLER;
         }
 
         public String toString() {
-            return "null handler factory <" + Integer.toHexString(hashCode()) + ">";
+            return string;
+        }
+    };
+    private static final Closeable NULL_CLOSEABLE = new Closeable() {
+        private final String string = String.format("null closeable <%s>", Integer.toHexString(hashCode()));
+        public void close() throws IOException {
+            // no operation
+        }
+
+        public String toString() {
+            return string;
         }
     };
 
@@ -185,6 +203,16 @@ public final class IoUtils {
                 executorService.execute(command);
             }
         };
+    }
+
+    /**
+     * Get the null closeable.  This is a simple {@code Closeable} instance that does nothing when its {@code close()}
+     * method is invoked.
+     *
+     * @return the null closeable
+     */
+    public static Closeable nullCloseable() {
+        return NULL_CLOSEABLE;
     }
 
     /**

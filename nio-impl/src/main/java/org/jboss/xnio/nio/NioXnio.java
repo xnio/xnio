@@ -59,6 +59,8 @@ import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.log.Logger;
 
+import javax.management.ObjectName;
+
 /**
  * An NIO-based XNIO provider for a standalone application.
  */
@@ -87,8 +89,6 @@ public final class NioXnio extends Xnio {
      * @protectedby lock
      */
     private final Set<Closeable> managedSet = new HashSet<Closeable>();
-
-    private final String name;
 
     /**
      * Create an NIO-based XNIO provider.  The provided configuration is used to set up the provider.
@@ -190,6 +190,7 @@ public final class NioXnio extends Xnio {
     }
 
     private NioXnio(NioXnioConfiguration configuration) throws IOException {
+        super(configuration);
         ThreadFactory selectorThreadFactory = configuration.getSelectorThreadFactory();
         final Executor executor = configuration.getExecutor();
         final int readSelectorThreads = configuration.getReadSelectorThreads();
@@ -207,7 +208,6 @@ public final class NioXnio extends Xnio {
         if (connectSelectorThreads < 1) {
             throw new IllegalArgumentException("connectSelectorThreads must be >= 1");
         }
-        name = configuration.getName();
         synchronized (lock) {
             this.executor = executor == null ? IoUtils.directExecutor() : executor;
             for (int i = 0; i < readSelectorThreads; i ++) {
@@ -525,6 +525,14 @@ public final class NioXnio extends Xnio {
                 connectors.clear();
             }
         }
+    }
+
+    public String toString() {
+        return "NIO " + super.toString();
+    }
+
+    protected Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
+        return super.registerMBean(mBean, mBeanName);
     }
 
     private final AtomicInteger loadSequence = new AtomicInteger();

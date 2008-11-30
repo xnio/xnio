@@ -25,6 +25,12 @@ package org.jboss.xnio;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Collection;
 import java.net.SocketAddress;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -41,12 +47,23 @@ import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.log.Logger;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import javax.management.MBeanRegistrationException;
+import javax.management.JMException;
+import javax.management.RuntimeOperationsException;
+import javax.management.ObjectInstance;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanServerFactory;
+
 /**
  * The XNIO entry point class.
  *
  * @apiviz.landmark
  */
 public abstract class Xnio implements Closeable {
+
+    private static final Logger mlog = Logger.getLogger("org.jboss.xnio.management");
 
     static {
         Logger.getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
@@ -56,19 +73,22 @@ public abstract class Xnio implements Closeable {
     private static final String PROVIDER_CLASS;
     private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
 
+    private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction("xnio.provider", NIO_IMPL_CLASS_NAME);
+    private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction("xnio.agentid", null); 
+
     static {
         String providerClassName = NIO_IMPL_CLASS_NAME;
         try {
-            providerClassName = AccessController.doPrivileged(new PrivilegedAction<String>() {
-                public String run() {
-                    return System.getProperty("xnio.provider", NIO_IMPL_CLASS_NAME);
-                }
-            });
+            providerClassName = AccessController.doPrivileged(GET_PROVIDER_ACTION);
         } catch (Throwable t) {
             // ignored
         }
         PROVIDER_CLASS = providerClassName;
     }
+
+    private final List<MBeanServer> mBeanServers = new ArrayList<MBeanServer>();
+
+    private final String name;
 
     /**
      * Create an instance of the default XNIO provider.  The class name of this provider can be specified through the
@@ -122,10 +142,77 @@ public abstract class Xnio implements Closeable {
         return result;
     }
 
+    private static final AtomicInteger xnioSequence = new AtomicInteger(1);
+
     /**
      * Construct an XNIO provider instance.
      */
-    protected Xnio() {
+    protected Xnio(XnioConfiguration configuration) {
+        if (configuration == null) {
+            throw new NullPointerException("configuration is null");
+        }
+        final String name = configuration.getName();
+        final int seq = xnioSequence.getAndIncrement();
+        this.name = name != null ? name : String.format("%s-%d", getClass().getName(), Integer.valueOf(seq));
+        // Perform MBeanServer autodetection...
+        final List<MBeanServer> servers = mBeanServers;
+        synchronized (servers) {
+            final List<MBeanServer> confServers = configuration.getMBeanServers();
+            if (confServers != null) {
+                for (MBeanServer server : confServers) {
+                    if (server == null) {
+                        throw new NullPointerException("server in MBeanServer configuration list is null");
+                    }
+                    mlog.debug("Registered configured MBeanServer %s", server);
+                    servers.add(server);
+                }
+            } else {
+                final String agentidpropval;
+                try {
+                    agentidpropval = AccessController.doPrivileged(GET_AGENTID_ACTION);
+                } catch (SecurityException e) {
+                    // not allowed; leave mbean servers empty
+                    mlog.debug("Unable to read agentid property (%s); JMX features disabled", e);
+                    return;
+                }
+                if (agentidpropval == null || agentidpropval.length() == 0) {
+                    final Collection<? extends MBeanServer> fullList;
+                    try {
+                        fullList = AccessController.doPrivileged(new GetMBeanServersAction(null));
+                    } catch (SecurityException e) {
+                        mlog.debug("Unable to detect installed mbean servers (%s); JMX features disabled", e);
+                        return;
+                    }
+                    for (MBeanServer match : fullList) {
+                        mlog.debug("Registered MBeanServer %s", match);
+                        servers.add(match);
+                    }
+                } else {
+                    String[] agentids = agentidpropval.split(",");
+                    for (String agentid : agentids) {
+                        String properName = agentid.trim();
+                        if (properName.length() == 0) {
+                            continue;
+                        }
+                        Collection<? extends MBeanServer> matches;
+                        try {
+                            matches = AccessController.doPrivileged(new GetMBeanServersAction(properName));
+                        } catch (SecurityException e) {
+                            mlog.debug("Unable to locate any MBeanServer for ID \"%s\" (%s); skipping", properName, e);
+                            continue;
+                        }
+                        if (matches == null) {
+                            mlog.debug("Unable to locate any MBeanServer for ID \"%s\" (no matches); skipping", properName);
+                        } else {
+                            for (MBeanServer match : matches) {
+                                mlog.debug("Registered MBeanServer %s for ID \"%s\"", match, properName);
+                                servers.add(match);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -391,14 +478,13 @@ public abstract class Xnio implements Closeable {
      *
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
-     * @param bindAddresses the addresses to bind to
      *
      * @return a factory that can be used to configure the new stream server
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, String... bindAddresses) {
-        throw new UnsupportedOperationException("createStreamServer");
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
+        throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
@@ -407,14 +493,13 @@ public abstract class Xnio implements Closeable {
      * execute handler methods.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
-     * @param bindAddresses the addresses to bind to
      *
      * @return a factory that can be used to configure the new stream server
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory, String... bindAddresses) {
-        throw new UnsupportedOperationException("createStreamServer");
+    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+        throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
@@ -434,7 +519,119 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Get the name of this XNIO instance.
+     *
+     * @return the name
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Get a string representation of this XNIO instance.
+     *
+     * @return the string representation
+     */
+    public String toString() {
+        return String.format("XNIO provider \"%s\" <%s@%s>", getName(), getClass().getName(), Integer.toHexString(hashCode()));
+    }
+
+    /**
      * Close this XNIO provider.  Calling this method more than one time has no additional effect.
      */
     public abstract void close() throws IOException;
+
+    /**
+     * Register an MBean for this provider.
+     *
+     * @param mBean the mbean instance
+     * @param mBeanName the object name
+     * @return a handle to deregister the registrations
+     * @since 1.2
+     */
+    protected Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
+        final List<MBeanServer> servers = mBeanServers;
+        synchronized (servers) {
+            final Iterator<MBeanServer> it = servers.iterator();
+            if (!it.hasNext()) {
+                return IoUtils.nullCloseable();
+            } else {
+                final List<Registration> registrations = new ArrayList<Registration>(servers.size());
+                do {
+                    MBeanServer server = it.next();
+                    try {
+                        final ObjectInstance instance = server.registerMBean(mBean, mBeanName);
+                        registrations.add(new Registration(server, instance.getObjectName()));
+                    } catch (JMException e) {
+                        mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+                    } catch (RuntimeOperationsException e) {
+                        mlog.debug(e, "Failed to register mBean named \"%s\" on server %s", mBeanName, server);
+                    }
+                } while (it.hasNext());
+                return new RegHandle(registrations);
+            }
+        }
+    }
+
+    private static final class Registration {
+        private final MBeanServer server;
+        private final ObjectName objectName;
+
+        private Registration(final MBeanServer server, final ObjectName objectName) {
+            this.server = server;
+            this.objectName = objectName;
+        }
+    }
+
+    private static final class RegHandle implements Closeable {
+        private final List<Registration> registrations;
+        private final AtomicBoolean open = new AtomicBoolean(true);
+
+        private RegHandle(final List<Registration> registrations) {
+            this.registrations = registrations;
+        }
+
+        public void close() throws IOException {
+            if (open.getAndSet(false)) {
+                for (Registration registration : registrations) {
+                    final MBeanServer server = registration.server;
+                    final ObjectName mBeanName = registration.objectName;
+                    try {
+                        server.unregisterMBean(mBeanName);
+                    } catch (InstanceNotFoundException e) {
+                        mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+                    } catch (MBeanRegistrationException e) {
+                        mlog.debug(e, "Failed to unregister mBean named \"%s\" on server %s", mBeanName, server);
+                    }
+                }
+            }
+        }
+    }
+
+    private static final class GetMBeanServersAction implements PrivilegedAction<Collection<? extends MBeanServer>> {
+
+        private final String agentId;
+
+        public GetMBeanServersAction(final String agentId) {
+            this.agentId = agentId;
+        }
+
+        public Collection<? extends MBeanServer> run() {
+            return MBeanServerFactory.findMBeanServer(agentId);
+        }
+    }
+
+    private static final class GetPropertyAction implements PrivilegedAction<String> {
+        private final String propertyName;
+        private final String defaultValue;
+
+        private GetPropertyAction(final String propertyName, final String defaultValue) {
+            this.propertyName = propertyName;
+            this.defaultValue = defaultValue;
+        }
+
+        public String run() {
+            return System.getProperty(propertyName, defaultValue);
+        }
+    }
 }

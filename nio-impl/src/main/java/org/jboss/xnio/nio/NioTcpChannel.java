@@ -83,14 +83,15 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
             readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler());
             writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
         }
+        final MBean mbean;
         try {
-            final MBean mbean = new MBean();
-            ObjectName objectName = MBeanUtils.getObjectName(mbean.toString());
-            this.objectName = objectName;
-            MBeanUtils.registerMBean(mbean, objectName);
+            mbean = new MBean();
         } catch (NotCompliantMBeanException e) {
             throw new IOException("Failed to register channel mbean: " + e);
         }
+        ObjectName objectName = MBeanUtils.getObjectName(mbean.toString());
+        this.objectName = objectName;
+        nioXnio.registerMBean(mbean, objectName);
     }
 
     public long write(final ByteBuffer[] srcs, final int offset,

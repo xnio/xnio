@@ -458,12 +458,12 @@ public class BioDatagramChannelImpl implements UdpChannel {
                 for (;;) {
                     synchronized (writeLock) {
                         writable = true;
-                        if (enableWrite) {
-                            enableWrite = false;
-                            handlerExecutor.execute(writeHandlerTask);
-                        }
                         while (writable) {
-                            try {
+                            if (enableWrite) {
+                                enableWrite = false;
+                                handlerExecutor.execute(writeHandlerTask);
+                            }
+                            if (writable) try {
                                 writeLock.wait();
                             } catch (InterruptedException e) {
                                 return;

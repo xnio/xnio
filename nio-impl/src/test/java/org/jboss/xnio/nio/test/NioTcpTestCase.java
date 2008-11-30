@@ -55,6 +55,7 @@ import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
+import org.jboss.xnio.test.support.TestThreadFactory;
 
 /**
  *
@@ -66,16 +67,19 @@ public final class NioTcpTestCase extends TestCase {
 
     private static final Logger log = Logger.getLogger(NioTcpTestCase.class);
 
+    private final TestThreadFactory threadFactory = new TestThreadFactory();
+
     private static final int SERVER_PORT = 12345;
 
-    private static void doConnectionTest(final Runnable body, final IoHandler<? super TcpChannel> clientHandler, final IoHandler<? super TcpChannel> serverHandler) throws Exception {
+    private void doConnectionTest(final Runnable body, final IoHandler<? super TcpChannel> clientHandler, final IoHandler<? super TcpChannel> serverHandler) throws Exception {
         final NioXnioConfiguration conf = new NioXnioConfiguration();
+        conf.setSelectorThreadFactory(threadFactory);
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
         Xnio xnio = NioXnio.create(conf);
         try {
             final ConfigurableFactory<BoundServer<SocketAddress,BoundChannel<SocketAddress>>> serverFactory = xnio.createTcpServer(new IoHandlerFactory<TcpChannel>() {
                 public IoHandler<? super TcpChannel> createHandler() {
-                    return serverHandler;
+                    return new CatchingHandler<TcpChannel>(serverHandler, threadFactory);
                 }
             }, new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
             serverFactory.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
@@ -84,7 +88,7 @@ public final class NioTcpTestCase extends TestCase {
                 final ConfigurableFactory<CloseableTcpConnector> connectorFactory = xnio.createTcpConnector();
                 final CloseableTcpConnector connector = connectorFactory.create();
                 try {
-                    final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), clientHandler);
+                    final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingHandler<TcpChannel>(clientHandler, threadFactory));
                     final TcpChannel channel = ioFuture.get();
                     try {
                         body.run();
@@ -107,14 +111,17 @@ public final class NioTcpTestCase extends TestCase {
     }
 
     public void testTcpConnect() throws Exception {
+        threadFactory.clear();
         log.info("Test: testTcpConnect");
         doConnectionTest(new Runnable() {
             public void run() {
             }
         }, nullHandler(), nullHandler());
+        threadFactory.await();
     }
 
     public void testClientTcpClose() throws Exception {
+        threadFactory.clear();
         log.info("Test: testClientTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -186,9 +193,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
+        threadFactory.await();
     }
 
     public void testServerTcpClose() throws Exception {
+        threadFactory.clear();
         log.info("Test: testServerTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -259,9 +268,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
+        threadFactory.await();
     }
 
     public void testTwoWayTransfer() throws Exception {
+        threadFactory.clear();
         log.info("Test: testTwoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
@@ -371,9 +382,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertEquals(serverSent.get(), clientReceived.get());
         assertEquals(clientSent.get(), serverReceived.get());
+        threadFactory.await();
     }
 
     public void testClientTcpNastyClose() throws Exception {
+        threadFactory.clear();
         log.info("Test: testClientTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -442,9 +455,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
+        threadFactory.await();
     }
 
     public void testServerTcpNastyClose() throws Exception {
+        threadFactory.clear();
         log.info("Test: testServerTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -525,9 +540,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
+        threadFactory.await();
     }
 
     public void testAcceptor() throws Exception {
+        threadFactory.clear();
         log.info("Test: testAcceptor");
         final CountDownLatch readLatch = new CountDownLatch(2);
         final CountDownLatch closeLatch = new CountDownLatch(2);
@@ -681,5 +698,6 @@ public final class NioTcpTestCase extends TestCase {
         } finally {
             IoUtils.safeClose(xnio);
         }
+        threadFactory.await();
     }
 }

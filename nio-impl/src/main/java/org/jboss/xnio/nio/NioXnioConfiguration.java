@@ -24,19 +24,18 @@ package org.jboss.xnio.nio;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
+import org.jboss.xnio.XnioConfiguration;
 
 /**
  *
  */
-public final class NioXnioConfiguration {
+public final class NioXnioConfiguration extends XnioConfiguration {
     private int readSelectorThreads = 2;
     private int writeSelectorThreads = 1;
     private int connectSelectorThreads = 1;
 
     private Executor executor;
     private ThreadFactory selectorThreadFactory;
-
-    private String name;
 
     public int getReadSelectorThreads() {
         return readSelectorThreads;
@@ -76,13 +75,5 @@ public final class NioXnioConfiguration {
 
     public void setSelectorThreadFactory(final ThreadFactory selectorThreadFactory) {
         this.selectorThreadFactory = selectorThreadFactory;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(final String name) {
-        this.name = name;
     }
 }

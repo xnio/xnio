@@ -183,7 +183,6 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
                         socket.close();
                     }
                 });
-                channel.open();
                 boundChannels.add(channel);
                 executor.execute(new Runnable() {
                     public void run() {
@@ -192,6 +191,7 @@ public final class BioUdpServer implements BoundServer<SocketAddress, UdpChannel
                             if (! futureUdpChannel.done()) {
                                 IoUtils.safeClose(channel);
                             }
+                            channel.open();
                             log.trace("Successfully bound to %s on %s", address, BioUdpServer.this);
                         } catch (Throwable t) {
                             IoUtils.safeClose(socket);

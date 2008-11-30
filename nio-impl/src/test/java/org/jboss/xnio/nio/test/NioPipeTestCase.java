@@ -31,7 +31,9 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.nio.NioXnio;
+import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
+import org.jboss.xnio.test.support.TestThreadFactory;
 import static org.jboss.xnio.Buffers.flip;
 import static org.jboss.xnio.IoUtils.nullHandler;
 import java.util.concurrent.CountDownLatch;
@@ -50,10 +52,14 @@ public final class NioPipeTestCase extends TestCase {
         LoggingHelper.init();
     }
 
-    private static void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
-        Xnio xnio = NioXnio.create();
+    private final TestThreadFactory threadFactory = new TestThreadFactory();
+
+    private void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
+        final NioXnioConfiguration config = new NioXnioConfiguration();
+        config.setSelectorThreadFactory(threadFactory);
+        Xnio xnio = NioXnio.create(config);
         try {
-            final IoFuture<Closeable> future = xnio.createOneWayPipeConnection(sourceHandler, sinkHandler);
+            final IoFuture<Closeable> future = xnio.createOneWayPipeConnection(new CatchingHandler<StreamSourceChannel>(sourceHandler, threadFactory), new CatchingHandler<StreamSinkChannel>(sinkHandler, threadFactory));
             final Closeable closeable = future.get();
             try {
                 body.run();
@@ -65,10 +71,12 @@ public final class NioPipeTestCase extends TestCase {
         }
     }
 
-    private static void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
-        Xnio xnio = NioXnio.create();
+    private void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
+        final NioXnioConfiguration config = new NioXnioConfiguration();
+        config.setSelectorThreadFactory(threadFactory);
+        Xnio xnio = NioXnio.create(config);
         try {
-            final IoFuture<Closeable> future = xnio.createPipeConnection(leftHandler, rightHandler);
+            final IoFuture<Closeable> future = xnio.createPipeConnection(new CatchingHandler<StreamChannel>(leftHandler, threadFactory), new CatchingHandler<StreamChannel>(rightHandler, threadFactory));
             final Closeable closeable = future.get();
             try {
                 body.run();
@@ -81,20 +89,25 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testOneWayPipeConnect() throws Exception {
+        threadFactory.clear();
         doOneWayPipeTest(new Runnable() {
             public void run() {
             }
         }, nullHandler(), nullHandler());
+        threadFactory.await();
     }
 
     public void testTwoWayPipeConnect() throws Exception {
+        threadFactory.clear();
         doTwoWayPipeTest(new Runnable() {
             public void run() {
             }
         }, nullHandler(), nullHandler());
+        threadFactory.await();
     }
 
     public void testOneWayPipeSourceClose() throws Exception {
+        threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
         final AtomicBoolean sinkOK = new AtomicBoolean(false);
@@ -167,9 +180,11 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertTrue(sourceOK.get());
         assertTrue(sinkOK.get());
+        threadFactory.await();
     }
 
     public void testOneWayPipeSinkClose() throws Exception {
+        threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
         final AtomicBoolean sinkOK = new AtomicBoolean(false);
@@ -241,9 +256,11 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertTrue(sourceOK.get());
         assertTrue(sinkOK.get());
+        threadFactory.await();
     }
 
     public void testTwoWayPipeLeftClose() throws Exception {
+        threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean leftOK = new AtomicBoolean(false);
         final AtomicBoolean rightOK = new AtomicBoolean(false);
@@ -314,9 +331,11 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertTrue(leftOK.get());
         assertTrue(rightOK.get());
+        threadFactory.await();
     }
 
     public void testTwoWayTransfer() throws Exception {
+        threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger leftSent = new AtomicInteger(0);
         final AtomicInteger leftReceived = new AtomicInteger(0);
@@ -425,9 +444,11 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertEquals(rightSent.get(), leftReceived.get());
         assertEquals(leftSent.get(), rightReceived.get());
+        threadFactory.await();
     }
 
     public void testStopClosesBothSides() throws Exception {
+        threadFactory.clear();
         final AtomicBoolean leftOK = new AtomicBoolean(false);
         final AtomicBoolean rightOK = new AtomicBoolean(false);
         doTwoWayPipeTest(new Runnable() {
@@ -462,9 +483,11 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertTrue(leftOK.get());
         assertTrue(rightOK.get());
+        threadFactory.await();
     }
 
     public void testStopClosesBothSidesOneWay() throws Exception {
+        threadFactory.clear();
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
         final AtomicBoolean sinkOK = new AtomicBoolean(false);
         doOneWayPipeTest(new Runnable() {
@@ -499,5 +522,6 @@ public final class NioPipeTestCase extends TestCase {
         });
         assertTrue(sourceOK.get());
         assertTrue(sinkOK.get());
+        threadFactory.await();
     }
 }
