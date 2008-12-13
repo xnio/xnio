@@ -178,19 +178,19 @@ public final class NioPipeChannelImpl implements StreamChannel {
     }
 
     public void awaitReadable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, sourceChannel);
+        SelectorUtils.await(nioXnio, sourceChannel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, sourceChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, sourceChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public void awaitWritable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, sinkChannel);
+        SelectorUtils.await(nioXnio, sinkChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, sinkChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, sinkChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {

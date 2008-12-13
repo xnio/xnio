@@ -129,11 +129,11 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
     }
 
     public void awaitWritable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, channel);
+        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, channel, time, timeUnit);
+        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {

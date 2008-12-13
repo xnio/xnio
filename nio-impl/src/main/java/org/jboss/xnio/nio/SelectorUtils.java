@@ -24,9 +24,9 @@ package org.jboss.xnio.nio;
 
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.Selector;
+import java.nio.channels.SelectionKey;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.jboss.xnio.IoUtils;
 
 /**
  * TODO - maybe change to cache the selector
@@ -35,23 +35,25 @@ public final class SelectorUtils {
     private SelectorUtils() {
     }
 
-    public static void await(int op, SelectableChannel channel) throws IOException {
-        final Selector selector = Selector.open();
+    public static void await(NioXnio nioXnio, SelectableChannel channel, int op) throws IOException {
+        final Selector selector = nioXnio.getSelector();
         try {
-            channel.register(selector, op);
+            final SelectionKey selectionKey = channel.register(selector, op);
             selector.select();
+            selectionKey.interestOps(0);
         } finally {
-            IoUtils.safeClose(selector);
+            nioXnio.returnSelector(selector);
         }
     }
 
-    public static void await(int op, SelectableChannel channel, long time, TimeUnit unit) throws IOException {
-        final Selector selector = Selector.open();
+    public static void await(NioXnio nioXnio, SelectableChannel channel, int op, long time, TimeUnit unit) throws IOException {
+        final Selector selector = nioXnio.getSelector();
         try {
-            channel.register(selector, op);
+            final SelectionKey selectionKey = channel.register(selector, op);
             selector.select(unit.toMillis(time));
+            selectionKey.interestOps(0);
         } finally {
-            IoUtils.safeClose(selector);
+            nioXnio.returnSelector(selector);
         }
     }
 }

@@ -34,9 +34,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.LinkedList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.CloseableTcpAcceptor;
@@ -66,8 +69,6 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.log.Logger;
-
-import javax.management.ObjectName;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
@@ -204,6 +205,7 @@ public final class NioXnio extends Xnio {
         final int readSelectorThreads = configuration.getReadSelectorThreads();
         final int writeSelectorThreads = configuration.getWriteSelectorThreads();
         final int connectSelectorThreads = configuration.getConnectSelectorThreads();
+        final int selectorCacheSize = configuration.getSelectorCacheSize();
         if (selectorThreadFactory == null) {
             selectorThreadFactory = Executors.defaultThreadFactory();
         }
@@ -216,6 +218,10 @@ public final class NioXnio extends Xnio {
         if (connectSelectorThreads < 1) {
             throw new IllegalArgumentException("connectSelectorThreads must be >= 1");
         }
+        if (selectorCacheSize < 0) {
+            throw new IllegalArgumentException("selectorCacheSize must be >= 0");
+        }
+        this.selectorCacheSize = selectorCacheSize;
         synchronized (lock) {
             this.executor = executor == null ? IoUtils.directExecutor() : executor;
             for (int i = 0; i < readSelectorThreads; i ++) {
@@ -625,6 +631,34 @@ public final class NioXnio extends Xnio {
     void removeManaged(Closeable closeable) {
         synchronized (lock) {
             managedSet.remove(closeable);
+        }
+    }
+
+    private final int selectorCacheSize;
+    private final LinkedList<Selector> selectorCache = new LinkedList<Selector>();
+    private final Lock selectorCacheLock = new ReentrantLock();
+
+    Selector getSelector() throws IOException {
+        selectorCacheLock.lock();
+        try {
+            final Selector selector = selectorCache.pop();
+            return selector == null ? Selector.open() : selector;
+        } finally {
+            selectorCacheLock.unlock();
+        }
+    }
+
+    void returnSelector(final Selector selector) {
+        selectorCacheLock.lock();
+        try {
+            if (selectorCache.size() >= selectorCacheSize) {
+                IoUtils.safeClose(selector);
+            } else {
+                // keep frequently used selectors "hot"
+                selectorCache.push(selector);
+            }
+        } finally {
+            selectorCacheLock.unlock();
         }
     }
 

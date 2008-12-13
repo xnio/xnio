@@ -203,19 +203,19 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
     }
 
     public void awaitReadable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, datagramChannel);
+        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, datagramChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public void awaitWritable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, datagramChannel);
+        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, datagramChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {

@@ -200,19 +200,19 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public void awaitReadable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, socketChannel);
+        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, socketChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public void awaitWritable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, socketChannel);
+        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_WRITE, socketChannel, time, timeUnit);
+        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public SocketAddress getPeerAddress() {

@@ -111,11 +111,11 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
     }
 
     public void awaitReadable() throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, channel);
+        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(SelectionKey.OP_READ, channel, time, timeUnit);
+        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {

@@ -33,6 +33,7 @@ public final class NioXnioConfiguration extends XnioConfiguration {
     private int readSelectorThreads = 2;
     private int writeSelectorThreads = 1;
     private int connectSelectorThreads = 1;
+    private int selectorCacheSize = 30;
 
     private Executor executor;
     private ThreadFactory selectorThreadFactory;
@@ -75,5 +76,13 @@ public final class NioXnioConfiguration extends XnioConfiguration {
 
     public void setSelectorThreadFactory(final ThreadFactory selectorThreadFactory) {
         this.selectorThreadFactory = selectorThreadFactory;
+    }
+
+    public int getSelectorCacheSize() {
+        return selectorCacheSize;
+    }
+
+    public void setSelectorCacheSize(final int selectorCacheSize) {
+        this.selectorCacheSize = selectorCacheSize;
     }
 }
