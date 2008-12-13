@@ -1,17 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <deployment xmlns="urn:jboss:bean-deployer:2.0">
-    <bean name="JBossIODeployer" class="org.jboss.deployers.vfs.deployer.kernel.BeanMetaDataFactoryDeployer">
+
+    <threads xmlns="urn:jboss:threads:1.0">
+        <thread-group name="XnioThreadGroup" group-name="xnio"/>
+
+        <thread-group name="XnioSelectorThreadGroup" group-name="selector" parent="xnio"/>
+
+        <thread-factory name="XnioThreadFactory" group="XnioThreadGroup">
+            <interrupt-handler name="XnioThreadInterruptHandler"/>
+        </thread-factory>
+
+        <thread-factory name="XnioSelectorThreadFactory" group="XnioSelectorThreadGroup">
+            <interrupt-handler name="XnioThreadInterruptHandler"/>
+        </thread-factory>
+
+        <!-- HANDLER EXECUTOR - only ONE may be active -->
+
+        <!-- Uncomment this element to use a direct executor to handle notifications -->
+        <direct-executor name="XnioHandlerExecutor"/>
+
+        <!-- Uncomment this element to use a thread pool to handle notifications -->
+        <!--
+        <thread-pool-executor name="XnioHandlerExecutor" thread-factory="XnioThreadFactory">
+            <core-pool-size count="0"/>
+            <max-pool-size count="3" per-cpu="3"/>
+            <direct-queue/>
+            <reject-policy name="block"/>
+            <keepalive-time time="3" unit="minutes"/>
+        </thread-pool-executor>
+        -->
+    </threads>
+
+    <bean name="XnioMetaDataDeployer" class="org.jboss.deployers.vfs.deployer.kernel.BeanMetaDataFactoryDeployer">
         <constructor>
-            <parameter>org.jboss.xnio.metadata.DeploymentMetaData</parameter>
+            <parameter>org.jboss.xnio.metadata.XnioMetaData</parameter>
         </constructor>
     </bean>
 
-    <bean name="JBossIOParser" class="org.jboss.deployers.vfs.spi.deployer.SchemaResolverDeployer">
+    <bean name="XnioParserDeployer" class="org.jboss.deployers.vfs.spi.deployer.SchemaResolverDeployer">
         <constructor>
-            <parameter>org.jboss.xnio.metadata.DeploymentMetaData</parameter>
+            <parameter>org.jboss.xnio.metadata.XnioMetaData</parameter>
         </constructor>
-        <property name="name">jboss-io.xml</property>
+        <property name="name">jboss-xnio.xml</property>
         <property name="registerWithJBossXB">true</property>
+    </bean>
+
+    <bean mode="On Demand" name="XnioThreadInterrupHandler" class="org.jboss.xnio.deployer.XnioInterruptHandler"/>
+
+    <bean mode="On Demand" name="XnioProvider" class="org.jboss.xnio.Xnio">
+        <constructor factoryClass="org.jboss.xnio.nio.NioXnio" factoryMethod="create">
+            <parameter class="java.util.concurrent.Executor"><inject bean="XnioHandlerExecutor"/></parameter>
+            <parameter class="java.lang.ThreadFactory"><inject bean="XnioSelectorThreadFactory"/></parameter>
+            <parameter class="int">3</parameter>
+            <parameter class="int">1</parameter>
+            <parameter class="int">1</parameter>
+        </constructor>
     </bean>
 </deployment>

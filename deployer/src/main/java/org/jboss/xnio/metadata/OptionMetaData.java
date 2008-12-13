@@ -22,14 +22,42 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.XmlAttribute;
 
 /**
  *
  */
-public interface IoMetaData {
-    @XmlTransient
-    BeanMetaData getBeanMetaData(NamedBeanMetaData defaultExecutorBean, BeanMetaData nioCoreBean);
+@XmlType(name = "option")
+public final class OptionMetaData {
+    private String className;
+    private String fieldName;
+    private String value;
+
+    public String getClassName() {
+        return className;
+    }
+
+    @XmlAttribute(name = "class")
+    public void setClassName(final String className) {
+        this.className = className;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    @XmlAttribute(name = "field", required = true)
+    public void setFieldName(final String fieldName) {
+        this.fieldName = fieldName;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
+    @XmlAttribute(name = "value", required = true)
+    public void setValue(final String value) {
+        this.value = value;
+    }
 }

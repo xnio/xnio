@@ -640,14 +640,6 @@ public abstract class Xnio implements Closeable {
      */
     public abstract void close() throws IOException;
 
-    /**
-     * Register an MBean for this provider.
-     *
-     * @param mBean the mbean instance
-     * @param mBeanName the object name
-     * @return a handle to deregister the registrations
-     * @since 1.2
-     */
     private Closeable registerMBean(final Object mBean, final ObjectName mBeanName) {
         final SecurityManager sm = System.getSecurityManager();
         final List<MBeanServer> servers = mBeanServers;
@@ -712,6 +704,49 @@ public abstract class Xnio implements Closeable {
         return table;
     }
 
+    /**
+     * Get an XNIO property.  The property name must start with {@code "xnio."}.
+     *
+     * @param name the property name
+     * @return the property value, or {@code null} if it wasn't found
+     */
+    protected String getProperty(final String name) {
+        if (! name.startsWith("xnio.")) {
+            throw new SecurityException("Not allowed to read non-XNIO properties");
+        }
+        final SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            return AccessController.doPrivileged(new GetPropertyAction(name, null));
+        } else {
+            return System.getProperty(name);
+        }
+    }
+
+    /**
+     * Get an XNIO property.  The property name must start with {@code "xnio."}.
+     *
+     * @param name the property name
+     * @param defaultValue the default value
+     * @return the property value, or {@code defaultValue} if it wasn't found
+     */
+    protected String getProperty(final String name, final String defaultValue) {
+        if (! name.startsWith("xnio.")) {
+            throw new SecurityException("Not allowed to read non-XNIO properties");
+        }
+        final SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            return AccessController.doPrivileged(new GetPropertyAction(name, defaultValue));
+        } else {
+            return System.getProperty(name, defaultValue);
+        }
+    }
+
+    /**
+     * Register a TCP server MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final TcpServerMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -728,6 +763,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a TCP connection MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final TcpConnectionMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -746,6 +787,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a UDP server MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final UdpServerMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -761,6 +808,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a one-way pipe connection MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final OneWayPipeConnectionMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -777,6 +830,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a pipe connection MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final PipeConnectionMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -793,6 +852,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a pipe server MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final PipeServerMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -809,6 +874,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a pipe source server MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final PipeSourceServerMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
@@ -826,6 +897,12 @@ public abstract class Xnio implements Closeable {
         }
     }
 
+    /**
+     * Register a pipe sink server MBean.
+     *
+     * @param mBean the MBean
+     * @return a handle which may be used to unregister the MBean
+     */
     protected Closeable registerMBean(final PipeSinkServerMBean mBean) {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(

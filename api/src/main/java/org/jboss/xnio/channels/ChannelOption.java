@@ -64,4 +64,13 @@ public interface ChannelOption<T> extends Serializable {
      * @return the name of the option
      */
     String toString();
+
+    /**
+     * Get the value of the given string as the value type of this channel option, if possible.
+     *
+     * @param string the string representation of the value
+     * @return the value
+     * @throws IllegalArgumentException if the value is not valid for this option
+     */
+    T valueOf(String string) throws IllegalArgumentException;
 }

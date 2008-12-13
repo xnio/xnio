@@ -24,7 +24,6 @@ package org.jboss.xnio.metadata;
 
 import org.jboss.beans.metadata.spi.BeanMetaDataFactory;
 import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import org.jboss.xb.annotations.JBossXmlSchema;
 
 import javax.xml.bind.annotation.XmlType;
@@ -32,6 +31,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlNsForm;
+import javax.xml.bind.annotation.XmlAttribute;
 
 import java.io.Serializable;
 import java.util.List;
@@ -42,11 +42,11 @@ import java.util.ArrayList;
  */
 @XmlType(name = "xnio", namespace = "urn:jboss:xnio:1.0")
 @XmlRootElement(namespace = "urn:jboss:xnio:1.0", name = "xnio")
-@JBossXmlSchema(namespace = "urn:jboss:xnio:1.0", elementFormDefault = XmlNsForm.QUALIFIED)
-public final class DeploymentMetaData implements BeanMetaDataFactory, Serializable {
+@JBossXmlSchema(namespace = "urn:jboss:xnio:1.0", attributeFormDefault = XmlNsForm.UNQUALIFIED, elementFormDefault = XmlNsForm.QUALIFIED)
+public final class XnioMetaData implements BeanMetaDataFactory, Serializable {
     private static final long serialVersionUID = -1616974182990862225L;
 
-    private NamedBeanMetaData executorBean;
+    private String provider;
     private List<TcpServerMetaData> tcpServers = arrayList();
     private List<TcpConnectorMetaData> tcpConnectors = arrayList();
     private List<TcpClientMetaData> tcpClients = arrayList();
@@ -58,13 +58,13 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
         return new ArrayList<T>();
     }
 
-    public NamedBeanMetaData getExecutorBean() {
-        return executorBean;
+    public String getProvider() {
+        return provider;
     }
 
-    @XmlElement(name = "executor-bean")
-    public void setExecutorBean(final NamedBeanMetaData executorBean) {
-        this.executorBean = executorBean;
+    @XmlAttribute
+    public void setProvider(final String provider) {
+        this.provider = provider;
     }
 
     public List<TcpServerMetaData> getTcpServers() {
@@ -123,29 +123,10 @@ public final class DeploymentMetaData implements BeanMetaDataFactory, Serializab
 
     @XmlTransient
     public List<BeanMetaData> getBeans() {
-
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder("XnioProvider", Object.class.getName());
-        BeanMetaData nioCoreBeanMetaData = builder.getBeanMetaData();
-        final List<BeanMetaData> beans = new ArrayList<BeanMetaData>();
-        beans.add(nioCoreBeanMetaData);
-        for (IoMetaData metaData : tcpServers) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
+        final List<BeanMetaData> list = arrayList();
+        for (TcpServerMetaData tcpServer : tcpServers) {
+            list.addAll(XnioMetaDataHelper.add(provider, tcpServer));
         }
-        for (IoMetaData metaData : tcpConnectors) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
-        }
-        for (IoMetaData metaData : tcpClients) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
-        }
-        for (IoMetaData metaData : tcpConnections) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
-        }
-        for (IoMetaData metaData : udpServers) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
-        }
-        for (IoMetaData metaData : pipes) {
-            beans.add(metaData.getBeanMetaData(executorBean, nioCoreBeanMetaData));
-        }
-        return beans;
+        return list;
     }
 }

@@ -20,45 +20,17 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.metadata;
+package org.jboss.xnio.deployer;
 
-import java.net.SocketAddress;
-import java.net.InetSocketAddress;
-
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAttribute;
+import java.io.Closeable;
+import org.jboss.xnio.ConfigurableFactory;
 
 /**
  *
  */
-@XmlType(name = "bind-address", namespace = "urn:jboss:xnio:1.0")
-public final class BindAddressMetaData {
-    private String address;
-    private int port;
+public class SimpleController extends AbstractXnioController {
 
-    public String getAddress() {
-        return address;
-    }
-
-    @XmlAttribute
-    public void setAddress(final String address) {
-        this.address = address;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    @XmlAttribute
-    public void setPort(final int port) {
-        this.port = port;
-    }
-
-    public SocketAddress getSocketAddress() {
-        if (address == null) {
-            return new InetSocketAddress(port);
-        } else {
-            return new InetSocketAddress(address, port);
-        }
+    protected SimpleController(final ConfigurableFactory<? extends Closeable> factory) {
+        super(factory);
     }
 }

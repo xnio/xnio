@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<classloading name="xnio-api" version="${version}" xmlns="urn:jboss:classloading:1.0">
+<classloading name="xnio-api-classloader" version="${version}" xmlns="urn:jboss:classloading:1.0">
     <capabilities>
+        <module name="xnio-api" version="${version}"/> 
         <package name="org.jboss.xnio" version="${version}"/>
         <package name="org.jboss.xnio.management" version="${version}"/>
         <package name="org.jboss.xnio.channels" version="${version}"/>

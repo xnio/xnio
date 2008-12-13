@@ -112,4 +112,18 @@ public class PlainChannelOption<T> implements ChannelOption<T> {
         builder.append(" (").append(super.toString()).append(')');
         return builder.toString();
     }
+
+    /** {@inheritDoc} */
+    public T valueOf(final String string) throws IllegalArgumentException {
+        final Class<T> type = this.type;
+        if (type == Boolean.class) {
+            return type.cast(Boolean.valueOf(string));
+        } else if (type == Integer.class) {
+            return type.cast(Integer.valueOf(string));
+        } else if (type == String.class) {
+            return type.cast(string);
+        } else {
+            throw new IllegalArgumentException("Unknown type " + type.getName());
+        }
+    }
 }

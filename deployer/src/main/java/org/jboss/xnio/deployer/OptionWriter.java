@@ -20,45 +20,21 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.metadata;
-
-import java.net.SocketAddress;
-import java.net.InetSocketAddress;
-
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAttribute;
+package org.jboss.xnio.deployer;
 
 /**
  *
  */
-@XmlType(name = "bind-address", namespace = "urn:jboss:xnio:1.0")
-public final class BindAddressMetaData {
-    private String address;
-    private int port;
+public final class OptionWriter {
+    private final String className;
+    private final String fieldName;
+    private final String value;
 
-    public String getAddress() {
-        return address;
+    public OptionWriter(final String className, final String fieldName, final String value) {
+        this.className = className;
+        this.fieldName = fieldName;
+        this.value = value;
     }
 
-    @XmlAttribute
-    public void setAddress(final String address) {
-        this.address = address;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    @XmlAttribute
-    public void setPort(final int port) {
-        this.port = port;
-    }
-
-    public SocketAddress getSocketAddress() {
-        if (address == null) {
-            return new InetSocketAddress(port);
-        } else {
-            return new InetSocketAddress(address, port);
-        }
-    }
+    
 }
