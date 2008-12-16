@@ -22,18 +22,15 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
  */
 @XmlType(name = "one-way-pipe", namespace = "urn:jboss:io:1.0")
-public final class OneWayPipeMetaData implements IoMetaData {
+public final class OneWayPipeMetaData {
 
     private NamedBeanMetaData executorBean;
     private PipeEndMetaData sourceEnd;
@@ -74,28 +71,5 @@ public final class OneWayPipeMetaData implements IoMetaData {
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Object.class.getName());
-        builder.setFactory(providerBean);
-        builder.setFactoryMethod("createPipe");
-        final NamedBeanMetaData pipeExecutorBean = executorBean;
-        if (pipeExecutorBean != null) builder.addPropertyMetaData("executor", pipeExecutorBean.getName());
-        final BeanMetaData pipeBeanMetaData = builder.getBeanMetaData();
-
-        final BeanMetaDataBuilder sourceBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
-        sourceBuilder.setFactory(pipeBeanMetaData);
-        sourceBuilder.setFactoryMethod("getSourceEnd");
-        final NamedBeanMetaData sourceExecutorBean = sourceEnd.getExecutorBean();
-        if (sourceExecutorBean != null) sourceBuilder.addPropertyMetaData("executor", sourceExecutorBean.getName());
-
-        final BeanMetaDataBuilder sinkBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
-        sinkBuilder.setFactory(pipeBeanMetaData);
-        sinkBuilder.setFactoryMethod("getSinkEnd");
-        final NamedBeanMetaData sinkExecutorBean = sinkEnd.getExecutorBean();
-        if (sinkExecutorBean != null) sinkBuilder.addPropertyMetaData("executor", sinkExecutorBean.getName());
-
-        return pipeBeanMetaData;
     }
 }

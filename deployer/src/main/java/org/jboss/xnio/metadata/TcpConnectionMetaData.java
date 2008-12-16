@@ -22,21 +22,17 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.helpers.ConnectionHelper;
 import java.io.Serializable;
 
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
  */
 @XmlType(name = "tcp-connection", namespace = "urn:jboss:io:1.0")
-public final class TcpConnectionMetaData implements IoMetaData, Serializable {
+public final class TcpConnectionMetaData implements Serializable {
 
     private static final long serialVersionUID = 2101881740511543307L;
 
@@ -109,16 +105,5 @@ public final class TcpConnectionMetaData implements IoMetaData, Serializable {
     @XmlAttribute(name = "reconnect-interval")
     public void setReconnectInterval(final int reconnectInterval) {
         this.reconnectInterval = reconnectInterval;
-    }
-
-    @XmlTransient
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, ConnectionHelper.class.getName());
-        if (tcpClientBean != null) builder.addPropertyMetaData("client", builder.createInject(tcpClientBean.getName()));
-        if (tcpClientMetaData != null) builder.addPropertyMetaData("client", tcpClientMetaData.getBeanMetaData(executorBean, providerBean));
-        builder.addPropertyMetaData("handler", builder.createInject(handlerBean.getName()));
-        builder.addPropertyMetaData("reconnectTime", Integer.valueOf(reconnectInterval));
-        if (scheduledExecutorBean != null) builder.addPropertyMetaData("scheduledExecutor", builder.createInject(scheduledExecutorBean.getName()));
-        return builder.getBeanMetaData();
     }
 }

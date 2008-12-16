@@ -22,13 +22,12 @@
 
 package org.jboss.xnio.metadata;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import org.jboss.xnio.ConnectionAddress;
 
-import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlAttribute;
-
-import java.net.SocketAddress;
-import java.net.InetSocketAddress;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *

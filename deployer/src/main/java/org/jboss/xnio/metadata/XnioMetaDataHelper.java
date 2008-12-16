@@ -22,14 +22,14 @@
 
 package org.jboss.xnio.metadata;
 
-import java.util.List;
-import java.util.Collections;
 import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.List;
 import org.jboss.beans.metadata.spi.BeanMetaData;
 import org.jboss.beans.metadata.spi.ValueMetaData;
 import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.deployer.SimpleController;
 import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.deployer.SimpleController;
 
 /**
  *

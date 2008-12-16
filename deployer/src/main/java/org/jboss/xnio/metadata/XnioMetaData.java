@@ -22,20 +22,19 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaDataFactory;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import org.jboss.beans.metadata.spi.BeanMetaData;
+import org.jboss.beans.metadata.spi.BeanMetaDataFactory;
 import org.jboss.xb.annotations.JBossXmlSchema;
 
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlTransient;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlNsForm;
 import javax.xml.bind.annotation.XmlAttribute;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.ArrayList;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlNsForm;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *

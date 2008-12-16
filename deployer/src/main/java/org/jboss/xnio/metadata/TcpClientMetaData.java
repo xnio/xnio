@@ -22,22 +22,17 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import org.jboss.xnio.ConnectionAddress;
-import org.jboss.xnio.ChannelSource;
 import java.io.Serializable;
 
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
  */
 @XmlType(name = "tcp-client", namespace = "urn:jboss:io:1.0")
-public final class TcpClientMetaData implements IoMetaData, Serializable {
+public final class TcpClientMetaData implements Serializable {
 
     private static final long serialVersionUID = 2101881740511543307L;
 
@@ -80,19 +75,5 @@ public final class TcpClientMetaData implements IoMetaData, Serializable {
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    @XmlTransient
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData nioCoreBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, ChannelSource.class.getName());
-        if (tcpConnectorBean != null) builder.addPropertyMetaData("connector", builder.createInject(tcpConnectorBean.getName()));
-        if (tcpConnectorMetaData != null) builder.addPropertyMetaData("connector", tcpConnectorMetaData.getBeanMetaData(defaultExecutorBean, nioCoreBean));
-        final int addressCount = connectAddresses.length;
-        ConnectionAddress[] connectionAddresses = new ConnectionAddress[addressCount];
-        for (int i = 0; i < addressCount; i ++) {
-            connectionAddresses[i] = connectAddresses[i].getConnectionAddress();
-        }
-        builder.addPropertyMetaData("addresses", connectionAddresses);
-        return builder.getBeanMetaData();
     }
 }

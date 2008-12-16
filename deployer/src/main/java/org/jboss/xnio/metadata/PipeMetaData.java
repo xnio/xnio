@@ -22,18 +22,15 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
  */
 @XmlType(name = "pipe", namespace = "urn:jboss:io:1.0")
-public final class PipeMetaData implements IoMetaData {
+public final class PipeMetaData {
 
     private NamedBeanMetaData executorBean;
     private PipeEndMetaData leftEnd;
@@ -74,28 +71,5 @@ public final class PipeMetaData implements IoMetaData {
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Object.class.getName());
-        builder.setFactory(providerBean);
-        builder.setFactoryMethod("createPipe");
-        final NamedBeanMetaData pipeExecutorBean = executorBean;
-        if (pipeExecutorBean != null) builder.addPropertyMetaData("executor", pipeExecutorBean.getName());
-        final BeanMetaData pipeBeanMetaData = builder.getBeanMetaData();
-
-        final BeanMetaDataBuilder leftBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
-        leftBuilder.setFactory(pipeBeanMetaData);
-        leftBuilder.setFactoryMethod("getLeftEnd");
-        final NamedBeanMetaData leftExecutorBean = leftEnd.getExecutorBean();
-        if (leftExecutorBean != null) leftBuilder.addPropertyMetaData("executor", leftExecutorBean.getName());
-
-        final BeanMetaDataBuilder rightBuilder = BeanMetaDataBuilder.createBuilder(Object.class.getName());
-        rightBuilder.setFactory(pipeBeanMetaData);
-        rightBuilder.setFactoryMethod("getRightEnd");
-        final NamedBeanMetaData rightExecutorBean = rightEnd.getExecutorBean();
-        if (rightExecutorBean != null) rightBuilder.addPropertyMetaData("executor", rightExecutorBean.getName());
-
-        return pipeBeanMetaData;
     }
 }

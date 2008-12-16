@@ -22,17 +22,13 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import java.io.Serializable;
-import java.util.List;
 import java.util.ArrayList;
-import java.net.SocketAddress;
+import java.util.List;
 
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
@@ -85,9 +81,5 @@ public final class TcpServerMetaData extends AbstractConfigurableMetaData implem
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    @XmlTransient
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
     }
 }

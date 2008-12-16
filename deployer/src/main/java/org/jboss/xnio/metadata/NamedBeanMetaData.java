@@ -24,8 +24,8 @@ package org.jboss.xnio.metadata;
 
 import java.io.Serializable;
 
-import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *

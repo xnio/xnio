@@ -22,21 +22,22 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
-import java.util.List;
+import java.io.Serializable;
 import java.util.ArrayList;
-import java.net.SocketAddress;
+import java.util.List;
 
+import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAttribute;
 
 /**
  *
  */
 @XmlType(name = "upd-server", namespace = "urn:jboss:io:1.0")
-public final class UdpServerMetaData implements IoMetaData {
+public final class UdpServerMetaData implements Serializable {
+
+    private static final long serialVersionUID = -5985650641647590499L;
+
     private List<BindAddressMetaData> bindAddresses = arrayList();
     private NamedBeanMetaData handlerFactoryBean;
     private NamedBeanMetaData executorBean;
@@ -140,31 +141,5 @@ public final class UdpServerMetaData implements IoMetaData {
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        final BeanMetaDataBuilder builder;
-        builder = BeanMetaDataBuilder.createBuilder(name, Object.class.getName());
-        builder.setFactory(providerBean);
-        if (multicast != null && multicast.booleanValue()) {
-            builder.setFactoryMethod("createUdpServer");
-        } else {
-            builder.setFactoryMethod("createMulticastUdpServer");
-        }
-        final int bindCount = bindAddresses.size();
-        SocketAddress[] addresses = new SocketAddress[bindCount];
-        int i = 0;
-        for (BindAddressMetaData metaData : bindAddresses) {
-            addresses[i++] = metaData.getSocketAddress();
-        }
-        builder.addPropertyMetaData("bindAddresses", addresses);
-        builder.addPropertyMetaData("handlerFactory", builder.createInject(handlerFactoryBean.getName()));
-        if (executorBean != null) builder.addPropertyMetaData("executor", builder.createInject(executorBean.getName()));
-        if (receiveBufferSize != null) builder.addPropertyMetaData("receiveBufferSize", receiveBufferSize);
-        if (reuseAddress != null) builder.addPropertyMetaData("reuseAddress", reuseAddress);
-        if (sendBufferSize != null) builder.addPropertyMetaData("sendBufferSize", sendBufferSize);
-        if (trafficClass != null) builder.addPropertyMetaData("trafficClass", trafficClass);
-        if (broadcast != null) builder.addPropertyMetaData("broadcast", broadcast);
-        return builder.getBeanMetaData();
     }
 }

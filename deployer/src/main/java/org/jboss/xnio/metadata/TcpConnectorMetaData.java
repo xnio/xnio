@@ -22,20 +22,17 @@
 
 package org.jboss.xnio.metadata;
 
-import org.jboss.beans.metadata.spi.BeanMetaData;
-import org.jboss.beans.metadata.spi.builder.BeanMetaDataBuilder;
 import java.io.Serializable;
 
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
 
 /**
  *
  */
 @XmlType(name = "tcp-connector", namespace = "urn:jboss:io:1.0")
-public final class TcpConnectorMetaData implements IoMetaData, Serializable {
+public final class TcpConnectorMetaData implements Serializable {
 
     private static final long serialVersionUID = 2101881740511543307L;
 
@@ -124,21 +121,5 @@ public final class TcpConnectorMetaData implements IoMetaData, Serializable {
     @XmlAttribute(name = "name")
     public void setName(final String name) {
         this.name = name;
-    }
-
-    @XmlTransient
-    public BeanMetaData getBeanMetaData(final NamedBeanMetaData defaultExecutorBean, final BeanMetaData providerBean) {
-        BeanMetaDataBuilder builder = BeanMetaDataBuilder.createBuilder(name, Object.class.getName());
-        builder.setFactory(providerBean);
-        builder.setFactoryMethod("createTcpConnector");
-        if (executorBean != null) builder.addPropertyMetaData("executor", builder.createInject(executorBean.getName()));
-        if (keepAlive != null) builder.addPropertyMetaData("keepAlive", keepAlive);
-        if (oobInline != null) builder.addPropertyMetaData("oobInline", oobInline);
-        if (receiveBufferSize != null) builder.addPropertyMetaData("receiveBufferSize", receiveBufferSize);
-        if (reuseAddress != null) builder.addPropertyMetaData("reuseAddress", reuseAddress);
-        if (sendBufferSize != null) builder.addPropertyMetaData("sendBufferSize", sendBufferSize);
-        if (tcpNoDelay != null) builder.addPropertyMetaData("tcpNoDelay", tcpNoDelay);
-        if (connectTimeout != null) builder.addPropertyMetaData("connectTimeout", connectTimeout);
-        return builder.getBeanMetaData();
     }
 }
