@@ -281,6 +281,8 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
         }
 
         public ByteBuffer receive() throws IOException {
+            final ByteBuffer readLengthBuf = AllocatedMessageChannelStreamChannelHandler.this.readLengthBuf;
+            final StreamChannel streamChannel = this.streamChannel;
             synchronized (readLock) {
                 for (;;) switch (readState) {
                     case EOF: {
@@ -288,11 +290,12 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                     }
                     case DRAIN: {
                         while (drainCnt > 0L) {
-                            readBuffer.clear();
-                            if ((long)readBuffer.limit() > drainCnt) {
-                                readBuffer.limit((int)drainCnt);
+                            final ByteBuffer ourReadBuffer = readBuffer;
+                            ourReadBuffer.clear();
+                            if ((long) ourReadBuffer.limit() > drainCnt) {
+                                ourReadBuffer.limit((int)drainCnt);
                             }
-                            final int cnt = streamChannel.read(readBuffer);
+                            final int cnt = streamChannel.read(ourReadBuffer);
                             if (cnt == -1) {
                                 readState = ReadState.EOF;
                                 readBuffer = null;
@@ -321,6 +324,7 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                             log.trace("Received oversized message (%d), draining", Integer.valueOf(len));
                             readState = ReadState.DRAIN;
                             drainCnt = (long)len & 0xFFFFFFFFL;
+                            readBuffer = ByteBuffer.allocate(maxInboundMessageSize);
                             break;
                         }
                         readBuffer = ByteBuffer.allocate(len);
@@ -328,8 +332,9 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                         // fall thru
                     }
                     case BODY: {
-                        while (readBuffer.hasRemaining()) {
-                            final int c = streamChannel.read(readBuffer);
+                        final ByteBuffer ourReadBuffer = readBuffer;
+                        while (ourReadBuffer.hasRemaining()) {
+                            final int c = streamChannel.read(ourReadBuffer);
                             if (c == -1) {
                                 readState = ReadState.EOF;
                                 readBuffer = null;
@@ -338,9 +343,9 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
                                 return EMPTY_BUFFER;
                             }
                         }
-                        readBuffer.flip();
+                        ourReadBuffer.flip();
                         try {
-                            return readBuffer;
+                            return ourReadBuffer;
                         } finally {
                             readBuffer = null;
                             readState = ReadState.LENGTH;
