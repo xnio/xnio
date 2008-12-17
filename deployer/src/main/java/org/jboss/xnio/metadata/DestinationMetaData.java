@@ -28,7 +28,7 @@ import javax.xml.bind.annotation.XmlElement;
 /**
  *
  */
-@XmlType(name = "tcp-client")
+@XmlType(name = "destination")
 public final class DestinationMetaData {
     private InetSocketAddressMetaData bindAddress;
     private InetSocketAddressMetaData connectAddress;
