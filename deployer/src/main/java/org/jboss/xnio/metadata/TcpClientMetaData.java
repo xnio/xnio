@@ -23,6 +23,7 @@
 package org.jboss.xnio.metadata;
 
 import java.io.Serializable;
+import java.util.List;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -31,21 +32,21 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "tcp-client", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "tcp-client")
 public final class TcpClientMetaData implements Serializable {
 
     private static final long serialVersionUID = 2101881740511543307L;
 
     private NamedBeanMetaData tcpConnectorBean;
     private TcpConnectorMetaData tcpConnectorMetaData;
-    private ConnectAddressMetaData[] connectAddresses = new ConnectAddressMetaData[0];
+    private List<DestinationMetaData> destinations;
     private String name;
 
     public NamedBeanMetaData getTcpConnectorBean() {
         return tcpConnectorBean;
     }
 
-    @XmlElement(name = "tcp-connector-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "tcp-connector-bean")
     public void setTcpConnectorBean(final NamedBeanMetaData tcpConnectorBean) {
         this.tcpConnectorBean = tcpConnectorBean;
     }
@@ -54,25 +55,25 @@ public final class TcpClientMetaData implements Serializable {
         return tcpConnectorMetaData;
     }
 
-    @XmlElement(name = "tcp-connector", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "tcp-connector")
     public void setTcpConnectorMetaData(final TcpConnectorMetaData tcpConnectorMetaData) {
         this.tcpConnectorMetaData = tcpConnectorMetaData;
     }
 
-    public ConnectAddressMetaData[] getConnectAddresses() {
-        return connectAddresses;
+    public List<DestinationMetaData> getDestinations() {
+        return destinations;
     }
 
-    @XmlElement(name = "connect-address", namespace = "urn:jboss:io:1.0")
-    public void setConnectAddresses(final ConnectAddressMetaData[] connectAddresses) {
-        this.connectAddresses = connectAddresses;
+    @XmlElement(name = "destination", required = true)
+    public void setDestinations(final List<DestinationMetaData> destinations) {
+        this.destinations = destinations;
     }
 
     public String getName() {
         return name;
     }
 
-    @XmlAttribute(name = "name")
+    @XmlAttribute(name = "name", required = true)
     public void setName(final String name) {
         this.name = name;
     }

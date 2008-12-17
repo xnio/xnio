@@ -31,7 +31,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "tcp-connection", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "tcp-connection")
 public final class TcpConnectionMetaData implements Serializable {
 
     private static final long serialVersionUID = 2101881740511543307L;
@@ -48,7 +48,7 @@ public final class TcpConnectionMetaData implements Serializable {
         return handlerBean;
     }
 
-    @XmlElement(name = "handler-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "handler-bean")
     public void setHandlerBean(final NamedBeanMetaData handlerBean) {
         this.handlerBean = handlerBean;
     }
@@ -57,7 +57,7 @@ public final class TcpConnectionMetaData implements Serializable {
         return tcpClientBean;
     }
 
-    @XmlElement(name = "tcp-client-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "tcp-client-bean")
     public void setTcpClientBean(final NamedBeanMetaData tcpClientBean) {
         this.tcpClientBean = tcpClientBean;
     }
@@ -66,7 +66,7 @@ public final class TcpConnectionMetaData implements Serializable {
         return tcpClientMetaData;
     }
 
-    @XmlElement(name = "tcp-client", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "tcp-client")
     public void setTcpClientMetaData(final TcpClientMetaData tcpClientMetaData) {
         this.tcpClientMetaData = tcpClientMetaData;
     }
@@ -75,7 +75,7 @@ public final class TcpConnectionMetaData implements Serializable {
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean")
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
     }
@@ -93,7 +93,7 @@ public final class TcpConnectionMetaData implements Serializable {
         return scheduledExecutorBean;
     }
 
-    @XmlElement(name = "scheduled-executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "scheduled-executor-bean")
     public void setScheduledExecutorBean(final NamedBeanMetaData scheduledExecutorBean) {
         this.scheduledExecutorBean = scheduledExecutorBean;
     }

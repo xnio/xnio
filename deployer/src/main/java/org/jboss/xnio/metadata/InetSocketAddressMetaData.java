@@ -24,7 +24,6 @@ package org.jboss.xnio.metadata;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import org.jboss.xnio.ConnectionAddress;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlType;
@@ -32,12 +31,10 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "connect-address", namespace = "urn:jboss:io:1.0")
-public final class ConnectAddressMetaData {
+@XmlType(name = "inet-socket-address")
+public final class InetSocketAddressMetaData {
     private String address;
     private int port;
-    private String bindAddress;
-    private int bindPort;
 
     public String getAddress() {
         return address;
@@ -57,37 +54,11 @@ public final class ConnectAddressMetaData {
         this.port = port;
     }
 
-    public String getBindAddress() {
-        return bindAddress;
-    }
-
-    @XmlAttribute(name = "bind-address")
-    public void setBindAddress(final String bindAddress) {
-        this.bindAddress = bindAddress;
-    }
-
-    public int getBindPort() {
-        return bindPort;
-    }
-
-    @XmlAttribute(name = "bind-port")
-    public void setBindPort(final int bindPort) {
-        this.bindPort = bindPort;
-    }
-
-    public ConnectionAddress<SocketAddress> getConnectionAddress() {
-        SocketAddress connectSocketAddress;
+    public SocketAddress getSocketAddress() {
         if (address == null) {
-            connectSocketAddress = new InetSocketAddress(port);
+            return new InetSocketAddress(port);
         } else {
-            connectSocketAddress = new InetSocketAddress(address, port);
+            return new InetSocketAddress(address, port);
         }
-        SocketAddress bindSocketAddress;
-        if (bindAddress == null) {
-            bindSocketAddress = new InetSocketAddress(bindPort);
-        } else {
-            bindSocketAddress = new InetSocketAddress(bindAddress, bindPort);
-        }
-        return new ConnectionAddress<SocketAddress>(bindSocketAddress, connectSocketAddress);
     }
 }

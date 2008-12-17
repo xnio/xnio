@@ -28,7 +28,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "pipe-end", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "pipe-end")
 public final class PipeEndMetaData {
     private NamedBeanMetaData executorBean;
     private NamedBeanMetaData handlerBean;
@@ -46,7 +46,7 @@ public final class PipeEndMetaData {
         return handlerBean;
     }
 
-    @XmlElement(name = "handler-bean")
+    @XmlElement(name = "handler-bean", required = true)
     public void setHandlerBean(final NamedBeanMetaData handlerBean) {
         this.handlerBean = handlerBean;
     }

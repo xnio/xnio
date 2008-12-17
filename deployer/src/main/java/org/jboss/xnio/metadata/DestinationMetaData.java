@@ -22,43 +22,32 @@
 
 package org.jboss.xnio.metadata;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-
-import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.XmlElement;
 
 /**
  *
  */
-@XmlType(name = "bind-address", namespace = "urn:jboss:xnio:1.0")
-public final class BindAddressMetaData {
-    private String address;
-    private int port;
+@XmlType(name = "tcp-client")
+public final class DestinationMetaData {
+    private InetSocketAddressMetaData bindAddress;
+    private InetSocketAddressMetaData connectAddress;
 
-    public String getAddress() {
-        return address;
+    public InetSocketAddressMetaData getBindAddress() {
+        return bindAddress;
     }
 
-    @XmlAttribute
-    public void setAddress(final String address) {
-        this.address = address;
+    @XmlElement(name = "bind-address")
+    public void setBindAddress(final InetSocketAddressMetaData bindAddress) {
+        this.bindAddress = bindAddress;
     }
 
-    public int getPort() {
-        return port;
+    public InetSocketAddressMetaData getConnectAddress() {
+        return connectAddress;
     }
 
-    @XmlAttribute
-    public void setPort(final int port) {
-        this.port = port;
-    }
-
-    public SocketAddress getSocketAddress() {
-        if (address == null) {
-            return new InetSocketAddress(port);
-        } else {
-            return new InetSocketAddress(address, port);
-        }
+    @XmlElement(name = "connect-address", required = true)
+    public void setConnectAddress(final InetSocketAddressMetaData connectAddress) {
+        this.connectAddress = connectAddress;
     }
 }

@@ -39,9 +39,9 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "xnio", namespace = "urn:jboss:xnio:1.0")
-@XmlRootElement(namespace = "urn:jboss:xnio:1.0", name = "xnio")
-@JBossXmlSchema(namespace = "urn:jboss:xnio:1.0", attributeFormDefault = XmlNsForm.UNQUALIFIED, elementFormDefault = XmlNsForm.QUALIFIED)
+@XmlType(name = "xnio")
+@XmlRootElement(name = "xnio")
+@JBossXmlSchema(namespace = "urn:jboss:xnio:1.0", elementFormDefault = XmlNsForm.QUALIFIED)
 public final class XnioMetaData implements BeanMetaDataFactory, Serializable {
     private static final long serialVersionUID = -1616974182990862225L;
 

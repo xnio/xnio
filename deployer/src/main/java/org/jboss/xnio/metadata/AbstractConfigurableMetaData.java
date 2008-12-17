@@ -22,8 +22,8 @@
 
 package org.jboss.xnio.metadata;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -47,7 +47,7 @@ public abstract class AbstractConfigurableMetaData {
     private Boolean reuseAddress;
     private Integer sendBufferSize;
     private Boolean tcpNoDelay;
-    private List<OptionMetaData> optionMetaDataList = Collections.emptyList();
+    private List<OptionMetaData> optionMetaDataList = new ArrayList<OptionMetaData>();
 
     public Integer getBacklog() {
         return backlog;

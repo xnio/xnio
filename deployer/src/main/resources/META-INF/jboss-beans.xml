@@ -22,12 +22,11 @@
 
         <!-- Uncomment this element to use a thread pool to handle notifications -->
         <!--
-        <thread-pool-executor name="XnioHandlerExecutor" thread-factory="XnioThreadFactory">
-            <core-pool-size count="0"/>
+        <thread-pool-executor name="XnioHandlerExecutor" thread-factory="XnioThreadFactory" queue-length="30" allow-core-timeout="true">
+            <core-pool-size count="1" per-cpu="1"/>
             <max-pool-size count="3" per-cpu="3"/>
-            <direct-queue/>
-            <reject-policy name="block"/>
             <keepalive-time time="3" unit="minutes"/>
+            <reject-policy name="block"/>
         </thread-pool-executor>
         -->
     </threads>

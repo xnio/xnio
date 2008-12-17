@@ -37,11 +37,11 @@ import org.jboss.xnio.deployer.SimpleController;
 public final class XnioMetaDataHelper {
     private XnioMetaDataHelper() {}
 
-    public static SocketAddress[] getBindAddresses(List<BindAddressMetaData> bindAddressMetaDataList) {
-        final int bindCount = bindAddressMetaDataList.size();
+    public static SocketAddress[] getBindAddresses(List<InetSocketAddressMetaData> inetSocketAddressMetaDataList) {
+        final int bindCount = inetSocketAddressMetaDataList.size();
         SocketAddress[] addresses = new SocketAddress[bindCount];
         int i = 0;
-        for (BindAddressMetaData metaData : bindAddressMetaDataList) {
+        for (InetSocketAddressMetaData metaData : inetSocketAddressMetaDataList) {
             addresses[i++] = metaData.getSocketAddress();
         }
         return addresses;

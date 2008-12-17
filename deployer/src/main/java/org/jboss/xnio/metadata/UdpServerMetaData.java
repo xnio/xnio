@@ -33,18 +33,14 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "upd-server", namespace = "urn:jboss:io:1.0")
-public final class UdpServerMetaData implements Serializable {
+@XmlType(name = "udp-server")
+public final class UdpServerMetaData extends AbstractConfigurableMetaData implements Serializable {
 
     private static final long serialVersionUID = -5985650641647590499L;
 
-    private List<BindAddressMetaData> bindAddresses = arrayList();
+    private List<InetSocketAddressMetaData> bindAddresses = arrayList();
     private NamedBeanMetaData handlerFactoryBean;
     private NamedBeanMetaData executorBean;
-    private Integer receiveBufferSize;
-    private Boolean reuseAddress;
-    private Integer sendBufferSize;
-    private Integer trafficClass;
     private Boolean broadcast;
     private Boolean multicast;
     private String name;
@@ -53,12 +49,12 @@ public final class UdpServerMetaData implements Serializable {
         return new ArrayList<T>();
     }
 
-    public List<BindAddressMetaData> getBindAddresses() {
+    public List<InetSocketAddressMetaData> getBindAddresses() {
         return bindAddresses;
     }
 
-    @XmlElement(name = "bind-address", namespace = "urn:jboss:io:1.0")
-    public void setBindAddresses(final List<BindAddressMetaData> bindAddresses) {
+    @XmlElement(name = "bind-address")
+    public void setBindAddresses(final List<InetSocketAddressMetaData> bindAddresses) {
         this.bindAddresses = bindAddresses;
     }
 
@@ -66,7 +62,7 @@ public final class UdpServerMetaData implements Serializable {
         return handlerFactoryBean;
     }
 
-    @XmlElement(name = "handler-factory-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "handler-factory-bean", required = true)
     public void setHandlerFactoryBean(final NamedBeanMetaData handlerFactoryBean) {
         this.handlerFactoryBean = handlerFactoryBean;
     }
@@ -75,52 +71,16 @@ public final class UdpServerMetaData implements Serializable {
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean")
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
-    }
-
-    public Integer getReceiveBufferSize() {
-        return receiveBufferSize;
-    }
-
-    @XmlAttribute(name = "receive-buffer-size")
-    public void setReceiveBufferSize(final Integer receiveBufferSize) {
-        this.receiveBufferSize = receiveBufferSize;
-    }
-
-    public Boolean getReuseAddress() {
-        return reuseAddress;
-    }
-
-    @XmlAttribute(name = "reuse-address")
-    public void setReuseAddress(final Boolean reuseAddress) {
-        this.reuseAddress = reuseAddress;
-    }
-
-    public Integer getSendBufferSize() {
-        return sendBufferSize;
-    }
-
-    @XmlAttribute(name = "send-buffer-size")
-    public void setSendBufferSize(final Integer sendBufferSize) {
-        this.sendBufferSize = sendBufferSize;
-    }
-
-    public Integer getTrafficClass() {
-        return trafficClass;
-    }
-
-    @XmlAttribute(name = "traffic-class")
-    public void setTrafficClass(final Integer trafficClass) {
-        this.trafficClass = trafficClass;
     }
 
     public Boolean getBroadcast() {
         return broadcast;
     }
 
-    @XmlAttribute(name = "broadcast")
+    @XmlElement(name = "broadcast")
     public void setBroadcast(final Boolean broadcast) {
         this.broadcast = broadcast;
     }
@@ -129,7 +89,7 @@ public final class UdpServerMetaData implements Serializable {
         return multicast;
     }
 
-    @XmlAttribute(name = "multicast")
+    @XmlElement(name = "multicast")
     public void setMulticast(final Boolean multicast) {
         this.multicast = multicast;
     }
@@ -138,7 +98,7 @@ public final class UdpServerMetaData implements Serializable {
         return name;
     }
 
-    @XmlAttribute(name = "name")
+    @XmlAttribute(name = "name", required = true)
     public void setName(final String name) {
         this.name = name;
     }

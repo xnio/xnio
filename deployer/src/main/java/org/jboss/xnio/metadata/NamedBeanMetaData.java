@@ -30,7 +30,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "bean", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "bean")
 public final class NamedBeanMetaData implements Serializable {
     private static final long serialVersionUID = -2118014715379357274L;
 

@@ -29,7 +29,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "pipe", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "pipe")
 public final class PipeMetaData {
 
     private NamedBeanMetaData executorBean;
@@ -41,7 +41,7 @@ public final class PipeMetaData {
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean")
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
     }
@@ -50,7 +50,7 @@ public final class PipeMetaData {
         return leftEnd;
     }
 
-    @XmlElement(name = "left-end", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "left-end", required = true)
     public void setLeftEnd(final PipeEndMetaData leftEnd) {
         this.leftEnd = leftEnd;
     }
@@ -59,7 +59,7 @@ public final class PipeMetaData {
         return rightEnd;
     }
 
-    @XmlElement(name = "right-end", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "right-end", required = true)
     public void setRightEnd(final PipeEndMetaData rightEnd) {
         this.rightEnd = rightEnd;
     }
@@ -68,7 +68,7 @@ public final class PipeMetaData {
         return name;
     }
 
-    @XmlAttribute(name = "name")
+    @XmlAttribute(name = "name", required = true)
     public void setName(final String name) {
         this.name = name;
     }

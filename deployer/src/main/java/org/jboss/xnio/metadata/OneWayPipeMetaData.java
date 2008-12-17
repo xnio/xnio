@@ -29,7 +29,7 @@ import javax.xml.bind.annotation.XmlType;
 /**
  *
  */
-@XmlType(name = "one-way-pipe", namespace = "urn:jboss:io:1.0")
+@XmlType(name = "one-way-pipe")
 public final class OneWayPipeMetaData {
 
     private NamedBeanMetaData executorBean;
@@ -41,7 +41,7 @@ public final class OneWayPipeMetaData {
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean", required = true)
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
     }
@@ -50,7 +50,7 @@ public final class OneWayPipeMetaData {
         return sourceEnd;
     }
 
-    @XmlElement(name = "source-end", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "source-end", required = true)
     public void setSourceEnd(final PipeEndMetaData sourceEnd) {
         this.sourceEnd = sourceEnd;
     }
@@ -59,7 +59,7 @@ public final class OneWayPipeMetaData {
         return sinkEnd;
     }
 
-    @XmlElement(name = "sink-end", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "sink-end", required = true)
     public void setSinkEnd(final PipeEndMetaData sinkEnd) {
         this.sinkEnd = sinkEnd;
     }
@@ -68,7 +68,7 @@ public final class OneWayPipeMetaData {
         return name;
     }
 
-    @XmlAttribute(name = "name")
+    @XmlAttribute(name = "name", required = true)
     public void setName(final String name) {
         this.name = name;
     }

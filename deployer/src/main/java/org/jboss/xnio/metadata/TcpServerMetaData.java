@@ -38,7 +38,7 @@ public final class TcpServerMetaData extends AbstractConfigurableMetaData implem
 
     private static final long serialVersionUID = 4318538124489300012L;
 
-    private List<BindAddressMetaData> bindAddresses = arrayList();
+    private List<InetSocketAddressMetaData> bindAddresses = arrayList();
     private NamedBeanMetaData handlerFactoryBean;
     private NamedBeanMetaData executorBean;
     private String name;
@@ -47,12 +47,12 @@ public final class TcpServerMetaData extends AbstractConfigurableMetaData implem
         return new ArrayList<T>();
     }
 
-    public List<BindAddressMetaData> getBindAddresses() {
+    public List<InetSocketAddressMetaData> getBindAddresses() {
         return bindAddresses;
     }
 
-    @XmlElement(name = "bind-address", type = BindAddressMetaData.class)
-    public void setBindAddresses(final List<BindAddressMetaData> bindAddresses) {
+    @XmlElement(name = "bind-address")
+    public void setBindAddresses(final List<InetSocketAddressMetaData> bindAddresses) {
         this.bindAddresses = bindAddresses;
     }
 
@@ -69,7 +69,7 @@ public final class TcpServerMetaData extends AbstractConfigurableMetaData implem
         return executorBean;
     }
 
-    @XmlElement(name = "executor-bean", namespace = "urn:jboss:io:1.0")
+    @XmlElement(name = "executor-bean")
     public void setExecutorBean(final NamedBeanMetaData executorBean) {
         this.executorBean = executorBean;
     }
