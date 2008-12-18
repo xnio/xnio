@@ -641,7 +641,7 @@ public final class NioXnio extends Xnio {
     Selector getSelector() throws IOException {
         selectorCacheLock.lock();
         try {
-            final Selector selector = selectorCache.pop();
+            final Selector selector = selectorCache.poll();
             return selector == null ? Selector.open() : selector;
         } finally {
             selectorCacheLock.unlock();
