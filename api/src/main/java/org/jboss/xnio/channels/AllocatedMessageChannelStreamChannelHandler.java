@@ -84,13 +84,6 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
         if (isnew.getAndSet(false)) {
             messageChannel = new AllocatedMessageChannelImpl(channel);
         }
-        if (channel.getOptions().contains(CommonOptions.TCP_NODELAY)) {
-            try {
-                channel.setOption(CommonOptions.TCP_NODELAY, Boolean.TRUE);
-            } catch (IOException e) {
-                log.trace("Setting TCP_NODELAY on channel %s failed: %s", channel, e);
-            }
-        }
         handler.handleOpened(messageChannel);
     }
 
@@ -180,7 +173,7 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
         }
 
         public void close() throws IOException {
-            if (closed.getAndSet(true)) {
+            if (! closed.getAndSet(true)) {
                 streamChannel.close();
             }
         }

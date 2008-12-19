@@ -28,6 +28,7 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
 import org.jboss.xnio.log.Logger;
+import java.io.IOException;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
@@ -77,6 +78,48 @@ public final class Channels {
             public IoHandler<? super StreamChannel> createHandler() {
                 //noinspection unchecked
                 return new AllocatedMessageChannelStreamChannelHandler(handlerFactory.createHandler(), maxInboundMessageSize, maxOutboundMessageSize);
+            }
+        };
+    }
+
+    /**
+     * Create a channel source for a stream channel.  The resulting channel simply converts the messages into stream bytes.
+     * The resulting channel is strictly edge-triggered: if a read handler does not fully consume all the readable bytes
+     * on the channel before calling {@link StreamChannel#resumeReads() StreamChannel.resumeReads()} or
+     * {@link StreamChannel#awaitReadable() StreamChannel.awaitReadable()}, then the channel may block even though there
+     * is more data to be read.
+     *
+     * @param messageChannelSource the allocated message channel source
+     * @return a stream channel source
+     */
+    public static ChannelSource<StreamChannel> convertAllocatedMessageToStream(final ChannelSource<? extends AllocatedMessageChannel> messageChannelSource) {
+        return new ChannelSource<StreamChannel>() {
+            public IoFuture<StreamChannel> open(final IoHandler<? super StreamChannel> handler) {
+                final StreamChannelAllocatedMessageChannelHandler innerHandler = new StreamChannelAllocatedMessageChannelHandler(handler);
+                return new AbstractConvertingIoFuture<StreamChannel, AllocatedMessageChannel>(messageChannelSource.open(innerHandler)) {
+                    protected StreamChannel convert(final AllocatedMessageChannel arg) throws IOException {
+                        return innerHandler.getChannel(arg);
+                    }
+                };
+            }
+        };
+    }
+
+    /**
+     * Create a channel source for a stream channel.  The resulting channel simply converts the messages into stream bytes.
+     * The resulting channel is strictly edge-triggered: if a read handler does not fully consume all the readable bytes
+     * on the channel before calling {@link StreamChannel#resumeReads() StreamChannel.resumeReads()} or
+     * {@link StreamChannel#awaitReadable() StreamChannel.awaitReadable()}, then the channel may block even though there
+     * is more data to be read.
+     *
+     * @param handlerFactory the user stream channel handler factory
+     * @return an allocated message channel handler factory that implements the protocol
+     */
+    public static IoHandlerFactory<AllocatedMessageChannel> convertAllocatedMessageToStream(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
+        return new IoHandlerFactory<AllocatedMessageChannel>() {
+            public IoHandler<? super AllocatedMessageChannel> createHandler() {
+                //noinspection unchecked
+                return new StreamChannelAllocatedMessageChannelHandler(handlerFactory.createHandler());
             }
         };
     }
