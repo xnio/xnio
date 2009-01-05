@@ -6,6 +6,7 @@ grant codeBase "file:${build.home}/nio-impl/target/main/classes/-"
     permission java.net.SocketPermission "*:*", "connect, accept, resolve";
     permission java.lang.RuntimePermission "modifyThread";
     permission javax.management.MBeanTrustPermission "register";
+    permission java.lang.RuntimePermission "xnioProvider";
 };
 
 grant codeBase "file:${build.home}/api/target/main/classes/-"
@@ -17,6 +18,7 @@ grant codeBase "file:${build.home}/api/target/main/classes/-"
     permission javax.management.MBeanServerPermission "findMBeanServer";
     permission javax.management.MBeanTrustPermission "register";
     permission javax.management.MBeanPermission "*#-[org.jboss.Xnio:*]", "registerMBean,unregisterMBean";
+    permission java.lang.RuntimePermission "xnioProvider";
 };
 
 // Permissions to run the nio-impl test suite

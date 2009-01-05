@@ -40,6 +40,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.security.Permission;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.StreamChannel;
@@ -91,8 +92,11 @@ public abstract class Xnio implements Closeable {
 
     private static String AGENTID_PROPNAME = "xnio.agentid";
     private static String PROVIDER_PROPNAME = "xnio.provider";
+
     private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction(PROVIDER_PROPNAME, NIO_IMPL_CLASS_NAME);
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
+
+    private static final Permission SUBCLASS_PERMISSION = new RuntimePermission("xnioProvider");
 
     static {
         String providerClassName = NIO_IMPL_CLASS_NAME;
@@ -170,6 +174,9 @@ public abstract class Xnio implements Closeable {
             throw new NullPointerException("configuration is null");
         }
         final SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            sm.checkPermission(SUBCLASS_PERMISSION);
+        }
         final String name = configuration.getName();
         final int seq = xnioSequence.getAndIncrement();
         this.name = name != null ? name : String.format("%s-%d", getClass().getName(), Integer.valueOf(seq));

@@ -41,6 +41,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.security.PrivilegedExceptionAction;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
 import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.CloseableTcpAcceptor;
 import org.jboss.xnio.CloseableTcpConnector;
@@ -99,6 +102,18 @@ public final class NioXnio extends Xnio {
      */
     private final Set<Closeable> managedSet = new HashSet<Closeable>();
 
+    private static final class CreateAction implements PrivilegedExceptionAction<NioXnio> {
+        private final NioXnioConfiguration configuration;
+
+        public CreateAction(final NioXnioConfiguration configuration) {
+            this.configuration = configuration;
+        }
+
+        public NioXnio run() throws IOException {
+            return new NioXnio(configuration);
+        }
+    }
+
     /**
      * Create an NIO-based XNIO provider.  The provided configuration is used to set up the provider.
      *
@@ -108,7 +123,25 @@ public final class NioXnio extends Xnio {
      * @since 1.2
      */
     public static Xnio create(NioXnioConfiguration configuration) throws IOException {
-        return new NioXnio(configuration);
+        return doCreate(configuration);
+    }
+
+    private static NioXnio doCreate(final NioXnioConfiguration configuration) throws IOException {
+        try {
+            return AccessController.doPrivileged(new CreateAction(configuration));
+        } catch (PrivilegedActionException e) {
+            try {
+                throw e.getCause();
+            } catch (Error error) {
+                throw error;
+            } catch (RuntimeException re) {
+                throw re;
+            } catch (IOException ioe) {
+                throw ioe;
+            } catch (Throwable cause) {
+                throw new RuntimeException("Unexpected exception", cause);
+            }
+        }
     }
 
     /**
@@ -123,7 +156,7 @@ public final class NioXnio extends Xnio {
         configuration.setReadSelectorThreads(1);
         configuration.setWriteSelectorThreads(1);
         configuration.setConnectSelectorThreads(1);
-        return new NioXnio(configuration);
+        return doCreate(configuration);
     }
 
     /**
@@ -142,7 +175,7 @@ public final class NioXnio extends Xnio {
         configuration.setReadSelectorThreads(readSelectorThreads);
         configuration.setWriteSelectorThreads(writeSelectorThreads);
         configuration.setConnectSelectorThreads(connectSelectorThreads);
-        return new NioXnio(configuration);
+        return doCreate(configuration);
     }
 
     /**
@@ -166,7 +199,7 @@ public final class NioXnio extends Xnio {
         configuration.setReadSelectorThreads(readSelectorThreads);
         configuration.setWriteSelectorThreads(writeSelectorThreads);
         configuration.setConnectSelectorThreads(connectSelectorThreads);
-        return new NioXnio(configuration);
+        return doCreate(configuration);
     }
 
     /**
@@ -195,7 +228,7 @@ public final class NioXnio extends Xnio {
         configuration.setReadSelectorThreads(readSelectorThreads);
         configuration.setWriteSelectorThreads(writeSelectorThreads);
         configuration.setConnectSelectorThreads(connectSelectorThreads);
-        return new NioXnio(configuration);
+        return doCreate(configuration);
     }
 
     private NioXnio(NioXnioConfiguration configuration) throws IOException {
