@@ -363,6 +363,40 @@ public final class IoUtils {
         }
     }
 
+    private static final IoFuture.Notifier<?, Closeable> ATTACHMENT_CLOSING_NOTIFIER = new IoFuture.Notifier<Object, Closeable>() {
+        public void notify(final IoFuture<Object> future, final Closeable attachment) {
+            IoUtils.safeClose(attachment);
+        }
+    };
+
+    private static final IoFuture.Notifier<? extends Closeable, Void> CLOSING_NOTIFIER = new IoFuture.HandlingNotifier<Closeable, Void>() {
+        public void handleDone(final Closeable result, final Void attachment) {
+            IoUtils.safeClose(result);
+        }
+    };
+
+    /**
+     * Get a notifier that closes the attachment.
+     *
+     * @param <T> the future type (not used)
+     * @return a notifier which will close its attachment
+     */
+    @SuppressWarnings({ "unchecked" })
+    public static <T> IoFuture.Notifier<T, Closeable> attachmentClosingNotifier() {
+        return (IoFuture.Notifier<T, Closeable>) ATTACHMENT_CLOSING_NOTIFIER;
+    }
+
+    /**
+     * Get a notifier that closes the result.
+     *
+     * @param <T> the future type, which must be closeable
+     * @return a notifier which will close the result of the operation (if successful)
+     */
+    @SuppressWarnings({ "unchecked" })
+    public static <T extends Closeable> IoFuture.Notifier<T, Void> closingNotifier() {
+        return (IoFuture.Notifier<T, Void>) CLOSING_NOTIFIER;
+    }
+
     /**
      * Get a {@code java.util.concurrent}-style {@code Future} instance wrapper for an {@code IoFuture} instance.
      *
