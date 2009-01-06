@@ -620,7 +620,7 @@ public final class NioXnio extends Xnio {
             public void run(final Selector selector) {
                 try {
                     final SelectionKey selectionKey = channel.register(selector, 0);
-                    final NioHandle handle = new NioHandle(selectionKey, actualSelectorRunnable, handler, NioXnio.this.executor, oneshot);
+                    final NioHandle handle = new NioHandle(selectionKey, actualSelectorRunnable, handler, executor, oneshot);
                     selectionKey.attach(handle);
                     holder.set(handle);
                 } catch (ClosedChannelException e) {
