@@ -409,16 +409,22 @@ public final class IoUtils {
         };
     }
 
+    private static final IoFuture.Notifier<?, CountDownLatch> COUNT_DOWN_NOTIFIER = new IoFuture.Notifier<Object, CountDownLatch>() {
+        public void notify(final IoFuture<Object> future, final CountDownLatch latch) {
+            latch.countDown();
+        }
+    };
+
     @SuppressWarnings({ "unchecked" })
+    private static <T> void addCountDownNotifier(IoFuture<T> future, CountDownLatch latch) {
+        future.addNotifier((IoFuture.Notifier<T, CountDownLatch>) COUNT_DOWN_NOTIFIER, latch);
+    }
+
     public static void awaitAll(IoFuture<?>... futures) {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
-            future.addNotifier(new IoFuture.Notifier() {
-                public void notify(final IoFuture future, final Object attachment) {
-                    cdl.countDown();
-                }
-            }, null);
+            addCountDownNotifier(future, cdl);
         }
         boolean intr = false;
         try {
@@ -441,11 +447,7 @@ public final class IoUtils {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
-            future.addNotifier(new IoFuture.Notifier() {
-                public void notify(final IoFuture future, final Object attachment) {
-                    cdl.countDown();
-                }
-            }, null);
+            addCountDownNotifier(future, cdl);
         }
         cdl.await();
     }

@@ -87,6 +87,6 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
             public void notify(final IoFuture<D> future, A attachment) {
                 notifier.notify(AbstractConvertingIoFuture.this, attachment);
             }
-        }, null);
+        }, attachment);
     }
 }
