@@ -140,22 +140,24 @@ public interface IoFuture<T> {
 
     /**
      * Add a notifier to be called when this operation is complete.  If the operation is already complete, the notifier
-     * is called immediately, possibly in the caller's thread.
+     * is called immediately, possibly in the caller's thread.  The given attachment is provided to the notifier.
      *
      * @param notifier the notifier to be called
+     * @param attachment the attachment to pass in to the notifier
      */
-    void addNotifier(Notifier<T> notifier);
+    <A> void addNotifier(Notifier<T, A> notifier, A attachment);
 
     /**
      * A notifier that handles changes in the status of an {@code IoFuture}.
      */
-    interface Notifier<T> {
+    interface Notifier<T, A> {
         /**
          * Receive notification of the completion of an outstanding operation.
          *
          * @param ioFuture the future corresponding to this operation
+         * @param attachment
          */
-        void notify(IoFuture<T> ioFuture);
+        void notify(IoFuture<T> ioFuture, final A attachment);
     }
 
     /**
@@ -164,25 +166,25 @@ public interface IoFuture<T> {
      *
      * @since 1.1
      */
-    abstract class HandlingNotifier<T> implements Notifier<T> {
+    abstract class HandlingNotifier<T, A> implements Notifier<T, A> {
         /**
          * {@inheritDoc}
          */
-        public void notify(final IoFuture<T> future) {
+        public void notify(final IoFuture<T> future, A attachment) {
             switch (future.getStatus()) {
                 case CANCELLED:
-                    handleCancelled();
+                    handleCancelled(attachment);
                     break;
                 case DONE:
                     try {
-                        handleDone(future.get());
+                        handleDone(future.get(), attachment);
                     } catch (IOException e) {
                         // not possible
                         throw new IllegalStateException();
                     }
                     break;
                 case FAILED:
-                    handleFailed(future.getException());
+                    handleFailed(future.getException(), attachment);
                     break;
                 default:
                     // not possible
@@ -192,24 +194,27 @@ public interface IoFuture<T> {
 
         /**
          * Handle cancellation.
+         * @param attachment
          */
-        public void handleCancelled() {
+        public void handleCancelled(final A attachment) {
         }
 
         /**
          * Handle failure.
          *
          * @param exception the failure reason
+         * @param attachment
          */
-        public void handleFailed(final IOException exception) {
+        public void handleFailed(final IOException exception, final A attachment) {
         }
 
         /**
          * Handle completion.
          *
          * @param result the result
+         * @param attachment
          */
-        public void handleDone(final T result) {
+        public void handleDone(final T result, final A attachment) {
         }
     }
 }

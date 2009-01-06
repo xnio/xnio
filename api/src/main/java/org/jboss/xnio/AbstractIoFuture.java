@@ -25,7 +25,6 @@ package org.jboss.xnio;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
@@ -42,7 +41,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     private final Object lock = new Object();
     private Status status = Status.WAITING;
     private Object result;
-    private List<Notifier<T>> notifierList;
+    private List<Runnable> notifierList;
 
     /**
      * Construct a new instance.
@@ -99,11 +98,10 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                     lock.wait(duration);
                 } catch (InterruptedException e) {
                     intr = true;
-                } finally {
-                    duration = deadline - System.currentTimeMillis();
-                    if (duration <= 0L) {
-                        return Status.WAITING;
-                    }
+                }
+                duration = deadline - System.currentTimeMillis();
+                if (duration <= 0L) {
+                    return Status.WAITING;
                 }
             } finally {
                 if (intr) {
@@ -196,26 +194,32 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public void addNotifier(final Notifier<T> notifier) {
+    public <A> void addNotifier(final Notifier<T, A> notifier, final A attachment) {
         synchronized (lock) {
+            final Runnable runnable = new Runnable() {
+                public void run() {
+                    try {
+                        notifier.notify(AbstractIoFuture.this, attachment);
+                    } catch (Throwable t) {
+                        log.warn(t, "Running notifier failed");
+                    }
+                }
+            };
             if (status == Status.WAITING) {
                 if (notifierList == null) {
-                    notifierList = new ArrayList<Notifier<T>>();
+                    notifierList = new ArrayList<Runnable>();
                 }
-                notifierList.add(notifier);
+                notifierList.add(runnable);
             } else {
-                runNotifier(notifier);
+                runNotifier(runnable);
             }
         }
     }
 
     private void runAllNotifiers() {
         if (notifierList != null) {
-            Iterator<Notifier<T>> it = notifierList.iterator();
-            while (it.hasNext()) {
-                Notifier<T> notifier = it.next();
-                runNotifier(notifier);
-                it.remove();
+            for (final Runnable runnable : notifierList) {
+                runNotifier(runnable);
             }
             notifierList = null;
         }
@@ -294,18 +298,10 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * Run a notifier.  Implementors will run the notifier, preferably in another thread.  The default implementation
      * runs the notifier using the {@code Executor} retrieved via {@link #getNotifierExecutor()}.
      *
-     * @param notifier the notifier to run
+     * @param runnable
      */
-    protected void runNotifier(final Notifier<T> notifier) {
-        getNotifierExecutor().execute(new Runnable() {
-            public void run() {
-                try {
-                    notifier.notify(AbstractIoFuture.this);
-                } catch (Throwable t) {
-                    log.warn(t, "Running notifier failed");
-                }
-            }
-        });
+    protected void runNotifier(final Runnable runnable) {
+        getNotifierExecutor().execute(runnable);
     }
 
     /**

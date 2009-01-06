@@ -202,16 +202,8 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
                 return super.finishCancel();
             }
 
-            protected void runNotifier(final Notifier<TcpChannel> streamChannelNotifier) {
-                executor.execute(new Runnable() {
-                    public void run() {
-                        try {
-                            streamChannelNotifier.notify(FutureImpl.this);
-                        } catch (Throwable t) {
-                            log.error(t, "Completion handler \"%s\" failed", streamChannelNotifier);
-                        }
-                    }
-                });
+            protected Executor getNotifierExecutor() {
+                return executor;
             }
 
             public SocketAddress getLocalAddress() {

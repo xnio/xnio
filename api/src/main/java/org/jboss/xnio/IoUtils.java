@@ -415,10 +415,10 @@ public final class IoUtils {
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
             future.addNotifier(new IoFuture.Notifier() {
-                public void notify(final IoFuture future) {
+                public void notify(final IoFuture future, final Object attachment) {
                     cdl.countDown();
                 }
-            });
+            }, null);
         }
         boolean intr = false;
         try {
@@ -442,10 +442,10 @@ public final class IoUtils {
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
             future.addNotifier(new IoFuture.Notifier() {
-                public void notify(final IoFuture future) {
+                public void notify(final IoFuture future, final Object attachment) {
                     cdl.countDown();
                 }
-            });
+            }, null);
         }
         cdl.await();
     }
@@ -463,7 +463,7 @@ public final class IoUtils {
         private volatile boolean stopFlag = false;
         private volatile IoFuture<T> currentFuture;
 
-        private final NotifierImpl notifier = new NotifierImpl();
+        private final NotifierImpl<?> notifier = new NotifierImpl<Void>();
         private final HandlerImpl handlerWrapper = new HandlerImpl();
         private final ReconnectTask reconnectTask = new ReconnectTask();
 
@@ -476,7 +476,7 @@ public final class IoUtils {
         private void connect() {
             closeLog.trace("Establishing connection");
             final IoFuture<T> ioFuture = channelSource.open(handlerWrapper);
-            ioFuture.addNotifier(notifier);
+            ioFuture.addNotifier(notifier, null);
             currentFuture = ioFuture;
         }
 
@@ -492,22 +492,22 @@ public final class IoUtils {
             return String.format("persistent connection <%s> via %s", Integer.toHexString(hashCode()), channelSource);
         }
 
-        private final class NotifierImpl extends IoFuture.HandlingNotifier<T> {
+        private final class NotifierImpl<A> extends IoFuture.HandlingNotifier<T, A> {
 
-            public void handleCancelled() {
+            public void handleCancelled(final A attachment) {
                 connLog.trace("Connection cancelled");
             }
 
-            public void handleFailed(final IOException exception) {
+            public void handleFailed(final IOException exception, final A attachment) {
                 connLog.trace(exception, "Connection failed");
             }
 
-            public void handleDone(final T result) {
+            public void handleDone(final T result, final A attachment) {
                 connLog.trace("Connection established");
             }
 
-            public void notify(final IoFuture<T> future) {
-                super.notify(future);
+            public void notify(final IoFuture<T> future, final A attachment) {
+                super.notify(future, attachment);
                 if (! stopFlag) {
                     reconnectExecutor.execute(reconnectTask);
                 }
