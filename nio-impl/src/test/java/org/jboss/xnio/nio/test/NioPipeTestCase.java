@@ -202,9 +202,10 @@ public final class NioPipeTestCase extends TestCase {
         }, new IoHandler<StreamSourceChannel>() {
             public void handleOpened(final StreamSourceChannel channel) {
                 try {
+                    log.info("In source open handler");
                     channel.resumeReads();
                 } catch (Throwable t) {
-                    t.printStackTrace();
+                    log.error(t, "Channel closed due to error");
                     try {
                         channel.close();
                     } catch (Throwable t2) {
@@ -218,10 +219,15 @@ public final class NioPipeTestCase extends TestCase {
 
             public void handleReadable(final StreamSourceChannel channel) {
                 try {
+                    log.info("In source read handler");
                     final int c = channel.read(ByteBuffer.allocate(100));
                     if (c == -1) {
                         sourceOK.set(true);
                         channel.close();
+                    } else if (c == 0) {
+                        channel.resumeReads();
+                    } else {
+                        log.warn("Unexpected data");
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -230,30 +236,125 @@ public final class NioPipeTestCase extends TestCase {
             }
 
             public void handleWritable(final StreamSourceChannel channel) {
+                log.warn("In source write handler");
             }
 
             public void handleClosed(final StreamSourceChannel channel) {
+                log.info("In source close handler");
                 latch.countDown();
             }
         }, new IoHandler<StreamSinkChannel>() {
             public void handleOpened(final StreamSinkChannel channel) {
                 try {
-                    channel.close();
+                    log.info("In sink open handler");
+                    channel.resumeWrites();
                     sinkOK.set(true);
                 } catch (Throwable t) {
-                    t.printStackTrace();
+                    log.error(t, "Channel closed due to error");
                     latch.countDown();
                     throw new RuntimeException(t);
                 }
             }
 
             public void handleReadable(final StreamSinkChannel channel) {
+                log.warn("In sink read handler");
             }
 
             public void handleWritable(final StreamSinkChannel channel) {
+                log.info("In sink write handler");
+                IoUtils.safeClose(channel);
             }
 
             public void handleClosed(final StreamSinkChannel channel) {
+                log.info("In sink close handler");
+                latch.countDown();
+            }
+        });
+        assertTrue(sourceOK.get());
+        assertTrue(sinkOK.get());
+        threadFactory.await();
+    }
+
+    public void testOneWayPipeSinkCloseFromOpenHandler() throws Exception {
+        threadFactory.clear();
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicBoolean sourceOK = new AtomicBoolean(false);
+        final AtomicBoolean sinkOK = new AtomicBoolean(false);
+        doOneWayPipeTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(1500L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new IoHandler<StreamSourceChannel>() {
+            public void handleOpened(final StreamSourceChannel channel) {
+                try {
+                    log.info("In source open handler");
+                    channel.resumeReads();
+                } catch (Throwable t) {
+                    log.error(t, "Channel closed due to error");
+                    try {
+                        channel.close();
+                    } catch (Throwable t2) {
+                        t2.printStackTrace();
+                        latch.countDown();
+                        throw new RuntimeException(t);
+                    }
+                    throw new RuntimeException(t);
+                }
+            }
+
+            public void handleReadable(final StreamSourceChannel channel) {
+                try {
+                    log.info("In source read handler");
+                    final int c = channel.read(ByteBuffer.allocate(100));
+                    if (c == -1) {
+                        sourceOK.set(true);
+                        channel.close();
+                    } else if (c == 0) {
+                        channel.resumeReads();
+                    } else {
+                        log.warn("Unexpected data");
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    IoUtils.safeClose(channel);
+                }
+            }
+
+            public void handleWritable(final StreamSourceChannel channel) {
+                log.warn("In source write handler");
+            }
+
+            public void handleClosed(final StreamSourceChannel channel) {
+                log.info("In source close handler");
+                latch.countDown();
+            }
+        }, new IoHandler<StreamSinkChannel>() {
+            public void handleOpened(final StreamSinkChannel channel) {
+                try {
+                    log.info("In sink open handler");
+                    channel.close();
+                    sinkOK.set(true);
+                } catch (Throwable t) {
+                    log.error(t, "Channel closed due to error");
+                    latch.countDown();
+                    throw new RuntimeException(t);
+                }
+            }
+
+            public void handleReadable(final StreamSinkChannel channel) {
+                log.warn("In sink read handler");
+            }
+
+            public void handleWritable(final StreamSinkChannel channel) {
+                log.warn("In sink write handler");
+            }
+
+            public void handleClosed(final StreamSinkChannel channel) {
+                log.info("In sink close handler");
                 latch.countDown();
             }
         });
