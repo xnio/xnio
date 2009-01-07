@@ -45,7 +45,7 @@ public interface ReadableMessageChannel extends SuspendableReadChannel, Configur
      * @return the size of the received message, 0 if no message is available, and -1 if the message channel has reached an end-of-file condition
      * @throws IOException if an I/O error occurs
      */
-    int receive(ByteBuffer[] buffers) throws IOException;
+    long receive(ByteBuffer[] buffers) throws IOException;
 
     /**
      * Receive a message.
@@ -56,5 +56,5 @@ public interface ReadableMessageChannel extends SuspendableReadChannel, Configur
      * @return the size of the received message, 0 if no message is available, and -1 if the message channel has reached an end-of-file condition
      * @throws IOException if an I/O error occurs
      */
-    int receive(ByteBuffer[] buffers, int offs, int len) throws IOException;
+    long receive(ByteBuffer[] buffers, int offs, int len) throws IOException;
 }
