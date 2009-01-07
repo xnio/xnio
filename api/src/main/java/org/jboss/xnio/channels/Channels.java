@@ -29,6 +29,12 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
 import org.jboss.xnio.log.Logger;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
+import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.ScatteringByteChannel;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
@@ -191,4 +197,333 @@ public final class Channels {
             }
         };
     }
+
+    /**
+     * Simple utility method to execute a blocking write on a byte channel.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffer the data to write
+     * @param <C> the channel type
+     * @return the number of bytes written
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer) throws IOException {
+        int res;
+        while ((res = channel.write(buffer)) == 0) {
+            channel.awaitWritable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking write on a byte channel with a timeout.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffer the data to write
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes written
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        int res = channel.write(buffer);
+        if (res == 0) {
+            channel.awaitWritable(time, unit);
+            return channel.write(buffer);
+        } else {
+            return res;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking write on a gathering byte channel.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffers the data to write
+     * @param offs the index of the first buffer to write
+     * @param len the number of buffers to write
+     * @param <C> the channel type
+     * @return the number of bytes written
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+        long res;
+        while ((res = channel.write(buffers, offs, len)) == 0) {
+            channel.awaitWritable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking write on a gathering byte channel with a timeout.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffers the data to write
+     * @param offs the index of the first buffer to write
+     * @param len the number of buffers to write
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes written
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        long res = channel.write(buffers, offs, len);
+        if (res == 0L) {
+            channel.awaitWritable(time, unit);
+            return channel.write(buffers, offs, len);
+        } else {
+            return res;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking send on a message channel.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffer the data to write
+     * @param <C> the channel type
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
+        while (! (channel.send(buffer))) {
+            channel.awaitWritable();
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking send on a message channel with a timeout.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffer the data to write
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return {@code true} if the message was written before the timeout
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        if (! (channel.send(buffer))) {
+            channel.awaitWritable(time, unit);
+            return channel.send(buffer);
+        } else {
+            return true;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking gathering send on a message channel.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffers the data to write
+     * @param offs the index of the first buffer to write
+     * @param len the number of buffers to write
+     * @param <C> the channel type
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+        while (! (channel.send(buffers, offs, len))) {
+            channel.awaitWritable();
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking gathering send on a message channel with a timeout.  The method blocks until the channel
+     * is writable, and then the message is written.
+     *
+     * @param channel the channel to write on
+     * @param buffers the data to write
+     * @param offs the index of the first buffer to write
+     * @param len the number of buffers to write
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return {@code true} if the message was written before the timeout
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        if (! (channel.send(buffers, offs, len))) {
+            channel.awaitWritable(time, unit);
+            return channel.send(buffers, offs, len);
+        } else {
+            return true;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking read on a readable byte channel.  This method blocks until the
+     * channel is readable, and then the message is read.
+     *
+     * @param channel the channel to read from
+     * @param buffer the buffer into which bytes are to be transferred
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer) throws IOException {
+        int res;
+        while ((res = channel.read(buffer)) == 0) {
+            channel.awaitReadable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking read on a readable byte channel with a timeout.  This method blocks until the
+     * channel is readable, and then the message is read.
+     *
+     * @param channel the channel to read from
+     * @param buffer the buffer into which bytes are to be transferred
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        int res = channel.read(buffer);
+        if (res == 0) {
+            channel.awaitReadable(time, unit);
+            return channel.read(buffer);
+        } else {
+            return res;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking read on a scattering byte channel.  This method blocks until the
+     * channel is readable, and then the message is read.
+     *
+     * @param channel the channel to read from
+     * @param buffers the buffers into which bytes are to be transferred
+     * @param offs the first buffer to use
+     * @param len the number of buffers to use
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+        long res;
+        while ((res = channel.read(buffers, offs, len)) == 0) {
+            channel.awaitReadable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking read on a scattering byte channel with a timeout.  This method blocks until the
+     * channel is readable, and then the message is read.
+     *
+     * @param channel the channel to read from
+     * @param buffers the buffers into which bytes are to be transferred
+     * @param offs the first buffer to use
+     * @param len the number of buffers to use
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        long res = channel.read(buffers, offs, len);
+        if (res == 0L) {
+            channel.awaitReadable(time, unit);
+            return channel.read(buffers, offs, len);
+        } else {
+            return res;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking receive on a readable message channel.  This method blocks until the
+     * channel is readable, and then the message is received.
+     *
+     * @param channel the channel to read from
+     * @param buffer the buffer into which bytes are to be transferred
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer) throws IOException {
+        int res;
+        while ((res = channel.receive(buffer)) == 0) {
+            channel.awaitReadable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking receive on a readable message channel with a timeout.  This method blocks until the
+     * channel is readable, and then the message is received.
+     *
+     * @param channel the channel to read from
+     * @param buffer the buffer into which bytes are to be transferred
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        int res = channel.receive(buffer);
+        if ((res) == 0) {
+            channel.awaitReadable(time, unit);
+            return channel.receive(buffer);
+        } else {
+            return res;
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking receive on a readable message channel.  This method blocks until the
+     * channel is readable, and then the message is received.
+     *
+     * @param channel the channel to read from
+     * @param buffers the buffers into which bytes are to be transferred
+     * @param offs the first buffer to use
+     * @param len the number of buffers to use
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+        long res;
+        while ((res = channel.receive(buffers, offs, len)) == 0) {
+            channel.awaitReadable();
+        }
+        return res;
+    }
+
+    /**
+     * Simple utility method to execute a blocking receive on a readable message channel with a timeout.  This method blocks until the
+     * channel is readable, and then the message is received.
+     *
+     * @param channel the channel to read from
+     * @param buffers the buffers into which bytes are to be transferred
+     * @param offs the first buffer to use
+     * @param len the number of buffers to use
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @param <C> the channel type
+     * @return the number of bytes read
+     * @throws IOException if an I/O exception occurs
+     */
+    public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        long res = channel.receive(buffers, offs, len);
+        if ((res) == 0) {
+            channel.awaitReadable(time, unit);
+            return channel.receive(buffers, offs, len);
+        } else {
+            return res;
+        }
+    }
+
 }
