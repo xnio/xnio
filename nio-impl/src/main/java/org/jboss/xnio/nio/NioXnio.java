@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.LinkedList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -254,7 +253,7 @@ public final class NioXnio extends Xnio {
         if (selectorCacheSize < 0) {
             throw new IllegalArgumentException("selectorCacheSize must be >= 0");
         }
-        this.selectorCacheSize = selectorCacheSize;
+        cache = new Selector[selectorCacheSize];
         synchronized (lock) {
             this.executor = executor == null ? IoUtils.directExecutor() : executor;
             for (int i = 0; i < readSelectorThreads; i ++) {
@@ -667,15 +666,24 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    private final int selectorCacheSize;
-    private final LinkedList<Selector> selectorCache = new LinkedList<Selector>();
+    private int selectorCacheCount;
+    private final Selector[] cache;
     private final Lock selectorCacheLock = new ReentrantLock();
 
     Selector getSelector() throws IOException {
         selectorCacheLock.lock();
         try {
-            final Selector selector = selectorCache.poll();
-            return selector == null ? Selector.open() : selector;
+            final int cnt = selectorCacheCount;
+            if (cnt > 0) {
+                final Selector[] cache = this.cache;
+                try {
+                    return cache[cnt - 1];
+                } finally {
+                    cache[selectorCacheCount = cnt - 1] = null;
+                }
+            } else {
+                return Selector.open();
+            }
         } finally {
             selectorCacheLock.unlock();
         }
@@ -684,11 +692,13 @@ public final class NioXnio extends Xnio {
     void returnSelector(final Selector selector) {
         selectorCacheLock.lock();
         try {
-            if (selectorCache.size() >= selectorCacheSize) {
+            final int cnt = selectorCacheCount;
+            if (cnt == cache.length) {
                 IoUtils.safeClose(selector);
             } else {
                 // keep frequently used selectors "hot"
-                selectorCache.push(selector);
+                selectorCacheCount = cnt + 1;
+                cache[cnt] = selector;
             }
         } finally {
             selectorCacheLock.unlock();
