@@ -29,6 +29,7 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -232,6 +233,11 @@ public final class NioXnio extends Xnio {
 
     private NioXnio(NioXnioConfiguration configuration) throws IOException {
         super(configuration);
+        final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
+        if ("sun.nio.ch.PollSelectorProvider".equals(providerClassName)) {
+            log.warn("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
+        }
+        log.trace("Starting up with selector provider %s", providerClassName);
         ThreadFactory selectorThreadFactory = configuration.getSelectorThreadFactory();
         final Executor executor = configuration.getExecutor();
         final int readSelectorThreads = configuration.getReadSelectorThreads();
