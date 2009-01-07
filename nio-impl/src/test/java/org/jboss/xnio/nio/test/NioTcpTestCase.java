@@ -136,6 +136,7 @@ public final class NioTcpTestCase extends TestCase {
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In client open");
                 try {
                     channel.close();
                     clientOK.set(true);
@@ -147,32 +148,25 @@ public final class NioTcpTestCase extends TestCase {
             }
 
             public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In client readable");
             }
 
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In client writable");
             }
 
             public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In client close");
                 latch.countDown();
             }
         }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
             public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
-                try {
-                    channel.resumeReads();
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    try {
-                        channel.close();
-                    } catch (Throwable t2) {
-                        t2.printStackTrace();
-                        latch.countDown();
-                        throw new RuntimeException(t);
-                    }
-                    throw new RuntimeException(t);
-                }
+                log.info("In server opened");
+                channel.resumeReads();
             }
 
             public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In server readable");
                 try {
                     final int c = channel.read(ByteBuffer.allocate(100));
                     if (c == -1) {
@@ -185,9 +179,11 @@ public final class NioTcpTestCase extends TestCase {
             }
 
             public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In server writable");
             }
 
             public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+                log.info("In server closed");
                 latch.countDown();
             }
         });
