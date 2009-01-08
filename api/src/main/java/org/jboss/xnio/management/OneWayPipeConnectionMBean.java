@@ -23,7 +23,9 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics and management information for a one-way pipe connection.
  *
+ * @since 1.2
  */
 public interface OneWayPipeConnectionMBean extends WritableChannelStats, ManagedCloseable {
 

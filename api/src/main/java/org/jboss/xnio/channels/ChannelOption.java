@@ -26,6 +26,8 @@ import java.io.Serializable;
 
 /**
  * An option that may be applied to a channel.
+ *
+ * @apiviz.exclude
  */
 public interface ChannelOption<T> extends Serializable {
     /**

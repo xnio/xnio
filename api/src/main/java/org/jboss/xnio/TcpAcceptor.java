@@ -29,6 +29,8 @@ import org.jboss.xnio.channels.TcpChannel;
  * An acceptor specifically for accepting connections from a TCP client.
  *
  * @since 1.2
+ *
+ * @apiviz.landmark
  */
 public interface TcpAcceptor extends Acceptor<SocketAddress, TcpChannel> {
     /** {@inheritDoc} */

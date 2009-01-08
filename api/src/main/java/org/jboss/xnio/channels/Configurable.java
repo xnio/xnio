@@ -27,6 +27,8 @@ import java.io.IOException;
 
 /**
  * A channel that has parameters that may be configured while the channel is open.
+ *
+ * @apiviz.exclude
  */
 public interface Configurable {
     /**

@@ -24,6 +24,8 @@ package org.jboss.xnio.management;
 
 /**
  * Statistics and management information for a UDP server.
+ *
+ * @since 1.2
  */
 public interface UdpServerMBean extends ChannelStats, ManagedCloseable {
 
@@ -35,7 +37,7 @@ public interface UdpServerMBean extends ChannelStats, ManagedCloseable {
     Channel[] getBoundChannels();
 
     /**
-     * A UDP server channel.
+     * Statistics and management information for a specific UDP server channel.
      */
     interface Channel extends ChannelStats, InetBound, ManagedCloseable {
     }

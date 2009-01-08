@@ -23,7 +23,9 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics and management information for a two-way pipe connection.
  *
+ * @since 1.2
  */
 public interface PipeConnectionMBean extends ReadableChannelStats, WritableChannelStats, ManagedCloseable {
 

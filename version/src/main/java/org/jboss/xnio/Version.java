@@ -24,6 +24,8 @@ package org.jboss.xnio;
 
 /**
  * The version class.
+ *
+ * @apiviz.exclude
  */
 public final class Version {
     private Version() {}

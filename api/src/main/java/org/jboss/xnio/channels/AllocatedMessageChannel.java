@@ -24,6 +24,8 @@ package org.jboss.xnio.channels;
 
 /**
  * A channel that sends and receives whole messages.  Recevied whole messages are stored in a preallocated buffer.
+ *
+ * @apiviz.landmark
  */
 public interface AllocatedMessageChannel extends ReadableAllocatedMessageChannel, WritableMessageChannel, SuspendableChannel, Configurable {
 }

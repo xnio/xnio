@@ -26,6 +26,8 @@ package org.jboss.xnio.channels;
  * The result of a multipoint message read.
  *
  * @param <A> the type of address associated with this read result
+ *
+ * @apiviz.exclude
  */
 public interface MultipointReadResult<A> {
     /**

@@ -32,6 +32,8 @@ import java.nio.ByteBuffer;
  * performed upon the channel, so for optimal performance, a buffering input stream should be
  * used to wrap this class.
  *
+ * @apiviz.exclude
+ * 
  * @since 1.2
  */
 public class ChannelInputStream extends InputStream {

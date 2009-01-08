@@ -30,6 +30,8 @@ import java.io.IOException;
  * may no longer be reconfigured.
  *
  * @param <T> the subject type
+ *
+ * @apiviz.exclude
  */
 public interface ConfigurableFactory<T> extends Configurable {
     /**

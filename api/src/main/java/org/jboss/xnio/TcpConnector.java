@@ -27,6 +27,8 @@ import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A connector specifically for connecting to TCP servers.
+ *
+ * @apiviz.landmark
  */
 public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
 

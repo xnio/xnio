@@ -26,14 +26,43 @@ import java.net.SocketAddress;
 import java.io.IOException;
 
 /**
+ * A managed object which may be bound and unbound to a socket address.
  *
+ * @since 1.2
  */
 public interface InetBindable {
+
+    /**
+     * Bind the entity to a socket address.
+     *
+     * @param address the address
+     * @throws IOException if an error occurs
+     */
     void bind(SocketAddress address) throws IOException;
 
+    /**
+     * Bind the entity to a host and port.
+     *
+     * @param hostName the host name
+     * @param port the port number
+     * @throws IOException if an error occurs
+     */
     void bind(String hostName, int port) throws IOException;
 
+    /**
+     * Unbind the entity from a socket address.
+     *
+     * @param address the address
+     * @throws IOException if an error occurs
+     */
     void unbind(SocketAddress address) throws IOException;
 
+    /**
+     * Unbind the entity from a host and port.
+     *
+     * @param hostName the host name
+     * @param port the port number
+     * @throws IOException if an error occurs
+     */
     void unbind(String hostName, int port) throws IOException;
 }

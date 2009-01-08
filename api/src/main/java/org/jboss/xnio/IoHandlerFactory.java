@@ -29,6 +29,8 @@ import java.nio.channels.Channel;
  * deal with arbitrary numbers of connections.
  *
  * @param <T> the type of channel that the handler can handle
+ *
+ * @apiviz.landmark
  */
 public interface IoHandlerFactory<T extends Channel> {
     /**

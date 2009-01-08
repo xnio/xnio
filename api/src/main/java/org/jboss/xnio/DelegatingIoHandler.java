@@ -27,6 +27,8 @@ import java.nio.channels.Channel;
 /**
  * A base delegating I/O handler.  Implementors may separately set read and write handlers.  Ideal for state pattern
  * handlers for example.
+ *
+ * @since 1.2
  */
 public abstract class DelegatingIoHandler<T extends Channel> implements IoHandler<T> {
 

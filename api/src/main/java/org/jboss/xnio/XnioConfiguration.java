@@ -29,6 +29,8 @@ import javax.management.MBeanServer;
 /**
  * An abstract configuration for an XNIO provider.  This class provides configuration items that are always common
  * to all providers.
+ *
+ * @since 1.2
  */
 public abstract class XnioConfiguration {
 

@@ -25,8 +25,16 @@ package org.jboss.xnio.management;
 import java.net.SocketAddress;
 
 /**
- * An IP-type connected entity.
+ * A managed object that is connected to a socket address.
+ *
+ * @since 1.2
  */
 public interface InetConnected extends InetBound {
+
+    /**
+     * Get the peer address.
+     *
+     * @return the peer address
+     */
     SocketAddress getPeerAddress();
 }

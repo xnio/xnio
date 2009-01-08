@@ -20,19 +20,9 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.management;
-
 /**
- * Statistics for entities which accept connections.
+ * The MBean interfaces that are used by XNIO providers.
  *
  * @since 1.2
  */
-public interface AcceptorStats {
-
-    /**
-     * Get the total count of accepted connections.
-     *
-     * @return the count
-     */
-    long getAcceptedConnections();
-}
+package org.jboss.xnio.management;

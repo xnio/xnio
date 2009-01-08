@@ -23,12 +23,23 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics for entities which read bytes and messages.
  *
+ * @since 1.2
  */
 public interface ReadableChannelStats {
-
+    /**
+     * Get the number of bytes read from this channel.
+     *
+     * @return the number of bytes
+     */
     long getBytesRead();
 
+    /**
+     * Get the number of read operations performed on this channel.
+     *
+     * @return the number of messages
+     */
     long getMessagesRead();
 
 }

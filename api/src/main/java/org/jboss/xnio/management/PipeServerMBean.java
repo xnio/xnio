@@ -23,7 +23,9 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics and management information for a pipe server.
  *
+ * @since 1.2
  */
 public interface PipeServerMBean extends AcceptorStats, ManagedCloseable {
 }

@@ -577,6 +577,7 @@
         <mkdir dir="docs/target/nio-holder"/>
         <copy todir="docs/target/nio-holder">
             <fileset dir="nio-impl/src/main/java">
+                <include name="**/package-info.java"/>
                 <include name="**/NioXnio.java"/>
                 <include name="**/NioXnioConfiguration.java"/>
             </fileset>

@@ -25,8 +25,16 @@ package org.jboss.xnio.management;
 import java.net.SocketAddress;
 
 /**
+ * A managed object that is bound to a socket address.
  *
+ * @since 1.2
  */
 public interface InetBound {
+
+    /**
+     * Get the bind address.
+     *
+     * @return the bind address
+     */
     SocketAddress getBindAddress();
 }

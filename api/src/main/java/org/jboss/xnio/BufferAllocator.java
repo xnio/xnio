@@ -28,6 +28,8 @@ import java.nio.Buffer;
  * An allocator for buffers.
  *
  * @param <T> the type of buffer that is managed by this allocator
+ *
+ * @apiviz.landmark
  */
 public interface BufferAllocator<T extends Buffer> {
     /**

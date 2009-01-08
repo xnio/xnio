@@ -27,6 +27,8 @@ import java.util.concurrent.Executor;
 
 /**
  * An executor that can be closed.
+ *
+ * @apiviz.exclude
  */
 public interface CloseableExecutor extends Closeable, Executor {
 }

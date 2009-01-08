@@ -27,7 +27,9 @@ import java.util.concurrent.ThreadFactory;
 import org.jboss.xnio.XnioConfiguration;
 
 /**
+ * Configuration for the NIO XNIO provider.  The configuration items provided here are specific to the NIO provider.
  *
+ * @since 1.2
  */
 public final class NioXnioConfiguration extends XnioConfiguration {
     private int readSelectorThreads = 2;
@@ -38,50 +40,110 @@ public final class NioXnioConfiguration extends XnioConfiguration {
     private Executor executor;
     private ThreadFactory selectorThreadFactory;
 
+    /**
+     * Get the number of read selector threads.
+     *
+     * @return the number of read selector threads
+     */
     public int getReadSelectorThreads() {
         return readSelectorThreads;
     }
 
+    /**
+     * Set the number of read selector threads.
+     *
+     * @param readSelectorThreads the number of read selector threads
+     */
     public void setReadSelectorThreads(final int readSelectorThreads) {
         this.readSelectorThreads = readSelectorThreads;
     }
 
+    /**
+     * Get the number of write selector threads.
+     *
+     * @return the number of write selector threads
+     */
     public int getWriteSelectorThreads() {
         return writeSelectorThreads;
     }
 
+    /**
+     * Set the number of read selector threads.
+     *
+     * @param writeSelectorThreads the number of write selector threads
+     */
     public void setWriteSelectorThreads(final int writeSelectorThreads) {
         this.writeSelectorThreads = writeSelectorThreads;
     }
 
+    /**
+     * Get the number of connect selector threads.  These threads are used to handle connect and accept events.
+     *
+     * @return the number of connect selector threads
+     */
     public int getConnectSelectorThreads() {
         return connectSelectorThreads;
     }
 
+    /**
+     * Set the number of connect selector threads.  These threads are used to handle connect and accept events.
+     *
+     * @param connectSelectorThreads the number of connect selector threads
+     */
     public void setConnectSelectorThreads(final int connectSelectorThreads) {
         this.connectSelectorThreads = connectSelectorThreads;
     }
 
+    /**
+     * Get the executor to use for handler execution.  If none is given, the direct executor is used.
+     *
+     * @return the executor
+     */
     public Executor getExecutor() {
         return executor;
     }
 
+    /**
+     * Set the executor to use for handler execution.  If none is given, the direct executor is used.
+     *
+     * @param executor the executor
+     */
     public void setExecutor(final Executor executor) {
         this.executor = executor;
     }
 
+    /**
+     * Get the thread factory to use for selector threads.
+     *
+     * @return the thread factory
+     */
     public ThreadFactory getSelectorThreadFactory() {
         return selectorThreadFactory;
     }
 
+    /**
+     * Set the thread factory to use for selector threads.
+     *
+     * @param selectorThreadFactory the thread factory
+     */
     public void setSelectorThreadFactory(final ThreadFactory selectorThreadFactory) {
         this.selectorThreadFactory = selectorThreadFactory;
     }
 
+    /**
+     * Get the size of the selector cache used for blocking I/O operations.
+     *
+     * @return the size of the selector cache
+     */
     public int getSelectorCacheSize() {
         return selectorCacheSize;
     }
 
+    /**
+     * Set the size of the selector cache used for blocking I/O operations.
+     *
+     * @param selectorCacheSize the size of the selector cache
+     */
     public void setSelectorCacheSize(final int selectorCacheSize) {
         this.selectorCacheSize = selectorCacheSize;
     }

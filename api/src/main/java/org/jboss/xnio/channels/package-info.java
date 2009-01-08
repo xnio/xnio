@@ -34,5 +34,7 @@
  * ready to handle reads or writes on the channel.
  * <p/>
  * See {@link java.nio.channels} for more information about channels.
+ *
+ * @apiviz.exclude java.nio.channels.Channel
  */
 package org.jboss.xnio.channels;

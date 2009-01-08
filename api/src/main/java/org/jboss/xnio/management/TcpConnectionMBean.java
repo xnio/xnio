@@ -23,8 +23,9 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics and management information for a TCP connection.
  *
+ * @since 1.2
  */
 public interface TcpConnectionMBean extends ChannelStats, InetConnected, ManagedCloseable {
-
 }

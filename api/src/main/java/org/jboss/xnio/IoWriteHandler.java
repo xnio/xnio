@@ -25,7 +25,11 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
+ * A handler for channel write events.
  *
+ * @param <T> the channel type
+ *
+ * @since 1.2
  */
 public interface IoWriteHandler<T extends Channel> {
 

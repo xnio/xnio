@@ -23,11 +23,22 @@
 package org.jboss.xnio.management;
 
 /**
- *
+ * Statistics and management information for a TCP server.
+ * 
+ * @since 1.2
  */
 public interface TcpServerMBean extends AcceptorStats, InetBindable, ManagedCloseable {
+
+    /**
+     * Get the currently bound listeners.
+     *
+     * @return the currently bound listeners
+     */
     Listener[] getBoundListeners();
 
+    /**
+     * Statistics and management information for a currently bound listener on a managed TCP server.
+     */
     interface Listener extends InetBound, AcceptorStats {
     }
 }

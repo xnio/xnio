@@ -31,10 +31,14 @@ import java.io.IOException;
  * an asynchronous operation.
  *
  * @param <T> the type of result that this operation produces
+ *
+ * @apiviz.landmark
  */
 public interface IoFuture<T> {
     /**
      * The current status of an asynchronous operation.
+     *
+     * @apiviz.exclude
      */
     enum Status {
         /**
@@ -150,6 +154,8 @@ public interface IoFuture<T> {
 
     /**
      * A notifier that handles changes in the status of an {@code IoFuture}.
+     *
+     * @apiviz.exclude
      */
     interface Notifier<T, A> {
         /**
@@ -166,6 +172,8 @@ public interface IoFuture<T> {
      * boilerplate for standard {@link org.jboss.xnio.IoFuture.Notifier} implementations.
      *
      * @since 1.1
+     *
+     * @apiviz.exclude
      */
     abstract class HandlingNotifier<T, A> implements Notifier<T, A> {
         /**

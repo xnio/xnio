@@ -24,6 +24,10 @@ package org.jboss.xnio.management;
 
 /**
  * A managed object which may be forcibly closed.
+ *
+ * @since 1.2
+ *
+ * @apiviz.exclude
  */
 public interface ManagedCloseable {
 

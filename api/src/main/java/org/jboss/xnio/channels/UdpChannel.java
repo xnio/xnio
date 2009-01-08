@@ -31,11 +31,15 @@ import java.io.Closeable;
 /**
  * A UDP channel.  UDP channels are multipoint datagram channels which always use a {@link java.net.SocketAddress} and
  * additionally support multicast registration.
+ *
+ * @apiviz.landmark
  */
 public interface UdpChannel extends MultipointDatagramChannel<SocketAddress> {
 
     /**
      * A registration key for a multicast group.
+     *
+     * @apiviz.exclude
      */
     interface Key extends Closeable {
         /**

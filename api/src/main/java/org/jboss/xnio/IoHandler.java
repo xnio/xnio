@@ -28,6 +28,8 @@ import java.nio.channels.Channel;
  * A channel I/O handler.  Implementations of this interface handle traffic over a {@code Channel}.
  *
  * @param <T> the type of channel that the handler can handle
+ *
+ * @apiviz.landmark
  */
 public interface IoHandler<T extends Channel> extends IoReadHandler<T>, IoWriteHandler<T> {
 

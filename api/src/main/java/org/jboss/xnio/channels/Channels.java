@@ -38,6 +38,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
+ *
+ * @apiviz.exclude
  */
 public final class Channels {
 
@@ -207,6 +209,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes written
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer) throws IOException {
         int res;
@@ -227,6 +230,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes written
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         int res = channel.write(buffer);
@@ -249,6 +253,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes written
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         long res;
@@ -271,6 +276,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes written
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long res = channel.write(buffers, offs, len);
@@ -290,6 +296,7 @@ public final class Channels {
      * @param buffer the data to write
      * @param <C> the channel type
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
         while (! (channel.send(buffer))) {
@@ -308,6 +315,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return {@code true} if the message was written before the timeout
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         if (! (channel.send(buffer))) {
@@ -328,6 +336,7 @@ public final class Channels {
      * @param len the number of buffers to write
      * @param <C> the channel type
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         while (! (channel.send(buffers, offs, len))) {
@@ -348,6 +357,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return {@code true} if the message was written before the timeout
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         if (! (channel.send(buffers, offs, len))) {
@@ -367,6 +377,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer) throws IOException {
         int res;
@@ -387,6 +398,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         int res = channel.read(buffer);
@@ -409,6 +421,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         long res;
@@ -431,6 +444,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long res = channel.read(buffers, offs, len);
@@ -451,6 +465,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer) throws IOException {
         int res;
@@ -471,6 +486,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         int res = channel.receive(buffer);
@@ -493,6 +509,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         long res;
@@ -515,6 +532,7 @@ public final class Channels {
      * @param <C> the channel type
      * @return the number of bytes read
      * @throws IOException if an I/O exception occurs
+     * @since 1.2
      */
     public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long res = channel.receive(buffers, offs, len);

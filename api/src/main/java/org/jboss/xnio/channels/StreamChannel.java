@@ -24,6 +24,8 @@ package org.jboss.xnio.channels;
 
 /**
  * A stream channel.  This type of channel represents a stream of bytes flowing in two directions.
+ *
+ * @apiviz.landmark
  */
 public interface StreamChannel extends SuspendableChannel, StreamSinkChannel, StreamSourceChannel, Configurable {
 }

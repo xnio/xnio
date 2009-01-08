@@ -24,6 +24,8 @@ package org.jboss.xnio.channels;
 
 /**
  * A plain channel option implementation.  Use to easily define channel options.
+ *
+ * @apiviz.exclude
  */
 public class PlainChannelOption<T> implements ChannelOption<T> {
     private static final long serialVersionUID = -8427767721179764175L;

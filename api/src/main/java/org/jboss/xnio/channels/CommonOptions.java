@@ -26,6 +26,8 @@ import static org.jboss.xnio.channels.PlainChannelOption.createOption;
 
 /**
  * Common channel options.
+ *
+ * @apiviz.exclude
  */
 public final class CommonOptions {
 
@@ -100,6 +102,8 @@ public final class CommonOptions {
      * Configure an acceptor to manage connections or to leave them unmanaged.  A managed entity will appear in any registered MBean server,
      * but there may be a performance penalty associated with management.  In general it is recommended to always
      * enable management, unless a specific performance problem is identified.
+     *
+     * @since 1.2
      */
     public static final ChannelOption<Boolean> MANAGE_CONNECTIONS = createOption("MANAGE_CONNECTIONS", Boolean.class);
 }

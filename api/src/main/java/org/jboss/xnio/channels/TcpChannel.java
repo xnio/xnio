@@ -27,6 +27,8 @@ import java.net.SocketAddress;
 /**
  * A TCP channel.  TCP channels are connected stream channels that always use {@link SocketAddress} instances to define
  * endpoint addresses.
+ *
+ * @apiviz.landmark
  */
 public interface TcpChannel extends ConnectedStreamChannel<SocketAddress> {
 }

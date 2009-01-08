@@ -716,6 +716,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param name the property name
      * @return the property value, or {@code null} if it wasn't found
+     * @since 1.2
      */
     protected String getProperty(final String name) {
         if (! name.startsWith("xnio.")) {
@@ -735,6 +736,7 @@ public abstract class Xnio implements Closeable {
      * @param name the property name
      * @param defaultValue the default value
      * @return the property value, or {@code defaultValue} if it wasn't found
+     * @since 1.2
      */
     protected String getProperty(final String name, final String defaultValue) {
         if (! name.startsWith("xnio.")) {
@@ -753,6 +755,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final TcpServerMBean mBean) {
         try {
@@ -775,6 +778,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final TcpConnectionMBean mBean) {
         try {
@@ -799,6 +803,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final UdpServerMBean mBean) {
         try {
@@ -820,6 +825,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final OneWayPipeConnectionMBean mBean) {
         try {
@@ -842,6 +848,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final PipeConnectionMBean mBean) {
         try {
@@ -864,6 +871,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final PipeServerMBean mBean) {
         try {
@@ -886,6 +894,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final PipeSourceServerMBean mBean) {
         try {
@@ -909,6 +918,7 @@ public abstract class Xnio implements Closeable {
      *
      * @param mBean the MBean
      * @return a handle which may be used to unregister the MBean
+     * @since 1.2
      */
     protected Closeable registerMBean(final PipeSinkServerMBean mBean) {
         try {

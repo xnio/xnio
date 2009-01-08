@@ -23,16 +23,9 @@
 package org.jboss.xnio.management;
 
 /**
+ * Statistics for entities which transfer bytes and messages.
  *
+ * @since 1.2
  */
 public interface ChannelStats extends ReadableChannelStats, WritableChannelStats {
-
-    long getBytesRead();
-
-    long getBytesWritten();
-
-    long getMessagesRead();
-
-    long getMessagesWritten();
-
 }
