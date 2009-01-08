@@ -195,25 +195,25 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     public <A> IoFuture<T> addNotifier(final Notifier<T, A> notifier, final A attachment) {
-        synchronized (lock) {
-            final Runnable runnable = new Runnable() {
-                public void run() {
-                    try {
-                        notifier.notify(AbstractIoFuture.this, attachment);
-                    } catch (Throwable t) {
-                        log.warn(t, "Running notifier failed");
-                    }
+        final Runnable runnable = new Runnable() {
+            public void run() {
+                try {
+                    notifier.notify(AbstractIoFuture.this, attachment);
+                } catch (Throwable t) {
+                    log.warn(t, "Running notifier failed");
                 }
-            };
+            }
+        };
+        synchronized (lock) {
             if (status == Status.WAITING) {
                 if (notifierList == null) {
                     notifierList = new ArrayList<Runnable>();
                 }
                 notifierList.add(runnable);
-            } else {
-                runNotifier(runnable);
+                return this;
             }
         }
+        runNotifier(runnable);
         return this;
     }
 
