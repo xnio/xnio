@@ -82,11 +82,12 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
 
     abstract protected T convert(D arg) throws IOException;
 
-    public <A> void addNotifier(final Notifier<T, A> notifier, A attachment) {
+    public <A> IoFuture<T> addNotifier(final Notifier<T, A> notifier, A attachment) {
         delegate.addNotifier(new Notifier<D, A>() {
             public void notify(final IoFuture<D> future, A attachment) {
                 notifier.notify(AbstractConvertingIoFuture.this, attachment);
             }
         }, attachment);
+        return this;
     }
 }

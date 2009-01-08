@@ -144,8 +144,9 @@ public interface IoFuture<T> {
      *
      * @param notifier the notifier to be called
      * @param attachment the attachment to pass in to the notifier
+     * @return this instance
      */
-    <A> void addNotifier(Notifier<T, A> notifier, A attachment);
+    <A> IoFuture<T> addNotifier(Notifier<T, A> notifier, A attachment);
 
     /**
      * A notifier that handles changes in the status of an {@code IoFuture}.
@@ -155,7 +156,7 @@ public interface IoFuture<T> {
          * Receive notification of the completion of an outstanding operation.
          *
          * @param ioFuture the future corresponding to this operation
-         * @param attachment
+         * @param attachment the attachment
          */
         void notify(IoFuture<T> ioFuture, final A attachment);
     }
@@ -194,7 +195,8 @@ public interface IoFuture<T> {
 
         /**
          * Handle cancellation.
-         * @param attachment
+         *
+         * @param attachment the attachment
          */
         public void handleCancelled(final A attachment) {
         }
@@ -203,7 +205,7 @@ public interface IoFuture<T> {
          * Handle failure.
          *
          * @param exception the failure reason
-         * @param attachment
+         * @param attachment the attachment
          */
         public void handleFailed(final IOException exception, final A attachment) {
         }
@@ -212,7 +214,7 @@ public interface IoFuture<T> {
          * Handle completion.
          *
          * @param result the result
-         * @param attachment
+         * @param attachment the attachment
          */
         public void handleDone(final T result, final A attachment) {
         }
