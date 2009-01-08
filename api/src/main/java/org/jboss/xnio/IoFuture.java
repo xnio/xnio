@@ -148,6 +148,7 @@ public interface IoFuture<T> {
      *
      * @param notifier the notifier to be called
      * @param attachment the attachment to pass in to the notifier
+     * @param <A> the attachment type
      * @return this instance
      */
     <A> IoFuture<T> addNotifier(Notifier<T, A> notifier, A attachment);
@@ -155,6 +156,8 @@ public interface IoFuture<T> {
     /**
      * A notifier that handles changes in the status of an {@code IoFuture}.
      *
+     * @param <T> the type of result that the associated future operation produces
+     * @param <A> the attachment type
      * @apiviz.exclude
      */
     interface Notifier<T, A> {
@@ -171,6 +174,9 @@ public interface IoFuture<T> {
      * A base notifier class that calls the designated handler method on notification.  Use this class to reduce
      * boilerplate for standard {@link org.jboss.xnio.IoFuture.Notifier} implementations.
      *
+     * @param <T> the type of result that the associated future operation produces
+     * @param <A> the attachment type
+
      * @since 1.1
      *
      * @apiviz.exclude
