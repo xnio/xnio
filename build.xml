@@ -95,7 +95,6 @@
             <compilerarg value="-Xlint:unchecked"/>
             <classpath>
                 <path refid="logging-jdk.classpath"/>
-                <path refid="version.classpath"/>
             </classpath>
         </javac>
         <touch file="api/target/main/.lastcompile" verbose="false"/>
@@ -175,12 +174,13 @@
         <delete dir="api/target"/>
     </target>
 
-    <target name="api" description="Build the api module" depends="version,logging-jdk,api.compile">
+    <target name="api" description="Build the api module" depends="logging-jdk,api.compile">
         <path id="api.classpath">
             <pathelement location="api/target/main/classes"/>
             <path refid="logging-jdk.classpath"/>
-            <path refid="version.classpath"/>
         </path>
+        <java taskname="version" classpathref="api.classpath" classname="org.jboss.xnio.Version" outputproperty="version"/>
+        <property name="version" value="UNKNOWN"/>
     </target>
 
     <!-- deployer module -->
@@ -248,9 +248,7 @@
                 destdir="logging-jdk/target/main/classes"
                 debug="true">
             <compilerarg value="-Xlint:unchecked"/>
-            <classpath>
-                <path refid="version.classpath"/>
-            </classpath>
+            <classpath/>
         </javac>
         <touch file="logging-jdk/target/main/.lastcompile" verbose="false"/>
     </target>
@@ -259,7 +257,7 @@
         <delete dir="logging-jdk/target"/>
     </target>
 
-    <target name="logging-jdk" description="Build the logging-jdk module" depends="version,logging-jdk.compile">
+    <target name="logging-jdk" description="Build the logging-jdk module" depends="logging-jdk.compile">
         <path id="logging-jdk.classpath">
             <pathelement location="logging-jdk/target/main/classes"/>
         </path>
@@ -454,49 +452,11 @@
         </path>
     </target>
 
-    <!-- version module -->
-
-    <target name="version.compile.depcheck">
-        <mkdir dir="version/target/main"/>
-        <uptodate property="version.compile.uptodate" targetfile="version/target/main/.lastcompile">
-            <srcfiles dir="version/src/main/java">
-                <include name="**/"/>
-                <include name="**/*.java"/>
-                <exclude name="**/.*"/>
-            </srcfiles>
-        </uptodate>
-    </target>
-
-    <target name="version.compile" depends="version.compile.depcheck" unless="version.compile.uptodate">
-        <mkdir dir="version/target/main/classes"/>
-        <javac
-                source="${javac.source}"
-                target="${javac.target}"
-                srcdir="version/src/main/java"
-                destdir="version/target/main/classes"
-                debug="true">
-            <compilerarg value="-Xlint:unchecked"/>
-        </javac>
-        <touch file="version/target/main/.lastcompile" verbose="false"/>
-    </target>
-
-    <target name="version.clean">
-        <delete dir="version/target"/>
-    </target>
-
-    <target name="version" description="Build the version module" depends="version.compile">
-        <path id="version.classpath">
-            <pathelement location="version/target/main/classes"/>
-        </path>
-        <java taskname="version" classpathref="version.classpath" classname="org.jboss.xnio.Version" outputproperty="version"/>
-        <property name="version" value="UNKNOWN"/>
-    </target>
-
     <!-- ============================================== -->
     <!-- JARS - Keep in alpha order by jar name         -->
     <!-- ============================================== -->
 
-    <target name="jar.api" depends="api,logging-jdk,version" description="Build the API JAR">
+    <target name="jar.api" depends="api,logging-jdk" description="Build the API JAR">
         <delete file="xnio-api.jar" failonerror="false"/>
         <delete file="xnio-api-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-api.jar">
@@ -514,7 +474,6 @@
             </manifest>
             <zipfileset dir="api/target/main/classes" includes="**/*.class"/>
             <zipfileset dir="logging-jdk/target/main/classes" includes="**/*.class"/>
-            <zipfileset dir="version/target/main/classes" includes="**/*.class"/>
         </jar>
         <jar jarfile="xnio-api-sources.jar">
             <manifest>
@@ -529,11 +488,10 @@
             <zipfileset dir="${basedir}" includesfile="COPYING.txt"/>
             <zipfileset dir="api/src/main/java" includes="**/*.java"/>
             <zipfileset dir="logging-jdk/src/main/java" includes="**/*.java"/>
-            <zipfileset dir="version/src/main/java" includes="**/*.java"/>
         </jar>
     </target>
 
-    <target name="jar.nio-impl" depends="nio-impl" description="Build the NIO implementation JAR">
+    <target name="jar.nio-impl" depends="api,nio-impl" description="Build the NIO implementation JAR">
         <delete file="xnio-nio.jar" failonerror="false"/>
         <delete file="xnio-nio-sources.jar" failonerror="false"/>
         <jar jarfile="xnio-nio.jar">
@@ -570,7 +528,7 @@
     <!-- JAVADOCS                                       -->
     <!-- ============================================== -->
 
-    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl,version">
+    <target name="javadoc" depends="lib.apiviz,api,logging-jdk,nio-impl">
         <delete dir="docs/target/main/javadoc"/>
         <delete dir="docs/target/nio-holder"/>
         <mkdir dir="docs/target/main/javadoc"/>
@@ -586,7 +544,6 @@
             <doclet name="net.gleamynode.apiviz.APIviz" path="${lib.apiviz.local}"/>
             <packageset dir="api/src/main/java"/>
             <packageset dir="logging-jdk/src/main/java"/>
-            <packageset dir="version/src/main/java"/>
             <packageset dir="docs/target/nio-holder"/>
             <doctitle><![CDATA[<h1>XNIO version ${version}</h1>]]></doctitle>
             <header><![CDATA[XNIO version ${version}]]></header>
@@ -597,7 +554,6 @@
                 <path refid="api.classpath"/>
                 <path refid="logging-jdk.classpath"/>
                 <path refid="nio-impl.classpath"/>
-                <path refid="version.classpath"/>
             </classpath>
         </javadoc>
         <delete dir="docs/target/nio-holder"/>
@@ -606,7 +562,7 @@
     <!-- Default targets - keep depends in alpha order by category name -->
     <!-- These targets should explicitly list all modules, even if they will be built by other modules -->
 
-    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,test-support,version,javadoc"/>
+    <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,test-support,javadoc"/>
 
     <target name="all" description="Build everything" depends="base,deployer,samples"/>
 
@@ -614,6 +570,6 @@
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,test-support.clean,version.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,test-support.clean"/>
 
 </project>
