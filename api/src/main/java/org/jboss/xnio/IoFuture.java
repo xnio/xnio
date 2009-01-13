@@ -176,7 +176,7 @@ public interface IoFuture<T> {
      *
      * @param <T> the type of result that the associated future operation produces
      * @param <A> the attachment type
-
+     *
      * @since 1.1
      *
      * @apiviz.exclude
