@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
 import java.nio.channels.Channel;
@@ -486,6 +487,19 @@ public final class IoUtils {
         cdl.await();
     }
 
+    /**
+     * Create an {@code IoFuture} which wraps another {@code IoFuture}, but returns a different type.
+     *
+     * @param parent the original {@code IoFuture}
+     * @param type the class of the new {@code IoFuture}
+     * @param <I> the type of the original result
+     * @param <O> the type of the wrapped result
+     * @return a wrapper {@code IoFuture}
+     */
+    public static <I, O> IoFuture<O> cast(final IoFuture<I> parent, final Class<O> type) {
+        return new CastingIoFuture<O, I>(parent, type);
+    }
+
     // nested classes
 
     private static final Logger connLog = Logger.getLogger("org.jboss.xnio.connection");
@@ -590,6 +604,63 @@ public final class IoUtils {
             public String toString() {
                 return String.format("reconnect task <%s> for %s", Integer.toHexString(hashCode()), Connection.this);
             }
+        }
+    }
+
+    private static class CastingIoFuture<O, I> implements IoFuture<O> {
+
+        private final IoFuture<I> parent;
+        private final Class<O> type;
+
+        private CastingIoFuture(final IoFuture<I> parent, final Class<O> type) {
+            this.parent = parent;
+            this.type = type;
+        }
+
+        public IoFuture<O> cancel() {
+            parent.cancel();
+            return this;
+        }
+
+        public Status getStatus() {
+            return parent.getStatus();
+        }
+
+        public Status await() {
+            return parent.await();
+        }
+
+        public Status await(final long time, final TimeUnit timeUnit) {
+            return parent.await(time, timeUnit);
+        }
+
+        public Status awaitInterruptibly() throws InterruptedException {
+            return parent.awaitInterruptibly();
+        }
+
+        public Status awaitInterruptibly(final long time, final TimeUnit timeUnit) throws InterruptedException {
+            return parent.awaitInterruptibly(time, timeUnit);
+        }
+
+        public O get() throws IOException, CancellationException {
+            return type.cast(parent.get());
+        }
+
+        public O getInterruptibly() throws IOException, InterruptedException, CancellationException {
+            return type.cast(parent.getInterruptibly());
+        }
+
+        public IOException getException() throws IllegalStateException {
+            return parent.getException();
+        }
+
+        public <A> IoFuture<O> addNotifier(final Notifier<O, A> notifier, final A attachment) {
+            parent.<A>addNotifier(new Notifier<I, A>() {
+                public void notify(final IoFuture<I> future, final A attachment) {
+                    notifier.notify(CastingIoFuture.this, attachment);
+                }
+            }, attachment);
+            return this;
         }
     }
 }
