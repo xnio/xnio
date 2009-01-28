@@ -399,6 +399,21 @@ public final class IoUtils {
     }
 
     /**
+     * Get a notifier that runs the supplied action.
+     *
+     * @param runnable the notifier type
+     * @param <T> the future type (not used)
+     * @return a notifier which will run the given command
+     */
+    public static <T> IoFuture.Notifier<T, Void> runnableNotifier(final Runnable runnable) {
+        return new IoFuture.Notifier<T, Void>() {
+            public void notify(final IoFuture<T> future, final Void attachment) {
+                runnable.run();
+            }
+        };
+    }
+
+    /**
      * Get a {@code java.util.concurrent}-style {@code Future} instance wrapper for an {@code IoFuture} instance.
      *
      * @param ioFuture the {@code IoFuture} to wrap
