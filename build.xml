@@ -17,16 +17,6 @@
         <get src="${remote.license.dir}/${lib.apiviz.license}.txt" dest="${lib.apiviz.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
     </target>
 
-    <target name="lib.jaxb-api-check">
-        <available property="lib.jaxb-api.exists" file="${lib.jaxb-api.local}"/>
-    </target>
-
-    <target name="lib.jaxb-api" depends="lib.jaxb-api-check" unless="lib.jaxb-api.exists">
-        <mkdir dir="${local.repository}/${lib.jaxb-api.dir}"/>
-        <get src="${lib.jaxb-api.remote}" dest="${lib.jaxb-api.local}" usetimestamp="true" ignoreerrors="false"/>
-        <get src="${remote.license.dir}/${lib.jaxb-api.license}.txt" dest="${lib.jaxb-api.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
-    </target>
-
     <target name="lib.jboss-common-core-check">
         <available property="lib.jboss-common-core.exists" file="${lib.jboss-common-core.local}"/>
     </target>
@@ -35,26 +25,6 @@
         <mkdir dir="${local.repository}/${lib.jboss-common-core.local-dir}"/>
         <get src="${lib.jboss-common-core.remote}" dest="${lib.jboss-common-core.local}" usetimestamp="true" ignoreerrors="false"/>
         <get src="${remote.license.dir}/${lib.jboss-common-core.license}.txt" dest="${lib.jboss-common-core.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
-    </target>
-
-    <target name="lib.jbossmc-kernel-check">
-        <available property="lib.jbossmc-kernel.exists" file="${lib.jbossmc-kernel.local}"/>
-    </target>
-
-    <target name="lib.jbossmc-kernel" depends="lib.jbossmc-kernel-check" unless="lib.jbossmc-kernel.exists">
-        <mkdir dir="${local.repository}/${lib.jbossmc.local-dir}"/>
-        <get src="${lib.jbossmc-kernel.remote}" dest="${lib.jbossmc-kernel.local}" usetimestamp="true" ignoreerrors="false"/>
-        <get src="${remote.license.dir}/${lib.jbossmc-kernel.license}.txt" dest="${lib.jbossmc-kernel.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
-    </target>
-
-    <target name="lib.jbossxb-check">
-        <available property="lib.jbossxb.exists" file="${lib.jbossxb.local}"/>
-    </target>
-
-    <target name="lib.jbossxb" depends="lib.jbossxb-check" unless="lib.jbossxb.exists">
-        <mkdir dir="${local.repository}/${lib.jbossxb.dir}"/>
-        <get src="${lib.jbossxb.remote}" dest="${lib.jbossxb.local}" usetimestamp="true" ignoreerrors="false"/>
-        <get src="${remote.license.dir}/${lib.jbossxb.license}.txt" dest="${lib.jbossxb.local}.license.txt" usetimestamp="true" ignoreerrors="false"/>
     </target>
 
     <target name="lib.junit-check">
@@ -181,49 +151,6 @@
         </path>
         <java taskname="version" classpathref="api.classpath" classname="org.jboss.xnio.Version" outputproperty="version"/>
         <property name="version" value="UNKNOWN"/>
-    </target>
-
-    <!-- deployer module -->
-
-    <target name="deployer.compile.depcheck">
-        <mkdir dir="deployer/target/main"/>
-        <uptodate property="deployer.compile.uptodate" targetfile="deployer/target/main/.lastcompile">
-            <srcfiles dir="deployer/src/main/java">
-                <include name="**/"/>
-                <include name="**/*.java"/>
-                <exclude name="**/.*"/>
-            </srcfiles>
-        </uptodate>
-    </target>
-
-    <target name="deployer.compile" depends="deployer.compile.depcheck" unless="deployer.compile.uptodate">
-        <mkdir dir="deployer/target/main/classes"/>
-        <javac
-                source="${javac.source}"
-                target="${javac.target}"
-                srcdir="deployer/src/main/java"
-                destdir="deployer/target/main/classes"
-                debug="true">
-            <compilerarg value="-Xlint:unchecked"/>
-            <classpath>
-                <path refid="api.classpath"/>
-                <pathelement location="${lib.jaxb-api.local}"/>
-                <pathelement location="${lib.jboss-common-core.local}"/>
-                <pathelement location="${lib.jbossmc-kernel.local}"/>
-                <pathelement location="${lib.jbossxb.local}"/>
-            </classpath>
-        </javac>
-        <touch file="deployer/target/main/.lastcompile" verbose="false"/>
-    </target>
-
-    <target name="deployer.clean">
-        <delete dir="deployer/target"/>
-    </target>
-
-    <target name="deployer" description="Build the deployer module" depends="api,lib.jaxb-api,lib.jboss-common-core,lib.jbossmc-kernel,lib.jbossxb,api,nio-impl,deployer.compile">
-        <path id="deployer.classpath">
-            <pathelement location="deployer/target/main/classes"/>
-        </path>
     </target>
 
     <!-- logging-jdk module -->
@@ -564,12 +491,12 @@
 
     <target name="base" description="Build base modules only (no external deps)" depends="api,logging-jdk,nio-impl,test-support,javadoc"/>
 
-    <target name="all" description="Build everything" depends="base,deployer,samples"/>
+    <target name="all" description="Build everything" depends="base,samples"/>
 
     <target name="jar" description="Build all JARs" depends="jar.api,jar.nio-impl"/>
 
     <target name="test" description="Run all tests" depends="api.test,nio-impl.test"/>
 
-    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,deployer.clean,nio-impl.clean,test-support.clean"/>
+    <target name="clean" description="Clean everything" depends="api.clean,logging-jdk.clean,nio-impl.clean,test-support.clean"/>
 
 </project>
