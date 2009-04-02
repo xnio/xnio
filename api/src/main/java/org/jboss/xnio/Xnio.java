@@ -86,7 +86,7 @@ public abstract class Xnio implements Closeable {
     private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.NioXnio";
     private static final String PROVIDER_CLASS;
     private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
-    private static final String MANAGEMENT_DOMAIN = "org.jboss.Xnio";
+    private static final String MANAGEMENT_DOMAIN = "jboss.xnio";
 
     private static final AtomicLong mbeanSequence = new AtomicLong();
 
@@ -761,7 +761,6 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "server"),
                     entry("protocol", "tcp"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
@@ -784,10 +783,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "connection"),
                     entry("protocol", "tcp"),
-                    entry("duplex", "full"),
                     entry("bindAddress", ObjectName.quote(mBean.getBindAddress().toString())),
                     entry("peerAddress", ObjectName.quote(mBean.getPeerAddress().toString())),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
@@ -809,7 +806,6 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "server"),
                     entry("protocol", "udp"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
@@ -831,10 +827,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "connection"),
                     entry("protocol", "local"),
-                    entry("duplex", "half"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
             ));
             return registerMBean(mBean, mbeanName);
@@ -854,10 +848,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "connection"),
                     entry("protocol", "local"),
-                    entry("duplex", "full"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
             ));
             return registerMBean(mBean, mbeanName);
@@ -877,10 +869,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "server"),
                     entry("protocol", "local"),
-                    entry("duplex", "full"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
             ));
             return registerMBean(mBean, mbeanName);
@@ -900,11 +890,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "server"),
-                    entry("protocol", "local"),
-                    entry("duplex", "half"),
-                    entry("direction", "source"),
+                    entry("protocol", "local-source"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
             ));
             return registerMBean(mBean, mbeanName);
@@ -924,11 +911,8 @@ public abstract class Xnio implements Closeable {
         try {
             final ObjectName mbeanName = new ObjectName(MANAGEMENT_DOMAIN, hashtable(
                     entry("provider", ObjectName.quote(getName())),
-                    entry("providerType", ObjectName.quote(getClass().getName())),
                     entry("type", "server"),
-                    entry("protocol", "local"),
-                    entry("duplex", "half"),
-                    entry("direction", "sink"),
+                    entry("protocol", "local-sink"),
                     entry("id", Long.toString(mbeanSequence.getAndIncrement()))
             ));
             return registerMBean(mBean, mbeanName);
