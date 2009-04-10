@@ -367,7 +367,7 @@ public final class IoUtils {
      * @param futureResource the resource to close
      */
     public static void safeClose(final IoFuture<? extends Closeable> futureResource) {
-        futureResource.addNotifier(closingNotifier(), null).cancel();
+        futureResource.cancel().addNotifier(closingNotifier(), null);
     }
 
     private static final IoFuture.Notifier<Object, Closeable> ATTACHMENT_CLOSING_NOTIFIER = new IoFuture.Notifier<Object, Closeable>() {
