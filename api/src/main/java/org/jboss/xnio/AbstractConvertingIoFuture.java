@@ -36,11 +36,10 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
     /**
      * The delegate future result.
      */
-    protected final IoFuture<D> delegate;
+    protected final IoFuture<? extends D> delegate;
 
-    @SuppressWarnings({"unchecked"})
     protected AbstractConvertingIoFuture(final IoFuture<? extends D> delegate) {
-        this.delegate = (IoFuture<D>) delegate;
+        this.delegate = delegate;
     }
 
     public IoFuture<T> cancel() {
@@ -82,9 +81,9 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
 
     abstract protected T convert(D arg) throws IOException;
 
-    public <A> IoFuture<T> addNotifier(final Notifier<T, A> notifier, A attachment) {
+    public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> notifier, A attachment) {
         delegate.addNotifier(new Notifier<D, A>() {
-            public void notify(final IoFuture<D> future, A attachment) {
+            public void notify(final IoFuture<? extends D> future, A attachment) {
                 notifier.notify(AbstractConvertingIoFuture.this, attachment);
             }
         }, attachment);

@@ -194,7 +194,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * {@inheritDoc}
      */
-    public <A> IoFuture<T> addNotifier(final Notifier<T, A> notifier, final A attachment) {
+    public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> notifier, final A attachment) {
         final Runnable runnable = new Runnable() {
             public void run() {
                 try {

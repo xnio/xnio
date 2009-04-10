@@ -219,23 +219,19 @@ public final class IoUtils {
     /**
      * Get the null handler.  This is a handler whose handler methods all return without taking any action.
      *
-     * @param <T> the channel type
      * @return the null handler
      */
-    @SuppressWarnings({"unchecked"})
-    public static <T extends Channel> IoHandler<T> nullHandler() {
-        return (IoHandler<T>) NULL_HANDLER;
+    public static IoHandler<Channel> nullHandler() {
+        return NULL_HANDLER;
     }
 
     /**
      * Get the null handler factory.  This is a handler factory that returns the null handler.
      *
-     * @param <T> the channel type
      * @return the null handler factory
      */
-    @SuppressWarnings({"unchecked"})
-    public static <T extends Channel> IoHandlerFactory<T> nullHandlerFactory() {
-        return (IoHandlerFactory<T>) NULL_HANDLER_FACTORY;
+    public static IoHandlerFactory<Channel> nullHandlerFactory() {
+        return NULL_HANDLER_FACTORY;
     }
 
     /**
@@ -364,13 +360,23 @@ public final class IoUtils {
         }
     }
 
-    private static final IoFuture.Notifier<?, Closeable> ATTACHMENT_CLOSING_NOTIFIER = new IoFuture.Notifier<Object, Closeable>() {
-        public void notify(final IoFuture<Object> future, final Closeable attachment) {
+    /**
+     * Close a future resource, logging an error if an error occurs.  Attempts to cancel the operation if it is
+     * still in progress.
+     *
+     * @param futureResource the resource to close
+     */
+    public static void safeClose(final IoFuture<? extends Closeable> futureResource) {
+        futureResource.addNotifier(closingNotifier(), null).cancel();
+    }
+
+    private static final IoFuture.Notifier<Object, Closeable> ATTACHMENT_CLOSING_NOTIFIER = new IoFuture.Notifier<Object, Closeable>() {
+        public void notify(final IoFuture<?> future, final Closeable attachment) {
             IoUtils.safeClose(attachment);
         }
     };
 
-    private static final IoFuture.Notifier<? extends Closeable, Void> CLOSING_NOTIFIER = new IoFuture.HandlingNotifier<Closeable, Void>() {
+    private static final IoFuture.Notifier<Closeable, Void> CLOSING_NOTIFIER = new IoFuture.HandlingNotifier<Closeable, Void>() {
         public void handleDone(final Closeable result, final Void attachment) {
             IoUtils.safeClose(result);
         }
@@ -379,23 +385,19 @@ public final class IoUtils {
     /**
      * Get a notifier that closes the attachment.
      *
-     * @param <T> the future type (not used)
      * @return a notifier which will close its attachment
      */
-    @SuppressWarnings({ "unchecked" })
-    public static <T> IoFuture.Notifier<T, Closeable> attachmentClosingNotifier() {
-        return (IoFuture.Notifier<T, Closeable>) ATTACHMENT_CLOSING_NOTIFIER;
+    public static IoFuture.Notifier<Object, Closeable> attachmentClosingNotifier() {
+        return ATTACHMENT_CLOSING_NOTIFIER;
     }
 
     /**
      * Get a notifier that closes the result.
      *
-     * @param <T> the future type, which must be closeable
      * @return a notifier which will close the result of the operation (if successful)
      */
-    @SuppressWarnings({ "unchecked" })
-    public static <T extends Closeable> IoFuture.Notifier<T, Void> closingNotifier() {
-        return (IoFuture.Notifier<T, Void>) CLOSING_NOTIFIER;
+    public static IoFuture.Notifier<Closeable, Void> closingNotifier() {
+        return CLOSING_NOTIFIER;
     }
 
     /**
@@ -407,7 +409,7 @@ public final class IoUtils {
      */
     public static <T> IoFuture.Notifier<T, Void> runnableNotifier(final Runnable runnable) {
         return new IoFuture.Notifier<T, Void>() {
-            public void notify(final IoFuture<T> future, final Void attachment) {
+            public void notify(final IoFuture<? extends T> future, final Void attachment) {
                 runnable.run();
             }
         };
@@ -459,22 +461,17 @@ public final class IoUtils {
         };
     }
 
-    private static final IoFuture.Notifier<?, CountDownLatch> COUNT_DOWN_NOTIFIER = new IoFuture.Notifier<Object, CountDownLatch>() {
-        public void notify(final IoFuture<Object> future, final CountDownLatch latch) {
+    private static final IoFuture.Notifier<Object, CountDownLatch> COUNT_DOWN_NOTIFIER = new IoFuture.Notifier<Object, CountDownLatch>() {
+        public void notify(final IoFuture<?> future, final CountDownLatch latch) {
             latch.countDown();
         }
     };
-
-    @SuppressWarnings({ "unchecked" })
-    private static <T> void addCountDownNotifier(IoFuture<T> future, CountDownLatch latch) {
-        future.addNotifier((IoFuture.Notifier<T, CountDownLatch>) COUNT_DOWN_NOTIFIER, latch);
-    }
 
     public static void awaitAll(IoFuture<?>... futures) {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
-            addCountDownNotifier(future, cdl);
+            future.addNotifier(COUNT_DOWN_NOTIFIER, cdl);
         }
         boolean intr = false;
         try {
@@ -492,12 +489,11 @@ public final class IoUtils {
         }
     }
 
-    @SuppressWarnings({ "unchecked" })
     public static void awaitAllInterruptibly(IoFuture<?>... futures) throws InterruptedException {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
         for (IoFuture<?> future : futures) {
-            addCountDownNotifier(future, cdl);
+            future.addNotifier(COUNT_DOWN_NOTIFIER, cdl);
         }
         cdl.await();
     }
@@ -571,7 +567,7 @@ public final class IoUtils {
                 connLog.trace("Connection established");
             }
 
-            public void notify(final IoFuture<T> future, final A attachment) {
+            public void notify(final IoFuture<? extends T> future, final A attachment) {
                 super.notify(future, attachment);
                 if (! stopFlag) {
                     reconnectExecutor.execute(reconnectTask);
@@ -669,10 +665,10 @@ public final class IoUtils {
             return parent.getException();
         }
 
-        public <A> IoFuture<O> addNotifier(final Notifier<O, A> notifier, final A attachment) {
+        public <A> IoFuture<O> addNotifier(final Notifier<? super O, A> notifier, final A attachment) {
             parent.<A>addNotifier(new Notifier<I, A>() {
-                public void notify(final IoFuture<I> future, final A attachment) {
-                    notifier.notify(CastingIoFuture.this, attachment);
+                public void notify(final IoFuture<? extends I> future, final A attachment) {
+                    notifier.notify((IoFuture<O>)CastingIoFuture.this, attachment);
                 }
             }, attachment);
             return this;

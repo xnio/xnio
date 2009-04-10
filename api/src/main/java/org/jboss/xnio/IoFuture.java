@@ -151,7 +151,7 @@ public interface IoFuture<T> {
      * @param <A> the attachment type
      * @return this instance
      */
-    <A> IoFuture<T> addNotifier(Notifier<T, A> notifier, A attachment);
+    <A> IoFuture<T> addNotifier(Notifier<? super T, A> notifier, A attachment);
 
     /**
      * A notifier that handles changes in the status of an {@code IoFuture}.
@@ -167,7 +167,7 @@ public interface IoFuture<T> {
          * @param ioFuture the future corresponding to this operation
          * @param attachment the attachment
          */
-        void notify(IoFuture<T> ioFuture, final A attachment);
+        void notify(IoFuture<? extends T> ioFuture, final A attachment);
     }
 
     /**
@@ -185,7 +185,7 @@ public interface IoFuture<T> {
         /**
          * {@inheritDoc}
          */
-        public void notify(final IoFuture<T> future, A attachment) {
+        public void notify(final IoFuture<? extends T> future, A attachment) {
             switch (future.getStatus()) {
                 case CANCELLED:
                     handleCancelled(attachment);
