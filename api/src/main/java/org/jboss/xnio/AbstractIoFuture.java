@@ -63,7 +63,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      */
     public Status await() {
         synchronized (lock) {
-            boolean intr = false;
+            boolean intr = Thread.interrupted();
             try {
                 while (status == Status.WAITING) try {
                     lock.wait();
@@ -92,7 +92,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             deadline = Long.MAX_VALUE;
         }
         synchronized (lock) {
-            boolean intr = false;
+            boolean intr = Thread.interrupted();
             try {
                 while (status == Status.WAITING) try {
                     lock.wait(duration);
