@@ -29,6 +29,26 @@ import java.io.IOException;
 /**
  * The future result of an asynchronous request.  Use instances of this interface to retrieve the final status of
  * an asynchronous operation.
+ * <p/>
+ * It is recommended, due to the vagaries of the way generics work, that when you use {@code IoFuture} instances, you
+ * use a wildcard to express the return type.  This enables you to take advantage of covariance to retrofit
+ * more specific types later on without breaking anything.
+ * <p/>
+ * For example, if you have a method which returns a future {@code InputStream}, you might be tempted to declare it like
+ * this:
+ * <tt><pre>
+ * IoFuture&lt;InputStream&gt; getFutureInputStream();
+ * </pre></tt>
+ * Now if you later decide that what you really need is a {@code DataInputStream} (which extends {@code InputStream}),
+ * you're in trouble because you have written {@code IoFuture&lt;InputStream&gt;} everywhere, which cannot be assigned to or from
+ * an {@code IoFuture&lt;DataInputStream&gt;}.
+ * <p/>
+ * On the other hand, if you declare it like this:
+ * <tt><pre>
+ * IoFuture&lt;? extends InputStream&gt; getFutureInputStream();
+ * </pre></tt>
+ * Now you can change it at any time to {@code IoFuture&lt;? extends DataInputStream&gt;} without breaking the contract, since
+ * it will be assignable to variables of type {@code IoFuture&lt;? extends InputStream&gt;}.
  *
  * @param <T> the type of result that this operation produces
  *
