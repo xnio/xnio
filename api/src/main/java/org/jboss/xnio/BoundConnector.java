@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -25,29 +25,27 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
- * A connector.  Instances of this interface are used to connect to arbitrary peers from arbitrary bound source addresses.
+ * A bound connector.  Instances of this interface are used to connect to arbitrary peers.
  *
  * @param <A> the address type
  * @param <T> the type of channel
  */
-public interface Connector<A, T extends Channel> extends BoundConnector<A,T> {
+public interface BoundConnector<A, T extends Channel> {
 
     /**
-     * Establish a connection to a destination using an explicit source.
+     * Establish a connection to a destination.
      *
-     * @param src the source address
      * @param dest the destination address
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A src, A dest, IoHandler<? super T> handler);
+    FutureConnection<A, T> connectTo(A dest, IoHandler<? super T> handler);
 
     /**
-     * Create a client that always connects to the given destination using an explicit source.
+     * Create a client that always connects to the given destination.
      *
-     * @param src the source to connect from
      * @param dest the destination to connect to
      * @return the client
      */
-    ChannelSource<T> createChannelSource(A src, A dest);
+    ChannelSource<T> createChannelSource(A dest);
 }

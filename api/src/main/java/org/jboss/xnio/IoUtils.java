@@ -678,28 +678,30 @@ public final class IoUtils {
     }
 
     /**
+     * Get a URI connector which connects to the Internet address specified in the given URI.
+     *
+     * @param original the Internet address connector
+     * @param defaultPort the default port to use if none is given in the URI
+     * @return the URI connector
+     *
      * @since 1.3
      */
-    public static <T extends Channel> Connector<URI, T> inetUriConnector(final Connector<InetSocketAddress, T> original, final InetSocketAddress src, final int defaultPort) {
-        return new Connector<URI, T>() {
+    public static <T extends Channel> BoundConnector<URI, T> inetUriConnector(final BoundConnector<InetSocketAddress, T> original, final int defaultPort) {
+        return new BoundConnector<URI, T>() {
             public FutureConnection<URI, T> connectTo(final URI dest, final IoHandler<? super T> ioHandler) {
-                final String destHost = dest.getHost();
-                final int destPort = dest.getPort();
-                final InetSocketAddress destSockAddr = new InetSocketAddress(destHost, destPort == -1 ? defaultPort : destPort);
-                final FutureConnection<InetSocketAddress, T> futureConnection = original.connectTo(src, destSockAddr, ioHandler);
+                final FutureConnection<InetSocketAddress, T> futureConnection = original.connectTo(getSockAddr(dest), ioHandler);
                 return new UriFutureConnection<T>(futureConnection);
             }
 
-            public FutureConnection<URI, T> connectTo(final URI src, final URI dest, final IoHandler<? super T> ioHandler) {
-                throw new UnsupportedOperationException();
-            }
-
             public ChannelSource<T> createChannelSource(final URI dest) {
-                return null;
+                return original.createChannelSource(getSockAddr(dest));
             }
 
-            public ChannelSource<T> createChannelSource(final URI src, final URI dest) {
-                throw new UnsupportedOperationException();
+            private InetSocketAddress getSockAddr(final URI dest) {
+                final String destHost = dest.getHost();
+                final int destPort = dest.getPort();
+                final InetSocketAddress destSockAddr = new InetSocketAddress(destHost, destPort == -1 ? defaultPort : destPort);
+                return destSockAddr;
             }
         };
     }
@@ -756,5 +758,28 @@ public final class IoUtils {
         public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> aNotifier, final A attachment) {
             return futureConnection.addNotifier(aNotifier, attachment);
         }
+    }
+
+    /**
+     * Get a bound connector for a certain source address.
+     *
+     * @param connector the connector
+     * @param src the source address
+     * @param <A> the address type
+     * @param <T> the channel type
+     * @return the bound connector
+     *
+     * @since 1.3
+     */
+    public static <A, T extends Channel> BoundConnector<A, T> bindConnector(final Connector<A, T> connector, final A src) {
+        return new BoundConnector<A, T>() {
+            public FutureConnection<A, T> connectTo(final A dest, final IoHandler<? super T> ioHandler) {
+                return connector.connectTo(src, dest, ioHandler);
+            }
+
+            public ChannelSource<T> createChannelSource(final A dest) {
+                return connector.createChannelSource(src, dest);
+            }
+        };
     }
 }
