@@ -23,9 +23,15 @@
 package org.jboss.xnio;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * A TCP connector that is closeable.
+ * @deprecated Use {@link TcpConnector} instead.  Will be removed in 1.4.
  */
 public interface CloseableTcpConnector extends TcpConnector, Closeable {
+
+    /**
+     * @deprecated does nothing.
+     */
+    void close() throws IOException;
 }

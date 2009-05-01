@@ -23,11 +23,17 @@
 package org.jboss.xnio;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * A TCP channel destination that is closeable.
+ * @deprecated Use {@link TcpChannelDestination} instead.  Will be removed in 1.4.
  *
  * @since 1.2
  */
 public interface CloseableTcpChannelDestination extends TcpChannelDestination, Closeable {
+
+    /**
+     * @deprecated does nothing.
+     */
+    void close() throws IOException;
 }

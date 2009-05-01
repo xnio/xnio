@@ -23,11 +23,17 @@
 package org.jboss.xnio;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * A TCP acceptor that is closeable.
+ * @deprecated Use {@link TcpAcceptor} instead.  Will be removed in 1.4.
  *
  * @since 1.2
  */
 public interface CloseableTcpAcceptor extends TcpAcceptor, Closeable {
+
+    /**
+     * @deprecated does nothing.
+     */
+    void close() throws IOException;
 }

@@ -24,9 +24,15 @@ package org.jboss.xnio;
 
 import org.jboss.xnio.channels.ConnectedChannel;
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * A connector that is closeable.
+ * @deprecated Use {@link Connector} instead.  Will be removed in 1.4.
  */
 public interface CloseableConnector<A, T extends ConnectedChannel<A>> extends Connector<A, T>, Closeable {
+
+    /**
+     * @deprecated does nothing.
+     */
+    void close() throws IOException;
 }

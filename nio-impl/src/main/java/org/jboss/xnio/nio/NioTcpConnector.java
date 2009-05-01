@@ -28,32 +28,27 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
+import org.jboss.xnio.AbstractFutureConnection;
+import org.jboss.xnio.FailedFutureConnection;
+import org.jboss.xnio.FinishedFutureConnection;
+import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpChannelSource;
+import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.FutureConnection;
-import org.jboss.xnio.FinishedFutureConnection;
-import org.jboss.xnio.AbstractFutureConnection;
-import org.jboss.xnio.FailedFutureConnection;
-import org.jboss.xnio.CloseableTcpConnector;
 import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
-public final class NioTcpConnector implements CloseableTcpConnector {
+public final class NioTcpConnector implements TcpConnector {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.connector");
 
     private final NioXnio nioXnio;
     private final Executor executor;
-
-    private final Object lock = new Object();
-
-    private boolean closed;
 
     private final Boolean keepAlive;
     private final Boolean oobInline;
@@ -146,44 +141,32 @@ public final class NioTcpConnector implements CloseableTcpConnector {
 
     private FutureConnection<SocketAddress, TcpChannel> doConnectTo(final SocketAddress src, final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
-            synchronized (lock) {
-                if (closed) {
-                    throw new ClosedChannelException();
-                }
-                log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
-                final SocketChannel socketChannel = SocketChannel.open();
-                socketChannel.configureBlocking(false);
-                final Socket socket = socketChannel.socket();
-                if (src != null) socket.bind(src);
-                configureStream(socket);
-                if (socketChannel.connect(dest)) {
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
-                    nioXnio.addManaged(channel);
-                    executor.execute(new Runnable() {
-                        public void run() {
-                            log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
-                            if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
-                                IoUtils.safeClose(socketChannel);
-                                nioXnio.removeManaged(channel);
-                            }
+            log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
+            final SocketChannel socketChannel = SocketChannel.open();
+            socketChannel.configureBlocking(false);
+            final Socket socket = socketChannel.socket();
+            if (src != null) socket.bind(src);
+            configureStream(socket);
+            if (socketChannel.connect(dest)) {
+                final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
+                nioXnio.addManaged(channel);
+                executor.execute(new Runnable() {
+                    public void run() {
+                        log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
+                        if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
+                            IoUtils.safeClose(socketChannel);
+                            nioXnio.removeManaged(channel);
                         }
-                    });
-                    return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
-                } else {
-                    final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioXnio, handler);
-                    connectionHandler.handle.resume(SelectionKey.OP_CONNECT);
-                    return connectionHandler.future;
-                }
+                    }
+                });
+                return new FinishedFutureConnection<SocketAddress, TcpChannel>(channel);
+            } else {
+                final ConnectionHandler connectionHandler = new ConnectionHandler(executor, socketChannel, nioXnio, handler);
+                connectionHandler.handle.resume(SelectionKey.OP_CONNECT);
+                return connectionHandler.future;
             }
         } catch (IOException e) {
             return new FailedFutureConnection<SocketAddress, TcpChannel>(e, src);
-        }
-    }
-
-    public void close() throws IOException {
-        synchronized (lock) {
-            log.trace("Closing %s", this);
-            closed = true;
         }
     }
 

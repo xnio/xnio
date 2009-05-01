@@ -32,12 +32,12 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.AbstractFutureConnection;
-import org.jboss.xnio.CloseableTcpAcceptor;
 import org.jboss.xnio.FailedFutureConnection;
 import org.jboss.xnio.FinishedFutureConnection;
 import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpChannelDestination;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.log.Logger;
@@ -45,15 +45,11 @@ import org.jboss.xnio.log.Logger;
 /**
  *
  */
-public final class NioTcpAcceptor implements CloseableTcpAcceptor {
+public final class NioTcpAcceptor implements TcpAcceptor {
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.acceptor");
 
     private final NioXnio nioXnio;
     private final Executor executor;
-
-    private final Object lock = new Object();
-
-    private boolean closed;
 
     private final Boolean keepAlive;
     private final Boolean oobInline;
@@ -85,27 +81,22 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
 
     public FutureConnection<SocketAddress, TcpChannel> acceptTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
-            synchronized (lock) {
-                if (closed) {
-                    throw new ClosedChannelException();
-                }
-                final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-                serverSocketChannel.configureBlocking(false);
-                final ServerSocket serverSocket = serverSocketChannel.socket();
-                if (receiveBufferSize != null) serverSocket.setReceiveBufferSize(receiveBufferSize.intValue());
-                if (reuseAddress != null) serverSocket.setReuseAddress(reuseAddress.booleanValue());
-                serverSocket.bind(dest, 1);
-                final SocketChannel socketChannel = serverSocketChannel.accept();
-                // unlikely, but...
-                if (socketChannel != null) {
-                    return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections));
-                }
-                final Handler nioHandler = new Handler(serverSocketChannel, handler);
-                final NioHandle handle = nioXnio.addConnectHandler(serverSocketChannel, nioHandler, true);
-                nioHandler.handle = handle;
-                handle.resume(SelectionKey.OP_ACCEPT);
-                return nioHandler.future;
+            final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+            serverSocketChannel.configureBlocking(false);
+            final ServerSocket serverSocket = serverSocketChannel.socket();
+            if (receiveBufferSize != null) serverSocket.setReceiveBufferSize(receiveBufferSize.intValue());
+            if (reuseAddress != null) serverSocket.setReuseAddress(reuseAddress.booleanValue());
+            serverSocket.bind(dest, 1);
+            final SocketChannel socketChannel = serverSocketChannel.accept();
+            // unlikely, but...
+            if (socketChannel != null) {
+                return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections));
             }
+            final Handler nioHandler = new Handler(serverSocketChannel, handler);
+            final NioHandle handle = nioXnio.addConnectHandler(serverSocketChannel, nioHandler, true);
+            nioHandler.handle = handle;
+            handle.resume(SelectionKey.OP_ACCEPT);
+            return nioHandler.future;
         } catch (IOException e) {
             return new FailedFutureConnection<SocketAddress, TcpChannel>(e, dest);
         }
@@ -117,15 +108,6 @@ public final class NioTcpAcceptor implements CloseableTcpAcceptor {
                 return acceptTo(dest, handler);
             }
         };
-    }
-
-    public void close() throws IOException {
-        synchronized (lock) {
-            if (! closed) {
-                log.trace("Closing %s", this);
-                closed = true;
-            }
-        }
     }
 
     private final class Handler implements Runnable {

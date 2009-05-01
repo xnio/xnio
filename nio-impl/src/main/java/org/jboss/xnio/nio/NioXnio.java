@@ -89,7 +89,7 @@ public final class NioXnio extends Xnio {
     /**
      * @protectedby lock
      */
-    private boolean closed;
+    private volatile boolean closed;
 
     private final Executor executor;
 
@@ -618,6 +618,9 @@ public final class NioXnio extends Xnio {
     private final AtomicInteger loadSequence = new AtomicInteger();
 
     private NioHandle doAdd(final SelectableChannel channel, final List<NioSelectorRunnable> runnableSet, final Runnable handler, final boolean oneshot, final Executor executor) throws IOException {
+        if (closed) {
+            throw new ClosedChannelException();
+        }
         final SynchronousHolder<NioHandle, IOException> holder = new SynchronousHolder<NioHandle, IOException>();
         NioSelectorRunnable nioSelectorRunnable = runnableSet.get(loadSequence.getAndIncrement() % runnableSet.size());
         final NioSelectorRunnable actualSelectorRunnable = nioSelectorRunnable;

@@ -24,9 +24,15 @@ package org.jboss.xnio;
 
 import java.nio.channels.Channel;
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * A channel source that is closeable.
+ * @deprecated Use {@link ChannelSource} instead.  Will be removed in 1.4.
  */
 public interface CloseableChannelSource<T extends Channel> extends ChannelSource<T>, Closeable {
+
+    /**
+     * @deprecated does nothing.
+     */
+    void close() throws IOException;
 }

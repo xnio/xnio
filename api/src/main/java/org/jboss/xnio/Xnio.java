@@ -251,7 +251,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
@@ -264,28 +264,34 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(Executor executor) {
+    public ConfigurableFactory<? extends CloseableTcpConnector> createTcpConnector(Executor executor) {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
      * provider's default executor will be used to execute handler methods.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
+    public ConfigurableFactory<? extends CloseableTcpConnector> createTcpConnector() {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
@@ -301,7 +307,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -315,7 +321,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -330,7 +336,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ChannelSource<StreamChannel> createPipeServer(Executor executor, IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ChannelSource<? extends StreamChannel> createPipeServer(Executor executor, IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Pipe Server");
     }
 
@@ -345,7 +351,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.1
      */
-    public ChannelSource<StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ChannelSource<? extends StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Pipe Server");
     }
 
@@ -361,7 +367,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ChannelSource<StreamSourceChannel> createPipeSourceServer(Executor executor, IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(Executor executor, IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -377,7 +383,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.1
      */
-    public ChannelSource<StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -393,7 +399,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ChannelSource<StreamSinkChannel> createPipeSinkServer(Executor executor, IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(Executor executor, IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -409,7 +415,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.1
      */
-    public ChannelSource<StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -424,7 +430,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public IoFuture<Closeable> createPipeConnection(Executor executor, IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(Executor executor, IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
     }
 
@@ -439,7 +445,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.1
      */
-    public IoFuture<Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
     }
 
@@ -454,7 +460,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public IoFuture<Closeable> createOneWayPipeConnection(Executor executor, IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(Executor executor, IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
     }
 
@@ -469,12 +475,15 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.1
      */
-    public IoFuture<Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
     }
 
     /**
      * Create a TCP acceptor.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpAcceptor>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -482,19 +491,22 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor(Executor executor) {
+    public ConfigurableFactory<? extends CloseableTcpAcceptor> createTcpAcceptor(Executor executor) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
     /**
      * Create a TCP acceptor.  The provider's default executor will be used to
      * execute handler methods.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure a TCP acceptor
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor() {
+    public ConfigurableFactory<? extends CloseableTcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
@@ -509,7 +521,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
@@ -524,12 +536,15 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
      * Create a configurable local stream connector.  The connector can be configured before it is actually created.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -537,19 +552,22 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
+    public ConfigurableFactory<? extends CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
     /**
      * Create a configurable local stream connector.  The connector can be configured before it is actually created.
      * The provider's default executor will be used to execute handler methods.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new local stream connector
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
+    public ConfigurableFactory<? extends CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
@@ -564,7 +582,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
@@ -579,12 +597,15 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
      * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -592,19 +613,22 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
+    public ConfigurableFactory<? extends CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 
     /**
      * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
      * The provider's default executor will be used to execute handler methods.
+     * <p/>
+     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>>}.  To
+     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new local datagram connector
      *
      * @since 1.2
      */
-    public ConfigurableFactory<CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
+    public ConfigurableFactory<? extends CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 

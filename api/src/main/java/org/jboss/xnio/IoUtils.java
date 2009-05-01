@@ -22,25 +22,27 @@
 
 package org.jboss.xnio;
 
-import java.io.IOException;
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.ZipFile;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URI;
 import java.nio.channels.Channel;
 import java.nio.channels.Selector;
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.net.DatagramSocket;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipFile;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.log.Logger;
 
@@ -672,6 +674,87 @@ public final class IoUtils {
                 }
             }, attachment);
             return this;
+        }
+    }
+
+    /**
+     * @since 1.3
+     */
+    public static <T extends Channel> Connector<URI, T> inetUriConnector(final Connector<InetSocketAddress, T> original, final InetSocketAddress src, final int defaultPort) {
+        return new Connector<URI, T>() {
+            public FutureConnection<URI, T> connectTo(final URI dest, final IoHandler<? super T> ioHandler) {
+                final String destHost = dest.getHost();
+                final int destPort = dest.getPort();
+                final InetSocketAddress destSockAddr = new InetSocketAddress(destHost, destPort == -1 ? defaultPort : destPort);
+                final FutureConnection<InetSocketAddress, T> futureConnection = original.connectTo(src, destSockAddr, ioHandler);
+                return new UriFutureConnection<T>(futureConnection);
+            }
+
+            public FutureConnection<URI, T> connectTo(final URI src, final URI dest, final IoHandler<? super T> ioHandler) {
+                throw new UnsupportedOperationException();
+            }
+
+            public ChannelSource<T> createChannelSource(final URI dest) {
+                return null;
+            }
+
+            public ChannelSource<T> createChannelSource(final URI src, final URI dest) {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private static class UriFutureConnection<T extends Channel> implements FutureConnection<URI, T> {
+
+        private final FutureConnection<InetSocketAddress, T> futureConnection;
+
+        private UriFutureConnection(final FutureConnection<InetSocketAddress, T> futureConnection) {
+            this.futureConnection = futureConnection;
+        }
+
+        public URI getLocalAddress() {
+            throw new UnsupportedOperationException();
+        }
+
+        public FutureConnection<URI, T> cancel() {
+            futureConnection.cancel();
+            return this;
+        }
+
+        public Status getStatus() {
+            return futureConnection.getStatus();
+        }
+
+        public Status await() {
+            return futureConnection.await();
+        }
+
+        public Status await(final long time, final TimeUnit timeUnit) {
+            return futureConnection.await(time, timeUnit);
+        }
+
+        public Status awaitInterruptibly() throws InterruptedException {
+            return futureConnection.awaitInterruptibly();
+        }
+
+        public Status awaitInterruptibly(final long time, final TimeUnit timeUnit) throws InterruptedException {
+            return futureConnection.awaitInterruptibly(time, timeUnit);
+        }
+
+        public T get() throws IOException, CancellationException {
+            return futureConnection.get();
+        }
+
+        public T getInterruptibly() throws IOException, InterruptedException, CancellationException {
+            return futureConnection.getInterruptibly();
+        }
+
+        public IOException getException() throws IllegalStateException {
+            return futureConnection.getException();
+        }
+
+        public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> aNotifier, final A attachment) {
+            return futureConnection.addNotifier(aNotifier, attachment);
         }
     }
 }
