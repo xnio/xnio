@@ -270,28 +270,22 @@ public abstract class Xnio implements Closeable {
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<? extends CloseableTcpConnector> createTcpConnector(Executor executor) {
+    public ConfigurableFactory<? extends TcpConnector> createTcpConnector(Executor executor) {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
     /**
      * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
      * provider's default executor will be used to execute handler methods.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new TCP connector
      */
-    public ConfigurableFactory<? extends CloseableTcpConnector> createTcpConnector() {
+    public ConfigurableFactory<? extends TcpConnector> createTcpConnector() {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
@@ -481,9 +475,6 @@ public abstract class Xnio implements Closeable {
 
     /**
      * Create a TCP acceptor.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpAcceptor>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -491,22 +482,19 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableTcpAcceptor> createTcpAcceptor(Executor executor) {
+    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor(Executor executor) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
     /**
      * Create a TCP acceptor.  The provider's default executor will be used to
      * execute handler methods.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends TcpConnector>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure a TCP acceptor
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableTcpAcceptor> createTcpAcceptor() {
+    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor() {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
@@ -521,6 +509,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
@@ -536,15 +525,13 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
      * Create a configurable local stream connector.  The connector can be configured before it is actually created.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -552,22 +539,20 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
     /**
      * Create a configurable local stream connector.  The connector can be configured before it is actually created.
      * The provider's default executor will be used to execute handler methods.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new local stream connector
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableConnector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
+    public ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
@@ -582,6 +567,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
@@ -597,15 +583,13 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
      * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @param executor the executor to use to execute the handlers
      *
@@ -613,22 +597,20 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 
     /**
      * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
      * The provider's default executor will be used to execute handler methods.
-     * <p/>
-     * <b>Note:</b> starting in version 1.4, this method will return a {@code ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>>}.  To
-     * ensure compatibility, you should use this return type.
      *
      * @return a factory that can be used to configure the new local datagram connector
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends CloseableConnector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
+    public ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 

@@ -30,6 +30,9 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.SelectorProvider;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -38,15 +41,10 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.security.PrivilegedExceptionAction;
-import java.security.AccessController;
-import java.security.PrivilegedActionException;
 import org.jboss.xnio.ChannelSource;
-import org.jboss.xnio.CloseableTcpAcceptor;
-import org.jboss.xnio.CloseableTcpConnector;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
@@ -54,16 +52,10 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.TcpAcceptor;
+import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
-import org.jboss.xnio.management.TcpServerMBean;
-import org.jboss.xnio.management.TcpConnectionMBean;
-import org.jboss.xnio.management.UdpServerMBean;
-import org.jboss.xnio.management.OneWayPipeConnectionMBean;
-import org.jboss.xnio.management.PipeConnectionMBean;
-import org.jboss.xnio.management.PipeServerMBean;
-import org.jboss.xnio.management.PipeSourceServerMBean;
-import org.jboss.xnio.management.PipeSinkServerMBean;
 import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.StreamChannel;
@@ -72,6 +64,14 @@ import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.OneWayPipeConnectionMBean;
+import org.jboss.xnio.management.PipeConnectionMBean;
+import org.jboss.xnio.management.PipeServerMBean;
+import org.jboss.xnio.management.PipeSinkServerMBean;
+import org.jboss.xnio.management.PipeSourceServerMBean;
+import org.jboss.xnio.management.TcpConnectionMBean;
+import org.jboss.xnio.management.TcpServerMBean;
+import org.jboss.xnio.management.UdpServerMBean;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
@@ -312,7 +312,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector(final Executor executor) {
+    public ConfigurableFactory<? extends TcpConnector> createTcpConnector(final Executor executor) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -325,7 +325,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<CloseableTcpConnector> createTcpConnector() {
+    public ConfigurableFactory<? extends TcpConnector> createTcpConnector() {
         return createTcpConnector(executor);
     }
 
@@ -528,7 +528,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor(final Executor executor) {
+    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor(final Executor executor) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -541,7 +541,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<CloseableTcpAcceptor> createTcpAcceptor() {
+    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor() {
         return createTcpAcceptor(executor);
     }
 

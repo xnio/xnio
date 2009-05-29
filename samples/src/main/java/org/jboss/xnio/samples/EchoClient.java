@@ -22,18 +22,17 @@
 
 package org.jboss.xnio.samples;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.TcpConnector;
-import org.jboss.xnio.CloseableTcpConnector;
-import org.jboss.xnio.Xnio;
 import static org.jboss.xnio.IoUtils.safeClose;
+import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.Xnio;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.TcpChannel;
-import java.io.IOException;
-import java.net.SocketAddress;
-import java.net.InetSocketAddress;
-import java.net.InetAddress;
 
 /**
  * A simple echo client that will connect to the given IP address and echo everything back to it.
@@ -49,7 +48,7 @@ public final class EchoClient {
         }
         final Xnio xnio = Xnio.create();
         try {
-            final ConfigurableFactory<CloseableTcpConnector> connectorFactory = xnio.createTcpConnector();
+            final ConfigurableFactory<? extends TcpConnector> connectorFactory = xnio.createTcpConnector();
             final TcpConnector connector = connectorFactory.create();
             final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
             final ConnectedStreamChannel<SocketAddress> channel = ioFuture.get();
