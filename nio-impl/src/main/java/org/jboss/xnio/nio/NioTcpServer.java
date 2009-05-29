@@ -22,47 +22,47 @@
 
 package org.jboss.xnio.nio;
 
-import java.io.IOException;
 import java.io.Closeable;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.SelectionKey;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.Collection;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.HashSet;
-import java.util.Collections;
+import org.jboss.xnio.FailedIoFuture;
+import org.jboss.xnio.FinishedIoFuture;
+import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.FinishedIoFuture;
-import org.jboss.xnio.FailedIoFuture;
-import org.jboss.xnio.management.TcpServerMBean;
-import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.TcpServerMBean;
 
-import javax.management.StandardMBean;
 import javax.management.NotCompliantMBeanException;
+import javax.management.StandardMBean;
 
 /**
  *
  */
-public final class NioTcpServer implements BoundServer<SocketAddress, BoundChannel<SocketAddress>> {
+public final class NioTcpServer implements TcpServer {
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.server");
     private static final Logger chanLog = Logger.getLogger("org.jboss.xnio.nio.tcp.server.channel");
 

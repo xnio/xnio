@@ -251,7 +251,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends TcpServer> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
@@ -264,7 +264,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new TCP server
      */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends TcpServer> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("TCP Server");
     }
 

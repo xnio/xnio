@@ -22,24 +22,23 @@
 
 package org.jboss.xnio.nio;
 
-import java.net.SocketAddress;
-import java.util.concurrent.Executor;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Collections;
 import java.io.IOException;
-import org.jboss.xnio.channels.BoundServer;
-import org.jboss.xnio.channels.TcpChannel;
+import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Executor;
+import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
-import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  *
  */
-public final class NioTcpServerFactory extends AbstractConfigurable implements ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> {
+public final class NioTcpServerFactory extends AbstractConfigurable implements ConfigurableFactory<TcpServer> {
 
     private static final Set<ChannelOption<?>> options;
     private final NioXnio xnio;
@@ -69,7 +68,7 @@ public final class NioTcpServerFactory extends AbstractConfigurable implements C
         this.initialAddresses = initialAddresses;
     }
 
-    public BoundServer<SocketAddress, BoundChannel<SocketAddress>> create() throws IOException {
+    public TcpServer create() throws IOException {
         synchronized (lock) {
             if (created) {
                 throw new IllegalStateException("Already created");

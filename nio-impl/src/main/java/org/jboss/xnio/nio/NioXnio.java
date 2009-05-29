@@ -54,9 +54,9 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
-import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
@@ -285,7 +285,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends TcpServer> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -307,7 +307,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends TcpServer> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         return createTcpServer(executor, handlerFactory, bindAddresses);
     }
 
