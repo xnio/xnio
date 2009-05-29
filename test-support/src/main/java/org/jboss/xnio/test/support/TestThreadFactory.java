@@ -22,13 +22,13 @@
 
 package org.jboss.xnio.test.support;
 
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.Executors;
-import java.util.List;
-import java.util.ArrayList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import org.jboss.xnio.log.Logger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.logging.Logger;
 
 /**
  *

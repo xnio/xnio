@@ -101,7 +101,7 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final ConfigurableFactory<BoundServer<SocketAddress,UdpChannel>> serverFactory = xnio.createUdpServer(multicast, IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)), bindAddress);
+        final ConfigurableFactory<? extends BoundServer<SocketAddress,UdpChannel>> serverFactory = xnio.createUdpServer(multicast, IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)), bindAddress);
         final BoundServer<SocketAddress, UdpChannel> server = serverFactory.create();
         try {
             body.run();

@@ -22,10 +22,12 @@
 
 package org.jboss.xnio.test.support;
 
-import java.security.Permission;
 import java.io.FileDescriptor;
 import java.net.InetAddress;
-import org.jboss.xnio.log.Logger;
+import java.security.Permission;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -38,7 +40,7 @@ public final class LoggingSecurityManager extends SecurityManager {
     }
 
     private static <T extends Throwable> T logged(T se) {
-        log.error(se, "Access violation!");
+        log.log(Level.SEVERE, "Access violation!", se);
         return se;
     }
 

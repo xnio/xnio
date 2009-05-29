@@ -27,15 +27,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import org.jboss.xnio.CloseableTcpAcceptor;
 import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 
 /**
  *
  */
-public final class NioTcpAcceptorFactory extends AbstractConfigurable implements ConfigurableFactory<CloseableTcpAcceptor> {
+public final class NioTcpAcceptorFactory extends AbstractConfigurable implements ConfigurableFactory<TcpAcceptor> {
 
     private static final Set<ChannelOption<?>> options;
     private final NioXnio xnio;
@@ -61,7 +61,7 @@ public final class NioTcpAcceptorFactory extends AbstractConfigurable implements
         this.executor = executor;
     }
 
-    public CloseableTcpAcceptor create() throws IOException, IllegalStateException {
+    public TcpAcceptor create() throws IOException, IllegalStateException {
         synchronized (lock) {
             if (created) {
                 throw new IllegalStateException("Already created");
@@ -77,7 +77,6 @@ public final class NioTcpAcceptorFactory extends AbstractConfigurable implements
             final Boolean manage = getOption(CommonOptions.MANAGE_CONNECTIONS);
             config.setManageConnections(manage != null ? manage.booleanValue() : false);
             final NioTcpAcceptor nioTcpAcceptor = NioTcpAcceptor.create(config);
-            xnio.addManaged(nioTcpAcceptor);
             created = true;
             return nioTcpAcceptor;
         }

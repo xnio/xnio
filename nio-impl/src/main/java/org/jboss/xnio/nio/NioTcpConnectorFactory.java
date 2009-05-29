@@ -22,20 +22,20 @@
 
 package org.jboss.xnio.nio;
 
-import org.jboss.xnio.CloseableTcpConnector;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Executor;
 import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
-import java.util.concurrent.Executor;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Collections;
-import java.io.IOException;
 
 /**
  *
  */
-public final class NioTcpConnectorFactory extends AbstractConfigurable implements ConfigurableFactory<CloseableTcpConnector> {
+public final class NioTcpConnectorFactory extends AbstractConfigurable implements ConfigurableFactory<TcpConnector> {
 
     private static final Set<ChannelOption<?>> options;
     private final NioXnio xnio;
@@ -61,7 +61,7 @@ public final class NioTcpConnectorFactory extends AbstractConfigurable implement
         this.executor = executor;
     }
 
-    public CloseableTcpConnector create() throws IOException, IllegalStateException {
+    public TcpConnector create() throws IOException, IllegalStateException {
         synchronized (lock) {
             if (created) {
                 throw new IllegalStateException("Already created");
