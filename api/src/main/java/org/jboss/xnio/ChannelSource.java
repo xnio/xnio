@@ -37,5 +37,5 @@ public interface ChannelSource<T extends Channel> {
      * @param handler the handler for this channel
      * @return the future result of this operation
      */
-    IoFuture<T> open(IoHandler<? super T> handler);
+    IoFuture<? extends T> open(IoHandler<? super T> handler);
 }

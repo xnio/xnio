@@ -285,7 +285,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -307,7 +307,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, BoundChannel<SocketAddress>>> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
         return createTcpServer(executor, handlerFactory, bindAddresses);
     }
 
@@ -330,7 +330,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -356,12 +356,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         return createUdpServer(executor, multicast, handlerFactory, bindAddresses);
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamChannel> createPipeServer(final Executor executor, final IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ChannelSource<? extends StreamChannel> createPipeServer(final Executor executor, final IoHandlerFactory<? super StreamChannel> handlerFactory) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -373,7 +373,7 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             return new ChannelSource<StreamChannel>() {
-                public IoFuture<StreamChannel> open(final IoHandler<? super StreamChannel> handler) {
+                public IoFuture<? extends StreamChannel> open(final IoHandler<? super StreamChannel> handler) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -393,12 +393,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamChannel> createPipeServer(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ChannelSource<? extends StreamChannel> createPipeServer(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
         return createPipeServer(executor, handlerFactory);
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamSourceChannel> createPipeSourceServer(final Executor executor, final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final Executor executor, final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -410,7 +410,7 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             return new ChannelSource<StreamSourceChannel>() {
-                public IoFuture<StreamSourceChannel> open(final IoHandler<? super StreamSourceChannel> handler) {
+                public IoFuture<? extends StreamSourceChannel> open(final IoHandler<? super StreamSourceChannel> handler) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -430,12 +430,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamSourceChannel> createPipeSourceServer(final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
         return createPipeSourceServer(executor, handlerFactory);
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamSinkChannel> createPipeSinkServer(final Executor executor, final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final Executor executor, final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -447,7 +447,7 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             return new ChannelSource<StreamSinkChannel>() {
-                public IoFuture<StreamSinkChannel> open(final IoHandler<? super StreamSinkChannel> handler) {
+                public IoFuture<? extends StreamSinkChannel> open(final IoHandler<? super StreamSinkChannel> handler) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -467,12 +467,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<StreamSinkChannel> createPipeSinkServer(final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
         return createPipeSinkServer(executor, handlerFactory);
     }
 
     /** {@inheritDoc} */
-    public IoFuture<Closeable> createPipeConnection(final Executor executor, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -495,12 +495,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public IoFuture<Closeable> createPipeConnection(final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
         return createPipeConnection(executor, leftHandler, rightHandler);
     }
 
     /** {@inheritDoc} */
-    public IoFuture<Closeable> createOneWayPipeConnection(final Executor executor, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(final Executor executor, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -523,7 +523,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public IoFuture<Closeable> createOneWayPipeConnection(final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
         return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
     }
 

@@ -524,7 +524,7 @@ public final class IoUtils {
         private final Executor reconnectExecutor;
 
         private volatile boolean stopFlag = false;
-        private volatile IoFuture<T> currentFuture;
+        private volatile IoFuture<? extends T> currentFuture;
 
         private final NotifierImpl<?> notifier = new NotifierImpl<Void>();
         private final HandlerImpl handlerWrapper = new HandlerImpl();
@@ -538,14 +538,14 @@ public final class IoUtils {
 
         private void connect() {
             closeLog.trace("Establishing connection");
-            final IoFuture<T> ioFuture = channelSource.open(handlerWrapper);
+            final IoFuture<? extends T> ioFuture = channelSource.open(handlerWrapper);
             ioFuture.addNotifier(notifier, null);
             currentFuture = ioFuture;
         }
 
         public void close() throws IOException {
             stopFlag = true;
-            final IoFuture<T> future = currentFuture;
+            final IoFuture<? extends T> future = currentFuture;
             if (future != null) {
                 future.cancel();
             }
