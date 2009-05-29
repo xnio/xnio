@@ -509,7 +509,7 @@ public final class IoUtils {
      * @param <O> the type of the wrapped result
      * @return a wrapper {@code IoFuture}
      */
-    public static <I, O> IoFuture<O> cast(final IoFuture<I> parent, final Class<O> type) {
+    public static <I, O> IoFuture<? extends O> cast(final IoFuture<I> parent, final Class<O> type) {
         return new CastingIoFuture<O, I>(parent, type);
     }
 
