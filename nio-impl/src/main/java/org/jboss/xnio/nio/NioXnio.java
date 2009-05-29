@@ -55,9 +55,9 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.TcpServer;
+import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
-import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
@@ -330,7 +330,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends UdpServer> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -356,7 +356,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends UdpServer> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         return createUdpServer(executor, multicast, handlerFactory, bindAddresses);
     }
 

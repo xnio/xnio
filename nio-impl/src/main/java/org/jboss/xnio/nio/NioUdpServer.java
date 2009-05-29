@@ -22,42 +22,42 @@
 
 package org.jboss.xnio.nio;
 
-import java.io.IOException;
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.SocketAddress;
-import java.nio.channels.DatagramChannel;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.DatagramChannel;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Set;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jboss.xnio.FailedIoFuture;
+import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.FailedIoFuture;
-import org.jboss.xnio.management.UdpServerMBean;
+import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.management.UdpServerMBean;
 
-import javax.management.StandardMBean;
 import javax.management.NotCompliantMBeanException;
+import javax.management.StandardMBean;
 
 /**
  *
  */
-public class NioUdpServer implements BoundServer<SocketAddress, UdpChannel> {
+public class NioUdpServer implements UdpServer {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.server");
 

@@ -301,7 +301,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends UdpServer> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -315,7 +315,7 @@ public abstract class Xnio implements Closeable {
      *
      * @return a factory that can be used to configure the new UDP server
      */
-    public ConfigurableFactory<? extends BoundServer<SocketAddress, UdpChannel>> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public ConfigurableFactory<? extends UdpServer> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
         throw new UnsupportedOperationException("UDP Server");
     }
 

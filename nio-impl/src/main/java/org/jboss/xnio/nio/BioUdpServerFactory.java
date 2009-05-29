@@ -22,23 +22,23 @@
 
 package org.jboss.xnio.nio;
 
-import java.net.SocketAddress;
-import java.util.concurrent.Executor;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Collections;
 import java.io.IOException;
-import org.jboss.xnio.channels.BoundServer;
+import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Executor;
+import org.jboss.xnio.ConfigurableFactory;
+import org.jboss.xnio.IoHandlerFactory;
+import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.ConfigurableFactory;
 
 /**
  *
  */
-public final class BioUdpServerFactory extends AbstractConfigurable implements ConfigurableFactory<BoundServer<SocketAddress, UdpChannel>> {
+public final class BioUdpServerFactory extends AbstractConfigurable implements ConfigurableFactory<UdpServer> {
 
     private static final Set<ChannelOption<?>> options;
     private final NioXnio xnio;
@@ -66,7 +66,7 @@ public final class BioUdpServerFactory extends AbstractConfigurable implements C
         this.initialAddresses = initialAddresses;
     }
 
-    public BoundServer<SocketAddress, UdpChannel> create() throws IOException {
+    public UdpServer create() throws IOException {
         synchronized (lock) {
             if (created) {
                 throw new IllegalStateException("Already created");
