@@ -24,51 +24,49 @@ package org.jboss.xnio;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.SocketAddress;
+import java.security.AccessController;
+import java.security.Permission;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Hashtable;
-import java.net.SocketAddress;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.Permission;
+import org.jboss.xnio.channels.ConnectedStreamChannel;
+import org.jboss.xnio.channels.DatagramChannel;
+import org.jboss.xnio.channels.StreamChannel;
+import org.jboss.xnio.channels.StreamSinkChannel;
+import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.StreamChannel;
-import org.jboss.xnio.channels.StreamSourceChannel;
-import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
-import org.jboss.xnio.channels.BoundServer;
-import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.channels.DatagramChannel;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.management.TcpServerMBean;
-import org.jboss.xnio.management.TcpConnectionMBean;
-import org.jboss.xnio.management.UdpServerMBean;
 import org.jboss.xnio.management.OneWayPipeConnectionMBean;
 import org.jboss.xnio.management.PipeConnectionMBean;
 import org.jboss.xnio.management.PipeServerMBean;
-import org.jboss.xnio.management.PipeSourceServerMBean;
 import org.jboss.xnio.management.PipeSinkServerMBean;
+import org.jboss.xnio.management.PipeSourceServerMBean;
+import org.jboss.xnio.management.TcpConnectionMBean;
+import org.jboss.xnio.management.TcpServerMBean;
+import org.jboss.xnio.management.UdpServerMBean;
 
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-import javax.management.MBeanRegistrationException;
-import javax.management.JMException;
-import javax.management.RuntimeOperationsException;
-import javax.management.ObjectInstance;
 import javax.management.InstanceNotFoundException;
+import javax.management.JMException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
 import javax.management.MalformedObjectNameException;
+import javax.management.ObjectInstance;
+import javax.management.ObjectName;
+import javax.management.RuntimeOperationsException;
 
 /**
  * The XNIO entry point class.
@@ -510,7 +508,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends LocalServer> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
@@ -526,7 +524,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public ConfigurableFactory<? extends LocalServer> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
@@ -540,7 +538,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector(Executor executor) {
+    public ConfigurableFactory<? extends LocalStreamConnector> createLocalStreamConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
@@ -552,7 +550,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends Connector<String, ConnectedStreamChannel<String>>> createLocalStreamConnector() {
+    public ConfigurableFactory<? extends LocalStreamConnector> createLocalStreamConnector() {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
@@ -568,7 +566,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends LocalServer> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
@@ -584,7 +582,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends BoundServer<String, BoundChannel<String>>> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public ConfigurableFactory<? extends LocalServer> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
@@ -598,7 +596,7 @@ public abstract class Xnio implements Closeable {
      * @since 1.2
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>> createLocalDatagramConnector(Executor executor) {
+    public ConfigurableFactory<? extends LocalDatagramConnector> createLocalDatagramConnector(Executor executor) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 
@@ -610,7 +608,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
-    public ConfigurableFactory<? extends Connector<String, DatagramChannel<String>>> createLocalDatagramConnector() {
+    public ConfigurableFactory<? extends LocalDatagramConnector> createLocalDatagramConnector() {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 
