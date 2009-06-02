@@ -54,7 +54,7 @@ import java.io.IOException;
  *
  * @apiviz.landmark
  */
-public interface IoFuture<T> {
+public interface IoFuture<T> extends Cancellable {
     /**
      * The current status of an asynchronous operation.
      *
@@ -79,11 +79,7 @@ public interface IoFuture<T> {
         FAILED,
     }
 
-    /**
-     * Cancel an operation.  The actual cancel may be synchronous or asynchronous.
-     *
-     * @return this {@code IoFuture} instance
-     */
+    /** {@inheritDoc} */
     IoFuture<T> cancel();
 
     /**

@@ -42,6 +42,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     private Status status = Status.WAITING;
     private Object result;
     private List<Runnable> notifierList;
+    private List<Cancellable> cancellables;
 
     /**
      * Construct a new instance.
@@ -237,6 +238,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             if (status == Status.WAITING) {
                 status = Status.FAILED;
                 result = exception;
+                cancellables = null;
                 runAllNotifiers();
                 lock.notifyAll();
                 return true;
@@ -257,6 +259,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             if (status == Status.WAITING) {
                 status = Status.DONE;
                 this.result = result;
+                cancellables = null;
                 runAllNotifiers();
                 lock.notifyAll();
                 return true;
@@ -275,6 +278,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         synchronized (lock) {
             if (status == Status.WAITING) {
                 status = Status.CANCELLED;
+                cancellables = null;
                 runAllNotifiers();
                 lock.notifyAll();
                 return true;
@@ -287,12 +291,46 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     /**
      * Cancel an operation.  The actual cancel may be synchronous or asynchronous.  Implementors will use this method
      * to initiate the cancel; use the {@link #finishCancel()} method to indicate that the cancel was successful.  The
-     * default implementation does nothing.
+     * default implementation calls any registered cancel handlers.
      *
      * @return this {@code IoFuture} instance
      */
     public IoFuture<T> cancel() {
+        final List<Cancellable> toCall;
+        synchronized (lock) {
+            final List<Cancellable> cancellables;
+            cancellables = this.cancellables;
+            if (cancellables == null) {
+                return this;
+            }
+            toCall = new ArrayList<Cancellable>(cancellables);
+        }
+        for (Cancellable cancellable : toCall) {
+            cancellable.cancel();
+        }
         return this;
+    }
+
+    /**
+     * Add a cancellation handler.  The argument will be cancelled whenever this instance's {@code cancel()} method
+     * is invoked.  The argument may be cancelled more than once, in the event that this {@code IoFuture} instance
+     * is cancelled more than once; the handler should be prepared to handle this situation.
+     *
+     * @param cancellable the cancel handler
+     */
+    protected void addCancelHandler(final Cancellable cancellable) {
+        synchronized (lock) {
+            switch (status) {
+                case CANCELLED:
+                    break;
+                case WAITING:
+                    final List<Cancellable> cancellables = this.cancellables;
+                    ((cancellables == null) ? (this.cancellables = new ArrayList<Cancellable>()) : cancellables).add(cancellable);
+                default:
+                    return;
+            }
+        }
+        cancellable.cancel();
     }
 
     /**

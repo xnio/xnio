@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -23,18 +23,14 @@
 package org.jboss.xnio;
 
 /**
- * Convenience abstract class for future connections.
- *
- * @param <A> the address type
- * @param <T> the channel type
- *
- * @since 1.2
+ * An operation which may be cancelled.
  */
-public abstract class AbstractFutureConnection<A, T> extends AbstractIoFuture<T> implements FutureConnection<A, T> {
+public interface Cancellable {
 
-    /** {@inheritDoc} */
-    public FutureConnection<A, T> cancel() {
-        super.cancel();
-        return this;
-    }
+    /**
+     * Cancel an operation.  The actual cancel may be synchronous or asynchronous.
+     *
+     * @return this instance
+     */
+    Cancellable cancel();
 }
