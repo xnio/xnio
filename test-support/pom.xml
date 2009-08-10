@@ -28,7 +28,7 @@
 
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-testing-support</artifactId>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.3.0.CR1</version>
     <packaging>jar</packaging>
     <dependencies/>
     <build>
