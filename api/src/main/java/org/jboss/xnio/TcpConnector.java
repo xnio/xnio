@@ -22,7 +22,7 @@
 
 package org.jboss.xnio;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.channels.TcpChannel;
 
 /**
@@ -30,7 +30,7 @@ import org.jboss.xnio.channels.TcpChannel;
  *
  * @apiviz.landmark
  */
-public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
+public interface TcpConnector extends Connector<InetSocketAddress, TcpChannel> {
 
     /**
      * Establish a connection to a TCP server.
@@ -39,7 +39,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    FutureConnection<SocketAddress, TcpChannel> connectTo(SocketAddress dest, IoHandler<? super TcpChannel> handler);
+    FutureConnection<InetSocketAddress, TcpChannel> connectTo(InetSocketAddress dest, IoHandler<? super TcpChannel> handler);
 
     /**
      * Establish a connection to a TCP server.
@@ -49,7 +49,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param handler the handler for this connection
      * @return the future result of this operation
      */
-    FutureConnection<SocketAddress, TcpChannel> connectTo(SocketAddress src, SocketAddress dest, IoHandler<? super TcpChannel> handler);
+    FutureConnection<InetSocketAddress, TcpChannel> connectTo(InetSocketAddress src, InetSocketAddress dest, IoHandler<? super TcpChannel> handler);
 
     /**
      * Create a client that always connects to the given TCP server.
@@ -57,7 +57,7 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param dest the destination to connect to
      * @return the client
      */
-    TcpChannelSource createChannelSource(SocketAddress dest);
+    TcpChannelSource createChannelSource(InetSocketAddress dest);
 
     /**
      * Create a client that always connects to the given TCP server from the given source address.
@@ -66,5 +66,5 @@ public interface TcpConnector extends Connector<SocketAddress, TcpChannel> {
      * @param dest the destination to connect to
      * @return the client
      */
-    TcpChannelSource createChannelSource(SocketAddress src, SocketAddress dest);
+    TcpChannelSource createChannelSource(InetSocketAddress src, InetSocketAddress dest);
 }

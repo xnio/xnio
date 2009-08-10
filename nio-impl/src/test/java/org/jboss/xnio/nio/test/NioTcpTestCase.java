@@ -46,10 +46,10 @@ import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.CommonOptions;
-import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
@@ -77,11 +77,11 @@ public final class NioTcpTestCase extends TestCase {
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
         Xnio xnio = NioXnio.create(conf);
         try {
-            final ConfigurableFactory<? extends BoundServer<SocketAddress,BoundChannel<SocketAddress>>> serverFactory = xnio.createTcpServer(new IoHandlerFactory<TcpChannel>() {
+            final ConfigurableFactory<? extends TcpServer> serverFactory = xnio.createTcpServer(new IoHandlerFactory<TcpChannel>() {
                 public IoHandler<? super TcpChannel> createHandler() {
                     return new CatchingHandler<TcpChannel>(serverHandler, threadFactory);
                 }
-            }, new SocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
+            }, new InetSocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
             serverFactory.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
             final BoundServer<SocketAddress, BoundChannel<SocketAddress>> server = serverFactory.create();
             try {
@@ -129,8 +129,8 @@ public final class NioTcpTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 log.info("In client open");
                 try {
                     channel.close();
@@ -142,25 +142,25 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 log.info("In client readable");
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
                 log.info("In client writable");
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 log.info("In client close");
                 latch.countDown();
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 log.info("In server opened");
                 channel.resumeReads();
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 log.info("In server readable");
                 try {
                     final int c = channel.read(ByteBuffer.allocate(100));
@@ -173,11 +173,11 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
                 log.info("In server writable");
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 log.info("In server closed");
                 latch.countDown();
             }
@@ -201,8 +201,8 @@ public final class NioTcpTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     channel.resumeReads();
                 } catch (Throwable t) {
@@ -217,7 +217,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 try {
                     final int c = channel.read(ByteBuffer.allocate(100));
                     if (c == -1) {
@@ -229,14 +229,14 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     channel.close();
                 } catch (Throwable t) {
@@ -246,13 +246,13 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 serverOK.set(true);
                 latch.countDown();
             }
@@ -280,13 +280,13 @@ public final class NioTcpTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 channel.resumeReads();
                 channel.resumeWrites();
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 try {
                     final int c = channel.read(ByteBuffer.allocate(100));
                     if (c == -1) {
@@ -303,7 +303,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
                 try {
                     final ByteBuffer buffer = ByteBuffer.allocate(100);
                     buffer.put("This Is A Test\r\n".getBytes("UTF-8"));
@@ -322,16 +322,16 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 channel.resumeReads();
                 channel.resumeWrites();
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 try {
                     final int c = channel.read(ByteBuffer.allocate(100));
                     if (c == -1) {
@@ -348,7 +348,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
                 try {
                     final ByteBuffer buffer = ByteBuffer.allocate(100);
                     buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8"));
@@ -367,7 +367,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
         });
@@ -390,8 +390,8 @@ public final class NioTcpTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
@@ -403,17 +403,17 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     channel.resumeReads();
                 } catch (Throwable t) {
@@ -423,7 +423,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 try {
                     channel.read(ByteBuffer.allocate(100));
                 } catch (IOException e) {
@@ -437,10 +437,10 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
         });
@@ -464,8 +464,8 @@ public final class NioTcpTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     log.info("Client opened");
                     serverLatch.countDown();
@@ -483,7 +483,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
                 try {
                     channel.read(ByteBuffer.allocate(100));
                     channel.close();
@@ -498,14 +498,14 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
-        }, new IoHandler<ConnectedStreamChannel<SocketAddress>>() {
-            public void handleOpened(final ConnectedStreamChannel<SocketAddress> channel) {
+        }, new IoHandler<TcpChannel>() {
+            public void handleOpened(final TcpChannel channel) {
                 try {
                     log.info("Server opened");
                     serverLatch.await(500L, TimeUnit.MILLISECONDS);
@@ -519,13 +519,13 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }
 
-            public void handleReadable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleReadable(final TcpChannel channel) {
             }
 
-            public void handleWritable(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleWritable(final TcpChannel channel) {
             }
 
-            public void handleClosed(final ConnectedStreamChannel<SocketAddress> channel) {
+            public void handleClosed(final TcpChannel channel) {
                 latch.countDown();
             }
         });
@@ -555,7 +555,7 @@ public final class NioTcpTestCase extends TestCase {
             final ConfigurableFactory<? extends TcpAcceptor> acceptorFactory = xnio.createTcpAcceptor();
             acceptorFactory.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
             final TcpAcceptor acceptor = acceptorFactory.create();
-            final FutureConnection<SocketAddress,TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new IoHandler<TcpChannel>() {
+            final FutureConnection<? extends InetSocketAddress, TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new IoHandler<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
                 private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);
@@ -608,7 +608,7 @@ public final class NioTcpTestCase extends TestCase {
                     closeLatch.countDown();
                 }
             });
-            final SocketAddress localAddress = futureConnection.getLocalAddress();
+            final InetSocketAddress localAddress = futureConnection.getLocalAddress();
             final ConfigurableFactory<? extends TcpConnector> connectorFactory = xnio.createTcpConnector();
             final TcpConnector connector = connectorFactory.create();
             final IoFuture<TcpChannel> ioFuture = connector.connectTo(localAddress, new IoHandler<TcpChannel>() {

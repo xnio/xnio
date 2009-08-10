@@ -22,7 +22,7 @@
 
 package org.jboss.xnio;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.channels.TcpChannel;
 
 /**
@@ -30,5 +30,5 @@ import org.jboss.xnio.channels.TcpChannel;
  *
  * @since 1.2
  */
-public interface TcpChannelDestination extends ChannelDestination<SocketAddress, TcpChannel> {
+public interface TcpChannelDestination extends ChannelDestination<InetSocketAddress, TcpChannel> {
 }

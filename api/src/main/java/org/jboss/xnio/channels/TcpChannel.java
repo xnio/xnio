@@ -22,13 +22,13 @@
 
 package org.jboss.xnio.channels;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 
 /**
- * A TCP channel.  TCP channels are connected stream channels that always use {@link SocketAddress} instances to define
+ * A TCP channel.  TCP channels are connected stream channels that always use {@link InetSocketAddress} instances to define
  * endpoint addresses.
  *
  * @apiviz.landmark
  */
-public interface TcpChannel extends ConnectedStreamChannel<SocketAddress> {
+public interface TcpChannel extends ConnectedStreamChannel<InetSocketAddress> {
 }

@@ -26,6 +26,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -215,12 +216,12 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
         SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
-    public SocketAddress getPeerAddress() {
-        return socket.getRemoteSocketAddress();
+    public InetSocketAddress getPeerAddress() {
+        return (InetSocketAddress) socket.getRemoteSocketAddress();
     }
 
-    public SocketAddress getLocalAddress() {
-        return socket.getLocalSocketAddress();
+    public InetSocketAddress getLocalAddress() {
+        return (InetSocketAddress) socket.getLocalSocketAddress();
     }
 
     private static final Set<ChannelOption<?>> OPTIONS = Collections.<ChannelOption<?>>singleton(CommonOptions.CLOSE_ABORT);

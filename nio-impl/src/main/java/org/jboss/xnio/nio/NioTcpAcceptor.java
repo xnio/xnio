@@ -25,7 +25,7 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -79,7 +79,7 @@ public final class NioTcpAcceptor implements TcpAcceptor {
         return new NioTcpAcceptor(config);
     }
 
-    public FutureConnection<SocketAddress, TcpChannel> acceptTo(final SocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    public FutureConnection<InetSocketAddress, TcpChannel> acceptTo(final InetSocketAddress dest, final IoHandler<? super TcpChannel> handler) {
         try {
             final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(false);
@@ -90,7 +90,7 @@ public final class NioTcpAcceptor implements TcpAcceptor {
             final SocketChannel socketChannel = serverSocketChannel.accept();
             // unlikely, but...
             if (socketChannel != null) {
-                return new FinishedFutureConnection<SocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections));
+                return new FinishedFutureConnection<InetSocketAddress, TcpChannel>(new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections));
             }
             final Handler nioHandler = new Handler(serverSocketChannel, handler);
             final NioHandle handle = nioXnio.addConnectHandler(serverSocketChannel, nioHandler, true);
@@ -98,13 +98,13 @@ public final class NioTcpAcceptor implements TcpAcceptor {
             handle.resume(SelectionKey.OP_ACCEPT);
             return nioHandler.future;
         } catch (IOException e) {
-            return new FailedFutureConnection<SocketAddress, TcpChannel>(e, dest);
+            return new FailedFutureConnection<InetSocketAddress, TcpChannel>(e, dest);
         }
     }
 
-    public TcpChannelDestination createChannelDestination(final SocketAddress dest) {
+    public TcpChannelDestination createChannelDestination(final InetSocketAddress dest) {
         return new TcpChannelDestination() {
-            public FutureConnection<SocketAddress, TcpChannel> accept(final IoHandler<? super TcpChannel> handler) {
+            public FutureConnection<InetSocketAddress, TcpChannel> accept(final IoHandler<? super TcpChannel> handler) {
                 return acceptTo(dest, handler);
             }
         };
@@ -119,7 +119,7 @@ public final class NioTcpAcceptor implements TcpAcceptor {
         public Handler(final ServerSocketChannel serverSocketChannel, final IoHandler<? super TcpChannel> handler) {
             this.serverSocketChannel = serverSocketChannel;
             this.handler = handler;
-            future = new FutureImpl(executor, serverSocketChannel.socket().getLocalSocketAddress());
+            future = new FutureImpl(executor, (InetSocketAddress) serverSocketChannel.socket().getLocalSocketAddress());
         }
 
         public void run() {
@@ -163,11 +163,11 @@ public final class NioTcpAcceptor implements TcpAcceptor {
             }
         }
 
-        private final class FutureImpl extends AbstractFutureConnection<SocketAddress, TcpChannel> {
+        private final class FutureImpl extends AbstractFutureConnection<InetSocketAddress, TcpChannel> {
             private final Executor executor;
-            private final SocketAddress localAddress;
+            private final InetSocketAddress localAddress;
 
-            public FutureImpl(final Executor executor, final SocketAddress address) {
+            public FutureImpl(final Executor executor, final InetSocketAddress address) {
                 this.executor = executor;
                 localAddress = address;
             }
@@ -188,11 +188,11 @@ public final class NioTcpAcceptor implements TcpAcceptor {
                 return executor;
             }
 
-            public SocketAddress getLocalAddress() {
+            public InetSocketAddress getLocalAddress() {
                 return localAddress;
             }
 
-            public FutureConnection<SocketAddress, TcpChannel> cancel() {
+            public FutureConnection<InetSocketAddress, TcpChannel> cancel() {
                 IoUtils.safeClose(serverSocketChannel);
                 finishCancel();
                 return this;

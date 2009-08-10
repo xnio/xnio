@@ -23,12 +23,12 @@
 package org.jboss.xnio;
 
 import org.jboss.xnio.channels.TcpChannel;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 
 /**
  * A channel source specifically for connecting to TCP remote servers.
  */
 public interface TcpChannelSource extends ChannelSource<TcpChannel> {
     /** {@inheritDoc} */
-    FutureConnection<SocketAddress, TcpChannel> open(IoHandler<? super TcpChannel> handler);
+    FutureConnection<InetSocketAddress, TcpChannel> open(IoHandler<? super TcpChannel> handler);
 }
