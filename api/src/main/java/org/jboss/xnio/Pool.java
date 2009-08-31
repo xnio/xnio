@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -22,27 +22,23 @@
 
 package org.jboss.xnio;
 
-import java.nio.Buffer;
-
 /**
- * An allocator for buffers.
- *
- * @param <T> the type of buffer that is managed by this allocator
- *
- * @apiviz.landmark
+ * A generic pooled resource manager.
  */
-public interface BufferAllocator<T extends Buffer> extends Pool<T> {
+public interface Pool<T> {
+
     /**
-     * Allocate a buffer.  If not enough buffers are available to be allocated, return {@code null}.
+     * Allocate a resource from the pool, or {@code null} if none are available.
      *
-     * @return a buffer, or {@code null} if none are available
+     * @return the resource, or {@code null} if none are available
      */
     T allocate();
 
     /**
-     * Free a previously allocated buffer.
+     * Free a pooled resource.
      *
-     * @param buffer the buffer to free
+     * @param resource the resource to re-pool
+     * @throws IllegalArgumentException if the given resource does not belong in this pool
      */
-    void free(T buffer);
+    void free(T resource) throws IllegalArgumentException;
 }
