@@ -24,6 +24,10 @@ package org.jboss.xnio;
 
 /**
  * A generic pooled resource manager.
+ *
+ * @param <T> the resource type
+ *
+ * @apiviz.landmark
  */
 public interface Pool<T> {
 
