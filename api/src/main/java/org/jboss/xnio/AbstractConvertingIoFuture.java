@@ -42,6 +42,10 @@ public abstract class AbstractConvertingIoFuture<T, D> implements IoFuture<T> {
         this.delegate = delegate;
     }
 
+    protected IoFuture<? extends D> getDelegate() {
+        return delegate;
+    }
+
     public IoFuture<T> cancel() {
         delegate.cancel();
         return this;

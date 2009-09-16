@@ -27,6 +27,9 @@ import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.AbstractConvertingIoFuture;
+import org.jboss.xnio.Connector;
+import org.jboss.xnio.FutureConnection;
+import org.jboss.xnio.AbstractConvertingFutureConnection;
 import org.jboss.xnio.log.Logger;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -44,6 +47,52 @@ import java.util.concurrent.TimeUnit;
 public final class Channels {
 
     private Channels() {
+    }
+
+    /**
+     * Create a connector for an allocated message channel.  The resulting channel uses a simple protocol to send
+     * and receive messages.  First, a four-byte length field is sent in network order; then a message of that length
+     * follows.  If an incoming message is too large, it is ignored.  If an outgoing message is too large, an exception
+     * is thrown for that send.
+     *
+     * @param streamConnector the stream connector to encapsulate
+     * @param maxInboundMessageSize the maximum incoming message size
+     * @param maxOutboundMessageSize the maximum outgoing message size
+     * @return an allocated message connector
+     */
+    public static <A> Connector<A, AllocatedMessageChannel> convertStreamToAllocatedMessage(final Connector<A, ? extends StreamChannel> streamConnector, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
+        return new Connector<A, AllocatedMessageChannel>() {
+            public FutureConnection<A, AllocatedMessageChannel> connectTo(final A src, final A dest, final IoHandler<? super AllocatedMessageChannel> handler) {
+                final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
+                return new ConvertedFutureConnection<A>(streamConnector.connectTo(src, dest, innerHandler), innerHandler);
+            }
+
+            public ChannelSource<AllocatedMessageChannel> createChannelSource(final A src, final A dest) {
+                return convertStreamToAllocatedMessage(streamConnector.createChannelSource(src, dest), maxInboundMessageSize, maxOutboundMessageSize);
+            }
+
+            public FutureConnection<A, AllocatedMessageChannel> connectTo(final A dest, final IoHandler<? super AllocatedMessageChannel> handler) {
+                final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
+                return new ConvertedFutureConnection<A>(streamConnector.connectTo(dest, innerHandler), innerHandler); 
+            }
+
+            public ChannelSource<AllocatedMessageChannel> createChannelSource(final A dest) {
+                return convertStreamToAllocatedMessage(streamConnector.createChannelSource(dest), maxInboundMessageSize, maxOutboundMessageSize);
+            }
+        };
+    }
+
+    private static class ConvertedFutureConnection<A> extends AbstractConvertingFutureConnection<A, AllocatedMessageChannel, StreamChannel> {
+        private final AllocatedMessageChannelStreamChannelHandler innerHandler;
+
+        private ConvertedFutureConnection(final FutureConnection<A, ? extends StreamChannel> delegate, final AllocatedMessageChannelStreamChannelHandler innerHandler) {
+            super(delegate);
+            this.innerHandler = innerHandler;
+        }
+
+        protected AllocatedMessageChannel convert(final StreamChannel arg) {
+            return innerHandler.getChannel(arg);
+        }
     }
 
     /**
