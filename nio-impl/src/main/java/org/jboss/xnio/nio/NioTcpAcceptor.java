@@ -39,7 +39,9 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpChannelDestination;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -58,25 +60,25 @@ public final class NioTcpAcceptor implements TcpAcceptor {
     private final Boolean tcpNoDelay;
     private final boolean manageConnections;
 
-    private NioTcpAcceptor(NioTcpAcceptorConfig config) {
-        nioXnio = config.getXnio();
-        executor = config.getExecutor();
+    private NioTcpAcceptor(NioXnio nioXnio, Executor executor, OptionMap optionMap) {
         if (nioXnio == null) {
             throw new NullPointerException("nioXnio is null");
         }
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        keepAlive = config.getKeepAlive();
-        oobInline = config.getOobInline();
-        receiveBufferSize = config.getReceiveBuffer();
-        reuseAddress = config.getReuseAddresses();
-        tcpNoDelay = config.getNoDelay();
-        manageConnections = config.isManageConnections();
+        this.nioXnio = nioXnio;
+        this.executor = executor;
+        keepAlive = optionMap.get(CommonOptions.KEEP_ALIVE);
+        oobInline = optionMap.get(CommonOptions.TCP_OOB_INLINE);
+        receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
+        reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
+        tcpNoDelay = optionMap.get(CommonOptions.TCP_NODELAY);
+        manageConnections = optionMap.get(CommonOptions.MANAGE_CONNECTIONS, true);
     }
 
-    static NioTcpAcceptor create(NioTcpAcceptorConfig config) {
-        return new NioTcpAcceptor(config);
+    static NioTcpAcceptor create(NioXnio nioXnio, Executor executor, OptionMap optionMap) {
+        return new NioTcpAcceptor(nioXnio, executor, optionMap);
     }
 
     public FutureConnection<InetSocketAddress, TcpChannel> acceptTo(final InetSocketAddress dest, final IoHandler<? super TcpChannel> handler) {

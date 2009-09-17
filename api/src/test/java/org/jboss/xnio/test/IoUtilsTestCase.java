@@ -43,7 +43,7 @@ import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -125,15 +125,15 @@ public final class IoUtilsTestCase extends TestCase {
                         return 0;
                     }
 
-                    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+                    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
                         return null;
                     }
 
-                    public Set<ChannelOption<?>> getOptions() {
+                    public Set<Option<?>> getOptions() {
                         return null;
                     }
 
-                    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+                    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
                         return null;
                     }
                 };

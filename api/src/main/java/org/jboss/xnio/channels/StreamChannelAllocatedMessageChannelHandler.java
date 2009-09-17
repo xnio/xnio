@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.Option;
 import static org.jboss.xnio.Buffers.slice;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
@@ -115,15 +116,15 @@ final class StreamChannelAllocatedMessageChannelHandler implements IoHandler<All
             messageChannel.awaitReadable(time, timeUnit);
         }
 
-        public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
             return messageChannel.getOption(option);
         }
 
-        public Set<ChannelOption<?>> getOptions() {
+        public Set<Option<?>> getOptions() {
             return messageChannel.getOptions();
         }
 
-        public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
             return messageChannel.setOption(option, value);
         }
 

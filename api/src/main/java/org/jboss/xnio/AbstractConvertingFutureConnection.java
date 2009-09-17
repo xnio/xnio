@@ -41,6 +41,7 @@ public abstract class AbstractConvertingFutureConnection<A, T, D> extends Abstra
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     protected FutureConnection<A, ? extends D> getDelegate() {
         return (FutureConnection<A, ? extends D>) super.getDelegate();
     }

@@ -43,7 +43,8 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.UdpServer;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.Option;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
@@ -82,28 +83,31 @@ public class NioUdpServer implements UdpServer {
     private final AtomicLong globalMessagesRead = new AtomicLong();
     private final AtomicLong globalMessagesWritten = new AtomicLong();
 
-    NioUdpServer(final NioUdpServerConfig config) throws IOException {
+    NioUdpServer(final NioXnio nioXnio, final Executor executor, final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap optionMap) {
         synchronized (lock) {
-            nioXnio = config.getXnio();
-            handlerFactory = config.getHandlerFactory();
-            executor = config.getExecutor();
-            reuseAddress = config.getReuseAddresses();
-            receiveBufferSize = config.getReceiveBuffer();
-            sendBufferSize = config.getSendBuffer();
-            trafficClass = config.getTrafficClass();
-            broadcast = config.getBroadcast();
+            this.nioXnio = nioXnio;
+            this.executor = executor;
+            this.handlerFactory = handlerFactory;
+            reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
+            receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
+            receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
+            sendBufferSize = optionMap.get(CommonOptions.SEND_BUFFER);
+            trafficClass = optionMap.get(CommonOptions.IP_TRAFFIC_CLASS);
+            broadcast = optionMap.get(CommonOptions.BROADCAST);
+            Closeable closeable = IoUtils.nullCloseable();
             try {
-                mbeanHandle = nioXnio.registerMBean(new MBean());
+                closeable = nioXnio.registerMBean(new MBean());
             } catch (NotCompliantMBeanException e) {
-                throw new IOException("Cannot construct server mbean: " + e);
+                log.trace(e, "Failed to register MBean");
             }
+            mbeanHandle = closeable;
         }
     }
 
-    protected static final Set<ChannelOption<?>> OPTIONS;
+    protected static final Set<Option<?>> OPTIONS;
 
     static {
-        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
+        final Set<Option<?>> options = new HashSet<Option<?>>();
         options.add(CommonOptions.RECEIVE_BUFFER);
         options.add(CommonOptions.REUSE_ADDRESSES);
         options.add(CommonOptions.SEND_BUFFER);
@@ -112,63 +116,43 @@ public class NioUdpServer implements UdpServer {
         OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
-            return option.getType().cast(receiveBufferSize);
+            return option.cast(receiveBufferSize);
         } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
-            return option.getType().cast(reuseAddress);
+            return option.cast(reuseAddress);
         } else if (CommonOptions.SEND_BUFFER.equals(option)) {
-            return option.getType().cast(sendBufferSize);
+            return option.cast(sendBufferSize);
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
-            return option.getType().cast(trafficClass);
+            return option.cast(trafficClass);
         } else if (CommonOptions.BROADCAST.equals(option)) {
-            return option.getType().cast(broadcast);
+            return option.cast(broadcast);
         } else {
             return null;
         }
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
-            receiveBufferSize = CommonOptions.RECEIVE_BUFFER.getType().cast(value);
+            receiveBufferSize = CommonOptions.RECEIVE_BUFFER.cast(value);
         } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
-            reuseAddress = CommonOptions.REUSE_ADDRESSES.getType().cast(value);
+            reuseAddress = CommonOptions.REUSE_ADDRESSES.cast(value);
         } else if (CommonOptions.SEND_BUFFER.equals(option)) {
-            sendBufferSize = CommonOptions.SEND_BUFFER.getType().cast(value);
+            sendBufferSize = CommonOptions.SEND_BUFFER.cast(value);
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
-            trafficClass = CommonOptions.IP_TRAFFIC_CLASS.getType().cast(value);
+            trafficClass = CommonOptions.IP_TRAFFIC_CLASS.cast(value);
         } else if (CommonOptions.BROADCAST.equals(option)) {
-            broadcast = CommonOptions.BROADCAST.getType().cast(value);
+            broadcast = CommonOptions.BROADCAST.cast(value);
         }
         return this;
     }
 
     public String toString() {
         return String.format("UDP server (NIO) <%s>", Integer.toHexString(hashCode()));
-    }
-
-    static NioUdpServer create(final NioUdpServerConfig config) throws IOException {
-        final NioUdpServer server = new NioUdpServer(config);
-        boolean ok = false;
-        try {
-            final SocketAddress[] addresses = config.getInitialAddresses();
-            if (addresses != null) {
-                for (SocketAddress address : addresses) {
-                    server.bind(address).get();
-                }
-            }
-            ok = true;
-            log.trace("Successfully started UDP server");
-            return server;
-        } finally {
-            if (! ok) {
-                IoUtils.safeClose(server);
-            }
-        }
     }
 
     public Collection<UdpChannel> getChannels() {

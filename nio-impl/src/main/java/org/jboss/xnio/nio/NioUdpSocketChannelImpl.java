@@ -38,8 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.ChannelOption;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
@@ -226,15 +226,15 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
         throw new UnsupportedOperationException("Multicast join");
     }
 
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         return null;
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return Collections.emptySet();
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
     }
 

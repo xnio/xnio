@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.log.Logger;
 import java.nio.ByteBuffer;
 import java.io.IOException;
@@ -178,15 +179,15 @@ final class AllocatedMessageChannelStreamChannelHandler implements IoHandler<Str
             }
         }
 
-        public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+        public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
             return streamChannel.getOption(option);
         }
 
-        public Set<ChannelOption<?>> getOptions() {
+        public Set<Option<?>> getOptions() {
             return streamChannel.getOptions();
         }
 
-        public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+        public <T> AllocatedMessageChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
             streamChannel.setOption(option, value);
             return this;
         }

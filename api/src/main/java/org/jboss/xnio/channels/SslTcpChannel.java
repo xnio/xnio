@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -20,26 +20,14 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio;
+package org.jboss.xnio.channels;
 
-import org.jboss.xnio.channels.Configurable;
 import java.io.IOException;
 
-/**
- * A factory which produces an instance based on a configuration.  Once the {@code create} method is called, the instance
- * may no longer be reconfigured.
- *
- * @param <T> the subject type
- *
- * @apiviz.exclude
- */
-public interface ConfigurableFactory<T> extends Configurable {
-    /**
-     * Create the instance based on the configuration.
-     *
-     * @return the instance
-     * @throws java.io.IOException if an error occurs starting the instance
-     * @throws IllegalStateException if the instance was already created
-     */
-    T create() throws IOException, IllegalStateException;
+import javax.net.ssl.SSLSession;
+
+public interface SslTcpChannel extends TcpChannel {
+    void startHandshake() throws IOException;
+
+    SSLSession getSslSession();
 }

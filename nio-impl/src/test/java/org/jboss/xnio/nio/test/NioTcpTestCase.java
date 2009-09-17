@@ -25,7 +25,6 @@ package org.jboss.xnio.nio.test;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -35,7 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.TestCase;
 import static org.jboss.xnio.Buffers.flip;
-import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoHandler;
@@ -47,8 +45,7 @@ import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.TcpServer;
-import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.log.Logger;
@@ -77,16 +74,14 @@ public final class NioTcpTestCase extends TestCase {
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
         Xnio xnio = NioXnio.create(conf);
         try {
-            final ConfigurableFactory<? extends TcpServer> serverFactory = xnio.createTcpServer(new IoHandlerFactory<TcpChannel>() {
+            final TcpServer server  = xnio.createTcpServer(new IoHandlerFactory<TcpChannel>() {
                 public IoHandler<? super TcpChannel> createHandler() {
                     return new CatchingHandler<TcpChannel>(serverHandler, threadFactory);
                 }
-            }, new InetSocketAddress[] { new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)});
-            serverFactory.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
-            final BoundServer<SocketAddress, BoundChannel<SocketAddress>> server = serverFactory.create();
+            }, OptionMap.builder().add(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             try {
-                final ConfigurableFactory<? extends TcpConnector> connectorFactory = xnio.createTcpConnector();
-                final TcpConnector connector = connectorFactory.create();
+                server.bind(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)).await();
+                final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
                 final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingHandler<TcpChannel>(clientHandler, threadFactory));
                 final TcpChannel channel = ioFuture.get();
                 try {
@@ -552,9 +547,7 @@ public final class NioTcpTestCase extends TestCase {
         final byte[] bytes = "Ummagumma!".getBytes("UTF-8");
         final Xnio xnio = NioXnio.create();
         try {
-            final ConfigurableFactory<? extends TcpAcceptor> acceptorFactory = xnio.createTcpAcceptor();
-            acceptorFactory.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
-            final TcpAcceptor acceptor = acceptorFactory.create();
+            final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().add(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             final FutureConnection<? extends InetSocketAddress, TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new IoHandler<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
@@ -609,8 +602,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             });
             final InetSocketAddress localAddress = futureConnection.getLocalAddress();
-            final ConfigurableFactory<? extends TcpConnector> connectorFactory = xnio.createTcpConnector();
-            final TcpConnector connector = connectorFactory.create();
+            final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
             final IoFuture<TcpChannel> ioFuture = connector.connectTo(localAddress, new IoHandler<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;

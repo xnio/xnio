@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.util.Set;
 import java.io.IOException;
+import org.jboss.xnio.Option;
 
 /**
  * A channel that has parameters that may be configured while the channel is open.
@@ -39,14 +40,14 @@ public interface Configurable {
      * @return the value of the option, or {@code null} if it is not set
      * @throws IOException if an I/O error occurred when reading the option
      */
-    <T> T getOption(ChannelOption<T> option) throws IOException;
+    <T> T getOption(Option<T> option) throws IOException;
 
     /**
      * Get the options that may be set on this channel.
      *
      * @return an unmodifiable set of options
      */
-    Set<ChannelOption<?>> getOptions();
+    Set<Option<?>> getOptions();
 
     /**
      * Set an option for this channel.  Unsupported options are ignored.
@@ -58,5 +59,5 @@ public interface Configurable {
      * @throws IllegalArgumentException if the value is not acceptable for this option
      * @throws IOException if an I/O error occured when modifying the option
      */
-    <T> Configurable setOption(ChannelOption<T> option, T value) throws IllegalArgumentException, IOException;
+    <T> Configurable setOption(Option<T> option, T value) throws IllegalArgumentException, IOException;
 }

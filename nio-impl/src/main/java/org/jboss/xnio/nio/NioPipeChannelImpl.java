@@ -35,8 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.channels.ChannelOption;
-import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
@@ -193,15 +192,15 @@ public final class NioPipeChannelImpl implements StreamChannel {
         SelectorUtils.await(nioXnio, sinkChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         return null;
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return Collections.emptySet();
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> NioPipeChannelImpl setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
     }
 

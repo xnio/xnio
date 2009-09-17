@@ -240,80 +240,87 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP server.  The server will bind to the given addresses.  The
-     * provider's executor will be used to execute handler methods.
+     * Create an unbound TCP server.  The given executor will be used to execute handler methods.
      *
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
-     * @param bindAddresses the addresses to bind to
+     * @param optionMap the initial configuration for the server
+     * @return the unbound TCP server
      *
-     * @return a factory that can be used to configure the new TCP server
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpServer> createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public TcpServer createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
     /**
-     * Create a TCP server.  The server will bind to the given addresses.  The
-     * provider's default executor will be used to execute handler methods.
+     * Create an unbound TCP server.  The provider's default executor will be used to execute handler methods.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
-     * @param bindAddresses the addresses to bind to
+     * @param optionMap the initial configuration for the server
+     * @return the unbound TCP server
      *
-     * @return a factory that can be used to configure the new TCP server
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpServer> createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public TcpServer createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
     /**
-     * Create a configurable TCP connector.  The connector can be configured before it is actually created.
+     * Create a TCP connector.  The given executor will be used to execute handler methods.
      *
      * @param executor the executor to use to execute the handlers
+     * @param optionMap the initial configuration for the connector
+     * @return the TCP connector
      *
-     * @return a factory that can be used to configure the new TCP connector
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpConnector> createTcpConnector(Executor executor) {
+    public TcpConnector createTcpConnector(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
     /**
-     * Create a configurable TCP connector.  The connector can be configured before it is actually created.  The
-     * provider's default executor will be used to execute handler methods.
+     * Create a TCP connector.  The provider's default executor will be used to execute handler methods.
      *
-     * @return a factory that can be used to configure the new TCP connector
+     * @param optionMap the initial configuration for the connector
+     * @return the TCP connector
+     *
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpConnector> createTcpConnector() {
+    public TcpConnector createTcpConnector(OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Connector");
     }
 
     /**
-     * Create a UDP server.  The server will bind to the given addresses.  The UDP server can be configured to be
-     * multicast-capable; this should only be done if multicast is needed, since some providers have a performance
-     * penalty associated with multicast.
+     * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
+     * done if multicast is needed, since some providers have a performance penalty associated with multicast.
+     * The given executor will be used to execute handler methods.
      *
      * @param executor the executor to use to execute the handlers
-     * @param multicast {@code true} if the UDP server should be multicast-capable
      * @param handlerFactory the factory which will produce handlers for each channel
-     * @param bindAddresses the addresses to bind
+     * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
+     *
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends UdpServer> createUdpServer(Executor executor, boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public UdpServer createUdpServer(Executor executor, IoHandlerFactory<? super UdpChannel> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
     /**
-     * Create a UDP server.  The server will bind to the given addresses.  The provider's default executor will be used to
-     * execute handler methods.
+     * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
+     * done if multicast is needed, since some providers have a performance penalty associated with multicast.
+     * The provider's default executor will be used to execute handler methods.
      *
-     * @param multicast {@code true} if the UDP server should be multicast-capable
      * @param handlerFactory the factory which will produce handlers for each channel
-     * @param bindAddresses the addresses to bind
+     * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
+     *
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends UdpServer> createUdpServer(boolean multicast, IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public UdpServer createUdpServer(IoHandlerFactory<? super UdpChannel> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -475,140 +482,140 @@ public abstract class Xnio implements Closeable {
      * Create a TCP acceptor.
      *
      * @param executor the executor to use to execute the handlers
+     * @param optionMap the initial configuration for the acceptor
+     * @return the TCP acceptor
      *
-     * @return a factory that can be used to configure a TCP acceptor
-     *
-     * @since 1.2
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor(Executor executor) {
+    public TcpAcceptor createTcpAcceptor(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
     /**
-     * Create a TCP acceptor.  The provider's default executor will be used to
-     * execute handler methods.
+     * Create a TCP acceptor.
      *
-     * @return a factory that can be used to configure a TCP acceptor
+     * @param optionMap the initial configuration for the acceptor
+     * @return the TCP acceptor
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor() {
+    public TcpAcceptor createTcpAcceptor(OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
 
     /**
-     * Create a local stream server.  The stream server is bound to one or more files in the filesystem.  If no bind
-     * addresses are specified, one is created.
+     * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
      *
-     * @since 1.2
+     * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalServer> createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory) {
+    public LocalServer createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
-     * Create a local stream server.  The stream server is bound to one or more files in the filesystem.  If no bind
-     * addresses are specified, one is created.  The provider's default executor will be used to
-     * execute handler methods.
+     * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
      *
-     * @since 1.2
+     * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalServer> createLocalStreamServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public LocalServer createLocalStreamServer(IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
-     * Create a configurable local stream connector.  The connector can be configured before it is actually created.
+     * Create a local stream connector.
      *
      * @param executor the executor to use to execute the handlers
+     * @param optionMap the initial configuration for the connector
      *
-     * @return a factory that can be used to configure the new local stream connector
+     * @return the stream connector
      *
-     * @since 1.2
+     * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalStreamConnector> createLocalStreamConnector(Executor executor) {
+    public LocalStreamConnector createLocalStreamConnector(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
     /**
-     * Create a configurable local stream connector.  The connector can be configured before it is actually created.
-     * The provider's default executor will be used to execute handler methods.
+     * Create a local stream connector.
      *
-     * @return a factory that can be used to configure the new local stream connector
+     * @param optionMap the initial configuration for the connector
      *
-     * @since 1.2
+     * @return the stream connector
+     *
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends LocalStreamConnector> createLocalStreamConnector() {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public LocalStreamConnector createLocalStreamConnector(OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Connector");
     }
 
     /**
-     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.  If no
-     * bind addresses are specified, one is created.
+     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
      * @param executor the executor to use to execute the handlers
      * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param optionMap the initial configuration for the server
      *
-     * @return a factory that can be used to configure the new datagram server
+     * @return the new datagram server
      *
-     * @since 1.2
+     * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalServer> createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public LocalServer createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
-     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.  If no
-     * bind addresses are specified, one is created.  The provider's default executor will be used to
-     * execute handler methods.
+     * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
      * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param optionMap the initial configuration for the server
      *
-     * @return a factory that can be used to configure the new datagram server
+     * @return the new datagram server
      *
-     * @since 1.2
+     * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalServer> createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory) {
+    public LocalServer createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
-     * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
+     * Create a local datagram connector.
      *
      * @param executor the executor to use to execute the handlers
+     * @param optionMap the initial configuration for the connector
+     * @return the new datagram connector
      *
-     * @return a factory that can be used to configure the new local datagram connector
-     *
-     * @since 1.2
+     * @since 2.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
-    public ConfigurableFactory<? extends LocalDatagramConnector> createLocalDatagramConnector(Executor executor) {
+    public LocalDatagramConnector createLocalDatagramConnector(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 
     /**
-     * Create a configurable local datagram connector.  The connector can be configured before it is actually created.
-     * The provider's default executor will be used to execute handler methods.
+     * Create a local datagram connector.
      *
-     * @return a factory that can be used to configure the new local datagram connector
+     * @param optionMap the initial configuration for the connector
+     * @return the new datagram connector
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public ConfigurableFactory<? extends LocalDatagramConnector> createLocalDatagramConnector() {
+    public LocalDatagramConnector createLocalDatagramConnector(OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
 

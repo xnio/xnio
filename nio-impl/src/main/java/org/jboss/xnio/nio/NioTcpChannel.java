@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.TcpChannel;
@@ -224,10 +224,10 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
         return (InetSocketAddress) socket.getLocalSocketAddress();
     }
 
-    private static final Set<ChannelOption<?>> OPTIONS = Collections.<ChannelOption<?>>singleton(CommonOptions.CLOSE_ABORT);
+    private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(CommonOptions.CLOSE_ABORT);
 
     @SuppressWarnings({"unchecked"})
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.CLOSE_ABORT.equals(option)) {
             return (T) Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
@@ -235,11 +235,11 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
         }
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (CommonOptions.CLOSE_ABORT.equals(option)) {
             if (value == null) {
                 throw new NullPointerException("value is null");

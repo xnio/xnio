@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
@@ -363,17 +363,17 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
     }
 
-    protected static final Set<ChannelOption<?>> OPTIONS;
+    protected static final Set<Option<?>> OPTIONS;
 
     static {
-        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>();
+        final Set<Option<?>> options = new HashSet<Option<?>>();
         options.add(CommonOptions.BROADCAST);
         options.add(CommonOptions.IP_TRAFFIC_CLASS);
         OPTIONS = Collections.unmodifiableSet(options);
     }
 
     @SuppressWarnings({"unchecked"})
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.BROADCAST.equals(option)) {
             return (T) Boolean.valueOf(datagramSocket.getBroadcast());
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
@@ -384,15 +384,15 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (CommonOptions.BROADCAST.equals(option)) {
-            datagramSocket.setBroadcast(((Boolean)value).booleanValue());
+            datagramSocket.setBroadcast(CommonOptions.BROADCAST.cast(value).booleanValue());
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
-            datagramSocket.setTrafficClass(((Integer)value).intValue());
+            datagramSocket.setTrafficClass(CommonOptions.IP_TRAFFIC_CLASS.cast(value).intValue());
         }
         return this;
     }

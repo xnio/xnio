@@ -37,7 +37,9 @@ import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpChannelSource;
 import org.jboss.xnio.TcpConnector;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -58,22 +60,22 @@ public final class NioTcpConnector implements TcpConnector {
     private final Boolean tcpNoDelay;
     private final boolean manageConnections;
 
-    private NioTcpConnector(NioTcpConnectorConfig config) {
-        nioXnio = config.getXnio();
-        executor = config.getExecutor();
+    private NioTcpConnector(NioXnio nioXnio, Executor executor, OptionMap optionMap) {
         if (nioXnio == null) {
             throw new NullPointerException("nioXnio is null");
         }
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        keepAlive = config.getKeepAlive();
-        oobInline = config.getOobInline();
-        receiveBufferSize = config.getReceiveBuffer();
-        reuseAddress = config.getReuseAddresses();
-        sendBufferSize = config.getSendBuffer();
-        tcpNoDelay = config.getNoDelay();
-        manageConnections = config.isManageConnections();
+        this.nioXnio = nioXnio;
+        this.executor = executor;
+        reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
+        receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
+        sendBufferSize = optionMap.get(CommonOptions.SEND_BUFFER);
+        keepAlive = optionMap.get(CommonOptions.KEEP_ALIVE);
+        oobInline = optionMap.get(CommonOptions.TCP_OOB_INLINE);
+        tcpNoDelay = optionMap.get(CommonOptions.TCP_NODELAY);
+        manageConnections = ! optionMap.contains(CommonOptions.MANAGE_CONNECTIONS) || optionMap.get(CommonOptions.MANAGE_CONNECTIONS).booleanValue();
     }
 
     private void configureStream(final Socket socket) throws SocketException {
@@ -174,8 +176,8 @@ public final class NioTcpConnector implements TcpConnector {
         return String.format("TCP connector (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    static NioTcpConnector create(final NioTcpConnectorConfig config) {
-        return new NioTcpConnector(config);
+    static TcpConnector create(final NioXnio nioXnio, final Executor executor, final OptionMap optionMap) {
+        return new NioTcpConnector(nioXnio, executor, optionMap);
     }
 
     /**

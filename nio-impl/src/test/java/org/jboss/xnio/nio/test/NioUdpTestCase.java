@@ -36,15 +36,16 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
 import org.jboss.xnio.Buffers;
-import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.CloseableExecutor;
+import org.jboss.xnio.UdpServer;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
@@ -101,8 +102,9 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final ConfigurableFactory<? extends BoundServer<SocketAddress,UdpChannel>> serverFactory = xnio.createUdpServer(multicast, IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)), bindAddress);
-        final BoundServer<SocketAddress, UdpChannel> server = serverFactory.create();
+        final UdpServer server = xnio.createUdpServer(IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)),
+                OptionMap.builder().add(CommonOptions.MULTICAST, Boolean.valueOf(multicast)).getMap());
+        server.bind(bindAddress).await();
         try {
             body.run();
             server.close();

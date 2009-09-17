@@ -25,11 +25,11 @@ package org.jboss.xnio.samples;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoFuture;
 import static org.jboss.xnio.IoUtils.safeClose;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.TcpChannel;
 
 /**
@@ -46,8 +46,7 @@ public final class EchoClient {
         }
         final Xnio xnio = Xnio.create();
         try {
-            final ConfigurableFactory<? extends TcpConnector> connectorFactory = xnio.createTcpConnector();
-            final TcpConnector connector = connectorFactory.create();
+            final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
             final IoFuture<? extends TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
             final TcpChannel channel = ioFuture.get();
             try {

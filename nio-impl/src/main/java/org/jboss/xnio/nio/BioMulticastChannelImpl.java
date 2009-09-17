@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.channels.ChannelOption;
+import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointDatagramChannel;
@@ -62,16 +62,16 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
         throw new UnsupportedOperationException("source filtering not supported");
     }
 
-    private static final Set<ChannelOption<?>> OPTIONS;
+    private static final Set<Option<?>> OPTIONS;
 
     static {
-        final Set<ChannelOption<?>> options = new HashSet<ChannelOption<?>>(BioDatagramChannelImpl.OPTIONS);
+        final Set<Option<?>> options = new HashSet<Option<?>>(BioDatagramChannelImpl.OPTIONS);
         options.add(CommonOptions.MULTICAST_TTL);
         OPTIONS = Collections.unmodifiableSet(options);
     }
 
     @SuppressWarnings({"unchecked"})
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.MULTICAST_TTL.equals(option)) {
             return (T) Integer.valueOf(multicastSocket.getTimeToLive());
         } else {
@@ -79,11 +79,11 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
         }
     }
 
-    public Set<ChannelOption<?>> getOptions() {
+    public Set<Option<?>> getOptions() {
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (CommonOptions.MULTICAST_TTL.equals(option)) {
             multicastSocket.setTimeToLive(((Integer)value).intValue());
             return this;

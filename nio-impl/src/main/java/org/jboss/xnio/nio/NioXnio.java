@@ -24,7 +24,6 @@ package org.jboss.xnio.nio;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -45,7 +44,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.xnio.ChannelSource;
-import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
@@ -58,11 +56,13 @@ import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
+import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.management.OneWayPipeConnectionMBean;
 import org.jboss.xnio.management.PipeConnectionMBean;
@@ -285,79 +285,69 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpServer> createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public TcpServer createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
-        }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
+        if (optionMap == null) {
+            throw new NullPointerException("optionMap is null");
         }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
-            return new NioTcpServerFactory(this, executor, handlerFactory, bindAddresses);
+            return NioTcpServer.create(this, executor, handlerFactory, optionMap);
         }
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpServer> createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        return createTcpServer(executor, handlerFactory, bindAddresses);
+    public TcpServer createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, final OptionMap optionMap) {
+        return createTcpServer(executor, handlerFactory, optionMap);
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpConnector> createTcpConnector(final Executor executor) {
+    public TcpConnector createTcpConnector(final Executor executor, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
+        if (optionMap == null) {
+            throw new NullPointerException("optionMap is null");
+        }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
-            return new NioTcpConnectorFactory(this, executor);
+            return NioTcpConnector.create(this, executor, optionMap);
         }
     }
 
     /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpConnector> createTcpConnector() {
-        return createTcpConnector(executor);
+    public TcpConnector createTcpConnector(final OptionMap optionMap) {
+        return createTcpConnector(executor, optionMap);
     }
 
-    /** {@inheritDoc} */
-    public ConfigurableFactory<? extends UdpServer> createUdpServer(final Executor executor, final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
+    public UdpServer createUdpServer(final Executor executor, final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
         if (handlerFactory == null) {
             throw new NullPointerException("handlerFactory is null");
         }
-        if (bindAddresses == null) {
-            throw new NullPointerException("bindAddresses is null");
+        if (optionMap == null) {
+            throw new NullPointerException("optionMap is null");
         }
-        if (bindAddresses.length == 0) {
-            throw new IllegalArgumentException("no bind addresses specified");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            if (multicast) {
-                return new BioUdpServerFactory(this, executor, handlerFactory, bindAddresses);
-            } else {
-                return new NioUdpServerFactory(this, executor, handlerFactory, bindAddresses);
-            }
+        if (optionMap.contains(CommonOptions.MULTICAST) && optionMap.get(CommonOptions.MULTICAST).booleanValue()) {
+            return new BioUdpServer(this, executor, handlerFactory, optionMap);
+        } else {
+            return new NioUdpServer(this, executor, handlerFactory, optionMap);
         }
     }
 
-    /** {@inheritDoc} */
-    public ConfigurableFactory<? extends UdpServer> createUdpServer(final boolean multicast, final IoHandlerFactory<? super UdpChannel> handlerFactory, SocketAddress... bindAddresses) {
-        return createUdpServer(executor, multicast, handlerFactory, bindAddresses);
+    public UdpServer createUdpServer(final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap optionMap) {
+        return createUdpServer(executor, handlerFactory, optionMap);
     }
 
     /** {@inheritDoc} */
@@ -527,22 +517,23 @@ public final class NioXnio extends Xnio {
         return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
     }
 
-    /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor(final Executor executor) {
+    public TcpAcceptor createTcpAcceptor(final Executor executor, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
+        }
+        if (optionMap == null) {
+            throw new NullPointerException("optionMap is null");
         }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
-            return new NioTcpAcceptorFactory(this, executor);
+            return NioTcpAcceptor.create(this, executor, optionMap);
         }
     }
 
-    /** {@inheritDoc} */
-    public ConfigurableFactory<? extends TcpAcceptor> createTcpAcceptor() {
-        return createTcpAcceptor(executor);
+    public TcpAcceptor createTcpAcceptor(final OptionMap optionMap) {
+        return createTcpAcceptor(executor, optionMap);
     }
 
     /**

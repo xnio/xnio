@@ -22,12 +22,12 @@
 
 package org.jboss.xnio.samples;
 
-import org.jboss.xnio.ConfigurableFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
+import org.jboss.xnio.OptionMap;
+import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.channels.CommonOptions;
 import java.io.IOException;
-import java.io.Closeable;
 import java.net.InetSocketAddress;
 
 /**
@@ -40,13 +40,12 @@ public final class EchoServer {
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
         try {
-            final ConfigurableFactory<? extends Closeable> tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), new InetSocketAddress(12345));
-            if (false) tcpServer.setOption(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE);
-            final Closeable tcpServerHandle = tcpServer.create();
+            final TcpServer tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), OptionMap.builder().add(CommonOptions.REUSE_ADDRESSES, Boolean.FALSE).getMap());
             try {
+                tcpServer.bind(new InetSocketAddress(12345)).await();
                 Thread.sleep(30000L);
             } finally {
-                IoUtils.safeClose(tcpServerHandle);
+                IoUtils.safeClose(tcpServer);
             }
         } finally {
             IoUtils.safeClose(xnio);
