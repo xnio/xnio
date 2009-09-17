@@ -36,11 +36,10 @@ public interface Configurable {
      *
      * @param <T> the type of the option value
      * @param option the option to get
-     * @return the value of the option
-     * @throws UnsupportedOptionException if the option is not supported by this channel
+     * @return the value of the option, or {@code null} if it is not set
      * @throws IOException if an I/O error occurred when reading the option
      */
-    <T> T getOption(ChannelOption<T> option) throws UnsupportedOptionException, IOException;
+    <T> T getOption(ChannelOption<T> option) throws IOException;
 
     /**
      * Get the options that may be set on this channel.
@@ -50,13 +49,12 @@ public interface Configurable {
     Set<ChannelOption<?>> getOptions();
 
     /**
-     * Set an option for this channel.
+     * Set an option for this channel.  Unsupported options are ignored.
      *
      * @param <T> the type of the option value
      * @param option the option to set
      * @param value the value of the option to set
      * @return this channel
-     * @throws UnsupportedOptionException if the option is not supported by this channel
      * @throws IllegalArgumentException if the value is not acceptable for this option
      * @throws IOException if an I/O error occured when modifying the option
      */

@@ -374,16 +374,13 @@ public class BioDatagramChannelImpl implements UdpChannel {
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.BROADCAST.equals(option)) {
             return (T) Boolean.valueOf(datagramSocket.getBroadcast());
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             final int v = datagramSocket.getTrafficClass();
             return v == -1 ? null : (T) Integer.valueOf(v);
         } else {
-            throw new IllegalStateException("Failed to get supported option: " + option);
+            return null;
         }
     }
 
@@ -392,18 +389,12 @@ public class BioDatagramChannelImpl implements UdpChannel {
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.BROADCAST.equals(option)) {
             datagramSocket.setBroadcast(((Boolean)value).booleanValue());
-            return this;
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             datagramSocket.setTrafficClass(((Integer)value).intValue());
-            return this;
-        } else {
-            throw new IllegalStateException("Failed to set supported option: " + option);
         }
+        return this;
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {

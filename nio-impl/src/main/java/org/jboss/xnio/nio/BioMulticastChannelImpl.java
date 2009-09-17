@@ -72,9 +72,6 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.MULTICAST_TTL.equals(option)) {
             return (T) Integer.valueOf(multicastSocket.getTimeToLive());
         } else {
@@ -87,9 +84,6 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.MULTICAST_TTL.equals(option)) {
             multicastSocket.setTimeToLive(((Integer)value).intValue());
             return this;

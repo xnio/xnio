@@ -124,7 +124,7 @@ public class NioUdpServer implements UdpServer {
         } else if (CommonOptions.BROADCAST.equals(option)) {
             return option.getType().cast(broadcast);
         } else {
-            throw new UnsupportedOptionException("Option not supported: " + option);
+            return null;
         }
     }
 
@@ -133,27 +133,18 @@ public class NioUdpServer implements UdpServer {
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             receiveBufferSize = CommonOptions.RECEIVE_BUFFER.getType().cast(value);
-            return this;
         } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
             reuseAddress = CommonOptions.REUSE_ADDRESSES.getType().cast(value);
-            return this;
         } else if (CommonOptions.SEND_BUFFER.equals(option)) {
             sendBufferSize = CommonOptions.SEND_BUFFER.getType().cast(value);
-            return this;
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             trafficClass = CommonOptions.IP_TRAFFIC_CLASS.getType().cast(value);
-            return this;
         } else if (CommonOptions.BROADCAST.equals(option)) {
             broadcast = CommonOptions.BROADCAST.getType().cast(value);
-            return this;
-        } else {
-            throw new IllegalStateException("Failed to set supported option: " + option);
         }
+        return this;
     }
 
     public String toString() {

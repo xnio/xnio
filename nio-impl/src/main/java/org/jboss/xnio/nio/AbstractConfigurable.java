@@ -50,20 +50,14 @@ public abstract class AbstractConfigurable implements Configurable {
         if (validOptions.contains(option)) {
             return option.getType().cast(optionMap.get(option));
         } else {
-            throw badOption(option);
+            return null;
         }
     }
 
     public <T> AbstractConfigurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
         if (validOptions.contains(option)) {
             optionMap.put(option, option.getType().cast(value));
-        } else {
-            throw badOption(option);
         }
         return this;
-    }
-
-    private static UnsupportedOptionException badOption(final ChannelOption<?> option) {
-        return new UnsupportedOptionException("Option " + option + " is unsupported");
     }
 }

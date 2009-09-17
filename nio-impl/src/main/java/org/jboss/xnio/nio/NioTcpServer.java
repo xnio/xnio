@@ -202,7 +202,7 @@ public final class NioTcpServer implements TcpServer {
             } else if (option == CommonOptions.TCP_NODELAY) {
                 return option.getType().cast(tcpNoDelay);
             } else {
-                throw badOption(option);
+                return null;
             }
         }
     }
@@ -225,8 +225,6 @@ public final class NioTcpServer implements TcpServer {
                 oobInline = CommonOptions.TCP_OOB_INLINE.getType().cast(value);
             } else if (option == CommonOptions.TCP_NODELAY) {
                 tcpNoDelay = CommonOptions.TCP_NODELAY.getType().cast(value);
-            } else {
-                throw badOption(option);
             }
             return this;
         }
@@ -295,13 +293,6 @@ public final class NioTcpServer implements TcpServer {
         return String.format("TCP server (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    private static UnsupportedOptionException badOption(final ChannelOption<?> option) {
-        return new UnsupportedOptionException("Option " + option + " is unsupported");
-    }
-
-    /**
-     *
-     */
     public final class NioTcpServerChannel implements BoundChannel<SocketAddress> {
 
         private final NioHandle handle;

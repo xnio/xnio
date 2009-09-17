@@ -194,7 +194,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
     }
 
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        throw new UnsupportedOptionException("No options supported");
+        return null;
     }
 
     public Set<ChannelOption<?>> getOptions() {
@@ -202,7 +202,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        throw new UnsupportedOptionException("No options supported");
+        return this;
     }
 
     private class ReadHandler implements Runnable {

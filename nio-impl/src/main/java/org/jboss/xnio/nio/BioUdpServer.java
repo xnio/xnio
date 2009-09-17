@@ -128,7 +128,7 @@ public final class BioUdpServer implements UdpServer {
         OPTIONS = Collections.unmodifiableSet(options);
     }
 
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
+    public <T> T getOption(final ChannelOption<T> option) throws IOException {
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             return option.getType().cast(receiveBufferSize);
         } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
@@ -140,7 +140,7 @@ public final class BioUdpServer implements UdpServer {
         } else if (CommonOptions.BROADCAST.equals(option)) {
             return option.getType().cast(broadcast);
         } else {
-            throw new UnsupportedOptionException("Option not supported: " + option);
+            return null;
         }
     }
 
@@ -148,28 +148,19 @@ public final class BioUdpServer implements UdpServer {
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
+    public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IOException {
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             receiveBufferSize = CommonOptions.RECEIVE_BUFFER.getType().cast(value);
-            return this;
         } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
             reuseAddress = CommonOptions.REUSE_ADDRESSES.getType().cast(value);
-            return this;
         } else if (CommonOptions.SEND_BUFFER.equals(option)) {
             sendBufferSize = CommonOptions.SEND_BUFFER.getType().cast(value);
-            return this;
         } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
             trafficClass = CommonOptions.IP_TRAFFIC_CLASS.getType().cast(value);
-            return this;
         } else if (CommonOptions.BROADCAST.equals(option)) {
             broadcast = CommonOptions.BROADCAST.getType().cast(value);
-            return this;
-        } else {
-            throw new IllegalStateException("Failed to set supported option: " + option);
         }
+        return this;
     }
 
     public Collection<UdpChannel> getChannels() {

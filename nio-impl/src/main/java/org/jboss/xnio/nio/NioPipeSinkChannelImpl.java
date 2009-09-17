@@ -136,8 +136,8 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
         SelectorUtils.await(nioXnio, channel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
-    public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        throw new UnsupportedOptionException("No options supported");
+    public <T> T getOption(final ChannelOption<T> option) throws IOException {
+        return null;
     }
 
     public Set<ChannelOption<?>> getOptions() {
@@ -145,7 +145,7 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        throw new UnsupportedOptionException("No options supported");
+        return this;
     }
 
     private final class Handler implements Runnable {

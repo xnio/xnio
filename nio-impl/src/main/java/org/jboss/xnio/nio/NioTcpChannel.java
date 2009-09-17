@@ -228,16 +228,10 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final ChannelOption<T> option) throws UnsupportedOptionException, IOException {
-        if (option == null) {
-            throw new NullPointerException("name is null");
-        }
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.CLOSE_ABORT.equals(option)) {
             return (T) Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
-            throw new UnsupportedOptionException("Option " + option + " not supported");
+            return null;
         }
     }
 
@@ -246,12 +240,6 @@ public final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public <T> Configurable setOption(final ChannelOption<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (option == null) {
-            throw new NullPointerException("name is null");
-        }
-        if (! OPTIONS.contains(option)) {
-            throw new UnsupportedOptionException("Option not supported: " + option);
-        }
         if (CommonOptions.CLOSE_ABORT.equals(option)) {
             if (value == null) {
                 throw new NullPointerException("value is null");
