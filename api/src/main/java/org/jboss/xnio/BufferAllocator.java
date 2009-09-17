@@ -45,4 +45,12 @@ public interface BufferAllocator<T extends Buffer> extends Pool<T> {
      * @param buffer the buffer to free
      */
     void free(T buffer);
+
+    /**
+     * Discard a "damaged" buffer.  Calling this method indicates that the buffer will not be used any
+     * longer, however it should not be returned to the pool.
+     *
+     * @param resource the buffer to discard
+     */
+    void discard(T resource);
 }

@@ -45,4 +45,12 @@ public interface Pool<T> {
      * @throws IllegalArgumentException if the given resource does not belong in this pool
      */
     void free(T resource) throws IllegalArgumentException;
+
+    /**
+     * Discard a "damaged" resource.  Calling this method indicates that the object in question will not be used
+     * any longer, however it should not be returned to the pool.
+     *
+     * @param resource the resource to discard
+     */
+    void discard(T resource);
 }

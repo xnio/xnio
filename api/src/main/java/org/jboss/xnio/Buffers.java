@@ -658,6 +658,9 @@ public final class Buffers {
 
             public void free(final ByteBuffer buffer) {
             }
+
+            public void discard(final ByteBuffer resource) {
+            }
         };
     }
 }
