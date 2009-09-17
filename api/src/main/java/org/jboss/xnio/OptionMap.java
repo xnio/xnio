@@ -141,14 +141,14 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         private List<OVPair<?>> list = new ArrayList<OVPair<?>>();
 
         /**
-         * Add a key-value pair.
+         * Set a key-value pair.
          *
          * @param key the key
          * @param value the value
          * @param <T> the option type
          * @return this builder
          */
-        public <T> Builder add(Option<T> key, T value) {
+        public <T> Builder set(Option<T> key, T value) {
             if (value == null) {
                 throw new NullPointerException("value is null");
             }
@@ -157,25 +157,25 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add an int value to an Integer key.
+         * Set an int value for an Integer key.
          *
          * @param key the option
          * @param value the value
          * @return this builder
          */
-        public Builder add(Option<Integer> key, int value) {
+        public Builder set(Option<Integer> key, int value) {
             list.add(new OVPair<Integer>(key, Integer.valueOf(value)));
             return this;
         }
 
         /**
-         * Add int values to an Integer sequence key.
+         * Set int values for an Integer sequence key.
          *
          * @param key the key
          * @param values the values
          * @return this builder
          */
-        public Builder addSequence(Option<Sequence<Integer>> key, int... values) {
+        public Builder setSequence(Option<Sequence<Integer>> key, int... values) {
             Integer[] a = new Integer[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Integer.valueOf(values[i]);
@@ -185,25 +185,25 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add a long value to a Long key.
+         * Set a long value for a Long key.
          *
          * @param key the option
          * @param value the value
          * @return this builder
          */
-        public Builder add(Option<Long> key, long value) {
+        public Builder set(Option<Long> key, long value) {
             list.add(new OVPair<Long>(key, Long.valueOf(value)));
             return this;
         }
 
         /**
-         * Add long values to an Long sequence key.
+         * Set long values for a Long sequence key.
          *
          * @param key the key
          * @param values the values
          * @return this builder
          */
-        public Builder addSequence(Option<Sequence<Long>> key, long... values) {
+        public Builder setSequence(Option<Sequence<Long>> key, long... values) {
             Long[] a = new Long[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Long.valueOf(values[i]);
@@ -213,26 +213,26 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add a boolean value to a Boolean key.
+         * Set a boolean value for a Boolean key.
          *
          * @param key the option
          * @param value the value
          * @return this builder
          */
-        public Builder add(Option<Boolean> key, boolean value) {
+        public Builder set(Option<Boolean> key, boolean value) {
             list.add(new OVPair<Boolean>(key, Boolean.valueOf(value)));
             return this;
         }
 
 
         /**
-         * Add boolean values to an Boolean sequence key.
+         * Set boolean values for an Boolean sequence key.
          *
          * @param key the key
          * @param values the values
          * @return this builder
          */
-        public Builder addSequence(Option<Sequence<Boolean>> key, boolean... values) {
+        public Builder setSequence(Option<Sequence<Boolean>> key, boolean... values) {
             Boolean[] a = new Boolean[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Boolean.valueOf(values[i]);
@@ -242,38 +242,39 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add a key-value pair, where the value is a sequence type.
+         * Set a key-value pair, where the value is a sequence type.
          *
          * @param key the key
          * @param values the values
          * @param <T> the option type
          * @return this builder
          */
-        public <T> Builder addSequence(Option<Sequence<T>> key, T... values) {
+        public <T> Builder setSequence(Option<Sequence<T>> key, T... values) {
             list.add(new OVPair<Sequence<T>>(key, Sequence.of(values)));
             return this;
         }
 
         /**
-         * Add a key-value pair, where the value is a flag type.
+         * Set a key-value pair, where the value is a flag type.
          *
          * @param key the key
          * @param values the values
          * @param <T> the option type
          * @return this builder
          */
-        public <T extends Enum<T>> Builder addFlags(Option<FlagSet<T>> key, T... values) {
+        public <T extends Enum<T>> Builder setFlags(Option<FlagSet<T>> key, T... values) {
             list.add(new OVPair<FlagSet<T>>(key, FlagSet.of(values)));
             return this;
         }
 
         private <T> void copy(Map<?, ?> map, Option<T> option) {
-            add(option, option.cast(map.get(option)));
+            set(option, option.cast(map.get(option)));
         }
 
         /**
          * Add all the entries of a map.  Any keys of the map which are not valid {@link Option}s, or whose
          * values are not valid arguments for the given {@code Option}, will cause an exception to be thrown.
+         * Any keys which occur more than once in this builder will be overwritten with the last occurring value.
          *
          * @param map the map
          * @return this builder
@@ -288,11 +289,12 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         private <T> void copy(OptionMap optionMap, Option<T> option) {
-            add(option, optionMap.get(option));
+            set(option, optionMap.get(option));
         }
 
         /**
          * Add all entries from an existing option map to the one being built.
+         * Any keys which occur more than once in this builder will be overwritten with the last occurring value.
          *
          * @param optionMap the original option map
          * @return this builder

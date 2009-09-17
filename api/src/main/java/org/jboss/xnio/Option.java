@@ -31,7 +31,7 @@ import java.util.Collection;
 
 /**
  * A strongly-typed option to configure an aspect of a service or connection.  Options are immutable and use identity comparisons
- * and hash codes.  Options should always be declared as {@code public static final} members in order to support serialization.
+ * and hash codes.  Options should always be declared as <code>public static final</code> members in order to support serialization.
  *
  * @param <T> the option value type
  */

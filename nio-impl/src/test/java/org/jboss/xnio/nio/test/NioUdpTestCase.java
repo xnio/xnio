@@ -103,7 +103,7 @@ public final class NioUdpTestCase extends TestCase {
 
     private synchronized void doPart(final boolean multicast, final IoHandler<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
         final UdpServer server = xnio.createUdpServer(IoUtils.singletonHandlerFactory(new CatchingHandler<UdpChannel>(handler, threadFactory)),
-                OptionMap.builder().add(CommonOptions.MULTICAST, Boolean.valueOf(multicast)).getMap());
+                OptionMap.builder().set(CommonOptions.MULTICAST, Boolean.valueOf(multicast)).getMap());
         server.bind(bindAddress).await();
         try {
             body.run();

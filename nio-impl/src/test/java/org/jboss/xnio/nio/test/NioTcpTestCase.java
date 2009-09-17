@@ -78,7 +78,7 @@ public final class NioTcpTestCase extends TestCase {
                 public IoHandler<? super TcpChannel> createHandler() {
                     return new CatchingHandler<TcpChannel>(serverHandler, threadFactory);
                 }
-            }, OptionMap.builder().add(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+            }, OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             try {
                 server.bind(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)).await();
                 final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
@@ -547,7 +547,7 @@ public final class NioTcpTestCase extends TestCase {
         final byte[] bytes = "Ummagumma!".getBytes("UTF-8");
         final Xnio xnio = NioXnio.create();
         try {
-            final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().add(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+            final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             final FutureConnection<? extends InetSocketAddress, TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new IoHandler<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
