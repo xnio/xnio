@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.SocketAddress;
 import java.security.AccessController;
 import java.security.Permission;
 import java.security.PrivilegedAction;
@@ -603,6 +602,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public LocalDatagramConnector createLocalDatagramConnector(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
@@ -615,6 +615,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public LocalDatagramConnector createLocalDatagramConnector(OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Connector");
     }
