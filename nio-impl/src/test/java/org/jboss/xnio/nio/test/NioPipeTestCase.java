@@ -96,7 +96,13 @@ public final class NioPipeTestCase extends TestCase {
         doOneWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, null, null);
+        }, new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
+            }
+        }, new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
+            }
+        });
         threadFactory.await();
     }
 
@@ -105,7 +111,13 @@ public final class NioPipeTestCase extends TestCase {
         doTwoWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, null, null);
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+            }
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+            }
+        });
         threadFactory.await();
     }
 
@@ -122,16 +134,16 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new ChannelListener<CloseableChannel>() {
-            public void handleEvent(final CloseableChannel channel) {
+        }, new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
                 try {
-                    channel.close();
-                    sourceOK.set(true);
-                    channel.getCloseSetter().set(new ChannelListener<CloseableChannel>() {
-                        public void handleEvent(final CloseableChannel channel) {
+                    channel.getCloseSetter().set(new ChannelListener<StreamSourceChannel>() {
+                        public void handleEvent(final StreamSourceChannel channel) {
                             latch.countDown();
                         }
                     });
+                    channel.close();
+                    sourceOK.set(true);
                 } catch (Throwable t) {
                     t.printStackTrace();
                     latch.countDown();
