@@ -22,14 +22,14 @@
 
 package org.jboss.xnio;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.channels.BoundServer;
 import org.jboss.xnio.channels.UdpChannel;
 
 /**
  * A UDP server convenience interface.
  */
-public interface UdpServer extends BoundServer<SocketAddress, UdpChannel> {
+public interface UdpServer extends BoundServer<InetSocketAddress, UdpChannel> {
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends UdpChannel> getBindSetter();
