@@ -80,4 +80,7 @@ public interface SuspendableReadChannel extends CloseableChannel {
      * @since 2.0
      */
     ChannelListener.Setter<? extends SuspendableReadChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends SuspendableReadChannel> getCloseSetter();
 }

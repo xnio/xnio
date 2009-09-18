@@ -34,4 +34,6 @@ public interface StreamSinkChannel extends WritableByteChannel, GatheringByteCha
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter();
 
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter();
 }

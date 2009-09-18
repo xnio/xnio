@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -20,21 +20,32 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.channels;
+package org.jboss.xnio;
 
-import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.channels.ConnectedChannel;
 
 /**
- * A suspendable bidirectional channel.
+ * A server which accepts connections.
+ *
+ * @param <A> the address type
+ * @param <T> the bound channel type
+ * @param <C> the accepted channel type
  */
-public interface SuspendableChannel extends CloseableChannel, SuspendableReadChannel, SuspendableWriteChannel {
+public interface AcceptingServer<A, T extends BoundChannel<A>, C extends ConnectedChannel<A>> extends BoundServer<A, T> {
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SuspendableChannel> getCloseSetter();
+    ChannelListener.Setter<? extends T> getBindSetter();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SuspendableChannel> getReadSetter();
+    ChannelListener.Setter<? extends AcceptingServer<A, T, C>> getCloseSetter();
 
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SuspendableChannel> getWriteSetter();
+    /**
+     * Get the connect handler setter for this server.  The handler will be called each time a connection is accepted.
+     * If the handler is {@code null}, the channel will be immediately closed.
+     *
+     * @return the connect setter
+     */
+    ChannelListener.Setter<? extends C> getConnectSetter();
 }

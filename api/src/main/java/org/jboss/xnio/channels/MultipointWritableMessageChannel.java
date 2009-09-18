@@ -65,4 +65,10 @@ public interface MultipointWritableMessageChannel<A> extends SuspendableWriteCha
      * @throws IOException if an I/O error occurs
      */
     boolean send(A target, ByteBuffer[] buffers, int offset, int length) throws IOException;
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointWritableMessageChannel<A>> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointWritableMessageChannel<A>> getCloseSetter();
 }

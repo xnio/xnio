@@ -76,4 +76,7 @@ public interface ReadableAllocatedMessageChannel extends SuspendableReadChannel 
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends ReadableAllocatedMessageChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends ReadableAllocatedMessageChannel> getCloseSetter();
 }

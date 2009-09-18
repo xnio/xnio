@@ -49,4 +49,7 @@ public interface MultipointReadableMessageChannel<A> extends SuspendableReadChan
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends MultipointReadableMessageChannel<A>> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointReadableMessageChannel<A>> getCloseSetter();
 }

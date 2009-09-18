@@ -102,4 +102,7 @@ public interface WritableMessageChannel extends SuspendableWriteChannel, Configu
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends WritableMessageChannel> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends WritableMessageChannel> getCloseSetter();
 }

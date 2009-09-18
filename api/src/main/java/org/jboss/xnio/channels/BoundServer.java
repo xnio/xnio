@@ -30,7 +30,7 @@ import org.jboss.xnio.ChannelListener;
  * A server that is bound to a local address, and which may accept connections.
  *
  * @param <A> the type of address associated with this server
- * @param <T> the channel type
+ * @param <T> the bound channel type
  * @since 1.2
  */
 public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChannel {
@@ -53,10 +53,12 @@ public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChan
     IoFuture<T> bind(A address);
 
     /**
-     * Get the open handler setter for this channel.  If open events are ignored,
-     * the channel will be immediately closed upon accept.
+     * Get the bind handler setter for this channel.  The handler is called every time a channel is bound.
      *
      * @return the listener setter
      */
-    ChannelListener.Setter<? extends BoundServer<A, T>> getOpenSetter();
+    ChannelListener.Setter<? extends T> getBindSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends BoundServer<A, T>> getCloseSetter();
 }

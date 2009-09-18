@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.zip.ZipFile;
 import org.jboss.xnio.log.Logger;
 
@@ -470,13 +471,16 @@ public final class IoUtils {
      * @param channel the channel
      * @param channelListener the channel listener
      * @param <T> the channel type
+     * @returns {@code true} if the handler completed successfully, or {@code false} if it failed
      */
-    public static <T extends Channel> void invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
+    public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
         if (channelListener != null) try {
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
             listenerLog.error(t, "A channel event listener threw an exception");
+            return false;
         }
+        return true;
     }
 
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
@@ -492,5 +496,23 @@ public final class IoUtils {
      */
     public static ChannelListener<Channel> closingChannelListener() {
         return CLOSING_CHANNEL_LISTENER;
+    }
+
+    /**
+     * Get a setter based on an atomic reference field updater.  Used by channel implementations to avoid having to
+     * define an anonymous class for each listener field.
+     *
+     * @param channel the channel
+     * @param updater the updater
+     * @param <T> the channel type
+     * @param <C> the holding class
+     * @return the setter
+     */
+    public static <T extends Channel, C> ChannelListener.Setter<T> getSetter(final C channel, final AtomicReferenceFieldUpdater<C, ChannelListener> updater) {
+        return new ChannelListener.Setter<T>() {
+            public void set(final ChannelListener<? super T> channelListener) {
+                updater.set(channel, channelListener);
+            }
+        };
     }
 }

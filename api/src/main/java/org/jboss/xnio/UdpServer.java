@@ -30,4 +30,10 @@ import org.jboss.xnio.channels.UdpChannel;
  * A UDP server convenience interface.
  */
 public interface UdpServer extends BoundServer<SocketAddress, UdpChannel> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends UdpChannel> getBindSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends UdpServer> getCloseSetter();
 }

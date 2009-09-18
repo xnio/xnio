@@ -22,12 +22,21 @@
 
 package org.jboss.xnio;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.channels.TcpChannel;
 
 /**
  * A TCP server convenience interface.
  */
-public interface TcpServer extends BoundServer<SocketAddress, BoundChannel<SocketAddress>> {
+public interface TcpServer extends AcceptingServer<InetSocketAddress, BoundChannel<InetSocketAddress>, TcpChannel> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends BoundChannel<InetSocketAddress>> getBindSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends TcpServer> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends TcpChannel> getConnectSetter();
 }

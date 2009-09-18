@@ -33,4 +33,7 @@ public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByte
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter();
 }

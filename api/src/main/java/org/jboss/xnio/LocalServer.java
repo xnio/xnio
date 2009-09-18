@@ -23,10 +23,19 @@
 package org.jboss.xnio;
 
 import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.channels.BoundServer;
+import org.jboss.xnio.channels.LocalChannel;
 
 /**
  * A local (UNIX domain) server convenience interface.
  */
-public interface LocalServer extends BoundServer<String, BoundChannel<String>> {
+public interface LocalServer extends AcceptingServer<String, BoundChannel<String>, LocalChannel> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends BoundChannel<String>> getBindSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends AcceptingServer<String, BoundChannel<String>, LocalChannel>> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends LocalChannel> getConnectSetter();
 }

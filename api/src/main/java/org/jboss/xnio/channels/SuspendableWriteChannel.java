@@ -81,4 +81,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * @since 2.0
      */
     ChannelListener.Setter<? extends SuspendableWriteChannel> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends SuspendableWriteChannel> getCloseSetter();
 }

@@ -45,7 +45,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
     private static final Object[] empty = new Object[0];
 
     private Sequence(final Object[] values) {
-        final Object[] realValues = values.clone();
+        final Object[] realValues = (Object[]) values.clone();
         this.values = realValues;
         for (Object realValue : realValues) {
             if (realValue == null) {
@@ -150,7 +150,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      * @return a copy of the values array
      */
     public Object[] toArray() {
-        return values.clone();
+        return (Object[])values.clone();
     }
 
     /**

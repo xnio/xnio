@@ -22,18 +22,21 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A channel that is bound to a local address.
  *
  * @param <A> the type of address associated with this channel
  */
-public interface BoundChannel<A> extends Channel {
+public interface BoundChannel<A> extends CloseableChannel {
     /**
      * Get the local address that this channel is bound to.
      *
      * @return the local address
      */
     A getLocalAddress();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends BoundChannel<A>> getCloseSetter();
 }

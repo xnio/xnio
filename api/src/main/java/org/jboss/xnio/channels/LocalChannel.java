@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -25,18 +25,16 @@ package org.jboss.xnio.channels;
 import org.jboss.xnio.ChannelListener;
 
 /**
- * A channel that has a local and peer endpoint address.
- *
- * @param <A> the type of address associated with this channel
+ * A connected local IPC channel.
  */
-public interface ConnectedChannel<A> extends BoundChannel<A> {
-    /**
-     * Get the peer address of this channel.
-     *
-     * @return the peer address
-     */
-    A getPeerAddress();
+public interface LocalChannel extends ConnectedStreamChannel<String> {
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends ConnectedChannel<A>> getCloseSetter();
+    ChannelListener.Setter<? extends LocalChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends LocalChannel> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends LocalChannel> getCloseSetter();
 }
