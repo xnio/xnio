@@ -22,7 +22,7 @@
 
 package org.jboss.xnio.management;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 
 /**
  * A managed object that is bound to a socket address.
@@ -36,5 +36,5 @@ public interface InetBound {
      *
      * @return the bind address
      */
-    SocketAddress getBindAddress();
+    InetSocketAddress getBindAddress();
 }

@@ -22,7 +22,7 @@
 
 package org.jboss.xnio.management;
 
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.io.IOException;
 
 /**
@@ -38,7 +38,7 @@ public interface InetBindable {
      * @param address the address
      * @throws IOException if an error occurs
      */
-    void bind(SocketAddress address) throws IOException;
+    void bind(InetSocketAddress address) throws IOException;
 
     /**
      * Bind the entity to a host and port.
@@ -55,7 +55,7 @@ public interface InetBindable {
      * @param address the address
      * @throws IOException if an error occurs
      */
-    void unbind(SocketAddress address) throws IOException;
+    void unbind(InetSocketAddress address) throws IOException;
 
     /**
      * Unbind the entity from a host and port.

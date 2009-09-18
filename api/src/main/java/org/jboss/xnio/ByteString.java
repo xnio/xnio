@@ -67,7 +67,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
      * @return the byte string
      */
     public static ByteString of(byte... bytes) {
-        return new ByteString((byte[])bytes.clone());
+        return new ByteString(bytes.clone());
     }
 
     /**
