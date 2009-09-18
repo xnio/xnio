@@ -28,6 +28,11 @@ import java.io.InvalidObjectException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * A strongly-typed option to configure an aspect of a service or connection.  Options are immutable and use identity comparisons
@@ -138,6 +143,48 @@ public abstract class Option<T> implements Serializable {
             throw new InvalidObjectException("Invalid Option instance (no matching field)");
         } catch (IllegalAccessException e) {
             throw new InvalidObjectException("Invalid Option instance (Illegal access on field get)");
+        }
+    }
+
+    /**
+     * Create a builder for an immutable option set.
+     *
+     * @return the builder
+     */
+    public static SetBuilder setBuilder() {
+        return new SetBuilder();
+    }
+
+    /**
+     * A builder for an immutable option set.
+     */
+    public static class SetBuilder {
+        private List<Option> optionSet = new ArrayList<Option>();
+
+        SetBuilder() {
+        }
+
+        /**
+         * Add an option to this set.
+         *
+         * @param option the option to add
+         * @return this builder
+         */
+        public SetBuilder add(Option option) {
+            if (option == null) {
+                throw new NullPointerException("option is null");
+            }
+            optionSet.add(option);
+            return this;
+        }
+
+        /**
+         * Create the immutable option set instance.
+         *
+         * @return the option set
+         */
+        public Set<Option> create() {
+            return Collections.unmodifiableSet(new LinkedHashSet<Option>(optionSet));
         }
     }
 }
