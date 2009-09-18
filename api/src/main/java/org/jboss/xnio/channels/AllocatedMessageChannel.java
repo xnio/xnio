@@ -22,10 +22,21 @@
 
 package org.jboss.xnio.channels;
 
+import org.jboss.xnio.ChannelListener;
+
 /**
  * A channel that sends and receives whole messages.  Recevied whole messages are stored in a preallocated buffer.
  *
  * @apiviz.landmark
  */
 public interface AllocatedMessageChannel extends ReadableAllocatedMessageChannel, WritableMessageChannel, SuspendableChannel, Configurable {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends AllocatedMessageChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends AllocatedMessageChannel> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends AllocatedMessageChannel> getWriteSetter();
 }

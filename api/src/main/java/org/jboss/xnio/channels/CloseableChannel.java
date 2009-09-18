@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -20,23 +20,22 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio;
+package org.jboss.xnio.channels;
 
 import java.nio.channels.Channel;
+import org.jboss.xnio.ChannelListener;
 
 /**
- * A factory for I/O handlers.  Instances of this interface produce handler instances for clients and servers that
- * deal with arbitrary numbers of connections.
+ * A channel which is closable.  A handler may be registered which is triggered (only once) on channel close.
  *
- * @param <T> the type of channel that the handler can handle
- *
- * @apiviz.landmark
+ * @since 2.0
  */
-public interface IoHandlerFactory<T extends Channel> {
+public interface CloseableChannel extends Channel, Configurable {
     /**
-     * Create a handler for a potential new channel.
+     * Get the setter which can be used to change the close handler for this channel.  If the channel is already
+     * closed, then the handler will not be called.
      *
-     * @return the handler
+     * @return the setter
      */
-    IoHandler<? super T> createHandler();
+    ChannelListener.Setter<? extends CloseableChannel> getCloseSetter();
 }

@@ -22,10 +22,21 @@
 
 package org.jboss.xnio.channels;
 
+import org.jboss.xnio.ChannelListener;
+
 /**
  * A stream channel that is a connection between a local and remote endpoint.
  *
  * @param <A> the type of address associated with this channel
  */
 public interface ConnectedStreamChannel<A> extends StreamChannel, ConnectedChannel<A> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends ConnectedStreamChannel<A>> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends ConnectedStreamChannel<A>> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends ConnectedStreamChannel<A>> getCloseSetter();
 }

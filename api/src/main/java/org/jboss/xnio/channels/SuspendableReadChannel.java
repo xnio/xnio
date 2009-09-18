@@ -22,23 +22,22 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A suspendable readable channel.  This type of channel is associated with a handler which can suspend and resume
  * reads as needed.
  */
-public interface SuspendableReadChannel extends Channel, Configurable {
+public interface SuspendableReadChannel extends CloseableChannel {
     /**
-     * Suspend further reads on this channel.  The {@link org.jboss.xnio.IoHandler#handleReadable(java.nio.channels.Channel)} method will not
-     * be called until reads are resumed.
+     * Suspend further read notifications on this channel.
      */
     void suspendReads();
 
     /**
-     * Resume reads on this channel.  The {@link org.jboss.xnio.IoHandler#handleReadable(java.nio.channels.Channel)} method will be
+     * Resume reads on this channel.  The read handler channel listener will be
      * called as soon as there is data available to be read.
      */
     void resumeReads();
@@ -71,4 +70,14 @@ public interface SuspendableReadChannel extends Channel, Configurable {
      * @since 1.2
      */
     void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
+
+    /**
+     * Get the setter which can be used to change the read handler for this channel.  When the handler is called,
+     * additional notifications are automatically suspended.
+     *
+     * @return the setter
+     *
+     * @since 2.0
+     */
+    ChannelListener.Setter<? extends SuspendableReadChannel> getReadSetter();
 }

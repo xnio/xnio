@@ -36,10 +36,10 @@ public interface BoundConnector<A, T extends Channel> {
      * Establish a connection to a destination.
      *
      * @param dest the destination address
-     * @param handler the handler for this connection
+     * @param handler the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A dest, IoHandler<? super T> handler);
+    FutureConnection<A, T> connectTo(A dest, ChannelListener<? super T> handler);
 
     /**
      * Create a client that always connects to the given destination.

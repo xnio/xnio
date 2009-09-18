@@ -27,6 +27,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.io.IOException;
 import java.io.Closeable;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A UDP channel.  UDP channels are multipoint datagram channels which always use a {@link java.net.SocketAddress} and
@@ -143,4 +144,13 @@ public interface UdpChannel extends MultipointDatagramChannel<SocketAddress> {
      * @throws UnsupportedOperationException if the implementation does not support source filtering
      */
     Key join(InetAddress group, NetworkInterface iface, InetAddress source) throws IOException;
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends UdpChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends UdpChannel> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends UdpChannel> getWriteSetter();
 }

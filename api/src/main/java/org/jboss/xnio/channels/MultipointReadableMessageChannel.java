@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * The readable side of a multipoint message channel.
@@ -31,7 +32,7 @@ import java.io.IOException;
  * @see org.jboss.xnio.channels.MultipointMessageChannel
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointReadableMessageChannel<A> extends SuspendableReadChannel, Configurable {
+public interface MultipointReadableMessageChannel<A> extends SuspendableReadChannel {
     /**
      * Receive a message via this channel.
      *
@@ -45,4 +46,7 @@ public interface MultipointReadableMessageChannel<A> extends SuspendableReadChan
      * @throws IOException if an I/O error occurs
      */
     MultipointReadResult<A> receive(ByteBuffer buffer) throws IOException;
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointReadableMessageChannel<A>> getReadSetter();
 }

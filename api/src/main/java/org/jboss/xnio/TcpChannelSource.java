@@ -30,5 +30,5 @@ import java.net.InetSocketAddress;
  */
 public interface TcpChannelSource extends ChannelSource<TcpChannel> {
     /** {@inheritDoc} */
-    FutureConnection<InetSocketAddress, TcpChannel> open(IoHandler<? super TcpChannel> handler);
+    FutureConnection<InetSocketAddress, TcpChannel> open(ChannelListener<? super TcpChannel> handler);
 }

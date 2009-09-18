@@ -22,10 +22,21 @@
 
 package org.jboss.xnio.channels;
 
+import org.jboss.xnio.ChannelListener;
+
 /**
  * A channel that sends and receives datagrams.  A datagram channel is a message channel that is connected between two peers.
  *
  * @param <A> the type of address associated with this channel
  */
 public interface DatagramChannel<A> extends MessageChannel, ConnectedChannel<A> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends DatagramChannel<A>> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends DatagramChannel<A>> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends DatagramChannel<A>> getWriteSetter();
 }

@@ -37,10 +37,10 @@ public interface Connector<A, T extends Channel> extends BoundConnector<A,T> {
      *
      * @param src the source address
      * @param dest the destination address
-     * @param handler the handler for this connection
+     * @param handler the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A src, A dest, IoHandler<? super T> handler);
+    FutureConnection<A, T> connectTo(A src, A dest, ChannelListener<? super T> handler);
 
     /**
      * Create a client that always connects to the given destination using an explicit source.

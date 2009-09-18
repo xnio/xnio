@@ -22,8 +22,19 @@
 
 package org.jboss.xnio.channels;
 
+import org.jboss.xnio.ChannelListener;
+
 /**
  * A channel that sends and receives whole messages.
  */
-public interface MessageChannel extends ReadableMessageChannel, WritableMessageChannel, SuspendableChannel, Configurable {
+public interface MessageChannel extends ReadableMessageChannel, WritableMessageChannel, SuspendableChannel {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MessageChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MessageChannel> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MessageChannel> getWriteSetter();
 }

@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A channel that can receive messages.  Such a channel receives whole messages only.
@@ -57,4 +58,7 @@ public interface ReadableMessageChannel extends SuspendableReadChannel, Configur
      * @throws IOException if an I/O error occurs
      */
     long receive(ByteBuffer[] buffers, int offs, int len) throws IOException;
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends ReadableMessageChannel> getReadSetter();
 }

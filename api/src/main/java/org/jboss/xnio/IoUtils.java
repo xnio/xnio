@@ -26,24 +26,19 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
-import java.nio.channels.Channel;
 import java.nio.channels.Selector;
+import java.nio.channels.Channel;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
-import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.log.Logger;
 
 import java.util.logging.Handler;
@@ -77,36 +72,6 @@ public final class IoUtils {
             return string;
         }
     };
-    private static final IoHandler<Channel> NULL_HANDLER = new IoHandler<Channel>() {
-        private final String string = String.format("null handler <%s>", Integer.toHexString(hashCode()));
-
-        public void handleOpened(final Channel channel) {
-        }
-
-        public void handleReadable(final Channel channel) {
-        }
-
-        public void handleWritable(final Channel channel) {
-        }
-
-        public void handleClosed(final Channel channel) {
-        }
-
-        public String toString() {
-            return string;
-        }
-    };
-    private static final IoHandlerFactory<Channel> NULL_HANDLER_FACTORY = new IoHandlerFactory<Channel>() {
-        private final String string = String.format("null handler factory <%s>", Integer.toHexString(hashCode()));
-
-        public IoHandler<Channel> createHandler() {
-            return NULL_HANDLER;
-        }
-
-        public String toString() {
-            return string;
-        }
-    };
     private static final Closeable NULL_CLOSEABLE = new Closeable() {
         private final String string = String.format("null closeable <%s>", Integer.toHexString(hashCode()));
         public void close() throws IOException {
@@ -119,44 +84,6 @@ public final class IoUtils {
     };
 
     private IoUtils() {}
-
-    /**
-     * Create a persistent connection using a channel source.  The provided handler will handle the connection.  The {@code reconnectExecutor} will
-     * be used to execute a reconnect task in the event that the connection fails or is lost or terminated.  If you wish
-     * to impose a time delay on reconnect, use the {@link org.jboss.xnio.IoUtils#delayedExecutor(java.util.concurrent.ScheduledExecutorService, long, java.util.concurrent.TimeUnit) delayedExecutor()} method
-     * to create a delayed executor.  If you do not want to auto-reconnect use the {@link org.jboss.xnio.IoUtils#nullExecutor()} method to
-     * create a null executor.  If you want auto-reconnect to take place immediately, use the {@link IoUtils#directExecutor()} method
-     * to create a direct executor.
-     *
-     * @param channelSource the client to connect on
-     * @param handler the handler for the connection
-     * @param reconnectExecutor the executor that should execute the reconnect task
-     * @param <T> the channel type
-     * @return a handle which can be used to terminate the connection
-     */
-    public static <T extends StreamChannel> Closeable createConnection(final ChannelSource<T> channelSource, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
-        final Connection<T> connection = new Connection<T>(channelSource, handler, reconnectExecutor);
-        connection.connect();
-        return connection;
-    }
-
-    /**
-     * Create a delayed executor.  This is an executor that executes tasks after a given time delay with the help of the
-     * provided {@code ScheduledExecutorService}.  To get an executor for this method, use one of the methods on the
-     * {@link java.util.concurrent.Executors} class.
-     *
-     * @param scheduledExecutorService the executor service to use to schedule the task
-     * @param delay the time delay before reconnect
-     * @param unit the unit of time to use
-     * @return an executor that delays execution
-     */
-    public static Executor delayedExecutor(final ScheduledExecutorService scheduledExecutorService, final long delay, final TimeUnit unit) {
-        return new Executor() {
-            public void execute(final Runnable command) {
-                scheduledExecutorService.schedule(command, delay, unit);
-            }
-        };
-    }
 
     /**
      * Get the direct executor.  This is an executor that executes the provided task in the same thread.
@@ -216,43 +143,6 @@ public final class IoUtils {
      */
     public static Closeable nullCloseable() {
         return NULL_CLOSEABLE;
-    }
-
-    /**
-     * Get the null handler.  This is a handler whose handler methods all return without taking any action.
-     *
-     * @return the null handler
-     */
-    public static IoHandler<Channel> nullHandler() {
-        return NULL_HANDLER;
-    }
-
-    /**
-     * Get the null handler factory.  This is a handler factory that returns the null handler.
-     *
-     * @return the null handler factory
-     */
-    public static IoHandlerFactory<Channel> nullHandlerFactory() {
-        return NULL_HANDLER_FACTORY;
-    }
-
-    /**
-     * Get a singleton handler factory that returns the given handler one time only.
-     *
-     * @param handler the handler to return
-     * @return a singleton handler factory
-     */
-    public static <T extends Channel> IoHandlerFactory<T> singletonHandlerFactory(final IoHandler<T> handler) {
-        final AtomicReference<IoHandler<T>> reference = new AtomicReference<IoHandler<T>>(handler);
-        return new IoHandlerFactory<T>() {
-            public IoHandler<? super T> createHandler() {
-                final IoHandler<T> handler = reference.getAndSet(null);
-                if (handler == null) {
-                    throw new IllegalStateException("Handler already taken from singleton handler factory");
-                }
-                return handler;
-            }
-        };
     }
 
     private static final Logger closeLog = Logger.getLogger("org.jboss.xnio.safe-close");
@@ -515,111 +405,6 @@ public final class IoUtils {
 
     // nested classes
 
-    private static final Logger connLog = Logger.getLogger("org.jboss.xnio.connection");
-
-    private static final class Connection<T extends StreamChannel> implements Closeable {
-
-        private final ChannelSource<T> channelSource;
-        private final IoHandler<? super T> handler;
-        private final Executor reconnectExecutor;
-
-        private volatile boolean stopFlag = false;
-        private volatile IoFuture<? extends T> currentFuture;
-
-        private final NotifierImpl<?> notifier = new NotifierImpl<Void>();
-        private final HandlerImpl handlerWrapper = new HandlerImpl();
-        private final ReconnectTask reconnectTask = new ReconnectTask();
-
-        private Connection(final ChannelSource<T> channelSource, final IoHandler<? super T> handler, final Executor reconnectExecutor) {
-            this.channelSource = channelSource;
-            this.handler = handler;
-            this.reconnectExecutor = reconnectExecutor;
-        }
-
-        private void connect() {
-            closeLog.trace("Establishing connection");
-            final IoFuture<? extends T> ioFuture = channelSource.open(handlerWrapper);
-            ioFuture.addNotifier(notifier, null);
-            currentFuture = ioFuture;
-        }
-
-        public void close() throws IOException {
-            stopFlag = true;
-            final IoFuture<? extends T> future = currentFuture;
-            if (future != null) {
-                future.cancel();
-            }
-        }
-
-        public String toString() {
-            return String.format("persistent connection <%s> via %s", Integer.toHexString(hashCode()), channelSource);
-        }
-
-        private final class NotifierImpl<A> extends IoFuture.HandlingNotifier<T, A> {
-
-            public void handleCancelled(final A attachment) {
-                connLog.trace("Connection cancelled");
-            }
-
-            public void handleFailed(final IOException exception, final A attachment) {
-                connLog.trace(exception, "Connection failed");
-            }
-
-            public void handleDone(final T result, final A attachment) {
-                connLog.trace("Connection established");
-            }
-
-            public void notify(final IoFuture<? extends T> future, final A attachment) {
-                super.notify(future, attachment);
-                if (! stopFlag) {
-                    reconnectExecutor.execute(reconnectTask);
-                }
-                return;
-            }
-        }
-
-        private final class HandlerImpl implements IoHandler<T> {
-            public void handleOpened(final T channel) {
-                handler.handleOpened(channel);
-            }
-
-            public void handleReadable(final T channel) {
-                handler.handleReadable(channel);
-            }
-
-            public void handleWritable(final T channel) {
-                handler.handleWritable(channel);
-            }
-
-            public void handleClosed(final T channel) {
-                try {
-                    connLog.trace("Connection closed");
-                    if (! stopFlag) {
-                        reconnectExecutor.execute(reconnectTask);
-                    }
-                } finally {
-                    handler.handleClosed(channel);
-                }
-            }
-
-            public String toString() {
-                return String.format("persistent connection handler <%s> wrapping %s", Integer.toHexString(hashCode()), handler);
-            }
-        }
-
-        private final class ReconnectTask implements Runnable {
-            public void run() {
-                if (! stopFlag) {
-                    connect();
-                }
-            }
-
-            public String toString() {
-                return String.format("reconnect task <%s> for %s", Integer.toHexString(hashCode()), Connection.this);
-            }
-        }
-    }
-
     private static class CastingIoFuture<O, I> implements IoFuture<O> {
 
         private final IoFuture<I> parent;
@@ -677,109 +462,35 @@ public final class IoUtils {
         }
     }
 
-    /**
-     * Get a URI connector which connects to the Internet address specified in the given URI.
-     *
-     * @param original the Internet address connector
-     * @param defaultPort the default port to use if none is given in the URI
-     * @return the URI connector
-     *
-     * @since 1.3
-     */
-    public static <T extends Channel> BoundConnector<URI, T> inetUriConnector(final BoundConnector<InetSocketAddress, T> original, final int defaultPort) {
-        return new BoundConnector<URI, T>() {
-            public FutureConnection<URI, T> connectTo(final URI dest, final IoHandler<? super T> ioHandler) {
-                final FutureConnection<InetSocketAddress, T> futureConnection = original.connectTo(getSockAddr(dest), ioHandler);
-                return new UriFutureConnection<T>(futureConnection);
-            }
-
-            public ChannelSource<T> createChannelSource(final URI dest) {
-                return original.createChannelSource(getSockAddr(dest));
-            }
-
-            private InetSocketAddress getSockAddr(final URI dest) {
-                final String destHost = dest.getHost();
-                final int destPort = dest.getPort();
-                final InetSocketAddress destSockAddr = new InetSocketAddress(destHost, destPort == -1 ? defaultPort : destPort);
-                return destSockAddr;
-            }
-        };
-    }
-
-    private static class UriFutureConnection<T extends Channel> implements FutureConnection<URI, T> {
-
-        private final FutureConnection<InetSocketAddress, T> futureConnection;
-
-        private UriFutureConnection(final FutureConnection<InetSocketAddress, T> futureConnection) {
-            this.futureConnection = futureConnection;
-        }
-
-        public URI getLocalAddress() {
-            throw new UnsupportedOperationException();
-        }
-
-        public FutureConnection<URI, T> cancel() {
-            futureConnection.cancel();
-            return this;
-        }
-
-        public Status getStatus() {
-            return futureConnection.getStatus();
-        }
-
-        public Status await() {
-            return futureConnection.await();
-        }
-
-        public Status await(final long time, final TimeUnit timeUnit) {
-            return futureConnection.await(time, timeUnit);
-        }
-
-        public Status awaitInterruptibly() throws InterruptedException {
-            return futureConnection.awaitInterruptibly();
-        }
-
-        public Status awaitInterruptibly(final long time, final TimeUnit timeUnit) throws InterruptedException {
-            return futureConnection.awaitInterruptibly(time, timeUnit);
-        }
-
-        public T get() throws IOException, CancellationException {
-            return futureConnection.get();
-        }
-
-        public T getInterruptibly() throws IOException, InterruptedException, CancellationException {
-            return futureConnection.getInterruptibly();
-        }
-
-        public IOException getException() throws IllegalStateException {
-            return futureConnection.getException();
-        }
-
-        public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> aNotifier, final A attachment) {
-            return futureConnection.addNotifier(aNotifier, attachment);
-        }
-    }
+    private static final Logger listenerLog = Logger.getLogger("org.jboss.xnio.channel-listener");
 
     /**
-     * Get a bound connector for a certain source address.
+     * Invoke a channel listener on a given channel, logging any errors.
      *
-     * @param connector the connector
-     * @param src the source address
-     * @param <A> the address type
+     * @param channel the channel
+     * @param channelListener the channel listener
      * @param <T> the channel type
-     * @return the bound connector
-     *
-     * @since 1.3
      */
-    public static <A, T extends Channel> BoundConnector<A, T> bindConnector(final Connector<A, T> connector, final A src) {
-        return new BoundConnector<A, T>() {
-            public FutureConnection<A, T> connectTo(final A dest, final IoHandler<? super T> ioHandler) {
-                return connector.connectTo(src, dest, ioHandler);
-            }
+    public static <T extends Channel> void invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
+        if (channelListener != null) try {
+            channelListener.handleEvent(channel);
+        } catch (Throwable t) {
+            listenerLog.error(t, "A channel event listener threw an exception");
+        }
+    }
 
-            public ChannelSource<T> createChannelSource(final A dest) {
-                return connector.createChannelSource(src, dest);
-            }
-        };
+    private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
+        public void handleEvent(final Channel channel) {
+            IoUtils.safeClose(channel);
+        }
+    };
+
+    /**
+     * Get a channel listener which closes the channel when notified.
+     *
+     * @return the channel listener
+     */
+    public static ChannelListener<Channel> closingChannelListener() {
+        return CLOSING_CHANNEL_LISTENER;
     }
 }

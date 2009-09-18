@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -25,19 +25,37 @@ package org.jboss.xnio;
 import java.nio.channels.Channel;
 
 /**
- * A handler for channel write events.
+ * A listener for channel events.  Possible channel events include: channel readable, channel writable, channel
+ * opened, channel closed, channel bound, channel unbound.
  *
  * @param <T> the channel type
  *
- * @since 1.2
+ * @since 2.0
  */
-public interface IoWriteHandler<T extends Channel> {
+public interface ChannelListener<T extends Channel> {
 
     /**
-     * Handle channel writability.  Called when the channel may be read from.  Further read notifications from the
-     * channel are automatically suspended.
+     * Handle the event on this channel.
      *
-     * @param channel the channel that is readable
+     * @param channel the channel event
      */
-    void handleWritable(T channel);
+    void handleEvent(T channel);
+
+    /**
+     * A setter for a channel listener.  The indirection is necessary
+     * because while covariance is supported on return types, contravariance is not supported on parameters.
+     *
+     * @param <T> the channel type
+     *
+     * @since 2.0
+     */
+    interface Setter<T extends Channel> {
+
+        /**
+         * Set the listener, or {@code null} to ignore the associated event type.
+         *
+         * @param listener the new listener
+         */
+        void set(ChannelListener<? super T> listener);
+    }
 }

@@ -22,24 +22,23 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A suspendable writable channel.  This type of channel is associated with a handler which can suspend and resume
  * writes as needed.
  */
-public interface SuspendableWriteChannel extends Channel, Configurable {
+public interface SuspendableWriteChannel extends CloseableChannel {
     /**
-     * Suspend further writes on this channel.  The {@link org.jboss.xnio.IoHandler#handleWritable(java.nio.channels.Channel)} method will not
-     * be called until writes are resumed.
+     * Suspend further write notifications on this channel.
      */
     void suspendWrites();
 
     /**
-     * Resume writes on this channel.  The {@link org.jboss.xnio.IoHandler#handleWritable(java.nio.channels.Channel)} method will be
-     * called as soon as there is space in the channel's transmit buffer.
+     * Resume writes on this channel.  The write handler channel listener will be
+     * called as soon as the channel becomes writable.
      */
     void resumeWrites();
 
@@ -72,4 +71,14 @@ public interface SuspendableWriteChannel extends Channel, Configurable {
      * @since 1.2
      */
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
+
+    /**
+     * Get the setter which can be used to change the write handler for this channel.  When the handler is called,
+     * additional notifications are automatically suspended.
+     *
+     * @return the setter
+     *
+     * @since 2.0
+     */
+    ChannelListener.Setter<? extends SuspendableWriteChannel> getWriteSetter();
 }

@@ -111,6 +111,20 @@ public final class CommonOptions {
     public static final Option<Boolean> MANAGE_CONNECTIONS = Option.simple(CommonOptions.class, "MANAGE_CONNECTIONS", Boolean.class);
 
     /**
+     * The maximum inbound message size.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> MAX_INBOUND_MESSAGE_SIZE = Option.simple(CommonOptions.class, "MAX_INBOUND_MESSAGE_SIZE", Integer.class);
+
+    /**
+     * The maximum outbound message size.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> MAX_OUTBOUND_MESSAGE_SIZE = Option.simple(CommonOptions.class, "MAX_OUTBOUND_MESSAGE_SIZE", Integer.class);
+
+    /**
      * Signify that client authentication is requested on an SSL channel.
      *
      * @since 2.0
@@ -125,16 +139,53 @@ public final class CommonOptions {
     public static final Option<Boolean> SSL_NEED_CLIENT_AUTH = Option.simple(CommonOptions.class, "SSL_NEED_CLIENT_AUTH", Boolean.class);
 
     /**
-     * Specify the cipher suites for an SSL session.
+     * Specify the cipher suites for an SSL/TLS session.  If a listed cipher suites is not supported, it is ignored; however, if you
+     * specify a list of cipher suites, none of which are supported, an exception will be thrown.
      *
      * @since 2.0
      */
-    public static final Option<Sequence<String>> SSL_CIPHER_SUITES = Option.sequence(CommonOptions.class, "SSL_CIPHER_SUITES", String.class);
+    public static final Option<Sequence<String>> SSL_ENABLED_CIPHER_SUITES = Option.sequence(CommonOptions.class, "SSL_ENABLED_CIPHER_SUITES", String.class);
 
     /**
-     * Specify the protocols for an SSL session.
+     * Specify the enabled protocols for an SSL/TLS session.  If a listed protocol is not supported, it is ignored; however, if you
+     * specify a list of protocols, none of which are supported, an exception will be thrown.
      *
      * @since 2.0
      */
-    public static final Option<Sequence<String>> SSL_PROTOCOLS = Option.sequence(CommonOptions.class, "SSL_PROTOCOLS", String.class);
+    public static final Option<Sequence<String>> SSL_ENABLED_PROTOCOLS = Option.sequence(CommonOptions.class, "SSL_ENABLED_PROTOCOLS", String.class);
+
+    /**
+     * Specify the requested provider for an SSL/TLS session.
+     *
+     * @since 2.0
+     */
+    public static final Option<String> SSL_PROVIDER = Option.simple(CommonOptions.class, "SSL_PROVIDER", String.class);
+
+    /**
+     * Specify the SSL send buffer size.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> SSL_SEND_BUFFER = Option.simple(CommonOptions.class, "SSL_SEND_BUFFER", Integer.class);
+
+    /**
+     * Specify the SSL receive buffer size.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> SSL_RECEIVE_BUFFER = Option.simple(CommonOptions.class, "SSL_RECEIVE_BUFFER", Integer.class);
+
+    /**
+     * Enable or disable session creation for an SSL connection.  Defaults to {@code true} to enable session creation.
+     *
+     * @since 2.0
+     */
+    public static final Option<Boolean> SSL_ENABLE_SESSION_CREATION = Option.simple(CommonOptions.class, "SSL_ENABLE_SESSION_CREATION", Boolean.class);
+
+    /**
+     * Specify whether SSL conversations should be in client or server mode.  Defaults to {@code false} (use server mode).
+     *
+     * @since 2.0
+     */
+    public static final Option<Boolean> SSL_USE_CLIENT_MODE = Option.simple(CommonOptions.class, "SSL_USE_CLIENT_MODE", Boolean.class);
 }

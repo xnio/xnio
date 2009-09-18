@@ -24,9 +24,13 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.ReadableByteChannel;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A stream source channel.  This type of channel is a readable source for bytes.
  */
-public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByteChannel, SuspendableReadChannel, Configurable {
+public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByteChannel, SuspendableReadChannel {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter();
 }

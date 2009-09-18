@@ -22,10 +22,13 @@
 
 package org.jboss.xnio.channels;
 
-import java.nio.channels.Channel;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A suspendable bidirectional channel.
  */
-public interface SuspendableChannel extends Channel, SuspendableReadChannel, SuspendableWriteChannel {
+public interface SuspendableChannel extends CloseableChannel, SuspendableReadChannel, SuspendableWriteChannel {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends SuspendableChannel> getCloseSetter();
 }

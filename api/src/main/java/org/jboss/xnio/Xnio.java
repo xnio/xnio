@@ -242,26 +242,28 @@ public abstract class Xnio implements Closeable {
      * Create an unbound TCP server.  The given executor will be used to execute handler methods.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      * @return the unbound TCP server
      *
      * @since 2.0
      */
-    public TcpServer createTcpServer(Executor executor, IoHandlerFactory<? super TcpChannel> handlerFactory, OptionMap optionMap) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public TcpServer createTcpServer(Executor executor, ChannelListener<? super TcpChannel> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
     /**
      * Create an unbound TCP server.  The provider's default executor will be used to execute handler methods.
      *
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      * @return the unbound TCP server
      *
      * @since 2.0
      */
-    public TcpServer createTcpServer(IoHandlerFactory<? super TcpChannel> handlerFactory, OptionMap optionMap) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public TcpServer createTcpServer(ChannelListener<? super TcpChannel> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
@@ -274,6 +276,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Connector");
     }
@@ -286,6 +289,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Connector");
     }
@@ -296,14 +300,15 @@ public abstract class Xnio implements Closeable {
      * The given executor will be used to execute handler methods.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the factory which will produce handlers for each channel
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
      *
      * @since 2.0
      */
-    public UdpServer createUdpServer(Executor executor, IoHandlerFactory<? super UdpChannel> handlerFactory, OptionMap optionMap) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public UdpServer createUdpServer(Executor executor, ChannelListener<? super UdpChannel> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -312,14 +317,15 @@ public abstract class Xnio implements Closeable {
      * done if multicast is needed, since some providers have a performance penalty associated with multicast.
      * The provider's default executor will be used to execute handler methods.
      *
-     * @param handlerFactory the factory which will produce handlers for each channel
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
      *
      * @since 2.0
      */
-    public UdpServer createUdpServer(IoHandlerFactory<? super UdpChannel> handlerFactory, OptionMap optionMap) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public UdpServer createUdpServer(ChannelListener<? super UdpChannel> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
@@ -328,13 +334,14 @@ public abstract class Xnio implements Closeable {
      * pipe. The returned channel source is used to establish connections to the server.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamChannel> createPipeServer(Executor executor, IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamChannel> createPipeServer(Executor executor, ChannelListener<? super StreamChannel> openHandler) {
         throw new UnsupportedOperationException("Pipe Server");
     }
 
@@ -343,13 +350,14 @@ public abstract class Xnio implements Closeable {
      * pipe. The returned channel source is used to establish connections to the server.  The provider's default executor will be used to
      * execute handler methods.
      *
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.1
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamChannel> createPipeServer(IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamChannel> createPipeServer(ChannelListener<? super StreamChannel> openHandler) {
         throw new UnsupportedOperationException("Pipe Server");
     }
 
@@ -359,13 +367,14 @@ public abstract class Xnio implements Closeable {
      * server to the client.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(Executor executor, IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(Executor executor, ChannelListener<? super StreamSinkChannel> openHandler) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -375,13 +384,14 @@ public abstract class Xnio implements Closeable {
      * server to the client.  The provider's default executor will be used to
      * execute handler methods.
      *
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.1
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ChannelListener<? super StreamSinkChannel> openHandler) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -391,13 +401,14 @@ public abstract class Xnio implements Closeable {
      * client to the server.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(Executor executor, IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(Executor executor, ChannelListener<? super StreamSourceChannel> openHandler) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -407,13 +418,14 @@ public abstract class Xnio implements Closeable {
      * client to the server.  The provider's default executor will be used to
      * execute handler methods.
      *
-     * @param handlerFactory the server handler factory
+     * @param openHandler the initial open-connection handler
      *
      * @return the client channel source
      *
-     * @since 1.1
+     * @since 2.0
      */
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(ChannelListener<? super StreamSourceChannel> openHandler) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
@@ -421,14 +433,15 @@ public abstract class Xnio implements Closeable {
      * Create a single pipe connection.
      *
      * @param executor the executor to use to execute the handlers
-     * @param leftHandler the handler for the "left" side of the pipe
-     * @param rightHandler the handler for the "right" side of the pipe
+     * @param leftHandler the open handler for the "left" side of the pipe
+     * @param rightHandler the open handler for the "right" side of the pipe
      *
      * @return the future connection
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public IoFuture<? extends Closeable> createPipeConnection(Executor executor, IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public IoFuture<? extends Closeable> createPipeConnection(Executor executor, ChannelListener<? super StreamChannel> leftHandler, ChannelListener<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
     }
 
@@ -441,9 +454,10 @@ public abstract class Xnio implements Closeable {
      *
      * @return the future connection
      *
-     * @since 1.1
+     * @since 2.0
      */
-    public IoFuture<? extends Closeable> createPipeConnection(IoHandler<? super StreamChannel> leftHandler, IoHandler<? super StreamChannel> rightHandler) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public IoFuture<? extends Closeable> createPipeConnection(ChannelListener<? super StreamChannel> leftHandler, ChannelListener<? super StreamChannel> rightHandler) {
         throw new UnsupportedOperationException("Pipe Connection");
     }
 
@@ -456,9 +470,10 @@ public abstract class Xnio implements Closeable {
      *
      * @return the future connection
      *
-     * @since 1.2
+     * @since 2.0
      */
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(Executor executor, IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(Executor executor, ChannelListener<? super StreamSourceChannel> sourceHandler, ChannelListener<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
     }
 
@@ -471,9 +486,10 @@ public abstract class Xnio implements Closeable {
      *
      * @return the future connection
      *
-     * @since 1.1
+     * @since 2.0
      */
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(IoHandler<? super StreamSourceChannel> sourceHandler, IoHandler<? super StreamSinkChannel> sinkHandler) {
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(ChannelListener<? super StreamSourceChannel> sourceHandler, ChannelListener<? super StreamSinkChannel> sinkHandler) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
     }
 
@@ -486,6 +502,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public TcpAcceptor createTcpAcceptor(Executor executor, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
@@ -498,6 +515,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.0
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public TcpAcceptor createTcpAcceptor(OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Acceptor");
     }
@@ -506,7 +524,7 @@ public abstract class Xnio implements Closeable {
      * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the factory which will produce handlers for inbound connections
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
@@ -514,14 +532,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalStreamServer(Executor executor, IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, OptionMap optionMap) {
+    public LocalServer createLocalStreamServer(Executor executor, ChannelListener<? super ConnectedStreamChannel<String>> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
      * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
@@ -529,7 +547,7 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalStreamServer(IoHandlerFactory<? super ConnectedStreamChannel<String>> handlerFactory, OptionMap optionMap) {
+    public LocalServer createLocalStreamServer(ChannelListener<? super ConnectedStreamChannel<String>> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
@@ -566,7 +584,7 @@ public abstract class Xnio implements Closeable {
      * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
      * @param executor the executor to use to execute the handlers
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      *
      * @return the new datagram server
@@ -574,14 +592,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalDatagramServer(Executor executor, IoHandlerFactory<? super DatagramChannel<String>> handlerFactory, OptionMap optionMap) {
+    public LocalServer createLocalDatagramServer(Executor executor, ChannelListener<? super DatagramChannel<String>> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
      * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
-     * @param handlerFactory the factory which will produce handlers for inbound connections
+     * @param openHandler the initial open-connection handler
      * @param optionMap the initial configuration for the server
      *
      * @return the new datagram server
@@ -589,7 +607,7 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalDatagramServer(IoHandlerFactory<? super DatagramChannel<String>> handlerFactory, OptionMap optionMap) {
+    public LocalServer createLocalDatagramServer(ChannelListener<? super DatagramChannel<String>> openHandler, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
@@ -632,6 +650,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 1.2
      */
+    @SuppressWarnings({ "UnusedDeclaration" })
     public void awaken(Thread targetThread) {
         // nothing by default
     }

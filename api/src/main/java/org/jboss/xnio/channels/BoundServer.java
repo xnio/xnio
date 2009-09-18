@@ -23,17 +23,17 @@
 package org.jboss.xnio.channels;
 
 import java.util.Collection;
-import java.io.Closeable;
 import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.ChannelListener;
 
 /**
- * A server that is bound to a local address.
+ * A server that is bound to a local address, and which may accept connections.
  *
  * @param <A> the type of address associated with this server
  * @param <T> the channel type
  * @since 1.2
  */
-public interface BoundServer<A, T extends BoundChannel<A>> extends Closeable, Configurable {
+public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChannel {
     /**
      * Get the channels representing the individual bound servers.  The collection is a snapshot view of the bound
      * channels; modifications to the collection are not allowed.  However the channels within the collection are
@@ -51,4 +51,12 @@ public interface BoundServer<A, T extends BoundChannel<A>> extends Closeable, Co
      * @return a future channel representing the binding
      */
     IoFuture<T> bind(A address);
+
+    /**
+     * Get the open handler setter for this channel.  If open events are ignored,
+     * the channel will be immediately closed upon accept.
+     *
+     * @return the listener setter
+     */
+    ChannelListener.Setter<? extends BoundServer<A, T>> getOpenSetter();
 }

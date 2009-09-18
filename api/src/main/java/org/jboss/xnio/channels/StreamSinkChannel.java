@@ -24,9 +24,14 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.WritableByteChannel;
 import java.nio.channels.GatheringByteChannel;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A stream sink channel.  This type of channel is a writable desination for bytes.
  */
-public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel, Configurable {
+public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter();
+
 }

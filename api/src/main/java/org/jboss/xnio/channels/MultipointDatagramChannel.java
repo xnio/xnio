@@ -22,10 +22,21 @@
 
 package org.jboss.xnio.channels;
 
+import org.jboss.xnio.ChannelListener;
+
 /**
  * A multipoint datagram channel.  A multipoint datagram channel is a bound multipoint message channel.
  *
  * @param <A> the type of address associated with this channel
  */
 public interface MultipointDatagramChannel<A> extends MultipointMessageChannel<A>, BoundChannel<A> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointDatagramChannel<A>> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointDatagramChannel<A>> getCloseSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends MultipointDatagramChannel<A>> getWriteSetter();
 }

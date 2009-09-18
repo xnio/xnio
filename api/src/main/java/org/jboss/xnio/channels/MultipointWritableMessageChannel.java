@@ -24,6 +24,7 @@ package org.jboss.xnio.channels;
 
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * The writable side of a multipoint message channel.
@@ -31,7 +32,7 @@ import java.io.IOException;
  * @see org.jboss.xnio.channels.MultipointMessageChannel
  * @param <A> the type of address associated with this channel
  */
-public interface MultipointWritableMessageChannel<A> extends SuspendableWriteChannel, Configurable {
+public interface MultipointWritableMessageChannel<A> extends SuspendableWriteChannel {
 
     /**
      * Send a buffer to a destination.

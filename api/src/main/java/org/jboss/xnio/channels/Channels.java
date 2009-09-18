@@ -22,15 +22,8 @@
 
 package org.jboss.xnio.channels;
 
-import org.jboss.xnio.ChannelSource;
-import org.jboss.xnio.IoHandlerFactory;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.AbstractConvertingIoFuture;
-import org.jboss.xnio.Connector;
-import org.jboss.xnio.FutureConnection;
-import org.jboss.xnio.AbstractConvertingFutureConnection;
-import org.jboss.xnio.log.Logger;
+import org.jboss.xnio.OptionMap;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -38,6 +31,8 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLContext;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
@@ -50,203 +45,35 @@ public final class Channels {
     }
 
     /**
-     * Create a connector for an allocated message channel.  The resulting channel uses a simple protocol to send
-     * and receive messages.  First, a four-byte length field is sent in network order; then a message of that length
-     * follows.  If an incoming message is too large, it is ignored.  If an outgoing message is too large, an exception
-     * is thrown for that send.
+     * Create an allocated message channel which wraps a stream channel using a simple length-body protocol.  The
+     * maximum inbound and outbound message sizes may be specified in the option map.
      *
-     * @param streamConnector the stream connector to encapsulate
-     * @param maxInboundMessageSize the maximum incoming message size
-     * @param maxOutboundMessageSize the maximum outgoing message size
-     * @return an allocated message connector
+     * @param streamChannel the stream channel
+     * @param optionMap the initial options
+     * @return the allocated message channel
+     * @see org.jboss.xnio.channels.CommonOptions#MAX_INBOUND_MESSAGE_SIZE
+     * @see org.jboss.xnio.channels.CommonOptions#MAX_OUTBOUND_MESSAGE_SIZE
+     *
+     * @since 2.0
      */
-    public static <A> Connector<A, AllocatedMessageChannel> convertStreamToAllocatedMessage(final Connector<A, ? extends StreamChannel> streamConnector, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
-        return new Connector<A, AllocatedMessageChannel>() {
-            public FutureConnection<A, AllocatedMessageChannel> connectTo(final A src, final A dest, final IoHandler<? super AllocatedMessageChannel> handler) {
-                final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
-                return new ConvertedFutureConnection<A>(streamConnector.connectTo(src, dest, innerHandler), innerHandler);
-            }
-
-            public ChannelSource<AllocatedMessageChannel> createChannelSource(final A src, final A dest) {
-                return convertStreamToAllocatedMessage(streamConnector.createChannelSource(src, dest), maxInboundMessageSize, maxOutboundMessageSize);
-            }
-
-            public FutureConnection<A, AllocatedMessageChannel> connectTo(final A dest, final IoHandler<? super AllocatedMessageChannel> handler) {
-                final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
-                return new ConvertedFutureConnection<A>(streamConnector.connectTo(dest, innerHandler), innerHandler); 
-            }
-
-            public ChannelSource<AllocatedMessageChannel> createChannelSource(final A dest) {
-                return convertStreamToAllocatedMessage(streamConnector.createChannelSource(dest), maxInboundMessageSize, maxOutboundMessageSize);
-            }
-        };
-    }
-
-    private static class ConvertedFutureConnection<A> extends AbstractConvertingFutureConnection<A, AllocatedMessageChannel, StreamChannel> {
-        private final AllocatedMessageChannelStreamChannelHandler innerHandler;
-
-        private ConvertedFutureConnection(final FutureConnection<A, ? extends StreamChannel> delegate, final AllocatedMessageChannelStreamChannelHandler innerHandler) {
-            super(delegate);
-            this.innerHandler = innerHandler;
-        }
-
-        protected AllocatedMessageChannel convert(final StreamChannel arg) {
-            return innerHandler.getChannel(arg);
-        }
+    public static AllocatedMessageChannel createAllocatedMessageChannel(final StreamChannel streamChannel, final OptionMap optionMap) {
+        return new WrappingAllocatedMessageChannel(streamChannel, optionMap);
     }
 
     /**
-     * Create a channel source for an allocated message channel.  The resulting channel uses a simple protocol to send
-     * and receive messages.  First, a four-byte length field is sent in network order; then a message of that length
-     * follows.  If an incoming message is too large, it is ignored.  If an outgoing message is too large, an exception
-     * is thrown for that send.
+     * Create a SSL/TLS-enabled channel over a TCP channel.  Uses the given {@code SSLContext}, and uses the option map to configure
+     * the parameters of the connection (including whether this side is the client or the server).
      *
-     * @param streamChannelSource the stream channel source to encapsulate
-     * @param maxInboundMessageSize the maximum incoming message size
-     * @param maxOutboundMessageSize the maximum outgoing message size
-     * @return an allocated message channel source
-     */
-    public static ChannelSource<AllocatedMessageChannel> convertStreamToAllocatedMessage(final ChannelSource<? extends StreamChannel> streamChannelSource, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
-        return new ChannelSource<AllocatedMessageChannel>() {
-            public IoFuture<AllocatedMessageChannel> open(final IoHandler<? super AllocatedMessageChannel> handler) {
-                final AllocatedMessageChannelStreamChannelHandler innerHandler = new AllocatedMessageChannelStreamChannelHandler(handler, maxInboundMessageSize, maxOutboundMessageSize);
-                return new AbstractConvertingIoFuture<AllocatedMessageChannel, StreamChannel>(streamChannelSource.open(innerHandler)) {
-                    protected AllocatedMessageChannel convert(final StreamChannel arg) {
-                        return innerHandler.getChannel(arg);
-                    }
-                };
-            }
-        };
-    }
-
-    /**
-     * Create a handler factory for an allocated message channel.  The resulting channel uses a simple protocol to send
-     * and receive messages.  First, a four-byte length field is sent in network order; then a message of that length
-     * follows.  If an incoming message is too large, it is ignored.  If an outgoing message is too large, an exception
-     * is thrown for that send.
+     * @param sslContext the SSL context to use
+     * @param tcpChannel the TCP channel over which the connection is encapsulated
+     * @param optionMap the configuration options for the channel
+     * @return the new SSL TCP channel
      *
-     * @param handlerFactory the user allocated message channel handler factory
-     * @param maxInboundMessageSize the maximum incoming message size
-     * @param maxOutboundMessageSize the maximum outgoing message size
-     * @return a stream channel handler factory that implements the protocol
+     * @since 2.0
      */
-    public static IoHandlerFactory<StreamChannel> convertStreamToAllocatedMessage(final IoHandlerFactory<? super AllocatedMessageChannel> handlerFactory, final int maxInboundMessageSize, final int maxOutboundMessageSize) {
-        return new IoHandlerFactory<StreamChannel>() {
-            public IoHandler<? super StreamChannel> createHandler() {
-                //noinspection unchecked
-                return new AllocatedMessageChannelStreamChannelHandler(handlerFactory.createHandler(), maxInboundMessageSize, maxOutboundMessageSize);
-            }
-        };
-    }
-
-    /**
-     * Create a channel source for a stream channel.  The resulting channel simply converts the messages into stream bytes.
-     * The resulting channel is strictly edge-triggered: if a read handler does not fully consume all the readable bytes
-     * on the channel before calling {@link StreamChannel#resumeReads() StreamChannel.resumeReads()} or
-     * {@link StreamChannel#awaitReadable() StreamChannel.awaitReadable()}, then the channel may block even though there
-     * is more data to be read.
-     *
-     * @param messageChannelSource the allocated message channel source
-     * @return a stream channel source
-     */
-    public static ChannelSource<StreamChannel> convertAllocatedMessageToStream(final ChannelSource<? extends AllocatedMessageChannel> messageChannelSource) {
-        return new ChannelSource<StreamChannel>() {
-            public IoFuture<StreamChannel> open(final IoHandler<? super StreamChannel> handler) {
-                final StreamChannelAllocatedMessageChannelHandler innerHandler = new StreamChannelAllocatedMessageChannelHandler(handler);
-                return new AbstractConvertingIoFuture<StreamChannel, AllocatedMessageChannel>(messageChannelSource.open(innerHandler)) {
-                    protected StreamChannel convert(final AllocatedMessageChannel arg) throws IOException {
-                        return innerHandler.getChannel(arg);
-                    }
-                };
-            }
-        };
-    }
-
-    /**
-     * Create a channel source for a stream channel.  The resulting channel simply converts the messages into stream bytes.
-     * The resulting channel is strictly edge-triggered: if a read handler does not fully consume all the readable bytes
-     * on the channel before calling {@link StreamChannel#resumeReads() StreamChannel.resumeReads()} or
-     * {@link StreamChannel#awaitReadable() StreamChannel.awaitReadable()}, then the channel may block even though there
-     * is more data to be read.
-     *
-     * @param handlerFactory the user stream channel handler factory
-     * @return an allocated message channel handler factory that implements the protocol
-     */
-    public static IoHandlerFactory<AllocatedMessageChannel> convertAllocatedMessageToStream(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
-        return new IoHandlerFactory<AllocatedMessageChannel>() {
-            public IoHandler<? super AllocatedMessageChannel> createHandler() {
-                //noinspection unchecked
-                return new StreamChannelAllocatedMessageChannelHandler(handlerFactory.createHandler());
-            }
-        };
-    }
-
-    private static final Logger mergedLog = Logger.getLogger("org.jboss.xnio.channels.merged");
-
-    /**
-     * Create a handler that is a merged view of two separate handlers, one for read operations and one for write operations.
-     * The {@code handleOpened()} and {@code handleClosed()} methods are called on each of the two sub-handlers.
-     *
-     * @param <T> the resultant channel type
-     * @param readSide the handler to handle read operations
-     * @param writeSide the handler to handle write operations
-     * @return a combined handler
-     */
-    public static <T extends SuspendableChannel> IoHandler<T> createMergedHandler(final IoHandler<? super T> readSide, final IoHandler<? super T> writeSide) {
-        return new IoHandler<T>() {
-            public void handleOpened(final T channel) {
-                readSide.handleOpened(channel);
-                boolean ok = false;
-                try {
-                    writeSide.handleOpened(channel);
-                    ok = true;
-                } finally {
-                    if (! ok) try {
-                        readSide.handleClosed(channel);
-                    } catch (Throwable t) {
-                        mergedLog.error(t, "Error in close handler");
-                    }
-                }
-            }
-
-            public void handleReadable(final T channel) {
-                readSide.handleReadable(channel);
-            }
-
-            public void handleWritable(final T channel) {
-                writeSide.handleReadable(channel);
-            }
-
-            public void handleClosed(final T channel) {
-                try {
-                    readSide.handleClosed(channel);
-                } catch (Throwable t) {
-                    mergedLog.error(t, "Error in close handler");
-                }
-                try {
-                    writeSide.handleClosed(channel);
-                } catch (Throwable t) {
-                    mergedLog.error(t, "Error in close handler");
-                }
-            }
-        };
-    }
-
-    /**
-     * Create a handler factory that is a merged view of two separate handler factories, one for read operations and one for write operations.
-     *
-     * @param <T> the resultant channel type
-     * @param readFactory the handler factory to create handlers that handle read operations
-     * @param writeFactory the handler factory to create handlers that handle write operations
-     * @return a combined handler factory
-     */
-    public static <T extends SuspendableChannel> IoHandlerFactory<T> createMergedHandlerFactory(final IoHandlerFactory<? super T> readFactory, final IoHandlerFactory<? super T> writeFactory) {
-        return new IoHandlerFactory<T>() {
-            @SuppressWarnings({"unchecked"})
-            public IoHandler<T> createHandler() {
-                return createMergedHandler((IoHandler)readFactory.createHandler(), (IoHandler)writeFactory.createHandler());
-            }
-        };
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final OptionMap optionMap) throws IOException {
+        throw new UnsupportedOperationException("SSL channel");
     }
 
     /**
@@ -348,7 +175,12 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
-        while (! (channel.send(buffer))) {
+        WritableMessageChannel.Result result;
+        do {
+            if ((result = channel.send(buffer)) == WritableMessageChannel.OK) return;
+            channel.awaitWritable();
+        } while (result == WritableMessageChannel.NOT_SENT);
+        while (! channel.flush()) {
             channel.awaitWritable();
         }
     }
@@ -362,17 +194,18 @@ public final class Channels {
      * @param time the amount of time to wait
      * @param unit the unit of time to wait
      * @param <C> the channel type
-     * @return {@code true} if the message was written before the timeout
+     * @return the write result
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
-        if (! (channel.send(buffer))) {
-            channel.awaitWritable(time, unit);
-            return channel.send(buffer);
-        } else {
-            return true;
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> WritableMessageChannel.Result sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        // todo - change to use a deadline instead...
+        switch (channel.send(buffer)) {
+            case OK: return WritableMessageChannel.OK;
+            case PARTIAL: channel.awaitWritable(time, unit); return channel.flush() ? WritableMessageChannel.OK : WritableMessageChannel.PARTIAL;
+            case NOT_SENT: channel.awaitWritable(time, unit); return channel.send(buffer);
         }
+        throw new IllegalStateException();
     }
 
     /**
@@ -388,7 +221,12 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
-        while (! (channel.send(buffers, offs, len))) {
+        WritableMessageChannel.Result result;
+        do {
+            if ((result = channel.send(buffers, offs, len)) == WritableMessageChannel.OK) return;
+            channel.awaitWritable();
+        } while (result == WritableMessageChannel.NOT_SENT);
+        while (! channel.flush()) {
             channel.awaitWritable();
         }
     }
@@ -408,13 +246,14 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
-        if (! (channel.send(buffers, offs, len))) {
-            channel.awaitWritable(time, unit);
-            return channel.send(buffers, offs, len);
-        } else {
-            return true;
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> WritableMessageChannel.Result sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        // todo - change to use a deadline instead...
+        switch (channel.send(buffers, offs, len)) {
+            case OK: return WritableMessageChannel.OK;
+            case PARTIAL: channel.awaitWritable(time, unit); return channel.flush() ? WritableMessageChannel.OK : WritableMessageChannel.PARTIAL;
+            case NOT_SENT: channel.awaitWritable(time, unit); return channel.send(buffers, offs, len);
         }
+        throw new IllegalStateException();
     }
 
     /**

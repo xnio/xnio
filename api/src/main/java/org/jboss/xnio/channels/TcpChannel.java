@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import java.net.InetSocketAddress;
+import org.jboss.xnio.ChannelListener;
 
 /**
  * A TCP channel.  TCP channels are connected stream channels that always use {@link InetSocketAddress} instances to define
@@ -31,4 +32,13 @@ import java.net.InetSocketAddress;
  * @apiviz.landmark
  */
 public interface TcpChannel extends ConnectedStreamChannel<InetSocketAddress> {
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends TcpChannel> getReadSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends TcpChannel> getWriteSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends TcpChannel> getCloseSetter();
 }

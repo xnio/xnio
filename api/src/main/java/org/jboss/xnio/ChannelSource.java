@@ -34,8 +34,8 @@ public interface ChannelSource<T extends Channel> {
     /**
      * Open a channel.
      *
-     * @param handler the handler for this channel
+     * @param handler the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    IoFuture<? extends T> open(IoHandler<? super T> handler);
+    IoFuture<? extends T> open(ChannelListener<? super T> handler);
 }
