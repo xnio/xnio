@@ -179,6 +179,22 @@ public abstract class Option<T> implements Serializable {
         }
 
         /**
+         * Add all options from a collection to this set.
+         *
+         * @param options the options to add
+         * @return this builder
+         */
+        public SetBuilder addAll(Collection<Option<?>> options) {
+            if (options == null) {
+                throw new NullPointerException("options is null");
+            }
+            for (Option<?> option : options) {
+                add(option);
+            }
+            return this;
+        }
+
+        /**
          * Create the immutable option set instance.
          *
          * @return the option set
