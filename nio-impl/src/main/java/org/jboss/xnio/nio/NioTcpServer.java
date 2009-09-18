@@ -69,7 +69,7 @@ final class NioTcpServer implements TcpServer {
     private static final AtomicReferenceFieldUpdater<NioTcpServer,ChannelListener> bindListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpServer.class, ChannelListener.class, "bindListener");
     private static final AtomicReferenceFieldUpdater<NioTcpServer,ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpServer.class, ChannelListener.class, "closeListener");
 
-    private static final AtomicReferenceFieldUpdater<Binding, ChannelListener> boundCloseListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(Binding.class, ChannelListener.class, "boundCloseListener");
+    private static final AtomicReferenceFieldUpdater<Binding, ChannelListener> boundCloseListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(Binding.class, ChannelListener.class, "closeListener");
 
     private volatile ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener = null;
     private volatile ChannelListener<? super TcpChannel> openListener = null;
@@ -317,7 +317,7 @@ final class NioTcpServer implements TcpServer {
         private final InetSocketAddress address;
         private final ServerSocketChannel channel;
         private final AtomicLong acceptedConnections = new AtomicLong();
-        private volatile ChannelListener<? super Binding> closeListener = null;
+        volatile ChannelListener<? super Binding> closeListener = null;
 
         private final ChannelListener.Setter<Binding> closeSetter = IoUtils.getSetter(this, boundCloseListenerUpdater);
 
