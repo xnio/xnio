@@ -22,9 +22,9 @@
 
 package org.jboss.xnio.channels;
 
-import java.net.SocketAddress;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.InetSocketAddress;
 import java.io.IOException;
 import java.io.Closeable;
 import org.jboss.xnio.ChannelListener;
@@ -35,7 +35,7 @@ import org.jboss.xnio.ChannelListener;
  *
  * @apiviz.landmark
  */
-public interface UdpChannel extends MultipointDatagramChannel<SocketAddress> {
+public interface UdpChannel extends MultipointDatagramChannel<InetSocketAddress> {
 
     /**
      * A registration key for a multicast group.

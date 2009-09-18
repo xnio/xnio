@@ -25,7 +25,7 @@ package org.jboss.xnio.nio;
 /**
  *
  */
-public final class SynchronousHolder<T, E extends Throwable> {
+final class SynchronousHolder<T, E extends Throwable> {
     private T held;
     private E problem;
     private boolean set = false;

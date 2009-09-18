@@ -32,34 +32,47 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Option;
-import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.log.Logger;
 
 /**
  *
  */
-public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.source-channel");
+final class NioPipeSourceChannel implements StreamSourceChannel {
 
     private final Pipe.SourceChannel channel;
     private final NioHandle handle;
     private final NioXnio nioXnio;
-    private final IoHandler<? super StreamSourceChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final Closeable mbeanHandle;
 
-    public NioPipeSourceChannelImpl(final Pipe.SourceChannel channel, final IoHandler<? super StreamSourceChannel> handler, final NioXnio nioXnio, final Closeable mbeanHandle) throws IOException {
+    private volatile ChannelListener<? super StreamSourceChannel> readListener = null;
+    private volatile ChannelListener<? super StreamSourceChannel> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<NioPipeSourceChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSourceChannel.class, ChannelListener.class, "readListener");
+    private static final AtomicReferenceFieldUpdater<NioPipeSourceChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSourceChannel.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<StreamSourceChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
+    private final ChannelListener.Setter<StreamSourceChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+
+    NioPipeSourceChannel(final Pipe.SourceChannel channel, final NioXnio nioXnio, final Closeable mbeanHandle) throws IOException {
         this.channel = channel;
-        this.handler = handler;
         this.nioXnio = nioXnio;
         this.mbeanHandle = mbeanHandle;
         handle = nioXnio.addReadHandler(channel, new Handler());
+    }
+
+    public ChannelListener.Setter<StreamSourceChannel> getReadSetter() {
+        return readSetter;
+    }
+
+    public ChannelListener.Setter<StreamSourceChannel> getCloseSetter() {
+        return closeSetter;
     }
 
     public int read(final ByteBuffer dst) throws IOException {
@@ -83,9 +96,9 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     public void close() throws IOException {
         if (! callFlag.getAndSet(true)) {
-            HandlerUtils.<StreamSourceChannel>handleClosed(handler, this);
             nioXnio.removeManaged(this);
             IoUtils.safeClose(mbeanHandle);
+            IoUtils.<StreamSourceChannel>invokeChannelListener(this, closeListener);
             channel.close();
         }
     }
@@ -122,7 +135,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
         return null;
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> NioPipeSourceChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
     }
 
@@ -132,7 +145,7 @@ public final class NioPipeSourceChannelImpl implements StreamSourceChannel {
 
     private final class Handler implements Runnable {
         public void run() {
-            HandlerUtils.<StreamSourceChannel>handleReadable(handler, NioPipeSourceChannelImpl.this);
+            IoUtils.<StreamSourceChannel>invokeChannelListener(NioPipeSourceChannel.this, readListener);
         }
     }
 

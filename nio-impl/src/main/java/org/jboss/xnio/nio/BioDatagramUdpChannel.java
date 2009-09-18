@@ -27,7 +27,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -38,12 +38,13 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.Option;
+import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.MultipointDatagramChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -52,7 +53,7 @@ import org.jboss.xnio.log.Logger;
 /**
  *
  */
-public class BioDatagramChannelImpl implements UdpChannel {
+class BioDatagramUdpChannel implements UdpChannel {
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-server.channel");
 
     private final DatagramSocket datagramSocket;
@@ -61,11 +62,22 @@ public class BioDatagramChannelImpl implements UdpChannel {
     private final DatagramPacket sendPacket;
     private final ByteBuffer sendBuffer;
     private final Executor handlerExecutor;
-    private final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler;
     private final Runnable readHandlerTask = new ReadHandlerTask();
     private final Runnable writeHandlerTask = new WriteHandlerTask();
     private final ReaderTask readerTask = new ReaderTask();
     private final WriterTask writerTask = new WriterTask();
+
+    private volatile ChannelListener<? super UdpChannel> readListener = null;
+    private volatile ChannelListener<? super UdpChannel> writeListener = null;
+    private volatile ChannelListener<? super UdpChannel> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "readListener");
+    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "writeListener");
+    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<UdpChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
+    private final ChannelListener.Setter<UdpChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
+    private final ChannelListener.Setter<UdpChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
 
     private final Object readLock = new Object();
     private final Object writeLock = new Object();
@@ -91,10 +103,9 @@ public class BioDatagramChannelImpl implements UdpChannel {
     final AtomicLong messagesRead = new AtomicLong();
     final AtomicLong messagesWritten = new AtomicLong();
 
-    BioDatagramChannelImpl(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final IoHandler<? super MultipointDatagramChannel<SocketAddress>> handler, final DatagramSocket datagramSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
+    BioDatagramUdpChannel(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final DatagramSocket datagramSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
         this.datagramSocket = datagramSocket;
         this.handlerExecutor = handlerExecutor;
-        this.handler = handler;
         this.globalBytesRead = globalBytesRead;
         this.globalBytesWritten = globalBytesWritten;
         this.globalMessagesRead = globalMessagesRead;
@@ -141,11 +152,23 @@ public class BioDatagramChannelImpl implements UdpChannel {
         log.trace("Channel %s opened", this);
     }
 
-    public SocketAddress getLocalAddress() {
-        return datagramSocket.getLocalSocketAddress();
+    public ChannelListener.Setter<UdpChannel> getReadSetter() {
+        return readSetter;
     }
 
-    public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
+    public ChannelListener.Setter<UdpChannel> getWriteSetter() {
+        return writeSetter;
+    }
+
+    public ChannelListener.Setter<UdpChannel> getCloseSetter() {
+        return closeSetter;
+    }
+
+    public InetSocketAddress getLocalAddress() {
+        return (InetSocketAddress) datagramSocket.getLocalSocketAddress();
+    }
+
+    public MultipointReadResult<InetSocketAddress> receive(final ByteBuffer buffer) throws IOException {
         synchronized (readLock) {
             if (!readable) {
                 return null;
@@ -163,17 +186,17 @@ public class BioDatagramChannelImpl implements UdpChannel {
             receiveBuffer.limit(size);
             buffer.put(receiveBuffer);
             readLock.notify();
-            final SocketAddress socketAddress = receivePacket.getSocketAddress();
+            final InetSocketAddress socketAddress = (InetSocketAddress) receivePacket.getSocketAddress();
             bytesRead.addAndGet(size);
             globalBytesRead.addAndGet(size);
             messagesRead.incrementAndGet();
             globalMessagesRead.incrementAndGet();
-            return new MultipointReadResult<SocketAddress>() {
-                public SocketAddress getSourceAddress() {
+            return new MultipointReadResult<InetSocketAddress>() {
+                public InetSocketAddress getSourceAddress() {
                     return socketAddress;
                 }
 
-                public SocketAddress getDestinationAddress() {
+                public InetSocketAddress getDestinationAddress() {
                     return null;
                 }
             };
@@ -209,12 +232,12 @@ public class BioDatagramChannelImpl implements UdpChannel {
                 readable = false;
             }
             datagramSocket.close();
-            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleClosed(handler, this);
+            IoUtils.<UdpChannel>invokeChannelListener(this, closeListener);
             log.trace("Closing channel %s", this);
         }
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer buffer) throws IOException {
         synchronized (writeLock) {
             if (! writable) {
                 return false;
@@ -237,11 +260,11 @@ public class BioDatagramChannelImpl implements UdpChannel {
         }
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer[] dsts) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts) throws IOException {
         return send(target, dsts, 0, dsts.length);
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         synchronized (writeLock) {
             if (! writable) {
                 return false;
@@ -498,13 +521,13 @@ public class BioDatagramChannelImpl implements UdpChannel {
 
     private final class ReadHandlerTask implements Runnable {
         public void run() {
-            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleReadable(handler, BioDatagramChannelImpl.this);
+            IoUtils.<UdpChannel>invokeChannelListener(BioDatagramUdpChannel.this, readListener);
         }
     }
 
     private final class WriteHandlerTask implements Runnable {
         public void run() {
-            HandlerUtils.<MultipointDatagramChannel<SocketAddress>>handleWritable(handler, BioDatagramChannelImpl.this);
+            IoUtils.<UdpChannel>invokeChannelListener(BioDatagramUdpChannel.this, writeListener);
         }
     }
 }

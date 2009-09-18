@@ -33,11 +33,11 @@ import org.jboss.xnio.AbstractFutureConnection;
 import org.jboss.xnio.FailedFutureConnection;
 import org.jboss.xnio.FinishedFutureConnection;
 import org.jboss.xnio.FutureConnection;
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpChannelSource;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.OptionMap;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
@@ -45,7 +45,7 @@ import org.jboss.xnio.log.Logger;
 /**
  *
  */
-public final class NioTcpConnector implements TcpConnector {
+final class NioTcpConnector implements TcpConnector {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.tcp.connector");
 
@@ -87,7 +87,7 @@ public final class NioTcpConnector implements TcpConnector {
         if (tcpNoDelay != null) socket.setTcpNoDelay(tcpNoDelay.booleanValue());
     }
 
-    public FutureConnection<InetSocketAddress, TcpChannel> connectTo(final InetSocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    public FutureConnection<InetSocketAddress, TcpChannel> connectTo(final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
         if (dest == null) {
             throw new NullPointerException("dest is null");
         }
@@ -97,7 +97,7 @@ public final class NioTcpConnector implements TcpConnector {
         return doConnectTo(null, dest, handler);
     }
 
-    public FutureConnection<InetSocketAddress, TcpChannel> connectTo(final InetSocketAddress src, final InetSocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    public FutureConnection<InetSocketAddress, TcpChannel> connectTo(final InetSocketAddress src, final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
         if (src == null) {
             throw new NullPointerException("src is null");
         }
@@ -115,7 +115,7 @@ public final class NioTcpConnector implements TcpConnector {
             throw new NullPointerException("dest is null");
         }
         return new TcpChannelSource() {
-            public FutureConnection<InetSocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+            public FutureConnection<InetSocketAddress, TcpChannel> open(final ChannelListener<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -132,7 +132,7 @@ public final class NioTcpConnector implements TcpConnector {
             throw new NullPointerException("dest is null");
         }
         return new TcpChannelSource() {
-            public FutureConnection<InetSocketAddress, TcpChannel> open(final IoHandler<? super TcpChannel> handler) {
+            public FutureConnection<InetSocketAddress, TcpChannel> open(final ChannelListener<? super TcpChannel> handler) {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
@@ -141,7 +141,7 @@ public final class NioTcpConnector implements TcpConnector {
         };
     }
 
-    private FutureConnection<InetSocketAddress, TcpChannel> doConnectTo(final InetSocketAddress src, final InetSocketAddress dest, final IoHandler<? super TcpChannel> handler) {
+    private FutureConnection<InetSocketAddress, TcpChannel> doConnectTo(final InetSocketAddress src, final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
         try {
             log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
             final SocketChannel socketChannel = SocketChannel.open();
@@ -150,12 +150,12 @@ public final class NioTcpConnector implements TcpConnector {
             if (src != null) socket.bind(src);
             configureStream(socket);
             if (socketChannel.connect(dest)) {
-                final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
+                final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, manageConnections);
                 nioXnio.addManaged(channel);
                 executor.execute(new Runnable() {
                     public void run() {
                         log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
-                        if (! HandlerUtils.<TcpChannel>handleOpened(handler, channel)) {
+                        if (! IoUtils.<TcpChannel>invokeChannelListener(channel, handler)) {
                             IoUtils.safeClose(socketChannel);
                             nioXnio.removeManaged(channel);
                         }
@@ -187,13 +187,11 @@ public final class NioTcpConnector implements TcpConnector {
         private final FutureImpl future;
         private final SocketChannel socketChannel;
         private final NioHandle handle;
-        private final IoHandler<? super TcpChannel> handler;
+        private final ChannelListener<? super TcpChannel> handler;
 
-        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioXnio nioXnio, final IoHandler<? super TcpChannel> handler) throws IOException {
+        public ConnectionHandler(final Executor executor, final SocketChannel socketChannel, final NioXnio nioXnio, final ChannelListener<? super TcpChannel> handler) throws IOException {
             this.socketChannel = socketChannel;
             this.handler = handler;
-            // *should* be safe...
-            //noinspection ThisEscapedInObjectConstruction
             handle = nioXnio.addConnectHandler(socketChannel, this, true);
             future = new FutureImpl(executor, (InetSocketAddress) socketChannel.socket().getLocalSocketAddress());
         }
@@ -202,9 +200,12 @@ public final class NioTcpConnector implements TcpConnector {
             try {
                 if (socketChannel.finishConnect()) {
                     log.trace("Connection is up (deferred)");
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, handler, executor, manageConnections);
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, manageConnections);
                     future.setResult(channel);
-                    handler.handleOpened(channel);
+                    if (! IoUtils.<TcpChannel>invokeChannelListener(channel, handler)) {
+                        IoUtils.safeClose(socketChannel);
+                        nioXnio.removeManaged(channel);
+                    }
                     handle.cancelKey();
                 } else {
                     log.trace("Connection is not yet up (deferred)");

@@ -25,12 +25,9 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.io.Closeable;
 import java.nio.channels.Pipe;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.management.PipeConnectionMBean;
-import org.jboss.xnio.channels.StreamChannel;
 
 import javax.management.StandardMBean;
 import javax.management.NotCompliantMBeanException;
@@ -38,12 +35,12 @@ import javax.management.NotCompliantMBeanException;
 /**
  *
  */
-public final class NioPipeConnection implements Closeable {
+final class NioPipeConnection implements Closeable {
 
-    private final NioPipeChannelImpl leftSide;
-    private final NioPipeChannelImpl rightSide;
+    private final NioPipeChannel leftSide;
+    private final NioPipeChannel rightSide;
 
-    NioPipeConnection(final NioXnio nioXnio, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler, final Executor executor) throws IOException {
+    NioPipeConnection(final NioXnio nioXnio) throws IOException {
         final Pipe leftToRight = Pipe.open();
         final Pipe rightToLeft = Pipe.open();
         final Pipe.SourceChannel leftToRightSource = leftToRight.source();
@@ -61,39 +58,19 @@ public final class NioPipeConnection implements Closeable {
             throw new IOException("Failed to register channel mbean: " + e);
         }
         final Closeable mbeanHandle = nioXnio.registerMBean(mbean);
-        final NioPipeChannelImpl leftSide = NioPipeChannelImpl.create(leftToRightSource, leftToRightSink, leftHandler, nioXnio, mbean.bytesRead, mbean.messagesRead, mbeanHandle);
-        final NioPipeChannelImpl rightSide = NioPipeChannelImpl.create(rightToLeftSource, rightToLeftSink, rightHandler, nioXnio, mbean.bytesWritten, mbean.messagesWritten, mbeanHandle);
+        final NioPipeChannel leftSide = NioPipeChannel.create(leftToRightSource, leftToRightSink, nioXnio, mbean.bytesRead, mbean.messagesRead, mbeanHandle);
+        final NioPipeChannel rightSide = NioPipeChannel.create(rightToLeftSource, rightToLeftSink, nioXnio, mbean.bytesWritten, mbean.messagesWritten, mbeanHandle);
         this.leftSide = leftSide;
         this.rightSide = rightSide;
         nioXnio.addManaged(leftSide);
         nioXnio.addManaged(rightSide);
-        executor.execute(new Runnable() {
-            public void run() {
-                if (! HandlerUtils.<StreamChannel>handleOpened(leftHandler, leftSide)) {
-                    IoUtils.safeClose(leftToRightSource);
-                    IoUtils.safeClose(leftToRightSink);
-                    IoUtils.safeClose(rightToLeftSource);
-                    IoUtils.safeClose(rightToLeftSink);
-                }
-            }
-        });
-        executor.execute(new Runnable() {
-            public void run() {
-                if (! HandlerUtils.<StreamChannel>handleOpened(rightHandler, rightSide)) {
-                    IoUtils.safeClose(leftToRightSource);
-                    IoUtils.safeClose(leftToRightSink);
-                    IoUtils.safeClose(rightToLeftSource);
-                    IoUtils.safeClose(rightToLeftSink);
-                }
-            }
-        });
     }
 
-    public NioPipeChannelImpl getLeftSide() {
+    public NioPipeChannel getLeftSide() {
         return leftSide;
     }
 
-    public NioPipeChannelImpl getRightSide() {
+    public NioPipeChannel getRightSide() {
         return rightSide;
     }
 

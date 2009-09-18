@@ -524,7 +524,7 @@ public abstract class Xnio implements Closeable {
      * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
      * @param executor the executor to use to execute the handlers
-     * @param openHandler the factory which will produce handlers for inbound connections
+     * @param openListener a listener which is notified on channel open
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
@@ -532,14 +532,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalStreamServer(Executor executor, ChannelListener<? super ConnectedStreamChannel<String>> openHandler, OptionMap optionMap) {
+    public LocalServer createLocalStreamServer(Executor executor, ChannelListener<? super ConnectedStreamChannel<String>> openListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 
     /**
      * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener a listener which is notified on channel open
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new stream server
@@ -547,7 +547,7 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalStreamServer(ChannelListener<? super ConnectedStreamChannel<String>> openHandler, OptionMap optionMap) {
+    public LocalServer createLocalStreamServer(ChannelListener<? super ConnectedStreamChannel<String>> openListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Stream Server");
     }
 

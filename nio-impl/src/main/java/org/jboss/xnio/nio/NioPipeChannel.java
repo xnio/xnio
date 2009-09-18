@@ -32,24 +32,22 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.TimeUnit;
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Option;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
-import org.jboss.xnio.log.Logger;
 
 
 /**
  *
  */
-public final class NioPipeChannelImpl implements StreamChannel {
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.channel");
+final class NioPipeChannel implements StreamChannel {
 
     private final Pipe.SourceChannel sourceChannel;
     private final Pipe.SinkChannel sinkChannel;
-    private final IoHandler<? super StreamChannel> handler;
     private final NioHandle sourceHandle;
     private final NioHandle sinkHandle;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
@@ -58,10 +56,21 @@ public final class NioPipeChannelImpl implements StreamChannel {
     private final AtomicLong messages;
     private final Closeable mbeanHandle;
 
-    private NioPipeChannelImpl(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
+    private volatile ChannelListener<? super StreamChannel> readListener = null;
+    private volatile ChannelListener<? super StreamChannel> writeListener = null;
+    private volatile ChannelListener<? super StreamChannel> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "readListener");
+    private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "writeListener");
+    private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<StreamChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
+    private final ChannelListener.Setter<StreamChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
+    private final ChannelListener.Setter<StreamChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+
+    private NioPipeChannel(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
         this.sourceChannel = sourceChannel;
         this.sinkChannel = sinkChannel;
-        this.handler = handler;
         this.nioXnio = nioXnio;
         this.bytes = bytes;
         this.messages = messages;
@@ -71,9 +80,21 @@ public final class NioPipeChannelImpl implements StreamChannel {
         sinkHandle = nioXnio.addWriteHandler(sinkChannel, new WriteHandler());
     }
 
-    static NioPipeChannelImpl create(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final IoHandler<? super StreamChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
-        final NioPipeChannelImpl channel = new NioPipeChannelImpl(sourceChannel, sinkChannel, handler, nioXnio, bytes, messages, mbeanHandle);
+    static NioPipeChannel create(final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
+        final NioPipeChannel channel = new NioPipeChannel(sourceChannel, sinkChannel, nioXnio, bytes, messages, mbeanHandle);
         return channel;
+    }
+
+    public ChannelListener.Setter<StreamChannel> getReadSetter() {
+        return readSetter;
+    }
+
+    public ChannelListener.Setter<StreamChannel> getWriteSetter() {
+        return writeSetter;
+    }
+
+    public ChannelListener.Setter<StreamChannel> getCloseSetter() {
+        return closeSetter;
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
@@ -115,7 +136,7 @@ public final class NioPipeChannelImpl implements StreamChannel {
         } finally {
             nioXnio.removeManaged(this);
             if (callFlag.getAndSet(true) == false) {
-                HandlerUtils.<StreamChannel>handleClosed(handler, this);
+                IoUtils.<StreamChannel>invokeChannelListener(this, closeListener);
             }
             IoUtils.safeClose(mbeanHandle);
         }
@@ -200,29 +221,19 @@ public final class NioPipeChannelImpl implements StreamChannel {
         return Collections.emptySet();
     }
 
-    public <T> NioPipeChannelImpl setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> NioPipeChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
     }
 
     private class ReadHandler implements Runnable {
         public void run() {
-            IoHandler<? super StreamChannel> handler = NioPipeChannelImpl.this.handler;
-            try {
-                handler.handleReadable(NioPipeChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Read handler threw an exception");
-            }
+            IoUtils.<StreamChannel>invokeChannelListener(NioPipeChannel.this, readListener);
         }
     }
 
     private class WriteHandler implements Runnable {
         public void run() {
-            IoHandler<? super StreamChannel> handler = NioPipeChannelImpl.this.handler;
-            try {
-                handler.handleWritable(NioPipeChannelImpl.this);
-            } catch (Throwable t) {
-                log.error(t, "Write handler threw an exception");
-            }
+            IoUtils.<StreamChannel>invokeChannelListener(NioPipeChannel.this, writeListener);
         }
     }
 

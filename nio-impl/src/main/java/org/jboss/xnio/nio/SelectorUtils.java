@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * TODO - maybe change to cache the selector
  */
-public final class SelectorUtils {
+final class SelectorUtils {
     private SelectorUtils() {
     }
 

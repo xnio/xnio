@@ -33,38 +33,50 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Option;
-import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.Configurable;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.StreamSinkChannel;
 
 /**
  *
  */
-public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
-
-    private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.pipe.sink-channel");
+final class NioPipeSinkChannel implements StreamSinkChannel {
 
     private final Pipe.SinkChannel channel;
     private final NioHandle handle;
     private final NioXnio nioXnio;
-    private final IoHandler<? super StreamSinkChannel> handler;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final AtomicLong bytes;
     private final AtomicLong messages;
     private final Closeable mbeanHandle;
 
-    public NioPipeSinkChannelImpl(final Pipe.SinkChannel channel, final IoHandler<? super StreamSinkChannel> handler, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
+    private volatile ChannelListener<? super StreamSinkChannel> writeListener = null;
+    private volatile ChannelListener<? super StreamSinkChannel> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<NioPipeSinkChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSinkChannel.class, ChannelListener.class, "writeListener");
+    private static final AtomicReferenceFieldUpdater<NioPipeSinkChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSinkChannel.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<StreamSinkChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
+    private final ChannelListener.Setter<StreamSinkChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+
+    NioPipeSinkChannel(final Pipe.SinkChannel channel, final NioXnio nioXnio, final AtomicLong bytes, final AtomicLong messages, final Closeable mbeanHandle) throws IOException {
         this.channel = channel;
-        this.handler = handler;
         this.nioXnio = nioXnio;
         this.bytes = bytes;
         this.messages = messages;
         this.mbeanHandle = mbeanHandle;
         handle = nioXnio.addWriteHandler(channel, new Handler());
+    }
+
+    public ChannelListener.Setter<StreamSinkChannel> getWriteSetter() {
+        return writeSetter;
+    }
+
+    public ChannelListener.Setter<StreamSinkChannel> getCloseSetter() {
+        return closeSetter;
     }
 
     public int write(final ByteBuffer dst) throws IOException {
@@ -100,9 +112,9 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
 
     public void close() throws IOException {
         if (! callFlag.getAndSet(true)) {
-            HandlerUtils.<StreamSinkChannel>handleClosed(handler, this);
             nioXnio.removeManaged(this);
             IoUtils.safeClose(mbeanHandle);
+            IoUtils.<StreamSinkChannel>invokeChannelListener(this, closeListener);
             channel.close();
         }
     }
@@ -143,13 +155,13 @@ public final class NioPipeSinkChannelImpl implements StreamSinkChannel {
         return Collections.emptySet();
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> NioPipeSinkChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
     }
 
     private final class Handler implements Runnable {
         public void run() {
-            HandlerUtils.<StreamSinkChannel>handleWritable(handler, NioPipeSinkChannelImpl.this);
+            IoUtils.<StreamSinkChannel>invokeChannelListener(NioPipeSinkChannel.this, writeListener);
         }
     }
 

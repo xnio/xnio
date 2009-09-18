@@ -47,8 +47,6 @@ import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
 import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpConnector;
@@ -57,6 +55,7 @@ import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.OptionMap;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
@@ -285,12 +284,12 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public TcpServer createTcpServer(final Executor executor, final IoHandlerFactory<? super TcpChannel> handlerFactory, final OptionMap optionMap) {
+    public TcpServer createTcpServer(final Executor executor, final ChannelListener<? super TcpChannel> openHandler, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
+        if (openHandler == null) {
+            throw new NullPointerException("openHandler is null");
         }
         if (optionMap == null) {
             throw new NullPointerException("optionMap is null");
@@ -299,13 +298,13 @@ public final class NioXnio extends Xnio {
             if (closed) {
                 throw notOpen();
             }
-            return NioTcpServer.create(this, executor, handlerFactory, optionMap);
+            return NioTcpServer.create(this, executor, openHandler, optionMap);
         }
     }
 
     /** {@inheritDoc} */
-    public TcpServer createTcpServer(final IoHandlerFactory<? super TcpChannel> handlerFactory, final OptionMap optionMap) {
-        return createTcpServer(executor, handlerFactory, optionMap);
+    public TcpServer createTcpServer(final ChannelListener<? super TcpChannel> openHandler, final OptionMap optionMap) {
+        return createTcpServer(executor, openHandler, optionMap);
     }
 
     /** {@inheritDoc} */
@@ -329,41 +328,47 @@ public final class NioXnio extends Xnio {
         return createTcpConnector(executor, optionMap);
     }
 
-    public UdpServer createUdpServer(final Executor executor, final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap optionMap) {
+    /** {@inheritDoc} */
+    public UdpServer createUdpServer(final Executor executor, final ChannelListener<? super UdpChannel> openHandler, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
+        if (openHandler == null) {
+            throw new NullPointerException("openHandler is null");
         }
         if (optionMap == null) {
             throw new NullPointerException("optionMap is null");
         }
-        if (optionMap.contains(CommonOptions.MULTICAST) && optionMap.get(CommonOptions.MULTICAST).booleanValue()) {
-            return new BioUdpServer(this, executor, handlerFactory, optionMap);
-        } else {
-            return new NioUdpServer(this, executor, handlerFactory, optionMap);
+        synchronized (lock) {
+            if (closed) {
+                throw notOpen();
+            }
+            if (optionMap.contains(CommonOptions.MULTICAST) && optionMap.get(CommonOptions.MULTICAST).booleanValue()) {
+                return new BioUdpServer(this, executor, openHandler, optionMap);
+            } else {
+                return new NioUdpServer(this, executor, openHandler, optionMap);
+            }
         }
-    }
-
-    public UdpServer createUdpServer(final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap optionMap) {
-        return createUdpServer(executor, handlerFactory, optionMap);
     }
 
     /** {@inheritDoc} */
-    public ChannelSource<? extends StreamChannel> createPipeServer(final Executor executor, final IoHandlerFactory<? super StreamChannel> handlerFactory) {
+    public UdpServer createUdpServer(final ChannelListener<? super UdpChannel> openHandler, final OptionMap optionMap) {
+        return createUdpServer(executor, openHandler, optionMap);
+    }
+
+    public ChannelSource<? extends StreamChannel> createPipeServer(final Executor executor, final ChannelListener<? super StreamChannel> leftOpenListener) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
+        if (leftOpenListener == null) {
+            throw new NullPointerException("openHandler is null");
         }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
             return new ChannelSource<StreamChannel>() {
-                public IoFuture<? extends StreamChannel> open(final IoHandler<? super StreamChannel> handler) {
+                public IoFuture<? extends StreamChannel> open(final ChannelListener<? super StreamChannel> rightOpenListener) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -371,7 +376,11 @@ public final class NioXnio extends Xnio {
                         final NioPipeConnection nioPipeConnection;
                         try {
                             //noinspection unchecked
-                            nioPipeConnection = new NioPipeConnection(NioXnio.this, handler, handlerFactory.createHandler(), executor);
+                            nioPipeConnection = new NioPipeConnection(NioXnio.this);
+                            if (! IoUtils.<StreamChannel>invokeChannelListener(nioPipeConnection.getLeftSide(), leftOpenListener) ||
+                                    ! IoUtils.<StreamChannel>invokeChannelListener(nioPipeConnection.getRightSide(), rightOpenListener)) {
+                                IoUtils.safeClose(nioPipeConnection);
+                            }
                         } catch (IOException e) {
                             return new FailedIoFuture<StreamChannel>(e);
                         }
@@ -382,25 +391,23 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    /** {@inheritDoc} */
-    public ChannelSource<? extends StreamChannel> createPipeServer(final IoHandlerFactory<? super StreamChannel> handlerFactory) {
-        return createPipeServer(executor, handlerFactory);
+    public ChannelSource<? extends StreamChannel> createPipeServer(final ChannelListener<? super StreamChannel> openHandler) {
+        return createPipeServer(executor, openHandler);
     }
 
-    /** {@inheritDoc} */
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final Executor executor, final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final Executor executor, final ChannelListener<? super StreamSinkChannel> sinkOpenListener) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
+        if (sinkOpenListener == null) {
+            throw new NullPointerException("sinkOpenListener is null");
         }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
             return new ChannelSource<StreamSourceChannel>() {
-                public IoFuture<? extends StreamSourceChannel> open(final IoHandler<? super StreamSourceChannel> handler) {
+                public IoFuture<? extends StreamSourceChannel> open(final ChannelListener<? super StreamSourceChannel> sourceOpenListener) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -408,7 +415,11 @@ public final class NioXnio extends Xnio {
                         final NioOneWayPipeConnection nioPipeConnection;
                         try {
                             //noinspection unchecked
-                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this, handler, handlerFactory.createHandler(), executor);
+                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this);
+                            if (! IoUtils.<StreamSinkChannel>invokeChannelListener(nioPipeConnection.getSinkSide(), sinkOpenListener) ||
+                                    ! IoUtils.<StreamSourceChannel>invokeChannelListener(nioPipeConnection.getSourceSide(), sourceOpenListener)) {
+                                IoUtils.safeClose(nioPipeConnection);
+                            }
                         } catch (IOException e) {
                             return new FailedIoFuture<StreamSourceChannel>(e);
                         }
@@ -419,25 +430,23 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    /** {@inheritDoc} */
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final IoHandlerFactory<? super StreamSinkChannel> handlerFactory) {
-        return createPipeSourceServer(executor, handlerFactory);
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final ChannelListener<? super StreamSinkChannel> openHandler) {
+        return createPipeSourceServer(executor, openHandler);
     }
 
-    /** {@inheritDoc} */
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final Executor executor, final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceOpenListener) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (handlerFactory == null) {
-            throw new NullPointerException("handlerFactory is null");
+        if (sourceOpenListener == null) {
+            throw new NullPointerException("sourceOpenListener is null");
         }
         synchronized (lock) {
             if (closed) {
                 throw notOpen();
             }
             return new ChannelSource<StreamSinkChannel>() {
-                public IoFuture<? extends StreamSinkChannel> open(final IoHandler<? super StreamSinkChannel> handler) {
+                public IoFuture<? extends StreamSinkChannel> open(final ChannelListener<? super StreamSinkChannel> sinkOpenListener) {
                     synchronized (lock) {
                         if (closed) {
                             throw notOpen();
@@ -445,7 +454,11 @@ public final class NioXnio extends Xnio {
                         final NioOneWayPipeConnection nioPipeConnection;
                         try {
                             //noinspection unchecked
-                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this, handlerFactory.createHandler(), handler, executor);
+                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this);
+                            if (! IoUtils.<StreamSourceChannel>invokeChannelListener(nioPipeConnection.getSourceSide(), sourceOpenListener) ||
+                                    ! IoUtils.<StreamSinkChannel>invokeChannelListener(nioPipeConnection.getSinkSide(), sinkOpenListener)) {
+                                IoUtils.safeClose(nioPipeConnection);
+                            }
                         } catch (IOException e) {
                             return new FailedIoFuture<StreamSinkChannel>(e);
                         }
@@ -456,13 +469,11 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    /** {@inheritDoc} */
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final IoHandlerFactory<? super StreamSourceChannel> handlerFactory) {
-        return createPipeSinkServer(executor, handlerFactory);
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final ChannelListener<? super StreamSourceChannel> openHandler) {
+        return createPipeSinkServer(executor, openHandler);
     }
 
-    /** {@inheritDoc} */
-    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -477,20 +488,23 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             try {
-                return new FinishedIoFuture<Closeable>(new NioPipeConnection(this, leftHandler, rightHandler, executor));
+                final NioPipeConnection connection = new NioPipeConnection(this);
+                if (! IoUtils.<StreamChannel>invokeChannelListener(connection.getLeftSide(), leftHandler) ||
+                        ! IoUtils.<StreamChannel>invokeChannelListener(connection.getRightSide(), rightHandler)) {
+                    IoUtils.safeClose(connection);
+                }
+                return new FinishedIoFuture<Closeable>(connection);
             } catch (IOException e) {
                 return new FailedIoFuture<Closeable>(e);
             }
         }
     }
 
-    /** {@inheritDoc} */
-    public IoFuture<? extends Closeable> createPipeConnection(final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) {
         return createPipeConnection(executor, leftHandler, rightHandler);
     }
 
-    /** {@inheritDoc} */
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(final Executor executor, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -505,15 +519,19 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             try {
-                return new FinishedIoFuture<Closeable>(new NioOneWayPipeConnection(this, sourceHandler, sinkHandler, executor));
+                final NioOneWayPipeConnection connection = new NioOneWayPipeConnection(this);
+                if (! IoUtils.<StreamSourceChannel>invokeChannelListener(connection.getSourceSide(), sourceHandler) ||
+                        ! IoUtils.<StreamSinkChannel>invokeChannelListener(connection.getSinkSide(), sinkHandler)) {
+                    IoUtils.safeClose(connection);
+                }
+                return new FinishedIoFuture<Closeable>(connection);
             } catch (IOException e) {
                 return new FailedIoFuture<Closeable>(e);
             }
         }
     }
 
-    /** {@inheritDoc} */
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) {
         return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
     }
 

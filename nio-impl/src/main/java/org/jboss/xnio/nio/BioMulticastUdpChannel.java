@@ -27,30 +27,24 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
-import java.net.SocketAddress;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.channels.CommonOptions;
-import org.jboss.xnio.channels.Configurable;
-import org.jboss.xnio.channels.MultipointDatagramChannel;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 
 /**
  *
  */
-public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements UdpChannel {
+class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel {
     private final MulticastSocket multicastSocket;
 
     @SuppressWarnings({"unchecked"})
-    BioMulticastChannelImpl(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final IoHandler<? super UdpChannel> handler, final MulticastSocket multicastSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
-        super(sendBufSize, recvBufSize, handlerExecutor, (IoHandler<? super MultipointDatagramChannel<SocketAddress>>) handler, multicastSocket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
+    BioMulticastUdpChannel(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final MulticastSocket multicastSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
+        super(sendBufSize, recvBufSize, handlerExecutor, multicastSocket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
         this.multicastSocket = multicastSocket;
     }
 
@@ -62,13 +56,10 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
         throw new UnsupportedOperationException("source filtering not supported");
     }
 
-    private static final Set<Option<?>> OPTIONS;
-
-    static {
-        final Set<Option<?>> options = new HashSet<Option<?>>(BioDatagramChannelImpl.OPTIONS);
-        options.add(CommonOptions.MULTICAST_TTL);
-        OPTIONS = Collections.unmodifiableSet(options);
-    }
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .addAll(BioDatagramUdpChannel.OPTIONS)
+            .add(CommonOptions.MULTICAST_TTL)
+            .create();
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
@@ -83,12 +74,13 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
         return OPTIONS;
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> BioMulticastUdpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (CommonOptions.MULTICAST_TTL.equals(option)) {
             multicastSocket.setTimeToLive(((Integer)value).intValue());
             return this;
         } else {
-            return super.setOption(option, value);
+            super.setOption(option, value);
+            return this;
         }
     }
 
@@ -114,7 +106,7 @@ public class BioMulticastChannelImpl extends BioDatagramChannelImpl implements U
         }
 
         public UdpChannel getChannel() {
-            return BioMulticastChannelImpl.this;
+            return BioMulticastUdpChannel.this;
         }
 
         public InetAddress getGroup() {

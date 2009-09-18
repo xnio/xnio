@@ -29,7 +29,7 @@ import java.util.concurrent.Executor;
 /**
  *
  */
-public final class NioHandle {
+final class NioHandle {
     private final SelectionKey selectionKey;
     private final NioSelectorRunnable selectorRunnable;
     private final Runnable handler;

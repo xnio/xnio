@@ -25,13 +25,9 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.io.Closeable;
 import java.nio.channels.Pipe;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.management.OneWayPipeConnectionMBean;
-import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.channels.StreamSourceChannel;
 
 import javax.management.StandardMBean;
 import javax.management.NotCompliantMBeanException;
@@ -39,12 +35,12 @@ import javax.management.NotCompliantMBeanException;
 /**
  *
  */
-public final class NioOneWayPipeConnection implements Closeable {
+final class NioOneWayPipeConnection implements Closeable {
 
-    private final NioPipeSourceChannelImpl sourceSide;
-    private final NioPipeSinkChannelImpl sinkSide;
+    private final NioPipeSourceChannel sourceSide;
+    private final NioPipeSinkChannel sinkSide;
 
-    NioOneWayPipeConnection(final NioXnio nioXnio, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler, final Executor executor) throws IOException {
+    NioOneWayPipeConnection(final NioXnio nioXnio) throws IOException {
         final Pipe pipe = Pipe.open();
         final Pipe.SourceChannel source = pipe.source();
         final Pipe.SinkChannel sink = pipe.sink();
@@ -57,29 +53,19 @@ public final class NioOneWayPipeConnection implements Closeable {
             throw new IOException("Failed to register channel mbean: " + e);
         }
         final Closeable mbeanHandle = nioXnio.registerMBean(mbean);
-        final NioPipeSourceChannelImpl sourceSide = new NioPipeSourceChannelImpl(source, sourceHandler, nioXnio, mbeanHandle);
-        final NioPipeSinkChannelImpl sinkSide = new NioPipeSinkChannelImpl(sink, sinkHandler, nioXnio, mbean.bytes, mbean.messages, mbeanHandle);
+        final NioPipeSourceChannel sourceSide = new NioPipeSourceChannel(source, nioXnio, mbeanHandle);
+        final NioPipeSinkChannel sinkSide = new NioPipeSinkChannel(sink, nioXnio, mbean.bytes, mbean.messages, mbeanHandle);
         this.sourceSide = sourceSide;
         this.sinkSide = sinkSide;
         nioXnio.addManaged(sourceSide);
         nioXnio.addManaged(sinkSide);
-        executor.execute(new Runnable() {
-            public void run() {
-                HandlerUtils.<StreamSourceChannel>handleOpened(sourceHandler, sourceSide);
-            }
-        });
-        executor.execute(new Runnable() {
-            public void run() {
-                HandlerUtils.<StreamSinkChannel>handleOpened(sinkHandler, sinkSide);
-            }
-        });
     }
 
-    public NioPipeSourceChannelImpl getSourceSide() {
+    public NioPipeSourceChannel getSourceSide() {
         return sourceSide;
     }
 
-    public NioPipeSinkChannelImpl getSinkSide() {
+    public NioPipeSinkChannel getSinkSide() {
         return sinkSide;
     }
 

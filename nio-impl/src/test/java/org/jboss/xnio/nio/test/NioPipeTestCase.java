@@ -26,17 +26,17 @@ import junit.framework.TestCase;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.channels.CloseableChannel;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.IoFuture;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 import static org.jboss.xnio.Buffers.flip;
-import static org.jboss.xnio.IoUtils.nullHandler;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,12 +57,12 @@ public final class NioPipeTestCase extends TestCase {
 
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 
-    private void doOneWayPipeTest(final Runnable body, final IoHandler<? super StreamSourceChannel> sourceHandler, final IoHandler<? super StreamSinkChannel> sinkHandler) throws Exception {
+    private void doOneWayPipeTest(final Runnable body, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) throws Exception {
         final NioXnioConfiguration config = new NioXnioConfiguration();
         config.setSelectorThreadFactory(threadFactory);
         Xnio xnio = NioXnio.create(config);
         try {
-            final IoFuture<? extends Closeable> future = xnio.createOneWayPipeConnection(new CatchingHandler<StreamSourceChannel>(sourceHandler, threadFactory), new CatchingHandler<StreamSinkChannel>(sinkHandler, threadFactory));
+            final IoFuture<? extends Closeable> future = xnio.createOneWayPipeConnection(sourceHandler, sinkHandler);
             final Closeable closeable = future.get();
             try {
                 body.run();
@@ -74,12 +74,12 @@ public final class NioPipeTestCase extends TestCase {
         }
     }
 
-    private void doTwoWayPipeTest(final Runnable body, final IoHandler<? super StreamChannel> leftHandler, final IoHandler<? super StreamChannel> rightHandler) throws Exception {
+    private void doTwoWayPipeTest(final Runnable body, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) throws Exception {
         final NioXnioConfiguration config = new NioXnioConfiguration();
         config.setSelectorThreadFactory(threadFactory);
         Xnio xnio = NioXnio.create(config);
         try {
-            final IoFuture<? extends Closeable> future = xnio.createPipeConnection(new CatchingHandler<StreamChannel>(leftHandler, threadFactory), new CatchingHandler<StreamChannel>(rightHandler, threadFactory));
+            final IoFuture<? extends Closeable> future = xnio.createPipeConnection(leftHandler, rightHandler);
             final Closeable closeable = future.get();
             try {
                 body.run();
@@ -96,7 +96,7 @@ public final class NioPipeTestCase extends TestCase {
         doOneWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, nullHandler(), nullHandler());
+        }, null, null);
         threadFactory.await();
     }
 
@@ -105,7 +105,7 @@ public final class NioPipeTestCase extends TestCase {
         doTwoWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, nullHandler(), nullHandler());
+        }, null, null);
         threadFactory.await();
     }
 
@@ -122,30 +122,45 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<StreamSourceChannel>() {
-            public void handleOpened(final StreamSourceChannel channel) {
+        }, new ChannelListener<CloseableChannel>() {
+            public void handleEvent(final CloseableChannel channel) {
                 try {
                     channel.close();
                     sourceOK.set(true);
+                    channel.getCloseSetter().set(new ChannelListener<CloseableChannel>() {
+                        public void handleEvent(final CloseableChannel channel) {
+                            latch.countDown();
+                        }
+                    });
                 } catch (Throwable t) {
                     t.printStackTrace();
                     latch.countDown();
                     throw new RuntimeException(t);
                 }
             }
-
-            public void handleReadable(final StreamSourceChannel channel) {
-            }
-
-            public void handleWritable(final StreamSourceChannel channel) {
-            }
-
-            public void handleClosed(final StreamSourceChannel channel) {
-                latch.countDown();
-            }
-        }, new IoHandler<StreamSinkChannel>() {
-            public void handleOpened(final StreamSinkChannel channel) {
+        }, new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
                 try {
+                    channel.getCloseSetter().set(new ChannelListener<StreamSinkChannel>() {
+                        public void handleEvent(final StreamSinkChannel channel) {
+                            latch.countDown();
+                        }
+                    });
+                    channel.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
+                        public void handleEvent(final StreamSinkChannel channel) {
+                            try {
+                                channel.write(ByteBuffer.allocate(100));
+                                channel.resumeWrites();
+                            } catch (IOException e) {
+                                if (e.getMessage() != null && e.getMessage().contains("roken pipe")) {
+                                    sinkOK.set(true);
+                                } else {
+                                    e.printStackTrace();
+                                }
+                                IoUtils.safeClose(channel);
+                            }
+                        }
+                    });
                     channel.resumeWrites();
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -158,27 +173,6 @@ public final class NioPipeTestCase extends TestCase {
                     }
                     throw new RuntimeException(t);
                 }
-            }
-
-            public void handleReadable(final StreamSinkChannel channel) {
-            }
-
-            public void handleWritable(final StreamSinkChannel channel) {
-                try {
-                    channel.write(ByteBuffer.allocate(100));
-                    channel.resumeWrites();
-                } catch (IOException e) {
-                    if (e.getMessage().contains("roken pipe")) {
-                        sinkOK.set(true);
-                    } else {
-                        e.printStackTrace();
-                    }
-                    IoUtils.safeClose(channel);
-                }
-            }
-
-            public void handleClosed(final StreamSinkChannel channel) {
-                latch.countDown();
             }
         });
         assertTrue(sourceOK.get());
@@ -199,10 +193,35 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<StreamSourceChannel>() {
-            public void handleOpened(final StreamSourceChannel channel) {
+        }, new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
                 try {
                     log.info("In source open handler");
+                    channel.getCloseSetter().set(new ChannelListener<StreamSourceChannel>() {
+                        public void handleEvent(final StreamSourceChannel channel) {
+                            log.info("In source close handler");
+                            latch.countDown();
+                        }
+                    });
+                    channel.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
+                        public void handleEvent(final StreamSourceChannel channel) {
+                            try {
+                                log.info("In source read handler");
+                                final int c = channel.read(ByteBuffer.allocate(100));
+                                if (c == -1) {
+                                    sourceOK.set(true);
+                                    channel.close();
+                                } else if (c == 0) {
+                                    channel.resumeReads();
+                                } else {
+                                    log.warn("Unexpected data");
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                IoUtils.safeClose(channel);
+                            }
+                        }
+                    });
                     channel.resumeReads();
                 } catch (Throwable t) {
                     log.error(t, "Channel closed due to error");
@@ -216,37 +235,22 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(t);
                 }
             }
-
-            public void handleReadable(final StreamSourceChannel channel) {
-                try {
-                    log.info("In source read handler");
-                    final int c = channel.read(ByteBuffer.allocate(100));
-                    if (c == -1) {
-                        sourceOK.set(true);
-                        channel.close();
-                    } else if (c == 0) {
-                        channel.resumeReads();
-                    } else {
-                        log.warn("Unexpected data");
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    IoUtils.safeClose(channel);
-                }
-            }
-
-            public void handleWritable(final StreamSourceChannel channel) {
-                log.warn("In source write handler");
-            }
-
-            public void handleClosed(final StreamSourceChannel channel) {
-                log.info("In source close handler");
-                latch.countDown();
-            }
-        }, new IoHandler<StreamSinkChannel>() {
-            public void handleOpened(final StreamSinkChannel channel) {
+        }, new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
                 try {
                     log.info("In sink open handler");
+                    channel.getCloseSetter().set(new ChannelListener<StreamSinkChannel>() {
+                        public void handleEvent(final StreamSinkChannel channel) {
+                            log.info("In sink close handler");
+                            latch.countDown();
+                        }
+                    });
+                    channel.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
+                        public void handleEvent(final StreamSinkChannel channel) {
+                            log.info("In sink write handler");
+                            IoUtils.safeClose(channel);
+                        }
+                    });
                     channel.resumeWrites();
                     sinkOK.set(true);
                 } catch (Throwable t) {
@@ -254,20 +258,6 @@ public final class NioPipeTestCase extends TestCase {
                     latch.countDown();
                     throw new RuntimeException(t);
                 }
-            }
-
-            public void handleReadable(final StreamSinkChannel channel) {
-                log.warn("In sink read handler");
-            }
-
-            public void handleWritable(final StreamSinkChannel channel) {
-                log.info("In sink write handler");
-                IoUtils.safeClose(channel);
-            }
-
-            public void handleClosed(final StreamSinkChannel channel) {
-                log.info("In sink close handler");
-                latch.countDown();
             }
         });
         assertTrue(sourceOK.get());
@@ -288,10 +278,35 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<StreamSourceChannel>() {
-            public void handleOpened(final StreamSourceChannel channel) {
+        }, new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
                 try {
                     log.info("In source open handler");
+                    channel.getCloseSetter().set(new ChannelListener<StreamSourceChannel>() {
+                        public void handleEvent(final StreamSourceChannel channel) {
+                            log.info("In source close handler");
+                            latch.countDown();
+                        }
+                    });
+                    channel.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
+                        public void handleEvent(final StreamSourceChannel channel) {
+                            try {
+                                log.info("In source read handler");
+                                final int c = channel.read(ByteBuffer.allocate(100));
+                                if (c == -1) {
+                                    sourceOK.set(true);
+                                    channel.close();
+                                } else if (c == 0) {
+                                    channel.resumeReads();
+                                } else {
+                                    log.warn("Unexpected data");
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                IoUtils.safeClose(channel);
+                            }
+                        }
+                    });
                     channel.resumeReads();
                 } catch (Throwable t) {
                     log.error(t, "Channel closed due to error");
@@ -305,37 +320,16 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(t);
                 }
             }
-
-            public void handleReadable(final StreamSourceChannel channel) {
-                try {
-                    log.info("In source read handler");
-                    final int c = channel.read(ByteBuffer.allocate(100));
-                    if (c == -1) {
-                        sourceOK.set(true);
-                        channel.close();
-                    } else if (c == 0) {
-                        channel.resumeReads();
-                    } else {
-                        log.warn("Unexpected data");
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    IoUtils.safeClose(channel);
-                }
-            }
-
-            public void handleWritable(final StreamSourceChannel channel) {
-                log.warn("In source write handler");
-            }
-
-            public void handleClosed(final StreamSourceChannel channel) {
-                log.info("In source close handler");
-                latch.countDown();
-            }
-        }, new IoHandler<StreamSinkChannel>() {
-            public void handleOpened(final StreamSinkChannel channel) {
+        }, new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
                 try {
                     log.info("In sink open handler");
+                    channel.getCloseSetter().set(new ChannelListener<StreamSinkChannel>() {
+                        public void handleEvent(final StreamSinkChannel channel) {
+                            log.info("In sink close handler");
+                            latch.countDown();
+                        }
+                    });
                     channel.close();
                     sinkOK.set(true);
                 } catch (Throwable t) {
@@ -343,19 +337,6 @@ public final class NioPipeTestCase extends TestCase {
                     latch.countDown();
                     throw new RuntimeException(t);
                 }
-            }
-
-            public void handleReadable(final StreamSinkChannel channel) {
-                log.warn("In sink read handler");
-            }
-
-            public void handleWritable(final StreamSinkChannel channel) {
-                log.warn("In sink write handler");
-            }
-
-            public void handleClosed(final StreamSinkChannel channel) {
-                log.info("In sink close handler");
-                latch.countDown();
             }
         });
         assertTrue(sourceOK.get());
@@ -376,9 +357,14 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
                 try {
+                    channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                        public void handleEvent(final StreamChannel channel) {
+                            latch.countDown();
+                        }
+                    });
                     channel.close();
                     leftOK.set(true);
                 } catch (Throwable t) {
@@ -387,19 +373,27 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(t);
                 }
             }
-
-            public void handleReadable(final StreamChannel channel) {
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                latch.countDown();
-            }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
                 try {
+                    channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                        public void handleEvent(final StreamChannel channel) {
+                            latch.countDown();
+                        }
+                    });
+                    channel.getReadSetter().set(new ChannelListener<StreamChannel>() {
+                        public void handleEvent(final StreamChannel channel) {
+                            try {
+                                final int c = channel.read(ByteBuffer.allocate(100));
+                                if (c == -1) {
+                                    rightOK.set(true);
+                                }
+                                channel.close();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    });
                     channel.resumeReads();
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -412,25 +406,6 @@ public final class NioPipeTestCase extends TestCase {
                     }
                     throw new RuntimeException(t);
                 }
-            }
-
-            public void handleReadable(final StreamChannel channel) {
-                try {
-                    final int c = channel.read(ByteBuffer.allocate(100));
-                    if (c == -1) {
-                        rightOK.set(true);
-                    }
-                    channel.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                latch.countDown();
             }
         });
         assertTrue(leftOK.get());
@@ -455,95 +430,101 @@ public final class NioPipeTestCase extends TestCase {
                     throw new RuntimeException(e);
                 }
             }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                channel.getReadSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        try {
+                            final int c = channel.read(ByteBuffer.allocate(100));
+                            if (c == -1) {
+                                if (delayleftStop.getAndSet(true)) {
+                                    channel.close();
+                                }
+                            } else {
+                                leftReceived.addAndGet(c);
+                                channel.resumeReads();
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                channel.getWriteSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8"));
+                            final int c = channel.write(flip(buffer));
+                            if (leftSent.addAndGet(c) > 1000) {
+                                channel.shutdownWrites();
+                                if (delayleftStop.getAndSet(true)) {
+                                    channel.close();
+                                }
+                            } else {
+                                channel.resumeWrites();
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
                 channel.resumeReads();
                 channel.resumeWrites();
             }
-
-            public void handleReadable(final StreamChannel channel) {
-                try {
-                    final int c = channel.read(ByteBuffer.allocate(100));
-                    if (c == -1) {
-                        if (delayleftStop.getAndSet(true)) {
-                            channel.close();
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                channel.getReadSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        try {
+                            final int c = channel.read(ByteBuffer.allocate(100));
+                            if (c == -1) {
+                                if (delayrightStop.getAndSet(true)) {
+                                    channel.close();
+                                }
+                            } else {
+                                rightReceived.addAndGet(c);
+                                channel.resumeReads();
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
                         }
-                    } else {
-                        leftReceived.addAndGet(c);
-                        channel.resumeReads();
                     }
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    throw new RuntimeException(t);
-                }
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-                try {
-                    final ByteBuffer buffer = ByteBuffer.allocate(100);
-                    buffer.put("This Is A Test\r\n".getBytes("UTF-8"));
-                    final int c = channel.write(flip(buffer));
-                    if (leftSent.addAndGet(c) > 1000) {
-                        channel.shutdownWrites();
-                        if (delayleftStop.getAndSet(true)) {
-                            channel.close();
+                });
+                channel.getWriteSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8"));
+                            final int c = channel.write(flip(buffer));
+                            if (rightSent.addAndGet(c) > 1000) {
+                                channel.shutdownWrites();
+                                if (delayrightStop.getAndSet(true)) {
+                                    channel.close();
+                                }
+                            } else {
+                                channel.resumeWrites();
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
                         }
-                    } else {
-                        channel.resumeWrites();
                     }
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    throw new RuntimeException(t);
-                }
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                latch.countDown();
-            }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
+                });
+                channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
                 channel.resumeReads();
                 channel.resumeWrites();
-            }
-
-            public void handleReadable(final StreamChannel channel) {
-                try {
-                    final int c = channel.read(ByteBuffer.allocate(100));
-                    if (c == -1) {
-                        if (delayrightStop.getAndSet(true)) {
-                            channel.close();
-                        }
-                    } else {
-                        rightReceived.addAndGet(c);
-                        channel.resumeReads();
-                    }
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    throw new RuntimeException(t);
-                }
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-                try {
-                    final ByteBuffer buffer = ByteBuffer.allocate(100);
-                    buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8"));
-                    final int c = channel.write(flip(buffer));
-                    if (rightSent.addAndGet(c) > 1000) {
-                        channel.shutdownWrites();
-                        if (delayrightStop.getAndSet(true)) {
-                            channel.close();
-                        }
-                    } else {
-                        channel.resumeWrites();
-                    }
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    throw new RuntimeException(t);
-                }
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                latch.countDown();
             }
         });
         assertEquals(rightSent.get(), leftReceived.get());
@@ -558,31 +539,21 @@ public final class NioPipeTestCase extends TestCase {
         doTwoWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        leftOK.set(true);
+                    }
+                });
             }
-
-            public void handleReadable(final StreamChannel channel) {
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                leftOK.set(true);
-            }
-        }, new IoHandler<StreamChannel>() {
-            public void handleOpened(final StreamChannel channel) {
-            }
-
-            public void handleReadable(final StreamChannel channel) {
-            }
-
-            public void handleWritable(final StreamChannel channel) {
-            }
-
-            public void handleClosed(final StreamChannel channel) {
-                rightOK.set(true);
+        }, new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+                    public void handleEvent(final StreamChannel channel) {
+                        rightOK.set(true);
+                    }
+                });
             }
         });
         assertTrue(leftOK.get());
@@ -597,31 +568,21 @@ public final class NioPipeTestCase extends TestCase {
         doOneWayPipeTest(new Runnable() {
             public void run() {
             }
-        }, new IoHandler<StreamSourceChannel>() {
-            public void handleOpened(final StreamSourceChannel channel) {
+        }, new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<StreamSourceChannel>() {
+                    public void handleEvent(final StreamSourceChannel channel) {
+                        sourceOK.set(true);
+                    }
+                });
             }
-
-            public void handleReadable(final StreamSourceChannel channel) {
-            }
-
-            public void handleWritable(final StreamSourceChannel channel) {
-            }
-
-            public void handleClosed(final StreamSourceChannel channel) {
-                sourceOK.set(true);
-            }
-        }, new IoHandler<StreamSinkChannel>() {
-            public void handleOpened(final StreamSinkChannel channel) {
-            }
-
-            public void handleReadable(final StreamSinkChannel channel) {
-            }
-
-            public void handleWritable(final StreamSinkChannel channel) {
-            }
-
-            public void handleClosed(final StreamSinkChannel channel) {
-                sinkOK.set(true);
+        }, new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<StreamSinkChannel>() {
+                    public void handleEvent(final StreamSinkChannel channel) {
+                        sinkOK.set(true);
+                    }
+                });
             }
         });
         assertTrue(sourceOK.get());

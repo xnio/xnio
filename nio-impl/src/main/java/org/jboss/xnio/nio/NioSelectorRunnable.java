@@ -37,7 +37,7 @@ import org.jboss.xnio.log.Logger;
 /**
  *
  */
-public final class NioSelectorRunnable implements Runnable {
+final class NioSelectorRunnable implements Runnable {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.selector");
 

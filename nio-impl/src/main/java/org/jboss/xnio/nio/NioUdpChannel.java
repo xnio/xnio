@@ -25,7 +25,7 @@ package org.jboss.xnio.nio;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.DatagramChannel;
@@ -36,9 +36,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.Option;
+import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
@@ -48,14 +50,25 @@ import org.jboss.xnio.channels.UnsupportedOptionException;
 /**
  *
  */
-public class NioUdpSocketChannelImpl implements UdpChannel {
+class NioUdpChannel implements UdpChannel {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.server.channel");
 
     private final DatagramChannel datagramChannel;
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
-    private final IoHandler<? super UdpChannel> handler;
+
+    private volatile ChannelListener<? super UdpChannel> readListener = null;
+    private volatile ChannelListener<? super UdpChannel> writeListener = null;
+    private volatile ChannelListener<? super UdpChannel> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "readListener");
+    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "writeListener");
+    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<UdpChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
+    private final ChannelListener.Setter<UdpChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
+    private final ChannelListener.Setter<UdpChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioXnio nioXnio;
@@ -68,7 +81,7 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
     final AtomicLong messagesRead = new AtomicLong();
     final AtomicLong messagesWritten = new AtomicLong();
 
-    NioUdpSocketChannelImpl(final NioXnio nioXnio, final DatagramChannel datagramChannel, final IoHandler<? super UdpChannel> handler, final Executor executor, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) throws IOException {
+    NioUdpChannel(final NioXnio nioXnio, final DatagramChannel datagramChannel, final Executor executor, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) throws IOException {
         this.nioXnio = nioXnio;
         this.globalBytesRead = globalBytesRead;
         this.globalBytesWritten = globalBytesWritten;
@@ -82,16 +95,15 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
             writeHandle = nioXnio.addWriteHandler(datagramChannel, new WriteHandler());
         }
         this.datagramChannel = datagramChannel;
-        this.handler = handler;
     }
 
-    public SocketAddress getLocalAddress() {
-        return datagramChannel.socket().getLocalSocketAddress();
+    public InetSocketAddress getLocalAddress() {
+        return (InetSocketAddress) datagramChannel.socket().getLocalSocketAddress();
     }
 
-    public MultipointReadResult<SocketAddress> receive(final ByteBuffer buffer) throws IOException {
+    public MultipointReadResult<InetSocketAddress> receive(final ByteBuffer buffer) throws IOException {
         final int o = buffer.remaining();
-        final SocketAddress sourceAddress = datagramChannel.receive(buffer);
+        final InetSocketAddress sourceAddress = (InetSocketAddress) datagramChannel.receive(buffer);
         if (sourceAddress == null) {
             return null;
         } else {
@@ -100,16 +112,28 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
             messagesRead.incrementAndGet();
             globalBytesRead.addAndGet((long) t);
             bytesRead.addAndGet((long) t);
-            return new MultipointReadResult<SocketAddress>() {
-                public SocketAddress getSourceAddress() {
+            return new MultipointReadResult<InetSocketAddress>() {
+                public InetSocketAddress getSourceAddress() {
                     return sourceAddress;
                 }
 
-                public SocketAddress getDestinationAddress() {
+                public InetSocketAddress getDestinationAddress() {
                     return null;
                 }
             };
         }
+    }
+
+    public ChannelListener.Setter<UdpChannel> getReadSetter() {
+        return readSetter;
+    }
+
+    public ChannelListener.Setter<UdpChannel> getWriteSetter() {
+        return writeSetter;
+    }
+
+    public ChannelListener.Setter<UdpChannel> getCloseSetter() {
+        return closeSetter;
     }
 
     public boolean isOpen() {
@@ -123,12 +147,12 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
                 datagramChannel.close();
             } finally {
                 nioXnio.removeManaged(this);
-                HandlerUtils.<UdpChannel>handleClosed(handler, this);
+                IoUtils.<UdpChannel>invokeChannelListener(this, closeListener);
             }
         }
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer buffer) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer buffer) throws IOException {
         int ret = datagramChannel.send(buffer, target);
         if (ret != 0) {
             globalMessagesWritten.incrementAndGet();
@@ -141,11 +165,11 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
         }
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer[] dsts) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts) throws IOException {
         return send(target, dsts, 0, dsts.length);
     }
 
-    public boolean send(final SocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         // todo - gather not supported in NIO.1 so we have to fake it...
         long total = 0L;
         for (int i = 0; i < length; i++) {
@@ -238,19 +262,15 @@ public class NioUdpSocketChannelImpl implements UdpChannel {
         return this;
     }
 
-    public IoHandler<? super UdpChannel> getHandler() {
-        return handler;
-    }
-
     public final class ReadHandler implements Runnable {
         public void run() {
-            HandlerUtils.<UdpChannel>handleReadable(handler, NioUdpSocketChannelImpl.this);
+            IoUtils.<UdpChannel>invokeChannelListener(NioUdpChannel.this, readListener);
         }
     }
 
     public final class WriteHandler implements Runnable {
         public void run() {
-            HandlerUtils.<UdpChannel>handleWritable(handler, NioUdpSocketChannelImpl.this);
+            IoUtils.<UdpChannel>invokeChannelListener(NioUdpChannel.this, writeListener);
         }
     }
 

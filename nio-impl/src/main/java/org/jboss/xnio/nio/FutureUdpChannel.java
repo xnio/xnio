@@ -32,7 +32,7 @@ import java.io.Closeable;
 /**
  *
  */
-public class FutureUdpChannel extends AbstractIoFuture<UdpChannel> {
+class FutureUdpChannel extends AbstractIoFuture<UdpChannel> {
 
     private final UdpChannel channel;
     private final Closeable underlyingChannel;

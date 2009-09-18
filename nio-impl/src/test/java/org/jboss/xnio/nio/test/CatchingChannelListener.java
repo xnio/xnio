@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -22,62 +22,26 @@
 
 package org.jboss.xnio.nio.test;
 
-import org.jboss.xnio.IoHandler;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.test.support.TestThreadFactory;
 import java.nio.channels.Channel;
 
 /**
  *
  */
-public final class CatchingHandler<T extends Channel> implements IoHandler<T> {
+public final class CatchingChannelListener<T extends Channel> implements ChannelListener<T> {
 
-    private final IoHandler<? super T> delegate;
+    private final ChannelListener<? super T> delegate;
     private final TestThreadFactory testThreadFactory;
 
-    public CatchingHandler(final IoHandler<? super T> delegate, final TestThreadFactory factory) {
+    public CatchingChannelListener(final ChannelListener<? super T> delegate, final TestThreadFactory factory) {
         this.delegate = delegate;
         testThreadFactory = factory;
     }
 
-    public void handleOpened(final T channel) {
+    public void handleEvent(final T channel) {
         try {
-            delegate.handleOpened(channel);
-        } catch (RuntimeException t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        } catch (Error t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        }
-    }
-
-    public void handleClosed(final T channel) {
-        try {
-            delegate.handleClosed(channel);
-        } catch (RuntimeException t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        } catch (Error t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        }
-    }
-
-    public void handleReadable(final T channel) {
-        try {
-            delegate.handleReadable(channel);
-        } catch (RuntimeException t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        } catch (Error t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        }
-    }
-
-    public void handleWritable(final T channel) {
-        try {
-            delegate.handleWritable(channel);
+            if (delegate != null) delegate.handleEvent(channel);
         } catch (RuntimeException t) {
             testThreadFactory.addProblem(t);
             throw t;

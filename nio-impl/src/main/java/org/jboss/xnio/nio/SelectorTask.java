@@ -27,6 +27,6 @@ import java.nio.channels.Selector;
 /**
  *
  */
-public interface SelectorTask {
+interface SelectorTask {
     void run(Selector selector);
 }

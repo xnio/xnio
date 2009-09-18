@@ -26,24 +26,23 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.MulticastSocket;
 import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoHandler;
-import org.jboss.xnio.IoHandlerFactory;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Option;
+import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
@@ -56,14 +55,22 @@ import javax.management.StandardMBean;
 /**
  *
  */
-public final class BioUdpServer implements UdpServer {
+final class BioUdpServer implements UdpServer {
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio.udp.bio-server");
 
-    private final IoHandlerFactory<? super UdpChannel> handlerFactory;
+    private volatile ChannelListener<? super UdpChannel> bindListener = null;
+    private volatile ChannelListener<? super UdpServer> closeListener = null;
+
+    private static final AtomicReferenceFieldUpdater<BioUdpServer, ChannelListener> bindListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioUdpServer.class, ChannelListener.class, "bindListener");
+    private static final AtomicReferenceFieldUpdater<BioUdpServer, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioUdpServer.class, ChannelListener.class, "closeListener");
+
+    private final ChannelListener.Setter<UdpChannel> bindSetter = IoUtils.getSetter(this, bindListenerUpdater);
+    private final ChannelListener.Setter<UdpServer> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+
     private final Executor executor;
 
     private final Object lock = new Object();
-    private final Set<BioMulticastChannelImpl> boundChannels = new LinkedHashSet<BioMulticastChannelImpl>();
+    private final Set<BioMulticastUdpChannel> boundChannels = new LinkedHashSet<BioMulticastUdpChannel>();
 
     private boolean closed;
 
@@ -79,9 +86,9 @@ public final class BioUdpServer implements UdpServer {
     private final AtomicLong globalMessagesRead = new AtomicLong();
     private final AtomicLong globalMessagesWritten = new AtomicLong();
 
-    BioUdpServer(final NioXnio nioXnio, final Executor executor, final IoHandlerFactory<? super UdpChannel> handlerFactory, final OptionMap config) {
+    BioUdpServer(final NioXnio nioXnio, final Executor executor, final ChannelListener<? super UdpChannel> bindListener, final OptionMap config) {
         synchronized (lock) {
-            this.handlerFactory = handlerFactory;
+            this.bindListener = bindListener;
             this.executor = executor;
             reuseAddress = config.get(CommonOptions.REUSE_ADDRESSES);
             receiveBufferSize = config.get(CommonOptions.RECEIVE_BUFFER);
@@ -98,16 +105,20 @@ public final class BioUdpServer implements UdpServer {
         }
     }
 
-    protected static final Set<Option<?>> OPTIONS;
+    protected static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(CommonOptions.RECEIVE_BUFFER)
+            .add(CommonOptions.REUSE_ADDRESSES)
+            .add(CommonOptions.SEND_BUFFER)
+            .add(CommonOptions.IP_TRAFFIC_CLASS)
+            .add(CommonOptions.BROADCAST)
+            .create();
 
-    static {
-        final Set<Option<?>> options = new HashSet<Option<?>>();
-        options.add(CommonOptions.RECEIVE_BUFFER);
-        options.add(CommonOptions.REUSE_ADDRESSES);
-        options.add(CommonOptions.SEND_BUFFER);
-        options.add(CommonOptions.IP_TRAFFIC_CLASS);
-        options.add(CommonOptions.BROADCAST);
-        OPTIONS = Collections.unmodifiableSet(options);
+    public ChannelListener.Setter<UdpChannel> getBindSetter() {
+        return bindSetter;
+    }
+
+    public ChannelListener.Setter<UdpServer> getCloseSetter() {
+        return closeSetter;
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
@@ -164,9 +175,7 @@ public final class BioUdpServer implements UdpServer {
                 if (reuseAddress != null) socket.setReuseAddress(reuseAddress.booleanValue());
                 if (trafficClass != null) socket.setTrafficClass(trafficClass.intValue());
                 socket.bind(address);
-                //noinspection unchecked
-                final IoHandler<? super UdpChannel> handler = handlerFactory.createHandler();
-                final BioMulticastChannelImpl channel = new BioMulticastChannelImpl(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, handler, socket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
+                final BioMulticastUdpChannel channel = new BioMulticastUdpChannel(socket.getSendBufferSize(), socket.getReceiveBufferSize(), executor, socket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
                 final FutureUdpChannel futureUdpChannel = new FutureUdpChannel(channel, new Closeable() {
                     public void close() throws IOException {
                         socket.close();
@@ -176,7 +185,7 @@ public final class BioUdpServer implements UdpServer {
                 executor.execute(new Runnable() {
                     public void run() {
                         try {
-                            handler.handleOpened(channel);
+                            bindListener.handleEvent(channel);
                             if (! futureUdpChannel.done()) {
                                 IoUtils.safeClose(channel);
                             }
@@ -209,12 +218,19 @@ public final class BioUdpServer implements UdpServer {
                 log.trace("Closing %s", this);
                 closed = true;
                 IoUtils.safeClose(mbeanHandle);
-                final Iterator<BioMulticastChannelImpl> it = boundChannels.iterator();
+                final Iterator<BioMulticastUdpChannel> it = boundChannels.iterator();
                 while (it.hasNext()) {
                     IoUtils.safeClose(it.next());
                     it.remove();
                 }
+                IoUtils.<UdpServer>invokeChannelListener(this, closeListener);
             }
+        }
+    }
+
+    public boolean isOpen() {
+        synchronized (lock) {
+            return ! closed;
         }
     }
 
@@ -228,7 +244,7 @@ public final class BioUdpServer implements UdpServer {
             synchronized (lock) {
                 final Channel[] channels = new Channel[boundChannels.size()];
                 int i = 0;
-                for (final BioMulticastChannelImpl channel : boundChannels) {
+                for (final BioMulticastUdpChannel channel : boundChannels) {
                     channels[i++] = new Channel() {
                         public long getBytesRead() {
                             return channel.bytesRead.get();
@@ -246,8 +262,8 @@ public final class BioUdpServer implements UdpServer {
                             return channel.messagesWritten.get();
                         }
 
-                        public SocketAddress getBindAddress() {
-                            return channel.getLocalAddress();
+                        public InetSocketAddress getBindAddress() {
+                            return (InetSocketAddress) channel.getLocalAddress();
                         }
 
                         public void close() {
