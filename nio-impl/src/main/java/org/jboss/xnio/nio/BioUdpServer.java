@@ -25,7 +25,6 @@ package org.jboss.xnio.nio;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.MulticastSocket;
-import java.net.SocketAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
@@ -162,7 +161,7 @@ final class BioUdpServer implements UdpServer {
         }
     }
 
-    public IoFuture<UdpChannel> bind(final SocketAddress address) {
+    public IoFuture<UdpChannel> bind(final InetSocketAddress address) {
         synchronized (lock) {
             try {
                 if (closed) {
