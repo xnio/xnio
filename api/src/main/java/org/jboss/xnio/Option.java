@@ -159,7 +159,7 @@ public abstract class Option<T> implements Serializable {
      * A builder for an immutable option set.
      */
     public static class SetBuilder {
-        private List<Option> optionSet = new ArrayList<Option>();
+        private List<Option<?>> optionSet = new ArrayList<Option<?>>();
 
         SetBuilder() {
         }
@@ -170,7 +170,7 @@ public abstract class Option<T> implements Serializable {
          * @param option the option to add
          * @return this builder
          */
-        public SetBuilder add(Option option) {
+        public SetBuilder add(Option<?> option) {
             if (option == null) {
                 throw new NullPointerException("option is null");
             }
@@ -183,8 +183,8 @@ public abstract class Option<T> implements Serializable {
          *
          * @return the option set
          */
-        public Set<Option> create() {
-            return Collections.unmodifiableSet(new LinkedHashSet<Option>(optionSet));
+        public Set<Option<?>> create() {
+            return Collections.unmodifiableSet(new LinkedHashSet<Option<?>>(optionSet));
         }
     }
 }
