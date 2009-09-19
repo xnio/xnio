@@ -40,7 +40,7 @@ public final class EchoServer {
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
         try {
-            final TcpServer tcpServer = xnio.createTcpServer(new EchoHandlerFactory(), OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.FALSE).getMap());
+            final TcpServer tcpServer = xnio.createTcpServer(new EchoHandler(), OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.FALSE).getMap());
             try {
                 tcpServer.bind(new InetSocketAddress(12345)).await();
                 Thread.sleep(30000L);

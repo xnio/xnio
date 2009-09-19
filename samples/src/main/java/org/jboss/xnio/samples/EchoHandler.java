@@ -22,8 +22,8 @@
 
 package org.jboss.xnio.samples;
 
-import org.jboss.xnio.IoHandler;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.ChannelListener;
 import static org.jboss.xnio.Buffers.flip;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.StreamChannel;
@@ -36,61 +36,64 @@ import java.util.Collections;
 /**
  * A simple stream handler that echos data back to the other end.  A simple linked list is used to queue buffers.
  */
-public final class EchoHandler implements IoHandler<StreamChannel> {
+public final class EchoHandler implements ChannelListener<StreamChannel> {
 
     private static final Logger log = Logger.getLogger(EchoHandler.class);
 
     private final List<ByteBuffer> buflist = Collections.synchronizedList(new LinkedList<ByteBuffer>());
 
-    public void handleOpened(final StreamChannel channel) {
+    public void handleEvent(final StreamChannel channel) {
         log.info("Opened echo handler!");
-        channel.resumeReads();
-    }
-
-    public void handleReadable(final StreamChannel channel) {
-        final ByteBuffer buffer = ByteBuffer.allocate(400);
-        try {
-            final int c = channel.read(buffer);
-            if (c == -1) {
-                log.info("Remote side closed the channel.");
-                IoUtils.safeClose(channel);
-                return;
-            } else if (c == 0) {
-                return;
-            }
-            flip(buffer);
-            buflist.add(buffer);
-            channel.resumeWrites();
-        } catch (IOException e) {
-            log.error("I/O exception on read: %s", e);
-            IoUtils.safeClose(channel);
-            return;
-        } finally {
-            channel.resumeReads();
-        }
-    }
-
-    public void handleWritable(final StreamChannel channel) {
-        while (! buflist.isEmpty()) {
-            final ByteBuffer buffer = buflist.get(0);
-            try {
-                final int c = channel.write(buffer);
-                if (c == 0) {
+        channel.getReadSetter().set(new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                final ByteBuffer buffer = ByteBuffer.allocate(400);
+                try {
+                    final int c = channel.read(buffer);
+                    if (c == -1) {
+                        log.info("Remote side closed the channel.");
+                        IoUtils.safeClose(channel);
+                        return;
+                    } else if (c == 0) {
+                        return;
+                    }
+                    flip(buffer);
+                    buflist.add(buffer);
                     channel.resumeWrites();
+                } catch (IOException e) {
+                    log.error("I/O exception on read: %s", e);
+                    IoUtils.safeClose(channel);
                     return;
+                } finally {
+                    channel.resumeReads();
                 }
-            } catch (IOException e) {
-                log.error("I/O exception on write: %s", e);
-                IoUtils.safeClose(channel);
-                return;
             }
-            if (! buffer.hasRemaining()) {
-                buflist.remove(0);
+        });
+        channel.getWriteSetter().set(new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                while (! buflist.isEmpty()) {
+                    final ByteBuffer buffer = buflist.get(0);
+                    try {
+                        final int c = channel.write(buffer);
+                        if (c == 0) {
+                            channel.resumeWrites();
+                            return;
+                        }
+                    } catch (IOException e) {
+                        log.error("I/O exception on write: %s", e);
+                        IoUtils.safeClose(channel);
+                        return;
+                    }
+                    if (! buffer.hasRemaining()) {
+                        buflist.remove(0);
+                    }
+                }
             }
-        }
-    }
-
-    public void handleClosed(final StreamChannel channel) {
-        log.info("Closed echo handler!");
+        });
+        channel.getCloseSetter().set(new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                log.info("Closed echo handler!");
+            }
+        });
+        channel.resumeReads();
     }
 }

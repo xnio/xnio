@@ -38,7 +38,7 @@ public final class UdpEchoServer {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
-        final UdpServer server = xnio.createUdpServer(new UdpEchoServerHandlerFactory(), OptionMap.EMPTY);
+        final UdpServer server = xnio.createUdpServer(new UdpEchoHandler(), OptionMap.EMPTY);
         try {
             server.bind(new InetSocketAddress(10007)).await();
             while (true) {

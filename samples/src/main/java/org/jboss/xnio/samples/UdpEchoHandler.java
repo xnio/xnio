@@ -22,45 +22,43 @@
 
 package org.jboss.xnio.samples;
 
-import org.jboss.xnio.IoHandler;
 import static org.jboss.xnio.Buffers.flip;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.MultipointReadResult;
+import org.jboss.xnio.ChannelListener;
 import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.net.SocketAddress;
-
+import java.net.InetSocketAddress;
 
 /**
  *
  */
-public final class UdpEchoServerHandler implements IoHandler<UdpChannel> {
-    private static final Logger log = Logger.getLogger(UdpEchoServerHandler.class);
+public final class UdpEchoHandler implements ChannelListener<UdpChannel> {
+    private static final Logger log = Logger.getLogger(UdpEchoHandler.class);
 
-    public void handleOpened(final UdpChannel channel) {
+    public void handleEvent(final UdpChannel channel) {
         log.info("UDP echo channel opened!");
-        channel.resumeReads();
-    }
-
-    public void handleReadable(final UdpChannel channel) {
-        final ByteBuffer buffer = ByteBuffer.allocate(65536);
-        try {
-            final MultipointReadResult<SocketAddress> result = channel.receive(buffer);
-            channel.resumeReads();
-            if (result != null) {
-                flip(buffer);
-                channel.send(result.getSourceAddress(), buffer);
+        channel.getReadSetter().set(new ChannelListener<UdpChannel>() {
+            public void handleEvent(final UdpChannel channel) {
+                final ByteBuffer buffer = ByteBuffer.allocate(65536);
+                try {
+                    final MultipointReadResult<InetSocketAddress> result = channel.receive(buffer);
+                    channel.resumeReads();
+                    if (result != null) {
+                        flip(buffer);
+                        channel.send(result.getSourceAddress(), buffer);
+                    }
+                } catch (IOException e) {
+                    log.error("Error echoing datagram: %s", e);
+                }
             }
-        } catch (IOException e) {
-            log.error("Error echoing datagram: %s", e);
-        }
-    }
-
-    public void handleWritable(final UdpChannel channel) {
-    }
-
-    public void handleClosed(final UdpChannel channel) {
-        log.info("UDP echo channel closed!");
+        });
+        channel.getCloseSetter().set(new ChannelListener<UdpChannel>() {
+            public void handleEvent(final UdpChannel channel) {
+                log.info("UDP echo channel closed!");
+            }
+        });
+        channel.resumeReads();
     }
 }
