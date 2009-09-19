@@ -90,8 +90,6 @@ public final class NioXnio extends Xnio {
      */
     private volatile boolean closed;
 
-    private final Executor executor;
-
     private final List<NioSelectorRunnable> readers = new ArrayList<NioSelectorRunnable>();
     private final List<NioSelectorRunnable> writers = new ArrayList<NioSelectorRunnable>();
     private final List<NioSelectorRunnable> connectors = new ArrayList<NioSelectorRunnable>();
@@ -260,7 +258,6 @@ public final class NioXnio extends Xnio {
         }
         cache = new Selector[selectorCacheSize];
         synchronized (lock) {
-            this.executor = executor == null ? IoUtils.directExecutor() : executor;
             for (int i = 0; i < readSelectorThreads; i ++) {
                 readers.add(new NioSelectorRunnable());
             }
@@ -279,7 +276,7 @@ public final class NioXnio extends Xnio {
             for (NioSelectorRunnable runnable : connectors) {
                 selectorThreadFactory.newThread(runnable).start();
             }
-            log.debug("Creating NioXnio instance using executor %s, %d read threads, %d write threads, %d connect threads", this.executor, Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
+            log.debug("Creating NioXnio instance using %d read threads, %d write threads, %d connect threads", Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
         }
     }
 
@@ -303,11 +300,6 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public TcpServer createTcpServer(final ChannelListener<? super TcpChannel> openHandler, final OptionMap optionMap) {
-        return createTcpServer(executor, openHandler, optionMap);
-    }
-
-    /** {@inheritDoc} */
     public TcpConnector createTcpConnector(final Executor executor, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -321,11 +313,6 @@ public final class NioXnio extends Xnio {
             }
             return NioTcpConnector.create(this, executor, optionMap);
         }
-    }
-
-    /** {@inheritDoc} */
-    public TcpConnector createTcpConnector(final OptionMap optionMap) {
-        return createTcpConnector(executor, optionMap);
     }
 
     /** {@inheritDoc} */
@@ -349,11 +336,6 @@ public final class NioXnio extends Xnio {
                 return new NioUdpServer(this, executor, openHandler, optionMap);
             }
         }
-    }
-
-    /** {@inheritDoc} */
-    public UdpServer createUdpServer(final ChannelListener<? super UdpChannel> openHandler, final OptionMap optionMap) {
-        return createUdpServer(executor, openHandler, optionMap);
     }
 
     public ChannelSource<? extends StreamChannel> createPipeServer(final Executor executor, final ChannelListener<? super StreamChannel> leftOpenListener) {
@@ -391,10 +373,6 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    public ChannelSource<? extends StreamChannel> createPipeServer(final ChannelListener<? super StreamChannel> openHandler) {
-        return createPipeServer(executor, openHandler);
-    }
-
     public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final Executor executor, final ChannelListener<? super StreamSinkChannel> sinkOpenListener) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -428,10 +406,6 @@ public final class NioXnio extends Xnio {
                 }
             };
         }
-    }
-
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final ChannelListener<? super StreamSinkChannel> openHandler) {
-        return createPipeSourceServer(executor, openHandler);
     }
 
     public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceOpenListener) {
@@ -469,10 +443,6 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final ChannelListener<? super StreamSourceChannel> openHandler) {
-        return createPipeSinkServer(executor, openHandler);
-    }
-
     public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -498,10 +468,6 @@ public final class NioXnio extends Xnio {
                 return new FailedIoFuture<Closeable>(e);
             }
         }
-    }
-
-    public IoFuture<? extends Closeable> createPipeConnection(final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) {
-        return createPipeConnection(executor, leftHandler, rightHandler);
     }
 
     public IoFuture<? extends Closeable> createOneWayPipeConnection(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) {
@@ -531,10 +497,6 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) {
-        return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
-    }
-
     public TcpAcceptor createTcpAcceptor(final Executor executor, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
@@ -548,10 +510,6 @@ public final class NioXnio extends Xnio {
             }
             return NioTcpAcceptor.create(this, executor, optionMap);
         }
-    }
-
-    public TcpAcceptor createTcpAcceptor(final OptionMap optionMap) {
-        return createTcpAcceptor(executor, optionMap);
     }
 
     /**
@@ -649,7 +607,7 @@ public final class NioXnio extends Xnio {
     }
 
     NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler, final boolean oneshot) throws IOException {
-        return doAdd(channel, connectors, handler, oneshot, executor);
+        return doAdd(channel, connectors, handler, oneshot, getExecutor());
     }
 
     NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler, final boolean oneshot, final Executor executor) throws IOException {
@@ -657,7 +615,7 @@ public final class NioXnio extends Xnio {
     }
 
     NioHandle addReadHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, readers, handler, true, executor);
+        return doAdd(channel, readers, handler, true, getExecutor());
     }
 
     NioHandle addReadHandler(final SelectableChannel channel, final Runnable handler, final Executor executor) throws IOException {
@@ -665,7 +623,7 @@ public final class NioXnio extends Xnio {
     }
 
     NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, writers, handler, true, executor);
+        return doAdd(channel, writers, handler, true, getExecutor());
     }
 
     NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler, final Executor executor) throws IOException {

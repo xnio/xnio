@@ -22,7 +22,6 @@
 
 package org.jboss.xnio.nio;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import org.jboss.xnio.XnioConfiguration;
 
@@ -37,7 +36,6 @@ public final class NioXnioConfiguration extends XnioConfiguration {
     private int connectSelectorThreads = 1;
     private int selectorCacheSize = 30;
 
-    private Executor executor;
     private ThreadFactory selectorThreadFactory;
 
     /**
@@ -92,24 +90,6 @@ public final class NioXnioConfiguration extends XnioConfiguration {
      */
     public void setConnectSelectorThreads(final int connectSelectorThreads) {
         this.connectSelectorThreads = connectSelectorThreads;
-    }
-
-    /**
-     * Get the executor to use for handler execution.  If none is given, the direct executor is used.
-     *
-     * @return the executor
-     */
-    public Executor getExecutor() {
-        return executor;
-    }
-
-    /**
-     * Set the executor to use for handler execution.  If none is given, the direct executor is used.
-     *
-     * @param executor the executor
-     */
-    public void setExecutor(final Executor executor) {
-        this.executor = executor;
     }
 
     /**

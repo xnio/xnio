@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 import javax.management.MBeanServer;
 
@@ -35,6 +36,7 @@ import javax.management.MBeanServer;
 public abstract class XnioConfiguration {
 
     private List<MBeanServer> mBeanServers;
+    private Executor executor;
     private String name;
 
     /**
@@ -79,5 +81,23 @@ public abstract class XnioConfiguration {
      */
     public void setName(final String name) {
         this.name = name;
+    }
+
+    /**
+     * Get the default handler executor for the XNIO provider instance.
+     *
+     * @return the default handler executor
+     */
+    public Executor getExecutor() {
+        return executor;
+    }
+
+    /**
+     * Set the default hander executor for the XNIO provider instance.
+     *
+     * @param executor the default handler executor
+     */
+    public void setExecutor(final Executor executor) {
+        this.executor = executor;
     }
 }

@@ -108,6 +108,16 @@ public abstract class Xnio implements Closeable {
     private final List<MBeanServer> mBeanServers = new ArrayList<MBeanServer>();
 
     private final String name;
+    private final Executor executor;
+
+    /**
+     * Get the default handler executor.
+     *
+     * @return the executor
+     */
+    protected Executor getExecutor() {
+        return executor;
+    }
 
     /**
      * Create an instance of the default XNIO provider.  The class name of this provider can be specified through the
@@ -177,6 +187,8 @@ public abstract class Xnio implements Closeable {
         final String name = configuration.getName();
         final int seq = xnioSequence.getAndIncrement();
         this.name = name != null ? name : String.format("%s-%d", getClass().getName(), Integer.valueOf(seq));
+        final Executor executor = configuration.getExecutor();
+        this.executor = executor != null ? executor : IoUtils.directExecutor();
         // Perform MBeanServer autodetection...
         final List<MBeanServer> servers = mBeanServers;
         synchronized (servers) {
@@ -264,7 +276,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpServer createTcpServer(ChannelListener<? super TcpChannel> openHandler, OptionMap optionMap) {
-        throw new UnsupportedOperationException("TCP Server");
+        return createTcpServer(executor, openHandler, optionMap);
     }
 
     /**
@@ -291,7 +303,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(OptionMap optionMap) {
-        throw new UnsupportedOperationException("TCP Connector");
+        return createTcpConnector(executor, optionMap);
     }
 
     /**
@@ -326,7 +338,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public UdpServer createUdpServer(ChannelListener<? super UdpChannel> openHandler, OptionMap optionMap) {
-        throw new UnsupportedOperationException("UDP Server");
+        return createUdpServer(executor, openHandler, optionMap);
     }
 
     /**
@@ -358,7 +370,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public ChannelSource<? extends StreamChannel> createPipeServer(ChannelListener<? super StreamChannel> openHandler) {
-        throw new UnsupportedOperationException("Pipe Server");
+        return createPipeServer(executor, openHandler);
     }
 
     /**
@@ -392,7 +404,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ChannelListener<? super StreamSinkChannel> openHandler) {
-        throw new UnsupportedOperationException("One-way Pipe Server");
+        return createPipeSourceServer(executor, openHandler);
     }
 
     /**
@@ -426,7 +438,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(ChannelListener<? super StreamSourceChannel> openHandler) {
-        throw new UnsupportedOperationException("One-way Pipe Server");
+        return createPipeSinkServer(executor, openHandler);
     }
 
     /**
@@ -458,7 +470,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public IoFuture<? extends Closeable> createPipeConnection(ChannelListener<? super StreamChannel> leftHandler, ChannelListener<? super StreamChannel> rightHandler) {
-        throw new UnsupportedOperationException("Pipe Connection");
+        return createPipeConnection(executor, leftHandler, rightHandler);
     }
 
     /**
@@ -490,7 +502,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public IoFuture<? extends Closeable> createOneWayPipeConnection(ChannelListener<? super StreamSourceChannel> sourceHandler, ChannelListener<? super StreamSinkChannel> sinkHandler) {
-        throw new UnsupportedOperationException("One-way Pipe Connection");
+        return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
     }
 
     /**
@@ -517,7 +529,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpAcceptor createTcpAcceptor(OptionMap optionMap) {
-        throw new UnsupportedOperationException("TCP Acceptor");
+        return createTcpAcceptor(executor, optionMap);
     }
 
     /**
@@ -548,7 +560,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public LocalServer createLocalStreamServer(ChannelListener<? super ConnectedStreamChannel<String>> openListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Local IPC Stream Server");
+        return createLocalStreamServer(executor, openListener, optionMap);
     }
 
     /**
@@ -577,7 +589,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public LocalStreamConnector createLocalStreamConnector(OptionMap optionMap) {
-        throw new UnsupportedOperationException("Local IPC Stream Connector");
+        return createLocalStreamConnector(executor, optionMap);
     }
 
     /**
@@ -608,7 +620,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public LocalServer createLocalDatagramServer(ChannelListener<? super DatagramChannel<String>> openHandler, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Local IPC Datagram Server");
+        return createLocalDatagramServer(executor, openHandler, optionMap);
     }
 
     /**
@@ -635,7 +647,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public LocalDatagramConnector createLocalDatagramConnector(OptionMap optionMap) {
-        throw new UnsupportedOperationException("Local IPC Datagram Connector");
+        return createLocalDatagramConnector(executor, optionMap);
     }
 
     /**
