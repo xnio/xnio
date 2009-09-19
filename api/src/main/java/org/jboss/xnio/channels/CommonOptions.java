@@ -147,12 +147,24 @@ public final class CommonOptions {
     public static final Option<Sequence<String>> SSL_ENABLED_CIPHER_SUITES = Option.sequence(CommonOptions.class, "SSL_ENABLED_CIPHER_SUITES", String.class);
 
     /**
+     * Get the supported cipher suites for an SSL/TLS session.  This option is generally read-only.
+     */
+    public static final Option<Sequence<String>> SSL_SUPPORTED_CIPHER_SUITES = Option.sequence(CommonOptions.class, "SSL_SUPPORTED_CIPHER_SUITES", String.class);
+
+    /**
      * Specify the enabled protocols for an SSL/TLS session.  If a listed protocol is not supported, it is ignored; however, if you
      * specify a list of protocols, none of which are supported, an exception will be thrown.
      *
      * @since 2.0
      */
     public static final Option<Sequence<String>> SSL_ENABLED_PROTOCOLS = Option.sequence(CommonOptions.class, "SSL_ENABLED_PROTOCOLS", String.class);
+
+    /**
+     * Get the supported protocols for an SSL/TLS session.  This option is generally read-only.
+     *
+     * @since 2.0
+     */
+    public static final Option<Sequence<String>> SSL_SUPPORTED_PROTOCOLS = Option.sequence(CommonOptions.class, "SSL_SUPPORTED_PROTOCOLS", String.class);
 
     /**
      * Specify the requested provider for an SSL/TLS session.

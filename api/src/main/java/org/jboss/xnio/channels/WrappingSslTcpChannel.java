@@ -25,6 +25,7 @@ package org.jboss.xnio.channels;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.Set;
 import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
 
@@ -34,6 +35,7 @@ import javax.net.ssl.SSLEngine;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.Sequence;
 
 final class WrappingSslTcpChannel implements SslTcpChannel {
 
@@ -130,24 +132,48 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     }
 
     public boolean isOpen() {
-        return false;
+        return tcpChannel.isOpen();
     }
 
     public void close() throws IOException {
         tcpChannel.close();
     }
 
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(CommonOptions.SSL_ENABLED_CIPHER_SUITES)
+            .add(CommonOptions.SSL_ENABLED_PROTOCOLS)
+            .add(CommonOptions.SSL_SUPPORTED_CIPHER_SUITES)
+            .add(CommonOptions.SSL_SUPPORTED_PROTOCOLS)
+            .create();
+
     public boolean supportsOption(final Option<?> option) {
-        // todo -check against our options too
-        return tcpChannel.supportsOption(option);
+        return OPTIONS.contains(option) || tcpChannel.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return tcpChannel.getOption(option);
+        if (option == CommonOptions.SSL_ENABLED_CIPHER_SUITES) {
+            return option.cast(Sequence.of(sslEngine.getEnabledCipherSuites()));
+        } else if (option == CommonOptions.SSL_SUPPORTED_CIPHER_SUITES) {
+            return option.cast(Sequence.of(sslEngine.getSupportedCipherSuites()));
+        } else if (option == CommonOptions.SSL_ENABLED_PROTOCOLS) {
+            return option.cast(Sequence.of(sslEngine.getEnabledProtocols()));
+        } else if (option == CommonOptions.SSL_SUPPORTED_PROTOCOLS) {
+            return option.cast(Sequence.of(sslEngine.getSupportedProtocols()));
+        } else {
+            return tcpChannel.getOption(option);
+        }
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        tcpChannel.setOption(option, value);
+        if (option == CommonOptions.SSL_ENABLED_CIPHER_SUITES) {
+            final Sequence<String> strings = CommonOptions.SSL_ENABLED_CIPHER_SUITES.cast(value);
+            sslEngine.setEnabledCipherSuites(strings.toArray(new String[strings.size()]));
+        } else if (option == CommonOptions.SSL_ENABLED_PROTOCOLS) {
+            final Sequence<String> strings = CommonOptions.SSL_ENABLED_PROTOCOLS.cast(value);
+            sslEngine.setEnabledProtocols(strings.toArray(new String[strings.size()]));
+        } else {
+            tcpChannel.setOption(option, value);
+        }
         return this;
     }
 
@@ -209,15 +235,18 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     }
 
     public int write(final ByteBuffer src) throws IOException {
-        return 0;
+        return (int) write(new ByteBuffer[] { src }, 0, 1);
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        synchronized (lock) {
+            sslEngine.wrap(srcs, offset, length, null);
+        }
         return 0;
     }
 
     public long write(final ByteBuffer[] srcs) throws IOException {
-        return 0;
+        return write(srcs, 0, srcs.length);
     }
 
     public int read(final ByteBuffer dst) throws IOException {

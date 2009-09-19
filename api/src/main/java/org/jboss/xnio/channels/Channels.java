@@ -31,6 +31,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
+import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLContext;
 
@@ -73,7 +74,10 @@ public final class Channels {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("SSL channel");
+        if (true) throw new UnsupportedOperationException("SSL channel - not ready yet!");
+        final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
+        // todo - option map
+        return new WrappingSslTcpChannel(tcpChannel, sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort()));
     }
 
     /**
