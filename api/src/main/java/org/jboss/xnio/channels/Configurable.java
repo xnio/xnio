@@ -22,7 +22,6 @@
 
 package org.jboss.xnio.channels;
 
-import java.util.Set;
 import java.io.IOException;
 import org.jboss.xnio.Option;
 
@@ -32,6 +31,15 @@ import org.jboss.xnio.Option;
  * @apiviz.exclude
  */
 public interface Configurable {
+
+    /**
+     * Determine whether an option is supported on this channel.
+     *
+     * @param option the option
+     * @return {@code true} if it is supported
+     */
+    boolean supportsOption(Option<?> option);
+
     /**
      * Get the value of a channel option.
      *
@@ -41,13 +49,6 @@ public interface Configurable {
      * @throws IOException if an I/O error occurred when reading the option
      */
     <T> T getOption(Option<T> option) throws IOException;
-
-    /**
-     * Get the options that may be set on this channel.
-     *
-     * @return an unmodifiable set of options
-     */
-    Set<Option<?>> getOptions();
 
     /**
      * Set an option for this channel.  Unsupported options are ignored.

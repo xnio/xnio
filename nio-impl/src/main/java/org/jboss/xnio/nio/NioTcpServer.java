@@ -33,7 +33,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -189,6 +188,10 @@ final class NioTcpServer implements TcpServer {
         }
     }
 
+    public boolean supportsOption(final Option<?> option) {
+        return options.contains(option);
+    }
+
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         synchronized (lock) {
             if (option == CommonOptions.REUSE_ADDRESSES) {
@@ -207,10 +210,6 @@ final class NioTcpServer implements TcpServer {
                 return null;
             }
         }
-    }
-
-    public Set<Option<?>> getOptions() {
-        return options;
     }
 
     public <T> NioTcpServer setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
@@ -359,8 +358,8 @@ final class NioTcpServer implements TcpServer {
             return null;
         }
 
-        public Set<Option<?>> getOptions() {
-            return Collections.emptySet();
+        public boolean supportsOption(final Option<?> option) {
+            return false;
         }
 
         public <T> Binding setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

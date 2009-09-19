@@ -386,13 +386,13 @@ class BioDatagramUdpChannel implements UdpChannel {
         }
     }
 
-    protected static final Set<Option<?>> OPTIONS;
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(CommonOptions.BROADCAST)
+            .add(CommonOptions.IP_TRAFFIC_CLASS)
+            .create();
 
-    static {
-        final Set<Option<?>> options = new HashSet<Option<?>>();
-        options.add(CommonOptions.BROADCAST);
-        options.add(CommonOptions.IP_TRAFFIC_CLASS);
-        OPTIONS = Collections.unmodifiableSet(options);
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
     }
 
     @SuppressWarnings({"unchecked"})
@@ -405,10 +405,6 @@ class BioDatagramUdpChannel implements UdpChannel {
         } else {
             return null;
         }
-    }
-
-    public Set<Option<?>> getOptions() {
-        return OPTIONS;
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

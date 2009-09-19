@@ -27,7 +27,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.Channel;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import java.util.Set;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.OptionMap;
@@ -253,12 +252,12 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
         streamChannel.close();
     }
 
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return streamChannel.getOption(option);
+    public boolean supportsOption(final Option<?> option) {
+        return streamChannel.supportsOption(option);
     }
 
-    public Set<Option<?>> getOptions() {
-        return streamChannel.getOptions();
+    public <T> T getOption(final Option<T> option) throws IOException {
+        return streamChannel.getOption(option);
     }
 
     public <T> AllocatedMessageChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

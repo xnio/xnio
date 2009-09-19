@@ -57,9 +57,12 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
-            .addAll(BioDatagramUdpChannel.OPTIONS)
             .add(CommonOptions.MULTICAST_TTL)
             .create();
+
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option) || super.supportsOption(option);
+    }
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
@@ -68,10 +71,6 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel
         } else {
             return super.getOption(option);
         }
-    }
-
-    public Set<Option<?>> getOptions() {
-        return OPTIONS;
     }
 
     public <T> BioMulticastUdpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

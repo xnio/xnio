@@ -28,8 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
-import java.util.Collections;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -147,12 +145,12 @@ final class NioPipeSinkChannel implements StreamSinkChannel {
         SelectorUtils.await(nioXnio, channel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
+    public boolean supportsOption(final Option<?> option) {
+        return false;
     }
 
-    public Set<Option<?>> getOptions() {
-        return Collections.emptySet();
+    public <T> T getOption(final Option<T> option) throws IOException {
+        return null;
     }
 
     public <T> NioPipeSinkChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

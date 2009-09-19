@@ -28,8 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
-import java.util.Collections;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -131,16 +129,16 @@ final class NioPipeSourceChannel implements StreamSourceChannel {
         SelectorUtils.await(nioXnio, channel, SelectionKey.OP_READ, time, timeUnit);
     }
 
+    public boolean supportsOption(final Option<?> option) {
+        return false;
+    }
+
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         return null;
     }
 
     public <T> NioPipeSourceChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return this;
-    }
-
-    public Set<Option<?>> getOptions() {
-        return Collections.emptySet();
     }
 
     private final class Handler implements Runnable {

@@ -118,6 +118,10 @@ class NioUdpServer implements UdpServer {
             .add(CommonOptions.BROADCAST)
             .create();
 
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
+    }
+
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
             return option.cast(receiveBufferSize);
@@ -132,10 +136,6 @@ class NioUdpServer implements UdpServer {
         } else {
             return null;
         }
-    }
-
-    public Set<Option<?>> getOptions() {
-        return OPTIONS;
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

@@ -30,8 +30,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.util.Collections;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -250,12 +248,12 @@ class NioUdpChannel implements UdpChannel {
         throw new UnsupportedOperationException("Multicast join");
     }
 
-    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        return null;
+    public boolean supportsOption(final Option<?> option) {
+        return false;
     }
 
-    public Set<Option<?>> getOptions() {
-        return Collections.emptySet();
+    public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
+        return null;
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {

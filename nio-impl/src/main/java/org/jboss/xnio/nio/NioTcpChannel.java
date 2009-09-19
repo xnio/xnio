@@ -248,6 +248,10 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         return (InetSocketAddress) socket.getLocalSocketAddress();
     }
 
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
+    }
+
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (CommonOptions.CLOSE_ABORT.equals(option)) {
@@ -255,10 +259,6 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         } else {
             return null;
         }
-    }
-
-    public Set<Option<?>> getOptions() {
-        return OPTIONS;
     }
 
     public <T> NioTcpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
