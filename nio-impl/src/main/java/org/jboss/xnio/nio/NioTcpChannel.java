@@ -34,9 +34,9 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Option;
@@ -75,11 +75,19 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
     private final NioXnio nioXnio;
-    private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final AtomicLong bytesRead = new AtomicLong();
-    private final AtomicLong bytesWritten = new AtomicLong();
-    private final AtomicLong msgsRead = new AtomicLong();
-    private final AtomicLong msgsWritten = new AtomicLong();
+    private volatile int closeCalled = 0;
+    private volatile long bytesRead = 0L;
+    private volatile long bytesWritten = 0L;
+    private volatile long msgsRead = 0L;
+    private volatile long msgsWritten = 0L;
+
+    private static final AtomicIntegerFieldUpdater<NioTcpChannel> closeCalledUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpChannel.class, "closeCalled");
+
+    private static final AtomicLongFieldUpdater<NioTcpChannel> bytesReadUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesRead");
+    private static final AtomicLongFieldUpdater<NioTcpChannel> bytesWrittenUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesWritten");
+    private static final AtomicLongFieldUpdater<NioTcpChannel> msgsReadUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "msgsRead");
+    private static final AtomicLongFieldUpdater<NioTcpChannel> msgsWrittenUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "msgsWritten");
+
     private final Closeable mbeanHandle;
 
     private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(CommonOptions.CLOSE_ABORT);
@@ -118,8 +126,8 @@ final class NioTcpChannel implements TcpChannel, Closeable {
             final int length) throws IOException {
         long written = socketChannel.write(srcs, offset, length);
         if (written > 0) {
-            bytesWritten.addAndGet(written);
-            msgsWritten.incrementAndGet();
+            bytesWrittenUpdater.addAndGet(this, written);
+            msgsWrittenUpdater.incrementAndGet(this);
         }
         return written;
     }
@@ -127,8 +135,8 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     public long write(final ByteBuffer[] srcs) throws IOException {
         long written = socketChannel.write(srcs);
         if (written > 0) {
-            bytesWritten.addAndGet(written);
-            msgsWritten.incrementAndGet();
+            bytesWrittenUpdater.addAndGet(this, written);
+            msgsWrittenUpdater.incrementAndGet(this);
         }
         return written;
     }
@@ -136,18 +144,18 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     public int write(final ByteBuffer src) throws IOException {
         int written = socketChannel.write(src);
         if (written > 0) {
-            bytesWritten.addAndGet(written);
-            msgsWritten.incrementAndGet();
+            bytesWrittenUpdater.addAndGet(this, written);
+            msgsWrittenUpdater.incrementAndGet(this);
         }
         return written;
     }
 
     public boolean isOpen() {
-        return socketChannel.isOpen();
+        return closeCalled == 0 && socketChannel.isOpen();
     }
 
     public void close() throws IOException {
-        if (! closeCalled.getAndSet(true)) {
+        if (closeCalledUpdater.compareAndSet(this, 0, 1)) {
             log.trace("Closing %s", this);
             IoUtils.<TcpChannel>invokeChannelListener(this, closeListener);
             nioXnio.removeManaged(this);
@@ -160,8 +168,8 @@ final class NioTcpChannel implements TcpChannel, Closeable {
             throws IOException {
         long read = socketChannel.read(dsts, offset, length);
         if (read > 0) {
-            bytesRead.addAndGet(read);
-            msgsRead.incrementAndGet();
+            bytesReadUpdater.addAndGet(this, read);
+            msgsReadUpdater.incrementAndGet(this);
         }
         return read;
     }
@@ -169,8 +177,8 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     public long read(final ByteBuffer[] dsts) throws IOException {
         long read = socketChannel.read(dsts);
         if (read > 0) {
-            bytesRead.addAndGet(read);
-            msgsRead.incrementAndGet();
+            bytesReadUpdater.addAndGet(this, read);
+            msgsReadUpdater.incrementAndGet(this);
         }
         return read;
     }
@@ -178,8 +186,8 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     public int read(final ByteBuffer dst) throws IOException {
         int read = socketChannel.read(dst);
         if (read > 0) {
-            bytesRead.addAndGet(read);
-            msgsRead.incrementAndGet();
+            bytesReadUpdater.addAndGet(this, read);
+            msgsReadUpdater.incrementAndGet(this);
         }
         return read;
     }
@@ -295,19 +303,19 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         }
 
         public long getBytesRead() {
-            return bytesRead.get();
+            return bytesRead;
         }
 
         public long getBytesWritten() {
-            return bytesWritten.get();
+            return bytesWritten;
         }
 
         public long getMessagesRead() {
-            return msgsRead.get();
+            return msgsRead;
         }
 
         public long getMessagesWritten() {
-            return msgsWritten.get();
+            return msgsWritten;
         }
 
         public String toString() {
