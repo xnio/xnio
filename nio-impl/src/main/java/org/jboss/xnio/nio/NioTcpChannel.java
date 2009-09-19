@@ -122,6 +122,10 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         return closeSetter;
     }
 
+    public boolean flush() throws IOException {
+        return true;
+    }
+
     public long write(final ByteBuffer[] srcs, final int offset,
             final int length) throws IOException {
         long written = socketChannel.write(srcs, offset, length);

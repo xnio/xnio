@@ -34,19 +34,19 @@ public interface WritableMessageChannel extends SuspendableWriteChannel, Configu
      * Send a complete message.
      *
      * @param buffer the message to send
-     * @return the result of the send operation
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
      * @throws IOException if an I/O error occurs
      */
-    Result send(ByteBuffer buffer) throws IOException;
+    boolean send(ByteBuffer buffer) throws IOException;
 
     /**
      * Send a complete message.
      *
      * @param buffers the buffers holding the message to send
-     * @return the result of the send operation
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
      * @throws IOException if an I/O error occurs
      */
-    Result send(ByteBuffer[] buffers) throws IOException;
+    boolean send(ByteBuffer[] buffers) throws IOException;
 
     /**
      * Send a complete message.
@@ -54,51 +54,10 @@ public interface WritableMessageChannel extends SuspendableWriteChannel, Configu
      * @param buffers the buffers holding the message to send
      * @param offs the offset into the buffer array of the first buffer
      * @param len the number of buffers that contain data to send
-     * @return the result of the send operation
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
      * @throws IOException if an I/O error occurs
      */
-    Result send(ByteBuffer[] buffers, int offs, int len) throws IOException;
-
-    /**
-     * Flush any waiting partial message.
-     *
-     * @return {@code true} if the message was flushed, or {@code false} if the result would block
-     * @throws IOException if an I/O error occurs
-     */
-    boolean flush() throws IOException;
-
-    /**
-     * @see Result#OK
-     */
-    Result OK = Result.OK;
-    /**
-     * @see Result#PARTIAL
-     */
-    Result PARTIAL = Result.PARTIAL;
-    /**
-     * @see Result#NOT_SENT
-     */
-    Result NOT_SENT = Result.NOT_SENT;
-
-    /**
-     * The result of a send operation.
-     */
-    enum Result {
-
-        /**
-         * The message was accepted for delivery.
-         */
-        OK,
-        /**
-         * The message was accepted, however it was not fully delivered; a subsequent successful send or call to {@link WritableMessageChannel#flush()}
-         * is necessary to ensure the message is written.
-         */
-        PARTIAL,
-        /**
-         * The message was not send because the operation would block.
-         */
-        NOT_SENT,
-    }
+    boolean send(ByteBuffer[] buffers, int offs, int len) throws IOException;
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends WritableMessageChannel> getWriteSetter();

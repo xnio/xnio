@@ -95,6 +95,10 @@ final class NioPipeChannel implements StreamChannel {
         return closeSetter;
     }
 
+    public boolean flush() throws IOException {
+        return true;
+    }
+
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
         final long ret = sinkChannel.write(srcs, offset, length);
         if (ret > 0) {

@@ -84,4 +84,15 @@ public interface SuspendableWriteChannel extends CloseableChannel {
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends SuspendableWriteChannel> getCloseSetter();
+
+    /**
+     * Flush any waiting partial send or write.  Should be called after the final send or write to ensure that
+     * all buffers are cleared; some channels (especially encapsulated protocols) may experience "missing" or heavily
+     * delayed delivery if a {@code true} result is not obtained from this method before the data is considered to be
+     * sent by the application.
+     *
+     * @return {@code true} if the message was flushed, or {@code false} if the result would block
+     * @throws java.io.IOException if an I/O error occurs
+     */
+    boolean flush() throws IOException;
 }

@@ -663,4 +663,9 @@ public final class Buffers {
             }
         };
     }
+
+    /**
+     * The empty byte buffer.
+     */
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocate(0);
 }

@@ -164,6 +164,10 @@ class BioDatagramUdpChannel implements UdpChannel {
         return closeSetter;
     }
 
+    public boolean flush() throws IOException {
+        return true;
+    }
+
     public InetSocketAddress getLocalAddress() {
         return (InetSocketAddress) datagramSocket.getLocalSocketAddress();
     }

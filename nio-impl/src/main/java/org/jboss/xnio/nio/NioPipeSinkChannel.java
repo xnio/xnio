@@ -77,6 +77,10 @@ final class NioPipeSinkChannel implements StreamSinkChannel {
         return closeSetter;
     }
 
+    public boolean flush() throws IOException {
+        return true;
+    }
+
     public int write(final ByteBuffer dst) throws IOException {
         int ret = channel.write(dst);
         if (ret > 0) {

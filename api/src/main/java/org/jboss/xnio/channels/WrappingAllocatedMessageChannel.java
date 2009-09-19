@@ -265,15 +265,15 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
         return this;
     }
 
-    public Result send(final ByteBuffer buffer) throws IOException {
+    public boolean send(final ByteBuffer buffer) throws IOException {
         return send(new ByteBuffer[] { buffer });
     }
 
-    public Result send(final ByteBuffer[] buffers) throws IOException {
+    public boolean send(final ByteBuffer[] buffers) throws IOException {
         return send(buffers, 0, buffers.length);
     }
 
-    public Result send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
+    public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         int size = 0;
         for (int i = 0; i < len; i ++) {
             size += buffers[offs + i].remaining();
@@ -292,7 +292,7 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
                         while (writeLengthBuf.hasRemaining()) {
                             if (streamChannel.write(writeLengthBuf) == 0) {
                                 ok = true;
-                                return NOT_SENT;
+                                return false;
                             }
                         }
                         writeLengthBuf.clear();
@@ -303,7 +303,7 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
                         while (writeBuffer.hasRemaining()) {
                             if (streamChannel.write(writeBuffer) == 0) {
                                 ok = true;
-                                return NOT_SENT;
+                                return false;
                             }
                         }
                         this.writeBuffer = null;
@@ -321,7 +321,7 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
                                 this.writeBuffer = writeBuffer;
                                 writeState = WriteState.LENGTH;
                                 ok = true;
-                                return PARTIAL;
+                                return false;
                             }
                         }
                         writeLengthBuf.clear();
@@ -336,11 +336,11 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
                                 this.writeBuffer = writeBuffer;
                                 writeState = WriteState.BODY;
                                 ok = true;
-                                return PARTIAL;
+                                return true;
                             }
                         }
                         ok = true;
-                        return OK;
+                        return true;
                     }
                     case DOWN: {
                         throw new ClosedChannelException();

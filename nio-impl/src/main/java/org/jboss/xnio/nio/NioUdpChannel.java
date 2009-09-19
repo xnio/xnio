@@ -134,6 +134,10 @@ class NioUdpChannel implements UdpChannel {
         return closeSetter;
     }
 
+    public boolean flush() throws IOException {
+        return true;
+    }
+
     public boolean isOpen() {
         return datagramChannel.isOpen();
     }

@@ -148,6 +148,8 @@ public final class CommonOptions {
 
     /**
      * Get the supported cipher suites for an SSL/TLS session.  This option is generally read-only.
+     *
+     * @since 2.0
      */
     public static final Option<Sequence<String>> SSL_SUPPORTED_CIPHER_SUITES = Option.sequence(CommonOptions.class, "SSL_SUPPORTED_CIPHER_SUITES", String.class);
 
@@ -200,4 +202,10 @@ public final class CommonOptions {
      * @since 2.0
      */
     public static final Option<Boolean> SSL_USE_CLIENT_MODE = Option.simple(CommonOptions.class, "SSL_USE_CLIENT_MODE", Boolean.class);
+
+    /**
+     * Determine whether the channel is encrypted, or employs some other level of security.  The interpretation of this flag
+     * is specific to the channel in question; however, whatever the channel type, this flag is generally read-only.
+     */
+    public static final Option<Boolean> SECURE = Option.simple(CommonOptions.class, "SECURE", Boolean.class);
 }
