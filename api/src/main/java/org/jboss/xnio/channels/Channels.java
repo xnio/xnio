@@ -24,6 +24,9 @@ package org.jboss.xnio.channels;
 
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
+import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -63,6 +66,8 @@ public final class Channels {
         return new WrappingAllocatedMessageChannel(streamChannel, optionMap);
     }
 
+    private static final Logger sslLog = Logger.getLogger("org.jboss.xnio.ssl");
+
     /**
      * Create a SSL/TLS-enabled channel over a TCP channel.  Uses the given {@code SSLContext}, and uses the option map to configure
      * the parameters of the connection (including whether this side is the client or the server).
@@ -80,6 +85,32 @@ public final class Channels {
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
         // todo - option map
         return new WrappingSslTcpChannel(tcpChannel, sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort()), executor);
+    }
+
+    /**
+     * Create a channel lister which wraps the incoming connection with an SSL connection.
+     *
+     * @param sslContext the SSL context to use
+     * @param sslChannelListener the SSL TCP channel listener which should be executed with the SSL connection
+     * @param executor the executor to use for executing asynchronous tasks
+     * @param optionMap the configuration options for the channel
+     * @return the new SSL-enabled TCP channel listener
+     * @throws IOException
+     */
+    public static ChannelListener<TcpChannel> createSslTcpChannelListener(final SSLContext sslContext, final ChannelListener<? super SslTcpChannel> sslChannelListener, final Executor executor, final OptionMap optionMap) throws IOException {
+        return new ChannelListener<TcpChannel>() {
+            public void handleEvent(final TcpChannel channel) {
+                boolean ok = false;
+                try {
+                    sslChannelListener.handleEvent(createSslTcpChannel(sslContext, channel, executor, optionMap));
+                    ok = true;
+                } catch (IOException e) {
+                    sslLog.error(e, "Failed to open SSL channel");
+                } finally {
+                    if (! ok) IoUtils.safeClose(channel);
+                }
+            }
+        };
     }
 
     /**

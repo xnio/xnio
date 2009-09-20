@@ -76,57 +76,9 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         }
     };
 
-    private final ChannelListener<TcpChannel> tcpReadListener = new ChannelListener<TcpChannel>() {
-        public void handleEvent(final TcpChannel channel) {
-            boolean runRead = false;
-            boolean runWrite = false;
-            final Lock mainLock = WrappingSslTcpChannel.this.mainLock;
-            mainLock.lock();
-            try {
-                if (! needsWrap) {
-                    readAwaiters.signalAll();
-                    if (userReads) {
-                        userReads = false;
-                        runRead = true;
-                    }
-                }
-                if (userWrites && needsUnwrap) {
-                    userWrites = false;
-                    runWrite = true;
-                }
-            } finally {
-                mainLock.unlock();
-            }
-            if (runRead) runReadListener();
-            if (runWrite) runWriteListener();
-        }
-    };
+    private final ChannelListener<TcpChannel> tcpReadListener = new ReadListener();
 
-    private final ChannelListener<TcpChannel> tcpWriteListener = new ChannelListener<TcpChannel>() {
-        public void handleEvent(final TcpChannel channel) {
-            boolean runRead = false;
-            boolean runWrite = false;
-            final Lock mainLock = WrappingSslTcpChannel.this.mainLock;
-            mainLock.lock();
-            try {
-                if (needsWrap) {
-                    readAwaiters.signalAll();
-                }
-                if (userWrites && ! needsUnwrap) {
-                    userWrites = false;
-                    runWrite = true;
-                }
-                if (userReads && needsWrap) {
-                    userReads = false;
-                    runRead = true;
-                }
-            } finally {
-                mainLock.unlock();
-            }
-            if (runRead) runReadListener();
-            if (runWrite) runWriteListener();
-        }
-    };
+    private final ChannelListener<TcpChannel> tcpWriteListener = new WriteListener();
 
     private void runReadListener() {
         IoUtils.<SslTcpChannel>invokeChannelListener(this, readListener);
@@ -169,7 +121,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
      * is generally no minimum size for outbound data (thankfully).  This buffer should remain either empty or unflipped
      * for appending when the lock is not held.
      */
-    private ByteBuffer sendBuffer;
+    private ByteBuffer sendBuffer = Buffers.EMPTY_BYTE_BUFFER;
 
     WrappingSslTcpChannel(final TcpChannel tcpChannel, final SSLEngine sslEngine, final Executor executor) {
         this.tcpChannel = tcpChannel;
@@ -850,5 +802,59 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
 
     public long read(final ByteBuffer[] dsts) throws IOException {
         return read(dsts, 0, dsts.length);
+    }
+
+    private class WriteListener implements ChannelListener<TcpChannel> {
+
+        public void handleEvent(final TcpChannel channel) {
+            boolean runRead = false;
+            boolean runWrite = false;
+            final Lock mainLock = WrappingSslTcpChannel.this.mainLock;
+            mainLock.lock();
+            try {
+                if (needsWrap) {
+                    readAwaiters.signalAll();
+                }
+                if (userWrites && ! needsUnwrap) {
+                    userWrites = false;
+                    runWrite = true;
+                }
+                if (userReads && needsWrap) {
+                    userReads = false;
+                    runRead = true;
+                }
+            } finally {
+                mainLock.unlock();
+            }
+            if (runRead) runReadListener();
+            if (runWrite) runWriteListener();
+        }
+    }
+
+    private class ReadListener implements ChannelListener<TcpChannel> {
+
+        public void handleEvent(final TcpChannel channel) {
+            boolean runRead = false;
+            boolean runWrite = false;
+            final Lock mainLock = WrappingSslTcpChannel.this.mainLock;
+            mainLock.lock();
+            try {
+                if (! needsWrap) {
+                    readAwaiters.signalAll();
+                    if (userReads) {
+                        userReads = false;
+                        runRead = true;
+                    }
+                }
+                if (userWrites && needsUnwrap) {
+                    userWrites = false;
+                    runWrite = true;
+                }
+            } finally {
+                mainLock.unlock();
+            }
+            if (runRead) runReadListener();
+            if (runWrite) runWriteListener();
+        }
     }
 }

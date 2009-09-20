@@ -474,6 +474,7 @@ public final class IoUtils {
      * @return {@code true} if the handler completed successfully, or {@code false} if it failed
      */
     public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
+        listenerLog.trace("Invoking listener %s", channelListener);
         if (channelListener != null) try {
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
