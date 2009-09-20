@@ -53,21 +53,12 @@ public class ChannelOutputStream extends OutputStream {
         return new IOException("The output stream is closed");
     }
 
-    private static InterruptedIOException interrupted(int cnt) {
-        final InterruptedIOException ex = new InterruptedIOException();
-        ex.bytesTransferred = cnt;
-        return ex;
-    }
-
     /** {@inheritDoc} */
     public void write(final int b) throws IOException {
         if (closed) throw closed();
         final ByteBuffer buffer = ByteBuffer.wrap(new byte[] { (byte) b });
         while (channel.write(buffer) == 0) {
             channel.awaitWritable();
-            if (Thread.interrupted()) {
-                throw interrupted(0);
-            }
             if (closed) throw closed();
         }
     }
@@ -78,9 +69,11 @@ public class ChannelOutputStream extends OutputStream {
         final ByteBuffer buffer = ByteBuffer.wrap(b);
         while (buffer.hasRemaining()) {
             while (channel.write(buffer) == 0) {
-                channel.awaitWritable();
-                if (Thread.interrupted()) {
-                    throw interrupted(buffer.position());
+                try {
+                    channel.awaitWritable();
+                } catch (InterruptedIOException e) {
+                    e.bytesTransferred = buffer.position();
+                    throw e;
                 }
                 if (closed) throw closed();
             }
@@ -93,9 +86,11 @@ public class ChannelOutputStream extends OutputStream {
         final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
         while (buffer.hasRemaining()) {
             while (channel.write(buffer) == 0) {
-                channel.awaitWritable();
-                if (Thread.interrupted()) {
-                    throw interrupted(buffer.position());
+                try {
+                    channel.awaitWritable();
+                } catch (InterruptedIOException e) {
+                    e.bytesTransferred = buffer.position();
+                    throw e;
                 }
                 if (closed) throw closed();
             }
@@ -103,8 +98,14 @@ public class ChannelOutputStream extends OutputStream {
     }
 
     /** {@inheritDoc} */
+    public void flush() throws IOException {
+        if (closed) throw closed();
+        Channels.flushBlocking(channel);
+    }
+
+    /** {@inheritDoc} */
     public void close() throws IOException {
         closed = true;
-        super.close();
+        channel.close();
     }
 }

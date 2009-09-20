@@ -49,12 +49,6 @@ public class ChannelInputStream extends InputStream {
         this.channel = channel;
     }
 
-    private static InterruptedIOException interrupted(int cnt) {
-        final InterruptedIOException ex = new InterruptedIOException();
-        ex.bytesTransferred = cnt;
-        return ex;
-    }
-
     /** {@inheritDoc} */
     public int read() throws IOException {
         if (closed) return -1;
@@ -69,9 +63,6 @@ public class ChannelInputStream extends InputStream {
                 return array[0] & 0xff;
             }
             channel.awaitReadable();
-            if (Thread.interrupted()) {
-                throw interrupted(0);
-            }
             if (closed) return -1;
         }
     }
@@ -88,9 +79,11 @@ public class ChannelInputStream extends InputStream {
             if (res > 0) {
                 return res;
             }
-            channel.awaitReadable();
-            if (Thread.interrupted()) {
-                throw interrupted(buffer.position());
+            try {
+                channel.awaitReadable();
+            } catch (InterruptedIOException e) {
+                e.bytesTransferred = buffer.position();
+                throw e;
             }
             if (closed) return -1;
         }
@@ -108,9 +101,11 @@ public class ChannelInputStream extends InputStream {
             if (res > 0) {
                 return res;
             }
-            channel.awaitReadable();
-            if (Thread.interrupted()) {
-                throw interrupted(buffer.position());
+            try {
+                channel.awaitReadable();
+            } catch (InterruptedIOException e) {
+                e.bytesTransferred = buffer.position();
+                throw e;
             }
             if (closed) return -1;
         }
@@ -119,6 +114,6 @@ public class ChannelInputStream extends InputStream {
     /** {@inheritDoc} */
     public void close() throws IOException {
         closed = true;
-        super.close();
+        channel.close();
     }
 }

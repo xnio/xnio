@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import org.jboss.xnio.OptionMap;
+import org.jboss.xnio.Buffers;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -31,6 +32,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLContext;
@@ -67,13 +69,14 @@ public final class Channels {
      *
      * @param sslContext the SSL context to use
      * @param tcpChannel the TCP channel over which the connection is encapsulated
+     * @param executor the executor to use for executing asynchronous tasks
      * @param optionMap the configuration options for the channel
      * @return the new SSL TCP channel
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final OptionMap optionMap) throws IOException {
+    public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) throws IOException {
         if (true) throw new UnsupportedOperationException("SSL channel - not ready yet!");
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
         // todo - option map
@@ -81,8 +84,24 @@ public final class Channels {
     }
 
     /**
-     * Simple utility method to execute a blocking write on a byte channel.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking flush on a writable channel.  The method blocks until there are no
+     * remaining bytes in the send queue.
+     *
+     * @param channel the writable channel
+     * @throws IOException if an I/O exception occurs
+     *
+     * @since 2.0
+     */
+    public static void flushBlocking(SuspendableWriteChannel channel) throws IOException {
+        while (! channel.flush()) {
+            channel.awaitWritable();
+        }
+    }
+
+    /**
+     * Simple utility method to execute a blocking write on a byte channel.  The method blocks until the bytes in the
+     * buffer have been fully written.  To ensure that the data is sent, the {@link #flushBlocking(SuspendableWriteChannel)}
+     * method should be called after all writes are complete.
      *
      * @param channel the channel to write on
      * @param buffer the data to write
@@ -92,16 +111,21 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer) throws IOException {
-        int res;
-        while ((res = channel.write(buffer)) == 0) {
-            channel.awaitWritable();
+        int t = 0;
+        while (buffer.hasRemaining()) {
+            final int res = channel.write(buffer);
+            if (res == 0) {
+                channel.awaitWritable();
+            } else {
+                t += res;
+            }
         }
-        return res;
+        return t;
     }
 
     /**
-     * Simple utility method to execute a blocking write on a byte channel with a timeout.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking write on a byte channel with a timeout.  The method blocks until
+     * either the bytes in the buffer have been fully written, or the timeout expires, whichever comes first.
      *
      * @param channel the channel to write on
      * @param buffer the data to write
@@ -113,18 +137,24 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
-        int res = channel.write(buffer);
-        if (res == 0) {
-            channel.awaitWritable(time, unit);
-            return channel.write(buffer);
-        } else {
-            return res;
+        long remaining = unit.toMillis(time);
+        long now = System.currentTimeMillis();
+        int t = 0;
+        while (buffer.hasRemaining() && remaining > 0L) {
+            int res = channel.write(buffer);
+            if (res == 0) {
+                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
+                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+            } else {
+                t += res;
+            }
         }
+        return t;
     }
 
     /**
-     * Simple utility method to execute a blocking write on a gathering byte channel.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking write on a gathering byte channel.  The method blocks until the
+     * bytes in the buffer have been fully written.
      *
      * @param channel the channel to write on
      * @param buffers the data to write
@@ -136,16 +166,21 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
-        long res;
-        while ((res = channel.write(buffers, offs, len)) == 0) {
-            channel.awaitWritable();
+        long t = 0;
+        while (Buffers.hasRemaining(buffers, offs, len)) {
+            final long res = channel.write(buffers, offs, len);
+            if (res == 0) {
+                channel.awaitWritable();
+            } else {
+                t += res;
+            }
         }
-        return res;
+        return t;
     }
 
     /**
-     * Simple utility method to execute a blocking write on a gathering byte channel with a timeout.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking write on a gathering byte channel with a timeout.  The method blocks until all
+     * the bytes are written, or until the timeout occurs.
      *
      * @param channel the channel to write on
      * @param buffers the data to write
@@ -159,18 +194,23 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
-        long res = channel.write(buffers, offs, len);
-        if (res == 0L) {
-            channel.awaitWritable(time, unit);
-            return channel.write(buffers, offs, len);
-        } else {
-            return res;
+        long remaining = unit.toMillis(time);
+        long now = System.currentTimeMillis();
+        long t = 0;
+        while (Buffers.hasRemaining(buffers, offs, len) && remaining > 0L) {
+            long res = channel.write(buffers, offs, len);
+            if (res == 0) {
+                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
+                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+            } else {
+                t += res;
+            }
         }
+        return t;
     }
 
     /**
-     * Simple utility method to execute a blocking send on a message channel.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking send on a message channel.  The method blocks until the message is written.
      *
      * @param channel the channel to write on
      * @param buffer the data to write
@@ -179,12 +219,7 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
-        WritableMessageChannel.Result result;
-        do {
-            if ((result = channel.send(buffer)) == WritableMessageChannel.OK) return;
-            channel.awaitWritable();
-        } while (result == WritableMessageChannel.NOT_SENT);
-        while (! channel.flush()) {
+        while (! channel.send(buffer)) {
             channel.awaitWritable();
         }
     }
@@ -202,19 +237,22 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> WritableMessageChannel.Result sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
-        // todo - change to use a deadline instead...
-        switch (channel.send(buffer)) {
-            case OK: return WritableMessageChannel.OK;
-            case PARTIAL: channel.awaitWritable(time, unit); return channel.flush() ? WritableMessageChannel.OK : WritableMessageChannel.PARTIAL;
-            case NOT_SENT: channel.awaitWritable(time, unit); return channel.send(buffer);
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        long remaining = unit.toMillis(time);
+        long now = System.currentTimeMillis();
+        while (remaining > 0L) {
+            if (!channel.send(buffer)) {
+                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
+                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+            } else {
+                return true;
+            }
         }
-        throw new IllegalStateException();
+        return false;
     }
 
     /**
-     * Simple utility method to execute a blocking gathering send on a message channel.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking gathering send on a message channel.  The method blocks until the message is written.
      *
      * @param channel the channel to write on
      * @param buffers the data to write
@@ -225,19 +263,14 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
-        WritableMessageChannel.Result result;
-        do {
-            if ((result = channel.send(buffers, offs, len)) == WritableMessageChannel.OK) return;
-            channel.awaitWritable();
-        } while (result == WritableMessageChannel.NOT_SENT);
-        while (! channel.flush()) {
+        while (! channel.send(buffers, offs, len)) {
             channel.awaitWritable();
         }
     }
 
     /**
-     * Simple utility method to execute a blocking gathering send on a message channel with a timeout.  The method blocks until the channel
-     * is writable, and then the message is written.
+     * Simple utility method to execute a blocking gathering send on a message channel with a timeout.  The method blocks until either
+     * the message is written or the timeout expires.
      *
      * @param channel the channel to write on
      * @param buffers the data to write
@@ -250,14 +283,18 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> WritableMessageChannel.Result sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
-        // todo - change to use a deadline instead...
-        switch (channel.send(buffers, offs, len)) {
-            case OK: return WritableMessageChannel.OK;
-            case PARTIAL: channel.awaitWritable(time, unit); return channel.flush() ? WritableMessageChannel.OK : WritableMessageChannel.PARTIAL;
-            case NOT_SENT: channel.awaitWritable(time, unit); return channel.send(buffers, offs, len);
+    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        long remaining = unit.toMillis(time);
+        long now = System.currentTimeMillis();
+        while (remaining > 0L) {
+            if (!channel.send(buffers, offs, len)) {
+                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
+                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+            } else {
+                return true;
+            }
         }
-        throw new IllegalStateException();
+        return false;
     }
 
     /**
@@ -273,7 +310,7 @@ public final class Channels {
      */
     public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer) throws IOException {
         int res;
-        while ((res = channel.read(buffer)) == 0) {
+        while ((res = channel.read(buffer)) == 0 && buffer.hasRemaining()) {
             channel.awaitReadable();
         }
         return res;
@@ -294,7 +331,7 @@ public final class Channels {
      */
     public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         int res = channel.read(buffer);
-        if (res == 0) {
+        if (res == 0 && buffer.hasRemaining()) {
             channel.awaitReadable(time, unit);
             return channel.read(buffer);
         } else {
@@ -340,7 +377,7 @@ public final class Channels {
      */
     public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long res = channel.read(buffers, offs, len);
-        if (res == 0L) {
+        if (res == 0L && Buffers.hasRemaining(buffers, offs, len)) {
             channel.awaitReadable(time, unit);
             return channel.read(buffers, offs, len);
         } else {

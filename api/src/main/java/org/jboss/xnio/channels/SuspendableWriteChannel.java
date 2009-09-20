@@ -23,6 +23,7 @@
 package org.jboss.xnio.channels;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.ChannelListener;
 
@@ -54,6 +55,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * Block until this channel becomes writable again.  This method may return spuriously
      * before the channel becomes writable.
      *
+     * @throws InterruptedIOException if the operation is interrupted; the thread's interrupt flag will be set as well
      * @throws IOException if an I/O error occurs
      *
      * @since 1.2
@@ -66,6 +68,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      *
      * @param time the time to wait
      * @param timeUnit the time unit
+     * @throws InterruptedIOException if the operation is interrupted; the thread's interrupt flag will be set as well
      * @throws IOException if an I/O error occurs
      *
      * @since 1.2

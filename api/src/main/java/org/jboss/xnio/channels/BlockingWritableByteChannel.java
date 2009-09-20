@@ -25,12 +25,14 @@ package org.jboss.xnio.channels;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.io.Flushable;
+import org.jboss.xnio.Buffers;
 
 /**
  * A blocking wrapper for a {@code StreamChannel}.  Write operations will block until some data may be transferred.
  * Once any amount of data is written, the operation will return.
  */
-public class BlockingWritableByteChannel implements GatheringByteChannel {
+public class BlockingWritableByteChannel implements GatheringByteChannel, Flushable {
     private final StreamSinkChannel delegate;
 
     /**
@@ -54,7 +56,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel {
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
         final StreamSinkChannel delegate = this.delegate;
         long res;
-        while ((res = delegate.write(srcs, offset, length)) == 0L) {
+        while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
             delegate.awaitWritable();
         }
         return res;
@@ -68,12 +70,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel {
      * @throws IOException if an I/O error occurs
      */
     public long write(final ByteBuffer[] srcs) throws IOException {
-        final StreamSinkChannel delegate = this.delegate;
-        long res;
-        while ((res = delegate.write(srcs)) == 0L) {
-            delegate.awaitWritable();
-        }
-        return res;
+        return write(srcs, 0, srcs.length);
     }
 
     /**
@@ -86,7 +83,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel {
     public int write(final ByteBuffer src) throws IOException {
         final StreamSinkChannel delegate = this.delegate;
         int res;
-        while ((res = delegate.write(src)) == 0) {
+        while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
             delegate.awaitWritable();
         }
         return res;
@@ -95,6 +92,11 @@ public class BlockingWritableByteChannel implements GatheringByteChannel {
     /** {@inheritDoc} */
     public boolean isOpen() {
         return delegate.isOpen();
+    }
+
+    /** {@inheritDoc} */
+    public void flush() throws IOException {
+        Channels.flushBlocking(delegate);
     }
 
     /** {@inheritDoc} */

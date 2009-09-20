@@ -668,4 +668,30 @@ public final class Buffers {
      * The empty byte buffer.
      */
     public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocate(0);
+
+    /**
+     * Determine whether any of the buffers has remaining data.
+     *
+     * @param buffers the buffers
+     * @param offs the offset into the buffers array
+     * @param len the number of buffers to check
+     * @return {@code true} if any of the selected buffers has remaining data
+     */
+    public static boolean hasRemaining(final Buffer[] buffers, final int offs, final int len) {
+        for (int i = 0; i < len; i ++) {
+            if (buffers[i + offs].hasRemaining()) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * Determine whether any of the buffers has remaining data.
+     *
+     * @param buffers the buffers
+     * @return {@code true} if any of the selected buffers has remaining data
+     */
+    public static boolean hasRemaining(final Buffer[] buffers) {
+        return hasRemaining(buffers, 0, buffers.length);
+    }
 }
