@@ -685,6 +685,7 @@ public final class Buffers {
         }
         return false;
     }
+
     /**
      * Determine whether any of the buffers has remaining data.
      *
@@ -693,5 +694,58 @@ public final class Buffers {
      */
     public static boolean hasRemaining(final Buffer[] buffers) {
         return hasRemaining(buffers, 0, buffers.length);
+    }
+
+    /**
+     * Get the total remaining size of all the given buffers.
+     *
+     * @param buffers the buffers
+     * @param offs the offset into the buffers array
+     * @param len the number of buffers to check
+     * @return the number of remaining elements
+     */
+    public static long remaining(final Buffer[] buffers, final int offs, final int len) {
+        long t = 0L;
+        for (int i = 0; i < len; i ++) {
+            t += buffers[i + offs].remaining();
+        }
+        return t;
+    }
+
+    /**
+     * Get the total remaining size of all the given buffers.
+     *
+     * @param buffers the buffers
+     * @return the number of remaining elements
+     */
+    public static long remaining(final Buffer[] buffers) {
+        return remaining(buffers, 0, buffers.length);
+    }
+
+    /**
+     * Put as many bytes as possible from {@code src} into the byte buffers in a scatter fashion.
+     *
+     * @param dsts the destination buffers
+     * @param doffs the offset into the destination buffers array
+     * @param dlen the number of buffers to update
+     * @param src the source buffer
+     */
+    public static long put(final ByteBuffer[] dsts, final int doffs, final int dlen, final ByteBuffer src) {
+        long t = 0L;
+        for (int i = 0; i < dlen; i ++) {
+            final ByteBuffer buffer = dsts[i + doffs];
+            final int dr = buffer.remaining();
+            if (dr == 0) {
+                continue;
+            } else if (dr < src.remaining()) {
+                buffer.put(slice(src, dr));
+                t += dr;
+            } else {
+                buffer.put(src);
+                t += dr;
+                return t;
+            }
+        }
+        return t;
     }
 }

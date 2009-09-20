@@ -44,8 +44,10 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void resumeWrites();
 
     /**
-     * Indicate that writing is complete for this channel.  Further attempts to write after shutdown will result in an
-     * exception.
+     * Indicate that writing is complete for this channel.  Further attempts to write after this method is invoked will
+     * result in an exception; however, even after invoking this method, the channel can not be
+     * considered to be completely shut down until {@link #flush()} returns {@code true}, which may entail further
+     * calls to {@link #awaitWritable()} or {@link #resumeWrites()}.
      *
      * @throws IOException if an I/O error occurs
      */

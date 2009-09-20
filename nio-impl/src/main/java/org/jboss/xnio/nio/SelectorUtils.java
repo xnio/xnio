@@ -26,6 +26,7 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,6 +41,9 @@ final class SelectorUtils {
         try {
             final SelectionKey selectionKey = channel.register(selector, op);
             selector.select();
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedIOException();
+            }
             selectionKey.interestOps(0);
         } finally {
             nioXnio.returnSelector(selector);
@@ -51,6 +55,9 @@ final class SelectorUtils {
         try {
             final SelectionKey selectionKey = channel.register(selector, op);
             selector.select(unit.toMillis(time));
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedIOException();
+            }
             selectionKey.interestOps(0);
         } finally {
             nioXnio.returnSelector(selector);

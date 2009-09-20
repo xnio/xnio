@@ -77,7 +77,6 @@ public final class Channels {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) throws IOException {
-        if (true) throw new UnsupportedOperationException("SSL channel - not ready yet!");
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
         // todo - option map
         return new WrappingSslTcpChannel(tcpChannel, sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort()), executor);
