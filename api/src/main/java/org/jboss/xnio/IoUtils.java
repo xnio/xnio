@@ -471,7 +471,7 @@ public final class IoUtils {
      * @param channel the channel
      * @param channelListener the channel listener
      * @param <T> the channel type
-     * @returns {@code true} if the handler completed successfully, or {@code false} if it failed
+     * @return {@code true} if the handler completed successfully, or {@code false} if it failed
      */
     public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
         if (channelListener != null) try {
