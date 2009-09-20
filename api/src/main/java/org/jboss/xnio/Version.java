@@ -33,7 +33,7 @@ public final class Version {
     /**
      * The current XNIO version.
      */
-    public static final String VERSION = "2.0.0.CR2";
+    public static final String VERSION = "2.0.0.CR3-SNAPSHOT";
 
     /**
      * Print out the current XNIO version on {@code System.out}.
