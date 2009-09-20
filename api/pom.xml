@@ -33,8 +33,27 @@
 
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-api</artifactId>
-    <version>${xnio.version}</version>
     <packaging>jar</packaging>
+    <name>XNIO API</name>
+    <version>${xnio.version}</version>
+    <description>The API JAR of the XNIO project</description>
+    <url>http://www.jboss.org/xnio</url>
+    <licenses>
+        <license>
+            <name>GNU Lesser General Public License</name>
+            <url>http://www.gnu.org/copyleft/lesser.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>scn:svn:http://anonsvn.jboss.org/repos/xnio/xnio-base/trunk/api</connection>
+        <developerConnection>scn:svn:https://svn.jboss.org/repos/xnio/xnio-base/trunk/api</developerConnection>
+        <url>http://anonsvn.jboss.org/repos/xnio/xnio-base/trunk/api</url>
+    </scm>
+    <issueManagement>
+        <system>jira</system>
+        <url>http://jira.jboss.com/jira/browse/XNIO</url>
+    </issueManagement>
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
