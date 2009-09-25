@@ -83,6 +83,10 @@ public final class IoUtils {
             return string;
         }
     };
+    private static final ChannelListener<Channel> NULL_LISTENER = new ChannelListener<Channel>() {
+        public void handleEvent(final Channel channel) {
+        }
+    };
 
     private IoUtils() {}
 
@@ -497,6 +501,15 @@ public final class IoUtils {
      */
     public static ChannelListener<Channel> closingChannelListener() {
         return CLOSING_CHANNEL_LISTENER;
+    }
+
+    /**
+     * Get a channel listener which does nothing.
+     *
+     * @return the null channel listener
+     */
+    public static ChannelListener<Channel> nullChannelListener() {
+        return NULL_LISTENER;
     }
 
     /**
