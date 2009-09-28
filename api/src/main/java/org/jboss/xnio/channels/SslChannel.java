@@ -22,19 +22,33 @@
 
 package org.jboss.xnio.channels;
 
+import java.io.IOException;
+
+import javax.net.ssl.SSLSession;
+
 import org.jboss.xnio.ChannelListener;
 
 /**
- * A TLS-encapsulated TCP channel.
+ * A channel which can use SSL/TLS to negotiate a security layer.
  */
-public interface SslTcpChannel extends TcpChannel, SslChannel {
+public interface SslChannel extends CloseableChannel {
+
+    /**
+     * Start or restart the SSL/TLS handshake.  To force a complete SSL/TLS session renegotiation, the current
+     * session should be invalidated prior to calling this method.  This method is not needed for the initial handshake
+     * as sending or receiving over the channel will automatically initiate it.
+     *
+     * @throws java.io.IOException if an I/O error occurs
+     */
+    void startHandshake() throws IOException;
+
+    /**
+     * Get the current {@code SSLSession} for this channel.
+     *
+     * @return the current {@code SSLSession}
+     */
+    SSLSession getSslSession();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SslTcpChannel> getReadSetter();
-
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SslTcpChannel> getWriteSetter();
-
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends SslTcpChannel> getCloseSetter();
+    ChannelListener.Setter<? extends SslChannel> getCloseSetter();
 }
