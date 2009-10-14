@@ -32,9 +32,13 @@ import org.jboss.xnio.Sequence;
  */
 public final class CommonOptions {
 
-    public static final Option<Boolean> MULTICAST = Option.simple(CommonOptions.class, "MULTICAST", Boolean.class);
-
     private CommonOptions() {}
+
+    /**
+     * Enable multicast support for a socket.  The value type for this option is {@code boolean}.  Note that some
+     * implementations may add overhead when multicast sockets are in use.
+     */
+    public static final Option<Boolean> MULTICAST = Option.simple(CommonOptions.class, "MULTICAST", Boolean.class);
 
     /**
      * Type of service for IP sockets.  The value type for this option is {@code int}.  The value given is only
