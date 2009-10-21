@@ -446,6 +446,71 @@ public final class Buffers {
     }
 
     /**
+     * Take a certain number of bytes from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @param cnt the number of bytes to take
+     * @return the bytes
+     */
+    public static byte[] take(ByteBuffer buffer, int cnt) {
+        final byte[] bytes = new byte[cnt];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    /**
+     * Take a certain number of chars from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @param cnt the number of chars to take
+     * @return the chars
+     */
+    public static char[] take(CharBuffer buffer, int cnt) {
+        final char[] chars = new char[cnt];
+        buffer.get(chars);
+        return chars;
+    }
+
+    /**
+     * Take a certain number of shorts from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @param cnt the number of shorts to take
+     * @return the shorts
+     */
+    public static short[] take(ShortBuffer buffer, int cnt) {
+        final short[] shorts = new short[cnt];
+        buffer.get(shorts);
+        return shorts;
+    }
+
+    /**
+     * Take a certain number of ints from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @param cnt the number of ints to take
+     * @return the ints
+     */
+    public static int[] take(IntBuffer buffer, int cnt) {
+        final int[] ints = new int[cnt];
+        buffer.get(ints);
+        return ints;
+    }
+
+    /**
+     * Take a certain number of longs from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @param cnt the number of longs to take
+     * @return the longs
+     */
+    public static long[] take(LongBuffer buffer, int cnt) {
+        final long[] longs = new long[cnt];
+        buffer.get(longs);
+        return longs;
+    }
+
+    /**
      * Create an object that returns the dumped form of the given byte buffer when its {@code toString()} method is called.
      * Useful for logging byte buffers; if the {@code toString()} method is never called, the process of dumping the
      * buffer is never performed.
