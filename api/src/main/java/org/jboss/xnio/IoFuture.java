@@ -24,6 +24,7 @@ package org.jboss.xnio;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.Executor;
 import java.io.IOException;
 
 /**
@@ -247,6 +248,105 @@ public interface IoFuture<T> extends Cancellable {
          * @param attachment the attachment
          */
         public void handleDone(final T result, final A attachment) {
+        }
+    }
+
+    /**
+     * A simple interface to a managed {@link IoFuture}.  Provides methods to set the result of a future operation.
+     *
+     * @param <T> the {@code IoFuture} result type
+     */
+    class Manager<T> {
+        private final Executor executor;
+        private final AbstractIoFuture<T> ioFuture;
+
+        /**
+         * Construct a new instance.
+         *
+         * @param executor the executor to use to execute handler notifiers.
+         */
+        public Manager(final Executor executor) {
+            this.executor = executor;
+            ioFuture = new AbstractIoFuture<T>() {
+                protected Executor getNotifierExecutor() {
+                    return executor;
+                }
+            };
+        }
+
+        /**
+         * Construct a new instance.  The direct executor will be used to execute handler notifiers.
+         */
+        public Manager() {
+            this(IoUtils.directExecutor());
+        }
+
+        /**
+         * Get the {@code IoFuture} for this manager.
+         *
+         * @return the {@code IoFuture}
+         */
+        public IoFuture<T> getIoFuture() {
+            return ioFuture;
+        }
+
+        /**
+         * Add a cancellation handler.  The argument will be cancelled whenever this instance's {@code cancel()} method
+         * is invoked.  The argument may be cancelled more than once, in the event that this {@code IoFuture} instance
+         * is cancelled more than once; the handler should be prepared to handle this situation.
+         *
+         * @param cancellable the cancel handler
+         */
+        public void addCancelHandler(final Cancellable cancellable) {
+            ioFuture.addCancelHandler(cancellable);
+        }
+
+        /**
+         * Set the result for this operation.  Any threads blocking on this instance will be unblocked.
+         *
+         * @param result the result to set
+         * @return {@code false} if the operation was already completed, {@code true} otherwise
+         */
+        public boolean setResult(final T result) {
+            return ioFuture.setResult(result);
+        }
+
+        /**
+         * Set the exception for this operation.  Any threads blocking on this instance will be unblocked.
+         *
+         * @param exception the exception to set
+         * @return {@code false} if the operation was already completed, {@code true} otherwise
+         */
+        public boolean setException(final IOException exception) {
+            return ioFuture.setException(exception);
+        }
+
+        /**
+         * Acknowledge the cancellation of this operation.
+         *
+         * @return {@code false} if the operation was already completed, {@code true} otherwise
+         */
+        public boolean finishCancel() {
+            return ioFuture.finishCancel();
+        }
+
+        /**
+         * Run a notifier.  Implementors will run the notifier, preferably in another thread.  The default implementation
+         * runs the notifier using the {@code Executor} retrieved via {@link #getNotifierExecutor()}.
+         *
+         * @param runnable
+         */
+        public void runNotifier(final Runnable runnable) {
+            ioFuture.runNotifier(runnable);
+        }
+
+        /**
+         * Get the executor used to run asynchronous notifiers.
+         *
+         * @return the executor to use
+         */
+        public Executor getNotifierExecutor() {
+            return executor;
         }
     }
 }
