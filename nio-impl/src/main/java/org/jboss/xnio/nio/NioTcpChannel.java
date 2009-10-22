@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
@@ -90,7 +90,7 @@ final class NioTcpChannel implements TcpChannel, Closeable {
 
     private final Closeable mbeanHandle;
 
-    private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(CommonOptions.CLOSE_ABORT);
+    private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(Options.CLOSE_ABORT);
 
     public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final Executor executor, final boolean manage) throws IOException {
         this.socketChannel = socketChannel;
@@ -266,7 +266,7 @@ final class NioTcpChannel implements TcpChannel, Closeable {
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        if (CommonOptions.CLOSE_ABORT.equals(option)) {
+        if (Options.CLOSE_ABORT.equals(option)) {
             return (T) Boolean.valueOf(socket.getSoLinger() != -1);
         } else {
             return null;
@@ -274,7 +274,7 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public <T> NioTcpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (CommonOptions.CLOSE_ABORT.equals(option)) {
+        if (Options.CLOSE_ABORT.equals(option)) {
             if (value == null) {
                 throw new NullPointerException("value is null");
             }

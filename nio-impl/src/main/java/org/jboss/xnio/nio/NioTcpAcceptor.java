@@ -40,8 +40,8 @@ import org.jboss.xnio.TcpAcceptor;
 import org.jboss.xnio.TcpChannelDestination;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -69,12 +69,12 @@ final class NioTcpAcceptor implements TcpAcceptor {
         }
         this.nioXnio = nioXnio;
         this.executor = executor;
-        keepAlive = optionMap.get(CommonOptions.KEEP_ALIVE);
-        oobInline = optionMap.get(CommonOptions.TCP_OOB_INLINE);
-        receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
-        reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
-        tcpNoDelay = optionMap.get(CommonOptions.TCP_NODELAY);
-        manageConnections = optionMap.get(CommonOptions.MANAGE_CONNECTIONS, true);
+        keepAlive = optionMap.get(Options.KEEP_ALIVE);
+        oobInline = optionMap.get(Options.TCP_OOB_INLINE);
+        receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER);
+        reuseAddress = optionMap.get(Options.REUSE_ADDRESSES);
+        tcpNoDelay = optionMap.get(Options.TCP_NODELAY);
+        manageConnections = optionMap.get(Options.MANAGE_CONNECTIONS, true);
     }
 
     static NioTcpAcceptor create(NioXnio nioXnio, Executor executor, OptionMap optionMap) {

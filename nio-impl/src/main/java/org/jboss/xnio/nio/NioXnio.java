@@ -56,12 +56,12 @@ import org.jboss.xnio.Version;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.management.OneWayPipeConnectionMBean;
 import org.jboss.xnio.management.PipeConnectionMBean;
@@ -330,7 +330,7 @@ public final class NioXnio extends Xnio {
             if (closed) {
                 throw notOpen();
             }
-            if (optionMap.contains(CommonOptions.MULTICAST) && optionMap.get(CommonOptions.MULTICAST).booleanValue()) {
+            if (optionMap.contains(Options.MULTICAST) && optionMap.get(Options.MULTICAST).booleanValue()) {
                 return new BioUdpServer(this, executor, openHandler, optionMap);
             } else {
                 return new NioUdpServer(this, executor, openHandler, optionMap);

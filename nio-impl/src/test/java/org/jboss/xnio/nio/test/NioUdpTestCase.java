@@ -41,10 +41,10 @@ import org.jboss.xnio.CloseableExecutor;
 import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
@@ -102,7 +102,7 @@ public final class NioUdpTestCase extends TestCase {
 
     private synchronized void doPart(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
         final UdpServer server = xnio.createUdpServer(new CatchingChannelListener<UdpChannel>(handler, threadFactory),
-                OptionMap.builder().set(CommonOptions.MULTICAST, Boolean.valueOf(multicast)).getMap());
+                OptionMap.builder().set(Options.MULTICAST, Boolean.valueOf(multicast)).getMap());
         server.bind(bindAddress).await();
         try {
             body.run();

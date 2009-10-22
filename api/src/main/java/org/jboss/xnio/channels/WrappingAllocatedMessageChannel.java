@@ -31,6 +31,7 @@ import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
+import org.jboss.xnio.Options;
 
 final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
     private final StreamChannel streamChannel;
@@ -72,8 +73,8 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
     }
 
     WrappingAllocatedMessageChannel(final StreamChannel streamChannel, final OptionMap optionMap) {
-        maxInboundMessageSize = optionMap.get(CommonOptions.MAX_INBOUND_MESSAGE_SIZE, 2048);
-        maxOutboundMessageSize = optionMap.get(CommonOptions.MAX_OUTBOUND_MESSAGE_SIZE, 2048);
+        maxInboundMessageSize = optionMap.get(Options.MAX_INBOUND_MESSAGE_SIZE, 2048);
+        maxOutboundMessageSize = optionMap.get(Options.MAX_OUTBOUND_MESSAGE_SIZE, 2048);
         this.streamChannel = streamChannel;
         readSetter = new OurSetter(streamChannel.getReadSetter());
         writeSetter = new OurSetter(streamChannel.getWriteSetter());

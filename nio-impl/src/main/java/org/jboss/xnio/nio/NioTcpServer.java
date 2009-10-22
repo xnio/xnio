@@ -47,8 +47,8 @@ import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 import org.jboss.xnio.log.Logger;
@@ -97,12 +97,12 @@ final class NioTcpServer implements TcpServer {
     private boolean manageConnections;
 
     private static final Set<Option<?>> options = Option.setBuilder()
-            .add(CommonOptions.BACKLOG)
-            .add(CommonOptions.REUSE_ADDRESSES)
-            .add(CommonOptions.RECEIVE_BUFFER)
-            .add(CommonOptions.KEEP_ALIVE)
-            .add(CommonOptions.TCP_OOB_INLINE)
-            .add(CommonOptions.TCP_NODELAY)
+            .add(Options.BACKLOG)
+            .add(Options.REUSE_ADDRESSES)
+            .add(Options.RECEIVE_BUFFER)
+            .add(Options.KEEP_ALIVE)
+            .add(Options.TCP_OOB_INLINE)
+            .add(Options.TCP_NODELAY)
             .create();
 
     private final Closeable mbeanHandle;
@@ -121,13 +121,13 @@ final class NioTcpServer implements TcpServer {
             } else {
                 this.openListener = openListener;
             }
-            reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
-            receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
-            backlog = optionMap.get(CommonOptions.BACKLOG);
-            keepAlive = optionMap.get(CommonOptions.KEEP_ALIVE);
-            oobInline = optionMap.get(CommonOptions.TCP_OOB_INLINE);
-            tcpNoDelay = optionMap.get(CommonOptions.TCP_NODELAY);
-            manageConnections = ! optionMap.contains(CommonOptions.MANAGE_CONNECTIONS) || optionMap.get(CommonOptions.MANAGE_CONNECTIONS).booleanValue();
+            reuseAddress = optionMap.get(Options.REUSE_ADDRESSES);
+            receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER);
+            backlog = optionMap.get(Options.BACKLOG);
+            keepAlive = optionMap.get(Options.KEEP_ALIVE);
+            oobInline = optionMap.get(Options.TCP_OOB_INLINE);
+            tcpNoDelay = optionMap.get(Options.TCP_NODELAY);
+            manageConnections = ! optionMap.contains(Options.MANAGE_CONNECTIONS) || optionMap.get(Options.MANAGE_CONNECTIONS).booleanValue();
             Closeable closeable = IoUtils.nullCloseable();
             try {
                 closeable = nioXnio.registerMBean(new MBean());
@@ -194,17 +194,17 @@ final class NioTcpServer implements TcpServer {
 
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         synchronized (lock) {
-            if (option == CommonOptions.REUSE_ADDRESSES) {
+            if (option == Options.REUSE_ADDRESSES) {
                 return option.cast(reuseAddress);
-            } else if (option == CommonOptions.RECEIVE_BUFFER) {
+            } else if (option == Options.RECEIVE_BUFFER) {
                 return option.cast(receiveBufferSize);
-            } else if (option == CommonOptions.BACKLOG) {
+            } else if (option == Options.BACKLOG) {
                 return option.cast(backlog);
-            } else if (option == CommonOptions.KEEP_ALIVE) {
+            } else if (option == Options.KEEP_ALIVE) {
                 return option.cast(keepAlive);
-            } else if (option == CommonOptions.TCP_OOB_INLINE) {
+            } else if (option == Options.TCP_OOB_INLINE) {
                 return option.cast(oobInline);
-            } else if (option == CommonOptions.TCP_NODELAY) {
+            } else if (option == Options.TCP_NODELAY) {
                 return option.cast(tcpNoDelay);
             } else {
                 return null;
@@ -214,18 +214,18 @@ final class NioTcpServer implements TcpServer {
 
     public <T> NioTcpServer setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         synchronized (lock) {
-            if (option == CommonOptions.REUSE_ADDRESSES) {
-                reuseAddress = CommonOptions.REUSE_ADDRESSES.cast(value);
-            } else if (option == CommonOptions.RECEIVE_BUFFER) {
-                receiveBufferSize = CommonOptions.RECEIVE_BUFFER.cast(value);
-            } else if (option == CommonOptions.BACKLOG) {
-                backlog = CommonOptions.BACKLOG.cast(value);
-            } else if (option == CommonOptions.KEEP_ALIVE) {
-                keepAlive = CommonOptions.KEEP_ALIVE.cast(value);
-            } else if (option == CommonOptions.TCP_OOB_INLINE) {
-                oobInline = CommonOptions.TCP_OOB_INLINE.cast(value);
-            } else if (option == CommonOptions.TCP_NODELAY) {
-                tcpNoDelay = CommonOptions.TCP_NODELAY.cast(value);
+            if (option == Options.REUSE_ADDRESSES) {
+                reuseAddress = Options.REUSE_ADDRESSES.cast(value);
+            } else if (option == Options.RECEIVE_BUFFER) {
+                receiveBufferSize = Options.RECEIVE_BUFFER.cast(value);
+            } else if (option == Options.BACKLOG) {
+                backlog = Options.BACKLOG.cast(value);
+            } else if (option == Options.KEEP_ALIVE) {
+                keepAlive = Options.KEEP_ALIVE.cast(value);
+            } else if (option == Options.TCP_OOB_INLINE) {
+                oobInline = Options.TCP_OOB_INLINE.cast(value);
+            } else if (option == Options.TCP_NODELAY) {
+                tcpNoDelay = Options.TCP_NODELAY.cast(value);
             }
             return this;
         }

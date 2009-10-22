@@ -29,8 +29,6 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -43,7 +41,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
@@ -391,8 +389,8 @@ class BioDatagramUdpChannel implements UdpChannel {
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
-            .add(CommonOptions.BROADCAST)
-            .add(CommonOptions.IP_TRAFFIC_CLASS)
+            .add(Options.BROADCAST)
+            .add(Options.IP_TRAFFIC_CLASS)
             .create();
 
     public boolean supportsOption(final Option<?> option) {
@@ -401,9 +399,9 @@ class BioDatagramUdpChannel implements UdpChannel {
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        if (CommonOptions.BROADCAST.equals(option)) {
+        if (Options.BROADCAST.equals(option)) {
             return (T) Boolean.valueOf(datagramSocket.getBroadcast());
-        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
+        } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
             final int v = datagramSocket.getTrafficClass();
             return v == -1 ? null : (T) Integer.valueOf(v);
         } else {
@@ -412,10 +410,10 @@ class BioDatagramUdpChannel implements UdpChannel {
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (CommonOptions.BROADCAST.equals(option)) {
-            datagramSocket.setBroadcast(CommonOptions.BROADCAST.cast(value).booleanValue());
-        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
-            datagramSocket.setTrafficClass(CommonOptions.IP_TRAFFIC_CLASS.cast(value).intValue());
+        if (Options.BROADCAST.equals(option)) {
+            datagramSocket.setBroadcast(Options.BROADCAST.cast(value).booleanValue());
+        } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
+            datagramSocket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value).intValue());
         }
         return this;
     }

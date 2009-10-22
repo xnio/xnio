@@ -44,7 +44,7 @@ import org.jboss.xnio.Xnio;
 import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
@@ -73,7 +73,7 @@ public final class NioTcpTestCase extends TestCase {
         Xnio xnio = NioXnio.create(conf);
         try {
             final TcpServer server  = xnio.createTcpServer(new CatchingChannelListener<TcpChannel>(serverHandler, threadFactory),
-                    OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+                    OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             try {
                 server.bind(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)).await();
                 final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
@@ -381,7 +381,7 @@ public final class NioTcpTestCase extends TestCase {
                             latch.countDown();
                         }
                     });
-                    channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
+                    channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
                     clientOK.set(true);
                 } catch (Throwable t) {
@@ -490,7 +490,7 @@ public final class NioTcpTestCase extends TestCase {
                         }
                     });
                     serverLatch.await(500L, TimeUnit.MILLISECONDS);
-                    channel.setOption(CommonOptions.CLOSE_ABORT, Boolean.TRUE);
+                    channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();
                     serverOK.set(true);
                 } catch (Throwable t) {
@@ -523,7 +523,7 @@ public final class NioTcpTestCase extends TestCase {
         final byte[] bytes = "Ummagumma!".getBytes("UTF-8");
         final Xnio xnio = NioXnio.create();
         try {
-            final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+            final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             final FutureConnection<? extends InetSocketAddress, TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new ChannelListener<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;

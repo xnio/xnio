@@ -649,4 +649,28 @@ public final class IoUtils {
             return mgr.getIoFuture();
         }
     }
+
+    /**
+     * A cancellable which closes the given resource on cancel.
+     *
+     * @param c the resource
+     * @return the cancellable
+     */
+    public static Cancellable closingCancellable(final Closeable c) {
+        return new ClosingCancellable(c);
+    }
+
+    private static class ClosingCancellable implements Cancellable {
+
+        private final Closeable c;
+
+        ClosingCancellable(final Closeable c) {
+            this.c = c;
+        }
+
+        public Cancellable cancel() {
+            safeClose(c);
+            return this;
+        }
+    }
 }

@@ -252,7 +252,7 @@ public interface IoFuture<T> extends Cancellable {
     }
 
     /**
-     * A simple interface to a managed {@link IoFuture}.  Provides methods to set the result of a future operation.
+     * A simple facility to manage a generic {@link IoFuture} instance.  Provides methods to set the result of a future operation.
      *
      * @param <T> the {@code IoFuture} result type
      */

@@ -26,7 +26,7 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.TcpServer;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
@@ -40,7 +40,7 @@ public final class EchoServer {
     public static void main(String[] args) throws IOException, InterruptedException {
         final Xnio xnio = Xnio.create();
         try {
-            final TcpServer tcpServer = xnio.createTcpServer(new EchoHandler(), OptionMap.builder().set(CommonOptions.REUSE_ADDRESSES, Boolean.FALSE).getMap());
+            final TcpServer tcpServer = xnio.createTcpServer(new EchoHandler(), OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.FALSE).getMap());
             try {
                 tcpServer.bind(new InetSocketAddress(12345)).await();
                 Thread.sleep(30000L);

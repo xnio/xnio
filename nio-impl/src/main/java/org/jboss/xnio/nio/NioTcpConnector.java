@@ -38,8 +38,8 @@ import org.jboss.xnio.TcpChannelSource;
 import org.jboss.xnio.TcpConnector;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.CommonOptions;
 import org.jboss.xnio.log.Logger;
 
 /**
@@ -69,13 +69,13 @@ final class NioTcpConnector implements TcpConnector {
         }
         this.nioXnio = nioXnio;
         this.executor = executor;
-        reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
-        receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
-        sendBufferSize = optionMap.get(CommonOptions.SEND_BUFFER);
-        keepAlive = optionMap.get(CommonOptions.KEEP_ALIVE);
-        oobInline = optionMap.get(CommonOptions.TCP_OOB_INLINE);
-        tcpNoDelay = optionMap.get(CommonOptions.TCP_NODELAY);
-        manageConnections = ! optionMap.contains(CommonOptions.MANAGE_CONNECTIONS) || optionMap.get(CommonOptions.MANAGE_CONNECTIONS).booleanValue();
+        reuseAddress = optionMap.get(Options.REUSE_ADDRESSES);
+        receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER);
+        sendBufferSize = optionMap.get(Options.SEND_BUFFER);
+        keepAlive = optionMap.get(Options.KEEP_ALIVE);
+        oobInline = optionMap.get(Options.TCP_OOB_INLINE);
+        tcpNoDelay = optionMap.get(Options.TCP_NODELAY);
+        manageConnections = ! optionMap.contains(Options.MANAGE_CONNECTIONS) || optionMap.get(Options.MANAGE_CONNECTIONS).booleanValue();
     }
 
     private void configureStream(final Socket socket) throws SocketException {

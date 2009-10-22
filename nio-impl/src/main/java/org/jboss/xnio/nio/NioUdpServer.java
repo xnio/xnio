@@ -43,7 +43,7 @@ import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
@@ -94,12 +94,12 @@ class NioUdpServer implements UdpServer {
             this.nioXnio = nioXnio;
             this.executor = executor;
             this.bindListener = bindListener;
-            reuseAddress = optionMap.get(CommonOptions.REUSE_ADDRESSES);
-            receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
-            receiveBufferSize = optionMap.get(CommonOptions.RECEIVE_BUFFER);
-            sendBufferSize = optionMap.get(CommonOptions.SEND_BUFFER);
-            trafficClass = optionMap.get(CommonOptions.IP_TRAFFIC_CLASS);
-            broadcast = optionMap.get(CommonOptions.BROADCAST);
+            reuseAddress = optionMap.get(Options.REUSE_ADDRESSES);
+            receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER);
+            receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER);
+            sendBufferSize = optionMap.get(Options.SEND_BUFFER);
+            trafficClass = optionMap.get(Options.IP_TRAFFIC_CLASS);
+            broadcast = optionMap.get(Options.BROADCAST);
             Closeable closeable = IoUtils.nullCloseable();
             try {
                 closeable = nioXnio.registerMBean(new MBean());
@@ -111,11 +111,11 @@ class NioUdpServer implements UdpServer {
     }
 
     protected static final Set<Option<?>> OPTIONS = Option.setBuilder()
-            .add(CommonOptions.RECEIVE_BUFFER)
-            .add(CommonOptions.REUSE_ADDRESSES)
-            .add(CommonOptions.SEND_BUFFER)
-            .add(CommonOptions.IP_TRAFFIC_CLASS)
-            .add(CommonOptions.BROADCAST)
+            .add(Options.RECEIVE_BUFFER)
+            .add(Options.REUSE_ADDRESSES)
+            .add(Options.SEND_BUFFER)
+            .add(Options.IP_TRAFFIC_CLASS)
+            .add(Options.BROADCAST)
             .create();
 
     public boolean supportsOption(final Option<?> option) {
@@ -123,15 +123,15 @@ class NioUdpServer implements UdpServer {
     }
 
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
+        if (Options.RECEIVE_BUFFER.equals(option)) {
             return option.cast(receiveBufferSize);
-        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
+        } else if (Options.REUSE_ADDRESSES.equals(option)) {
             return option.cast(reuseAddress);
-        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
+        } else if (Options.SEND_BUFFER.equals(option)) {
             return option.cast(sendBufferSize);
-        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
+        } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
             return option.cast(trafficClass);
-        } else if (CommonOptions.BROADCAST.equals(option)) {
+        } else if (Options.BROADCAST.equals(option)) {
             return option.cast(broadcast);
         } else {
             return null;
@@ -139,16 +139,16 @@ class NioUdpServer implements UdpServer {
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (CommonOptions.RECEIVE_BUFFER.equals(option)) {
-            receiveBufferSize = CommonOptions.RECEIVE_BUFFER.cast(value);
-        } else if (CommonOptions.REUSE_ADDRESSES.equals(option)) {
-            reuseAddress = CommonOptions.REUSE_ADDRESSES.cast(value);
-        } else if (CommonOptions.SEND_BUFFER.equals(option)) {
-            sendBufferSize = CommonOptions.SEND_BUFFER.cast(value);
-        } else if (CommonOptions.IP_TRAFFIC_CLASS.equals(option)) {
-            trafficClass = CommonOptions.IP_TRAFFIC_CLASS.cast(value);
-        } else if (CommonOptions.BROADCAST.equals(option)) {
-            broadcast = CommonOptions.BROADCAST.cast(value);
+        if (Options.RECEIVE_BUFFER.equals(option)) {
+            receiveBufferSize = Options.RECEIVE_BUFFER.cast(value);
+        } else if (Options.REUSE_ADDRESSES.equals(option)) {
+            reuseAddress = Options.REUSE_ADDRESSES.cast(value);
+        } else if (Options.SEND_BUFFER.equals(option)) {
+            sendBufferSize = Options.SEND_BUFFER.cast(value);
+        } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
+            trafficClass = Options.IP_TRAFFIC_CLASS.cast(value);
+        } else if (Options.BROADCAST.equals(option)) {
+            broadcast = Options.BROADCAST.cast(value);
         }
         return this;
     }

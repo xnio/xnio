@@ -57,8 +57,8 @@ public final class Channels {
      * @param streamChannel the stream channel
      * @param optionMap the initial options
      * @return the allocated message channel
-     * @see org.jboss.xnio.channels.CommonOptions#MAX_INBOUND_MESSAGE_SIZE
-     * @see org.jboss.xnio.channels.CommonOptions#MAX_OUTBOUND_MESSAGE_SIZE
+     * @see org.jboss.xnio.Options#MAX_INBOUND_MESSAGE_SIZE
+     * @see org.jboss.xnio.Options#MAX_OUTBOUND_MESSAGE_SIZE
      *
      * @since 2.0
      */

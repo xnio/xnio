@@ -32,7 +32,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.xnio.Option;
-import org.jboss.xnio.channels.CommonOptions;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
 
@@ -57,7 +57,7 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
-            .add(CommonOptions.MULTICAST_TTL)
+            .add(Options.MULTICAST_TTL)
             .create();
 
     public boolean supportsOption(final Option<?> option) {
@@ -66,7 +66,7 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel
 
     @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        if (CommonOptions.MULTICAST_TTL.equals(option)) {
+        if (Options.MULTICAST_TTL.equals(option)) {
             return (T) Integer.valueOf(multicastSocket.getTimeToLive());
         } else {
             return super.getOption(option);
@@ -74,7 +74,7 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements UdpChannel
     }
 
     public <T> BioMulticastUdpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (CommonOptions.MULTICAST_TTL.equals(option)) {
+        if (Options.MULTICAST_TTL.equals(option)) {
             multicastSocket.setTimeToLive(((Integer)value).intValue());
             return this;
         } else {
