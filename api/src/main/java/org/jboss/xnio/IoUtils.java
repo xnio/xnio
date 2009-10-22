@@ -364,6 +364,11 @@ public final class IoUtils {
         }
     };
 
+    /**
+     * Wait for all the futures to complete.
+     *
+     * @param futures the futures to wait for
+     */
     public static void awaitAll(IoFuture<?>... futures) {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
@@ -386,6 +391,12 @@ public final class IoUtils {
         }
     }
 
+    /**
+     * Wait for all the futures to complete.
+     *
+     * @param futures the futures to wait for
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     */
     public static void awaitAllInterruptibly(IoFuture<?>... futures) throws InterruptedException {
         final int len = futures.length;
         final CountDownLatch cdl = new CountDownLatch(len);
