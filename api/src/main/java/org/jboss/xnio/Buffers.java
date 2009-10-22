@@ -429,7 +429,7 @@ public final class Buffers {
     }
 
     /**
-     * Set a buffer's position relative to its current position.
+     * Advance a buffer's position relative to its current position.
      *
      * @see Buffer#position(int)
      * @param <T> the buffer type
@@ -438,10 +438,33 @@ public final class Buffers {
      * @return the buffer instance
      */
     public static <T extends Buffer> T skip(T buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException();
+        }
         if (cnt > buffer.remaining()) {
             throw new BufferUnderflowException();
         }
         buffer.position(buffer.position() + cnt);
+        return buffer;
+    }
+
+    /**
+     * Rewind a buffer's position relative to its current position.
+     *
+     * @see Buffer#position(int)
+     * @param <T> the buffer type
+     * @param buffer the buffer to set
+     * @param cnt the distantce to skip backwards
+     * @return the buffer instance
+     */
+    public static <T extends Buffer> T unget(T buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException();
+        }
+        if (cnt > buffer.position()) {
+            throw new BufferUnderflowException();
+        }
+        buffer.position(buffer.position() - cnt);
         return buffer;
     }
 
