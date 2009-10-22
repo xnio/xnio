@@ -42,7 +42,7 @@ public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChan
      *
      * @return the channels
      */
-    Collection<T> getChannels();
+    Collection<? extends T> getChannels();
 
     /**
      * Add a binding.  The returned channel may be used to close the binding.
@@ -50,7 +50,7 @@ public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChan
      * @param address the address to bind to
      * @return a future channel representing the binding
      */
-    IoFuture<T> bind(A address);
+    IoFuture<? extends T> bind(A address);
 
     /**
      * Get the bind handler setter for this channel.  The handler is called every time a channel is bound.
