@@ -313,6 +313,24 @@ public final class IoUtils {
     }
 
     /**
+     * Get the notifier that invokes the channel listener given as an attachment.
+     *
+     * @param <T> the channel type
+     * @return the notifier
+     */
+    @SuppressWarnings({ "unchecked" })
+    public static <T extends Channel> IoFuture.Notifier<T, ChannelListener<? super T>> channelListenerNotifier() {
+        return CHANNEL_LISTENER_NOTIFIER;
+    }
+
+    private static final IoFuture.Notifier CHANNEL_LISTENER_NOTIFIER = new IoFuture.HandlingNotifier<Channel, ChannelListener<? super Channel>>() {
+        @SuppressWarnings({ "unchecked" })
+        public void handleDone(final Channel channel, final ChannelListener channelListener) {
+            channelListener.handleEvent(channel);
+        }
+    };
+
+    /**
      * Get a {@code java.util.concurrent}-style {@code Future} instance wrapper for an {@code IoFuture} instance.
      *
      * @param ioFuture the {@code IoFuture} to wrap
@@ -539,5 +557,71 @@ public final class IoUtils {
                 updater.set(channel, channelListener);
             }
         };
+    }
+
+    private static final class SimpleIoFuture<T> extends AbstractIoFuture<T> {}
+
+    /**
+     * A channel source which tries to acquire a channel from a delegate channel source the given number of times before
+     * giving up.
+     *
+     * @param delegate the delegate channel source
+     * @param maxTries the number of times to retry
+     * @param <T> the channel type
+     * @return the retrying channel source
+     */
+    public static <T extends Channel> ChannelSource<T> getRetryingChannelSource(final ChannelSource<T> delegate, final int maxTries) {
+        if (maxTries < 1) {
+            throw new IllegalArgumentException("maxTries must be at least 1");
+        }
+        return new RetryingChannelSource<T>(maxTries, delegate);
+    }
+
+    private static class RetryingNotifier<T extends Channel> extends IoFuture.HandlingNotifier<T, SimpleIoFuture<T>> {
+
+        private volatile int remaining;
+        private final int maxTries;
+        private final IoUtils.SimpleIoFuture<T> f;
+        private final ChannelSource<T> delegate;
+        private final ChannelListener<? super T> openListener;
+
+        RetryingNotifier(final int maxTries, final IoUtils.SimpleIoFuture<T> f, final ChannelSource<T> delegate, final ChannelListener<? super T> openListener) {
+            this.maxTries = maxTries;
+            this.f = f;
+            this.delegate = delegate;
+            this.openListener = openListener;
+            remaining = maxTries;
+        }
+
+        public void handleFailed(final IOException exception, final IoUtils.SimpleIoFuture<T> attachment) {
+            if (remaining-- == 0) {
+                f.setException(new IOException("Failed to create channel after " + maxTries + " tries", exception));
+                return;
+            }
+            tryOne(attachment);
+        }
+
+        void tryOne(final IoUtils.SimpleIoFuture<T> attachment) {
+            final IoFuture<? extends T> ioFuture = delegate.open(openListener);
+            ioFuture.addNotifier(this, attachment);
+        }
+    }
+
+    private static class RetryingChannelSource<T extends Channel> implements ChannelSource<T> {
+
+        private final int maxTries;
+        private final ChannelSource<T> delegate;
+
+        RetryingChannelSource(final int maxTries, final ChannelSource<T> delegate) {
+            this.maxTries = maxTries;
+            this.delegate = delegate;
+        }
+
+        public IoFuture<? extends T> open(final ChannelListener<? super T> openListener) {
+            final IoUtils.SimpleIoFuture<T> f = new IoUtils.SimpleIoFuture<T>();
+            final IoUtils.RetryingNotifier<T> notifier = new IoUtils.RetryingNotifier<T>(maxTries, f, delegate, openListener);
+            notifier.tryOne(f);
+            return f;
+        }
     }
 }
