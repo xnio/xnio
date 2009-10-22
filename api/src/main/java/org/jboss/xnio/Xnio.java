@@ -342,6 +342,22 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
+     * done if multicast is needed, since some providers have a performance penalty associated with multicast.
+     * The provider's default executor will be used to execute handler methods.
+     *
+     * @param optionMap the initial configuration for the server
+     *
+     * @return a factory that can be used to configure the new UDP server
+     *
+     * @since 2.0
+     */
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public UdpServer createUdpServer(OptionMap optionMap) {
+        return createUdpServer(executor, IoUtils.nullChannelListener(), optionMap);
+    }
+
+    /**
      * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
      * pipe. The returned channel source is used to establish connections to the server.
      *
