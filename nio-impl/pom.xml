@@ -27,7 +27,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <properties>
-        <xnio.version>2.0.0.CR3-SNAPSHOT</xnio.version>
+        <xnio.version>2.0.0.CR3</xnio.version>
     </properties>
 
     <name>XNIO NIO Implementation</name>
