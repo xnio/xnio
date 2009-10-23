@@ -566,7 +566,7 @@ public final class IoUtils {
      * @return the notifier
      */
     @SuppressWarnings({ "unchecked" })
-    public static <T extends Channel> IoFuture.Notifier<T, IoFuture.Manager<T>> getManagerNotifier() {
+    public static <T> IoFuture.Notifier<T, IoFuture.Manager<T>> getManagerNotifier() {
         return MANAGER_NOTIFIER;
     }
 
