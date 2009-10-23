@@ -30,6 +30,8 @@
         <xnio.version>2.0.0.CR3-SNAPSHOT</xnio.version>
     </properties>
 
+    <name>XNIO NIO Implementation</name>
+    <description>The NIO implementation of the XNIO project</description>
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
     <version>${xnio.version}</version>

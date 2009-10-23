@@ -26,9 +26,16 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <properties>
+        <xnio.version>2.0.0.CR3-SNAPSHOT</xnio.version>
+    </properties>
+
+    <name>XNIO Testing Support</name>
+    <version>${xnio.version}</version>
+    <description>The test support module of the XNIO project</description>
+
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-testing-support</artifactId>
-    <version>2.0.0.CR3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <dependencies/>
     <build>

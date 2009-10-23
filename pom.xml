@@ -29,7 +29,9 @@
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
+    <name>XNIO Parent POM</name>
     <version>2.0.0.CR3-SNAPSHOT</version>
+    <description>The parent POM of the XNIO project</description>
     <modules>
         <module>api</module>
         <module>nio-impl</module>
