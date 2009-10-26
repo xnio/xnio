@@ -615,31 +615,31 @@ public final class IoUtils {
         return new RetryingChannelSource<T>(maxTries, delegate);
     }
 
-    private static class RetryingNotifier<T extends Channel> extends IoFuture.HandlingNotifier<T, FutureResult<T>> {
+    private static class RetryingNotifier<T extends Channel> extends IoFuture.HandlingNotifier<T, Result<T>> {
 
         private volatile int remaining;
         private final int maxTries;
-        private final FutureResult<T> mgr;
+        private final Result<T> result;
         private final ChannelSource<T> delegate;
         private final ChannelListener<? super T> openListener;
 
-        RetryingNotifier(final int maxTries, final FutureResult<T> mgr, final ChannelSource<T> delegate, final ChannelListener<? super T> openListener) {
+        RetryingNotifier(final int maxTries, final Result<T> result, final ChannelSource<T> delegate, final ChannelListener<? super T> openListener) {
             this.maxTries = maxTries;
-            this.mgr = mgr;
+            this.result = result;
             this.delegate = delegate;
             this.openListener = openListener;
             remaining = maxTries;
         }
 
-        public void handleFailed(final IOException exception, final FutureResult<T> attachment) {
+        public void handleFailed(final IOException exception, final Result<T> attachment) {
             if (remaining-- == 0) {
-                mgr.setException(new IOException("Failed to create channel after " + maxTries + " tries", exception));
+                result.setException(new IOException("Failed to create channel after " + maxTries + " tries", exception));
                 return;
             }
             tryOne(attachment);
         }
 
-        void tryOne(final FutureResult<T> attachment) {
+        void tryOne(final Result<T> attachment) {
             final IoFuture<? extends T> ioFuture = delegate.open(openListener);
             ioFuture.addNotifier(this, attachment);
         }
@@ -656,10 +656,10 @@ public final class IoUtils {
         }
 
         public IoFuture<? extends T> open(final ChannelListener<? super T> openListener) {
-            final FutureResult<T> mgr = new FutureResult<T>();
-            final IoUtils.RetryingNotifier<T> notifier = new IoUtils.RetryingNotifier<T>(maxTries, mgr, delegate, openListener);
-            notifier.tryOne(mgr);
-            return mgr.getIoFuture();
+            final FutureResult<T> result = new FutureResult<T>();
+            final IoUtils.RetryingNotifier<T> notifier = new IoUtils.RetryingNotifier<T>(maxTries, result, delegate, openListener);
+            notifier.tryOne(result);
+            return result.getIoFuture();
         }
     }
 
