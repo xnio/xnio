@@ -241,8 +241,8 @@ final class NioTcpConnector implements TcpConnector {
                 return super.setResult(result);
             }
 
-            protected boolean finishCancel() {
-                return super.finishCancel();
+            protected boolean setCancelled() {
+                return super.setCancelled();
             }
 
             protected Executor getNotifierExecutor() {
@@ -254,7 +254,7 @@ final class NioTcpConnector implements TcpConnector {
             }
 
             public FutureConnection<InetSocketAddress, TcpChannel> cancel() {
-                if (finishCancel()) {
+                if (setCancelled()) {
                     IoUtils.safeClose(socketChannel);
                 }
                 return this;

@@ -274,7 +274,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      *
      * @return {@code false} if the operation was already completed, {@code true} otherwise
      */
-    protected boolean finishCancel() {
+    protected boolean setCancelled() {
         synchronized (lock) {
             if (status == Status.WAITING) {
                 status = Status.CANCELLED;
@@ -290,7 +290,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
 
     /**
      * Cancel an operation.  The actual cancel may be synchronous or asynchronous.  Implementors will use this method
-     * to initiate the cancel; use the {@link #finishCancel()} method to indicate that the cancel was successful.  The
+     * to initiate the cancel; use the {@link #setCancelled()} method to indicate that the cancel was successful.  The
      * default implementation calls any registered cancel handlers.
      *
      * @return this {@code IoFuture} instance

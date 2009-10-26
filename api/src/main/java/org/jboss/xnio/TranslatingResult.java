@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -20,40 +20,38 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio;
+package org.jboss.xnio;
 
-import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.AbstractIoFuture;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoUtils;
 import java.io.IOException;
-import java.io.Closeable;
 
 /**
+ * Abstract base class for {@code Result}s which translate from one type to another.
  *
+ * @param <T> the result type to accept
+ * @param <O> the result type to pass to the delegate
  */
-class FutureUdpChannel extends AbstractIoFuture<UdpChannel> {
+public abstract class TranslatingResult<T, O> implements Result<T> {
+    private final Result<O> output;
 
-    private final UdpChannel channel;
-    private final Closeable underlyingChannel;
-
-    FutureUdpChannel(final UdpChannel channel, final Closeable underlyingChannel) {
-        this.channel = channel;
-        this.underlyingChannel = underlyingChannel;
+    protected TranslatingResult(final Result<O> output) {
+        this.output = output;
     }
 
-    protected boolean setException(final IOException exception) {
-        return super.setException(exception);
+    public boolean setException(final IOException exception) {
+        return output.setException(exception);
     }
 
-    protected boolean done() {
-        return setResult(channel);
+    public boolean setCancelled() {
+        return output.setCancelled();
     }
 
-    public IoFuture<UdpChannel> cancel() {
-        if (setCancelled()) {
-            IoUtils.safeClose(underlyingChannel);
+    public boolean setResult(final T result) {
+        try {
+            return output.setResult(translate(result));
+        } catch (IOException e) {
+            return output.setException(e);
         }
-        return this;
     }
+
+    protected abstract O translate(T input) throws IOException;
 }
