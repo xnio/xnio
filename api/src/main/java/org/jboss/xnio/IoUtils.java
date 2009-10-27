@@ -87,6 +87,11 @@ public final class IoUtils {
         public void handleEvent(final Channel channel) {
         }
     };
+    private static final Cancellable NULL_CANCELLABLE = new Cancellable() {
+        public Cancellable cancel() {
+            return this;
+        }
+    };
     private static final IoUtils.ResultNotifier RESULT_NOTIFIER = new IoUtils.ResultNotifier();
 
     private IoUtils() {}
@@ -685,6 +690,15 @@ public final class IoUtils {
             safeClose(c);
             return this;
         }
+    }
+
+    /**
+     * Get the null cancellable.
+     *
+     * @return the null cancellable
+     */
+    public static Cancellable nullCancellable() {
+        return NULL_CANCELLABLE;
     }
 
     private static class ResultNotifier<T> extends IoFuture.HandlingNotifier<T, Result<T>> {
