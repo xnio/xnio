@@ -24,7 +24,6 @@ package org.jboss.xnio;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.Executor;
 import java.io.IOException;
 
 /**
@@ -244,10 +243,10 @@ public interface IoFuture<T> extends Cancellable {
         /**
          * Handle completion.
          *
-         * @param result the result
+         * @param data the result
          * @param attachment the attachment
          */
-        public void handleDone(final T result, final A attachment) {
+        public void handleDone(final T data, final A attachment) {
         }
     }
 }

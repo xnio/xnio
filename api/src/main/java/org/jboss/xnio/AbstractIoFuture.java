@@ -25,6 +25,7 @@ package org.jboss.xnio;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
@@ -43,6 +44,8 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     private Object result;
     private List<Runnable> notifierList;
     private List<Cancellable> cancellables;
+
+    private static final List<Cancellable> CANCEL_REQUESTED = Collections.emptyList();
 
     /**
      * Construct a new instance.
@@ -296,16 +299,15 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @return this {@code IoFuture} instance
      */
     public IoFuture<T> cancel() {
-        final List<Cancellable> toCall;
+        final List<Cancellable> cancellables;
         synchronized (lock) {
-            final List<Cancellable> cancellables;
             cancellables = this.cancellables;
-            if (cancellables == null) {
+            if (cancellables == null || cancellables == CANCEL_REQUESTED) {
                 return this;
             }
-            toCall = new ArrayList<Cancellable>(cancellables);
+            this.cancellables = CANCEL_REQUESTED;
         }
-        for (Cancellable cancellable : toCall) {
+        for (Cancellable cancellable : cancellables) {
             cancellable.cancel();
         }
         return this;
@@ -325,7 +327,11 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                     break;
                 case WAITING:
                     final List<Cancellable> cancellables = this.cancellables;
-                    ((cancellables == null) ? (this.cancellables = new ArrayList<Cancellable>()) : cancellables).add(cancellable);
+                    if (cancellables == CANCEL_REQUESTED) {
+                        break;
+                    } else {
+                        ((cancellables == null) ? (this.cancellables = new ArrayList<Cancellable>()) : cancellables).add(cancellable);
+                    }
                 default:
                     return;
             }
