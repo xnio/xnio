@@ -66,6 +66,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.RuntimeOperationsException;
+import javax.net.SocketFactory;
+import javax.net.ServerSocketFactory;
 
 /**
  * The XNIO entry point class.
@@ -248,6 +250,30 @@ public abstract class Xnio implements Closeable {
                 }
             }
         }
+    }
+
+    /**
+     * Create a managed socket factory which uses this provider's MBean configuration to track management information.
+     *
+     * @param optionMap the option map
+     * @return the managed socket factory
+     *
+     * @since 2.0
+     */
+    public SocketFactory createManagedSocketFactory(OptionMap optionMap) {
+        return new ManagedSocketFactory(this, optionMap);
+    }
+
+    /**
+     * Create a managed server socket factory which uses this provider's MBean configuration to track management information.
+     *
+     * @param optionMap the option map
+     * @return the managed server socket factory
+     *
+     * @since 2.0
+     */
+    public ServerSocketFactory createServerSocketFactory(OptionMap optionMap) {
+        return new ManagedServerSocketFactory(this, optionMap);
     }
 
     /**
