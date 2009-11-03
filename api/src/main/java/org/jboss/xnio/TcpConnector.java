@@ -36,10 +36,10 @@ public interface TcpConnector extends Connector<InetSocketAddress, TcpChannel> {
      * Establish a connection to a TCP server.
      *
      * @param dest the destination address
-     * @param handler the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    FutureConnection<InetSocketAddress, TcpChannel> connectTo(InetSocketAddress dest, ChannelListener<? super TcpChannel> handler);
+    FutureConnection<InetSocketAddress, TcpChannel> connectTo(InetSocketAddress dest, ChannelListener<? super TcpChannel> openListener);
 
     /**
      * Create a client that always connects to the given TCP server.

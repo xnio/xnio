@@ -36,10 +36,10 @@ public interface Connector<A, T extends Channel> {
      * Establish a connection to a destination.
      *
      * @param dest the destination address
-     * @param handler the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A dest, ChannelListener<? super T> handler);
+    FutureConnection<A, T> connectTo(A dest, ChannelListener<? super T> openListener);
 
     /**
      * Create a client that always connects to the given destination.

@@ -37,8 +37,8 @@ public interface ChannelDestination<A, T extends Channel> {
     /**
      * Accept a connection.  The local address can be read at any time from the returned future connection.
      *
-     * @param handler the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open
      * @return the future connection
      */
-    FutureConnection<A, T> accept(ChannelListener<? super T> handler);
+    FutureConnection<A, T> accept(ChannelListener<? super T> openListener);
 }
