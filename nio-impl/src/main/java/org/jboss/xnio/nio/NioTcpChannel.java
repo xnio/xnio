@@ -327,11 +327,11 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         }
 
         public InetSocketAddress getPeerAddress() {
-            return (InetSocketAddress) socket.getLocalSocketAddress();
+            return (InetSocketAddress) socket.getRemoteSocketAddress();
         }
 
         public InetSocketAddress getBindAddress() {
-            return (InetSocketAddress) socket.getRemoteSocketAddress();
+            return (InetSocketAddress) socket.getLocalSocketAddress();
         }
 
         public void close() {
