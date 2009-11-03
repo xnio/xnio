@@ -40,6 +40,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.DatagramChannel;
 import org.jboss.xnio.channels.StreamChannel;
@@ -316,7 +317,7 @@ public abstract class Xnio implements Closeable {
      */
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(Executor executor, OptionMap optionMap) {
-        throw new UnsupportedOperationException("TCP Connector");
+        return createTcpConnector(executor, null, optionMap);
     }
 
     /**
@@ -330,6 +331,35 @@ public abstract class Xnio implements Closeable {
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(OptionMap optionMap) {
         return createTcpConnector(executor, optionMap);
+    }
+
+    /**
+     * Create a TCP connector.  The given executor will be used to execute handler methods.
+     *
+     * @param executor the executor to use to execute the handlers
+     * @param src the source address for connections
+     * @param optionMap the initial configuration for the connector
+     * @return the TCP connector
+     *
+     * @since 2.0
+     */
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public TcpConnector createTcpConnector(Executor executor, InetSocketAddress src, OptionMap optionMap) {
+        throw new UnsupportedOperationException("TCP Connector");
+    }
+
+    /**
+     * Create a TCP connector.  The provider's default executor will be used to execute handler methods.
+     *
+     * @param src the source address for connections
+     * @param optionMap the initial configuration for the connector
+     * @return the TCP connector
+     *
+     * @since 2.0
+     */
+    @SuppressWarnings({ "UnusedDeclaration" })
+    public TcpConnector createTcpConnector(InetSocketAddress src, OptionMap optionMap) {
+        return createTcpConnector(executor, src, optionMap);
     }
 
     /**

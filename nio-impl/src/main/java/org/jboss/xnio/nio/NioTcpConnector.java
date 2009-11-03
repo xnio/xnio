@@ -51,6 +51,7 @@ final class NioTcpConnector implements TcpConnector {
 
     private final NioXnio nioXnio;
     private final Executor executor;
+    private final InetSocketAddress src;
 
     private final Boolean keepAlive;
     private final Boolean oobInline;
@@ -60,7 +61,7 @@ final class NioTcpConnector implements TcpConnector {
     private final Boolean tcpNoDelay;
     private final boolean manageConnections;
 
-    private NioTcpConnector(NioXnio nioXnio, Executor executor, OptionMap optionMap) {
+    private NioTcpConnector(NioXnio nioXnio, Executor executor, OptionMap optionMap, final InetSocketAddress src) {
         if (nioXnio == null) {
             throw new NullPointerException("nioXnio is null");
         }
@@ -76,6 +77,7 @@ final class NioTcpConnector implements TcpConnector {
         oobInline = optionMap.get(Options.TCP_OOB_INLINE);
         tcpNoDelay = optionMap.get(Options.TCP_NODELAY);
         manageConnections = ! optionMap.contains(Options.MANAGE_CONNECTIONS) || optionMap.get(Options.MANAGE_CONNECTIONS).booleanValue();
+        this.src = src;
     }
 
     private void configureStream(final Socket socket) throws SocketException {
@@ -94,20 +96,7 @@ final class NioTcpConnector implements TcpConnector {
         if (handler == null) {
             throw new NullPointerException("handler is null");
         }
-        return doConnectTo(null, dest, handler);
-    }
-
-    public FutureConnection<InetSocketAddress, TcpChannel> connectTo(final InetSocketAddress src, final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
-        if (src == null) {
-            throw new NullPointerException("src is null");
-        }
-        if (dest == null) {
-            throw new NullPointerException("dest is null");
-        }
-        if (handler == null) {
-            throw new NullPointerException("handler is null");
-        }
-        return doConnectTo(src, dest, handler);
+        return doConnectTo(dest, handler);
     }
 
     public TcpChannelSource createChannelSource(final InetSocketAddress dest) {
@@ -119,29 +108,12 @@ final class NioTcpConnector implements TcpConnector {
                 if (handler == null) {
                     throw new NullPointerException("handler is null");
                 }
-                return doConnectTo(null, dest, handler);
+                return doConnectTo(dest, handler);
             }
         };
     }
 
-    public TcpChannelSource createChannelSource(final InetSocketAddress src, final InetSocketAddress dest) {
-        if (src == null) {
-            throw new NullPointerException("src is null");
-        }
-        if (dest == null) {
-            throw new NullPointerException("dest is null");
-        }
-        return new TcpChannelSource() {
-            public FutureConnection<InetSocketAddress, TcpChannel> open(final ChannelListener<? super TcpChannel> handler) {
-                if (handler == null) {
-                    throw new NullPointerException("handler is null");
-                }
-                return doConnectTo(src, dest, handler);
-            }
-        };
-    }
-
-    private FutureConnection<InetSocketAddress, TcpChannel> doConnectTo(final InetSocketAddress src, final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
+    private FutureConnection<InetSocketAddress, TcpChannel> doConnectTo(final InetSocketAddress dest, final ChannelListener<? super TcpChannel> handler) {
         try {
             log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
             final SocketChannel socketChannel = SocketChannel.open();
@@ -176,8 +148,8 @@ final class NioTcpConnector implements TcpConnector {
         return String.format("TCP connector (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    static TcpConnector create(final NioXnio nioXnio, final Executor executor, final OptionMap optionMap) {
-        return new NioTcpConnector(nioXnio, executor, optionMap);
+    static TcpConnector create(final NioXnio nioXnio, final Executor executor, final OptionMap optionMap, final InetSocketAddress src) {
+        return new NioTcpConnector(nioXnio, executor, optionMap, src);
     }
 
     /**

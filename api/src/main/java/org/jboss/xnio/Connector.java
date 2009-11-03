@@ -30,24 +30,22 @@ import java.nio.channels.Channel;
  * @param <A> the address type
  * @param <T> the type of channel
  */
-public interface Connector<A, T extends Channel> extends BoundConnector<A,T> {
+public interface Connector<A, T extends Channel> {
 
     /**
-     * Establish a connection to a destination using an explicit source.
+     * Establish a connection to a destination.
      *
-     * @param src the source address
      * @param dest the destination address
      * @param handler the handler which will be notified when the channel is open
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A src, A dest, ChannelListener<? super T> handler);
+    FutureConnection<A, T> connectTo(A dest, ChannelListener<? super T> handler);
 
     /**
-     * Create a client that always connects to the given destination using an explicit source.
+     * Create a client that always connects to the given destination.
      *
-     * @param src the source to connect from
      * @param dest the destination to connect to
      * @return the client
      */
-    ChannelSource<T> createChannelSource(A src, A dest);
+    ChannelSource<T> createChannelSource(A dest);
 }

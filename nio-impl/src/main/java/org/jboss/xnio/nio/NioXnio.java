@@ -43,6 +43,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.net.InetSocketAddress;
 import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
@@ -236,7 +237,6 @@ public final class NioXnio extends Xnio {
         }
         log.trace("Starting up with selector provider %s", providerClassName);
         ThreadFactory selectorThreadFactory = configuration.getSelectorThreadFactory();
-        final Executor executor = configuration.getExecutor();
         final int readSelectorThreads = configuration.getReadSelectorThreads();
         final int writeSelectorThreads = configuration.getWriteSelectorThreads();
         final int connectSelectorThreads = configuration.getConnectSelectorThreads();
@@ -300,7 +300,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public TcpConnector createTcpConnector(final Executor executor, final OptionMap optionMap) {
+    public TcpConnector createTcpConnector(final Executor executor, final OptionMap optionMap, final InetSocketAddress src) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
@@ -311,7 +311,7 @@ public final class NioXnio extends Xnio {
             if (closed) {
                 throw notOpen();
             }
-            return NioTcpConnector.create(this, executor, optionMap);
+            return NioTcpConnector.create(this, executor, optionMap, src);
         }
     }
 
