@@ -112,6 +112,34 @@ public final class Options {
     public static final Option<Boolean> MANAGE_CONNECTIONS = Option.simple(Options.class, "MANAGE_CONNECTIONS", Boolean.class);
 
     /**
+     * The number of read threads to create.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> READ_THREADS = Option.simple(Options.class, "READ_THREADS", Integer.class);
+
+    /**
+     * The number of write threads to create.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> WRITE_THREADS = Option.simple(Options.class, "WRITE_THREADS", Integer.class);
+
+    /**
+     * The number of connect threads to create.
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> CONNECT_THREADS = Option.simple(Options.class, "CONNECT_THREADS", Integer.class);
+
+    /**
+     * The size of the selector cache (used only by providers which use NIO selectors).
+     *
+     * @since 2.0
+     */
+    public static final Option<Integer> SELECTOR_CACHE_SIZE = Option.simple(Options.class, "SELECTOR_CACHE_SIZE", Integer.class);
+
+    /**
      * The maximum inbound message size.
      *
      * @since 2.0

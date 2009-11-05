@@ -24,25 +24,27 @@ package org.jboss.xnio;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
 
 import javax.management.MBeanServer;
 
 /**
- * An abstract configuration for an XNIO provider.  This class provides configuration items that are always common
- * to all providers.
+ * A configuration for an XNIO provider.
  *
  * @since 1.2
  */
-public abstract class XnioConfiguration {
+public final class XnioConfiguration {
 
     private List<MBeanServer> mBeanServers;
+    private ThreadFactory threadFactory;
     private Executor executor;
     private String name;
+    private OptionMap optionMap;
 
     /**
      * Construct an uninitialized instance.
      */
-    protected XnioConfiguration() {
+    public XnioConfiguration() {
     }
 
     /**
@@ -66,21 +68,21 @@ public abstract class XnioConfiguration {
     }
 
     /**
-     * Get the common name of the XNIO provider instance.
+     * Get the thread factory to use for any created threads.
      *
-     * @return the name
+     * @return the thread factory
      */
-    public String getName() {
-        return name;
+    public ThreadFactory getThreadFactory() {
+        return threadFactory;
     }
 
     /**
-     * Set the common name of the XNIO provider instance.
+     * Set the thread factory to use for any created threads.
      *
-     * @param name the name
+     * @param threadFactory the thread factory
      */
-    public void setName(final String name) {
-        this.name = name;
+    public void setThreadFactory(final ThreadFactory threadFactory) {
+        this.threadFactory = threadFactory;
     }
 
     /**
@@ -99,5 +101,41 @@ public abstract class XnioConfiguration {
      */
     public void setExecutor(final Executor executor) {
         this.executor = executor;
+    }
+
+    /**
+     * Get the common name of the XNIO provider instance.
+     *
+     * @return the name
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Set the common name of the XNIO provider instance.
+     *
+     * @param name the name
+     */
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    /**
+     * Get the option map associated with this configuration.
+     *
+     * @return the option map
+     */
+    public OptionMap getOptionMap() {
+        return optionMap;
+    }
+
+    /**
+     * Set the option map associated with this configuration.
+     *
+     * @param optionMap the option map
+     */
+    public void setOptionMap(final OptionMap optionMap) {
+        this.optionMap = optionMap;
     }
 }

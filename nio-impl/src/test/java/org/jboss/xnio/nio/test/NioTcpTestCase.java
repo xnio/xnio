@@ -45,10 +45,10 @@ import org.jboss.xnio.TcpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Options;
+import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
-import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 
@@ -67,8 +67,8 @@ public final class NioTcpTestCase extends TestCase {
     private static final int SERVER_PORT = 12345;
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super TcpChannel> clientHandler, final ChannelListener<? super TcpChannel> serverHandler) throws Exception {
-        final NioXnioConfiguration conf = new NioXnioConfiguration();
-        conf.setSelectorThreadFactory(threadFactory);
+        final XnioConfiguration conf = new XnioConfiguration();
+        conf.setThreadFactory(threadFactory);
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
         Xnio xnio = NioXnio.create(conf);
         try {

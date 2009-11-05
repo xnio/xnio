@@ -58,6 +58,7 @@ import org.jboss.xnio.Xnio;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Options;
+import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
@@ -101,9 +102,9 @@ public final class NioXnio extends Xnio {
     private final Set<Closeable> managedSet = new HashSet<Closeable>();
 
     private static final class CreateAction implements PrivilegedExceptionAction<NioXnio> {
-        private final NioXnioConfiguration configuration;
+        private final XnioConfiguration configuration;
 
-        public CreateAction(final NioXnioConfiguration configuration) {
+        public CreateAction(final XnioConfiguration configuration) {
             this.configuration = configuration;
         }
 
@@ -120,11 +121,11 @@ public final class NioXnio extends Xnio {
      * @throws IOException if an I/O error occurs while starting the service
      * @since 1.2
      */
-    public static Xnio create(NioXnioConfiguration configuration) throws IOException {
+    public static Xnio create(XnioConfiguration configuration) throws IOException {
         return doCreate(configuration);
     }
 
-    private static NioXnio doCreate(final NioXnioConfiguration configuration) throws IOException {
+    private static NioXnio doCreate(final XnioConfiguration configuration) throws IOException {
         try {
             return AccessController.doPrivileged(new CreateAction(configuration));
         } catch (PrivilegedActionException e) {
@@ -150,11 +151,7 @@ public final class NioXnio extends Xnio {
      * @throws IOException if an I/O error occurs while starting the service
      */
     public static Xnio create() throws IOException {
-        final NioXnioConfiguration configuration = new NioXnioConfiguration();
-        configuration.setReadSelectorThreads(1);
-        configuration.setWriteSelectorThreads(1);
-        configuration.setConnectSelectorThreads(1);
-        return doCreate(configuration);
+        return doCreate(new XnioConfiguration());
     }
 
     /**
@@ -169,10 +166,8 @@ public final class NioXnio extends Xnio {
      * @throws IllegalArgumentException if a given argument is not valid
      */
     public static Xnio create(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final NioXnioConfiguration configuration = new NioXnioConfiguration();
-        configuration.setReadSelectorThreads(readSelectorThreads);
-        configuration.setWriteSelectorThreads(writeSelectorThreads);
-        configuration.setConnectSelectorThreads(connectSelectorThreads);
+        final XnioConfiguration configuration = new XnioConfiguration();
+        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
         return doCreate(configuration);
     }
 
@@ -192,11 +187,9 @@ public final class NioXnio extends Xnio {
         if (handlerExecutor == null) {
             throw new NullPointerException("handlerExecutor is null");
         }
-        final NioXnioConfiguration configuration = new NioXnioConfiguration();
+        final XnioConfiguration configuration = new XnioConfiguration();
         configuration.setExecutor(handlerExecutor);
-        configuration.setReadSelectorThreads(readSelectorThreads);
-        configuration.setWriteSelectorThreads(writeSelectorThreads);
-        configuration.setConnectSelectorThreads(connectSelectorThreads);
+        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
         return doCreate(configuration);
     }
 
@@ -220,27 +213,26 @@ public final class NioXnio extends Xnio {
         if (selectorThreadFactory == null) {
             throw new NullPointerException("selectorThreadFactory is null");
         }
-        final NioXnioConfiguration configuration = new NioXnioConfiguration();
+        final XnioConfiguration configuration = new XnioConfiguration();
         configuration.setExecutor(handlerExecutor);
-        configuration.setSelectorThreadFactory(selectorThreadFactory);
-        configuration.setReadSelectorThreads(readSelectorThreads);
-        configuration.setWriteSelectorThreads(writeSelectorThreads);
-        configuration.setConnectSelectorThreads(connectSelectorThreads);
+        configuration.setThreadFactory(selectorThreadFactory);
+        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
         return doCreate(configuration);
     }
 
-    private NioXnio(NioXnioConfiguration configuration) throws IOException {
+    private NioXnio(XnioConfiguration configuration) throws IOException {
         super(configuration);
         final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
         if ("sun.nio.ch.PollSelectorProvider".equals(providerClassName)) {
             log.warn("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
         }
         log.trace("Starting up with selector provider %s", providerClassName);
-        ThreadFactory selectorThreadFactory = configuration.getSelectorThreadFactory();
-        final int readSelectorThreads = configuration.getReadSelectorThreads();
-        final int writeSelectorThreads = configuration.getWriteSelectorThreads();
-        final int connectSelectorThreads = configuration.getConnectSelectorThreads();
-        final int selectorCacheSize = configuration.getSelectorCacheSize();
+        ThreadFactory selectorThreadFactory = configuration.getThreadFactory();
+        final OptionMap optionMap = getOptionMap(configuration);
+        final int readSelectorThreads = optionMap.get(Options.READ_THREADS, 1);
+        final int writeSelectorThreads = optionMap.get(Options.WRITE_THREADS, 1);
+        final int connectSelectorThreads = optionMap.get(Options.CONNECT_THREADS, 1);
+        final int selectorCacheSize = optionMap.get(Options.SELECTOR_CACHE_SIZE, 30);
         if (selectorThreadFactory == null) {
             selectorThreadFactory = Executors.defaultThreadFactory();
         }
@@ -280,6 +272,11 @@ public final class NioXnio extends Xnio {
         }
     }
 
+    private static OptionMap getOptionMap(final XnioConfiguration configuration) {
+        final OptionMap optionMap = configuration.getOptionMap();
+        return optionMap == null ? OptionMap.EMPTY : optionMap;
+    }
+
     /** {@inheritDoc} */
     public TcpServer createTcpServer(final Executor executor, final ChannelListener<? super TcpChannel> openHandler, final OptionMap optionMap) {
         if (executor == null) {
@@ -300,7 +297,7 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public TcpConnector createTcpConnector(final Executor executor, final OptionMap optionMap, final InetSocketAddress src) {
+    public TcpConnector createTcpConnector(final Executor executor, final InetSocketAddress src, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }

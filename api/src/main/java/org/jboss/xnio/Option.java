@@ -33,6 +33,8 @@ import java.util.LinkedHashSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * A strongly-typed option to configure an aspect of a service or connection.  Options are immutable and use identity comparisons
@@ -123,6 +125,15 @@ public abstract class Option<T> implements Serializable {
     public abstract T cast(Object o) throws ClassCastException;
 
     /**
+     * Parse a string value for this option.
+     *
+     * @param string the string
+     * @return the parsed value
+     * @throws IllegalArgumentException if the argument could not be parsed
+     */
+    public abstract T parseValue(String string) throws IllegalArgumentException;
+
+    /**
      * Resolve this instance for serialization.
      *
      * @return the resolved object
@@ -138,7 +149,11 @@ public abstract class Option<T> implements Serializable {
             if (! Modifier.isStatic(modifiers)) {
                 throw new InvalidObjectException("Invalid Option instance (the field is not static)");
             }
-            return field.get(null);
+            final Option option = (Option) field.get(null);
+            if (option == null) {
+                throw new InvalidObjectException("Invalid null Option");
+            }
+            return option;
         } catch (NoSuchFieldException e) {
             throw new InvalidObjectException("Invalid Option instance (no matching field)");
         } catch (IllegalAccessException e) {
@@ -203,6 +218,68 @@ public abstract class Option<T> implements Serializable {
             return Collections.unmodifiableSet(new LinkedHashSet<Option<?>>(optionSet));
         }
     }
+
+    interface ValueParser<T> {
+        T parseValue(String string) throws IllegalArgumentException;
+    }
+
+    private static final Map<Class<?>, ValueParser<?>> parsers;
+
+    private static final ValueParser<?> noParser = new ValueParser<Object>() {
+        public Object parseValue(final String string) throws IllegalArgumentException {
+            throw new IllegalArgumentException("No parser for this value type");
+        }
+    };
+
+    static {
+        final Map<Class<?>, ValueParser<?>> map = new HashMap<Class<?>, ValueParser<?>>();
+        map.put(Byte.class, new ValueParser<Byte>() {
+            public Byte parseValue(final String string) throws IllegalArgumentException {
+                return Byte.decode(string.trim());
+            }
+        });
+        map.put(Short.class, new ValueParser<Short>() {
+            public Short parseValue(final String string) throws IllegalArgumentException {
+                return Short.decode(string.trim());
+            }
+        });
+        map.put(Integer.class, new ValueParser<Integer>() {
+            public Integer parseValue(final String string) throws IllegalArgumentException {
+                return Integer.decode(string.trim());
+            }
+        });
+        map.put(Long.class, new ValueParser<Long>() {
+            public Long parseValue(final String string) throws IllegalArgumentException {
+                return Long.decode(string.trim());
+            }
+        });
+        map.put(String.class, new ValueParser<String>() {
+            public String parseValue(final String string) throws IllegalArgumentException {
+                return string.trim();
+            }
+        });
+        map.put(Boolean.class, new ValueParser<Boolean>() {
+            public Boolean parseValue(final String string) throws IllegalArgumentException {
+                return Boolean.valueOf(string.trim());
+            }
+        });
+        parsers = map;
+    }
+
+    @SuppressWarnings({ "unchecked" })
+    static <T> ValueParser<T> getParser(final Class<T> argType) {
+        if (argType.isEnum()) {
+            return new ValueParser<T>() {
+                @SuppressWarnings({ "unchecked" })
+                public T parseValue(final String string) throws IllegalArgumentException {
+                    return (T) Enum.valueOf((Class)argType, string.trim());
+                }
+            };
+        } else {
+            final Option.ValueParser<?> value = parsers.get(argType);
+            return (Option.ValueParser<T>) (value == null ? noParser : value);
+        }
+    }
 }
 
 final class SingleOption<T> extends Option<T> {
@@ -210,14 +287,20 @@ final class SingleOption<T> extends Option<T> {
     private static final long serialVersionUID = 2449094406108952764L;
 
     private transient final Class<T> type;
+    private transient final ValueParser<T> parser;
 
     SingleOption(final Class<?> declClass, final String name, final Class<T> type) {
         super(declClass, name);
         this.type = type;
+        parser = Option.getParser(type);
     }
 
     public T cast(final Object o) {
         return type.cast(o);
+    }
+
+    public T parseValue(final String string) throws IllegalArgumentException {
+        return parser.parseValue(string);
     }
 }
 
@@ -236,6 +319,14 @@ final class FlagsOption<T extends Enum<T>> extends Option<FlagSet<T>> {
         final FlagSet<?> flagSet = (FlagSet<?>) o;
         return flagSet.cast(elementType);
     }
+
+    public FlagSet<T> parseValue(final String string) throws IllegalArgumentException {
+        final List<T> list = new ArrayList<T>();
+        for (String value : string.split(",")) {
+            list.add(Enum.valueOf(elementType, value.trim()));
+        }
+        return FlagSet.copyOf(elementType, list);
+    }
 }
 
 final class SequenceOption<T> extends Option<Sequence<T>> {
@@ -243,10 +334,12 @@ final class SequenceOption<T> extends Option<Sequence<T>> {
     private static final long serialVersionUID = -4328676629293125136L;
 
     private transient final Class<T> elementType;
+    private transient final ValueParser<T> parser;
 
     SequenceOption(final Class<?> declClass, final String name, final Class<T> elementType) {
         super(declClass, name);
         this.elementType = elementType;
+        parser = Option.getParser(elementType);
     }
 
     public Sequence<T> cast(final Object o) {
@@ -259,5 +352,13 @@ final class SequenceOption<T> extends Option<Sequence<T>> {
         } else {
             throw new ClassCastException("Not a sequence");
         }
+    }
+
+    public Sequence<T> parseValue(final String string) throws IllegalArgumentException {
+        final List<T> list = new ArrayList<T>();
+        for (String value : string.split(",")) {
+            list.add(parser.parseValue(value));
+        }
+        return Sequence.of(list);
     }
 }

@@ -42,11 +42,11 @@ import org.jboss.xnio.UdpServer;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Options;
+import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
 import org.jboss.xnio.nio.NioXnio;
-import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 
@@ -75,8 +75,8 @@ public final class NioUdpTestCase extends TestCase {
     private synchronized void doServerSideTest(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body) throws IOException {
         final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
-            final NioXnioConfiguration config = new NioXnioConfiguration();
-            config.setSelectorThreadFactory(threadFactory);
+            final XnioConfiguration config = new XnioConfiguration();
+            config.setThreadFactory(threadFactory);
             config.setExecutor(closeableExecutor);
             final Xnio xnio = NioXnio.create(config);
             try {
@@ -115,8 +115,8 @@ public final class NioUdpTestCase extends TestCase {
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<UdpChannel> serverHandler, final ChannelListener<UdpChannel> clientHandler, final Runnable body) throws IOException {
         final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
-            final NioXnioConfiguration config = new NioXnioConfiguration();
-            config.setSelectorThreadFactory(threadFactory);
+            final XnioConfiguration config = new XnioConfiguration();
+            config.setThreadFactory(threadFactory);
             config.setExecutor(closeableExecutor);
             final Xnio xnio = NioXnio.create(config);
             try {

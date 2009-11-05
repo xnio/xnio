@@ -26,14 +26,13 @@ import junit.framework.TestCase;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.channels.CloseableChannel;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Xnio;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.ChannelListener;
+import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
-import org.jboss.xnio.nio.NioXnioConfiguration;
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 import static org.jboss.xnio.Buffers.flip;
@@ -58,8 +57,8 @@ public final class NioPipeTestCase extends TestCase {
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 
     private void doOneWayPipeTest(final Runnable body, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) throws Exception {
-        final NioXnioConfiguration config = new NioXnioConfiguration();
-        config.setSelectorThreadFactory(threadFactory);
+        final XnioConfiguration config = new XnioConfiguration();
+        config.setThreadFactory(threadFactory);
         Xnio xnio = NioXnio.create(config);
         try {
             final IoFuture<? extends Closeable> future = xnio.createOneWayPipeConnection(sourceHandler, sinkHandler);
@@ -75,8 +74,8 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     private void doTwoWayPipeTest(final Runnable body, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) throws Exception {
-        final NioXnioConfiguration config = new NioXnioConfiguration();
-        config.setSelectorThreadFactory(threadFactory);
+        final XnioConfiguration config = new XnioConfiguration();
+        config.setThreadFactory(threadFactory);
         Xnio xnio = NioXnio.create(config);
         try {
             final IoFuture<? extends Closeable> future = xnio.createPipeConnection(leftHandler, rightHandler);
