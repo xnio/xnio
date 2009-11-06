@@ -224,7 +224,7 @@ class NioUdpChannel implements UdpChannel {
         throw new UnsupportedOperationException("Shutdown reads");
     }
 
-    public void shutdownWrites() throws IOException {
+    public boolean shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
     }
 

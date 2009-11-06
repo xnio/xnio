@@ -426,12 +426,16 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         }
     }
 
-    public void shutdownWrites() throws IOException {
+    public boolean shutdownWrites() throws IOException {
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
-            sslEngine.closeOutbound();
-            // user must call flush until everything is cleared!
+            if (flush()) {
+                sslEngine.closeOutbound();
+                return tcpChannel.shutdownWrites();
+            } else {
+                return false;
+            }
         } finally {
             mainLock.unlock();
         }

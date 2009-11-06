@@ -232,8 +232,13 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         socket.shutdownInput();
     }
 
-    public void shutdownWrites() throws IOException {
-        socket.shutdownOutput();
+    public boolean shutdownWrites() throws IOException {
+        if (flush()) {
+            socket.shutdownOutput();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public void awaitReadable() throws IOException {

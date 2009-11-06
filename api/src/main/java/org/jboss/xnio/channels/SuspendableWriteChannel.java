@@ -45,13 +45,15 @@ public interface SuspendableWriteChannel extends CloseableChannel {
 
     /**
      * Indicate that writing is complete for this channel.  Further attempts to write after this method is invoked will
-     * result in an exception; however, even after invoking this method, the channel can not be
-     * considered to be completely shut down until {@link #flush()} returns {@code true}, which may entail further
-     * calls to {@link #awaitWritable()} or {@link #resumeWrites()}.
+     * result in an exception; however, this method may have to be invoked multiple times in order to complete the
+     * shutdown operation.  If writes were already shut down successfully, calling this method again will have no
+     * additional effect.
+     *
+     * @returns {@code true} if the write channel was closed, or {@code false} if the operation would have blocked
      *
      * @throws IOException if an I/O error occurs
      */
-    void shutdownWrites() throws IOException;
+    boolean shutdownWrites() throws IOException;
 
     /**
      * Block until this channel becomes writable again.  This method may return spuriously
@@ -91,10 +93,8 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     ChannelListener.Setter<? extends SuspendableWriteChannel> getCloseSetter();
 
     /**
-     * Flush any waiting partial send or write.  Should be called after the final send or write to ensure that
-     * all buffers are cleared; some channels (especially encapsulated protocols) may experience "missing" or heavily
-     * delayed delivery if a {@code true} result is not obtained from this method before the data is considered to be
-     * sent by the application.
+     * Flush any waiting partial send or write.  Flushing a channel for which output was shut down is permitted; this
+     * method would simply return {@code true} in this case, since there is no outstanding data to flush.
      *
      * @return {@code true} if the message was flushed, or {@code false} if the result would block
      * @throws java.io.IOException if an I/O error occurs

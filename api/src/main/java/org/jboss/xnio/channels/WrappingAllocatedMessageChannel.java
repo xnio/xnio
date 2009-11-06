@@ -409,12 +409,15 @@ final class WrappingAllocatedMessageChannel implements AllocatedMessageChannel {
         streamChannel.resumeWrites();
     }
 
-    public void shutdownWrites() throws IOException {
+    public boolean shutdownWrites() throws IOException {
         synchronized (writeLock) {
-            writeState = WriteState.DOWN;
-            writeBuffer = null;
-            streamChannel.shutdownWrites();
+            if (flush()) {
+                writeState = WriteState.DOWN;
+                writeBuffer = null;
+                return streamChannel.shutdownWrites();
+            }
         }
+        return false;
     }
 
     public void awaitWritable() throws IOException {

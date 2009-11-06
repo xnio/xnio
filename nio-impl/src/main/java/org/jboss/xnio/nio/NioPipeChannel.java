@@ -195,8 +195,13 @@ final class NioPipeChannel implements StreamChannel {
         sourceChannel.close();
     }
 
-    public void shutdownWrites() throws IOException {
-        sinkChannel.close();
+    public boolean shutdownWrites() throws IOException {
+        if (flush()) {
+            sinkChannel.close();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public void awaitReadable() throws IOException {
