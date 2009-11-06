@@ -114,6 +114,6 @@ public class ChannelInputStream extends InputStream {
     /** {@inheritDoc} */
     public void close() throws IOException {
         closed = true;
-        channel.close();
+        channel.shutdownReads();
     }
 }

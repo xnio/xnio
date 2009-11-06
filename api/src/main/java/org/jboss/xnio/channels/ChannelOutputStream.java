@@ -99,13 +99,12 @@ public class ChannelOutputStream extends OutputStream {
 
     /** {@inheritDoc} */
     public void flush() throws IOException {
-        if (closed) throw closed();
         Channels.flushBlocking(channel);
     }
 
     /** {@inheritDoc} */
     public void close() throws IOException {
         closed = true;
-        channel.close();
+        Channels.shutdownWritesBlocking(channel);
     }
 }

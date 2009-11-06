@@ -129,6 +129,21 @@ public final class Channels {
     }
 
     /**
+     * Simple utility method to execute a blocking write shutdown on a writable channel.  The method blocks until the
+     * channel's output side is fully shut down.
+     *
+     * @param channel the writable channel
+     * @throws IOException if an I/O exception occurs
+     *
+     * @since 2.0
+     */
+    public static void shutdownWritesBlocking(SuspendableWriteChannel channel) throws IOException {
+        while (! channel.shutdownWrites()) {
+            channel.awaitWritable();
+        }
+    }
+
+    /**
      * Simple utility method to execute a blocking write on a byte channel.  The method blocks until the bytes in the
      * buffer have been fully written.  To ensure that the data is sent, the {@link #flushBlocking(SuspendableWriteChannel)}
      * method should be called after all writes are complete.
