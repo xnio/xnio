@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.Set;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLSession;
@@ -150,8 +151,16 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         return sslEngine.getSession();
     }
 
+    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
+        return target.transferFrom(this, position, count);
+    }
+
     public ChannelListener.Setter<SslTcpChannel> getReadSetter() {
         return readSetter;
+    }
+
+    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
+        return src.transferTo(position, count, this);
     }
 
     public ChannelListener.Setter<SslTcpChannel> getWriteSetter() {

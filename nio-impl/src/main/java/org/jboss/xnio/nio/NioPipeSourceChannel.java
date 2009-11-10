@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -63,6 +64,10 @@ final class NioPipeSourceChannel implements StreamSourceChannel {
         this.nioXnio = nioXnio;
         this.mbeanHandle = mbeanHandle;
         handle = nioXnio.addReadHandler(channel, new Handler());
+    }
+
+    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
+        return target.transferFrom(channel, position, count);
     }
 
     public ChannelListener.Setter<StreamSourceChannel> getReadSetter() {

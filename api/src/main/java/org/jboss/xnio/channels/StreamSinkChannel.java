@@ -24,12 +24,26 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.WritableByteChannel;
 import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.FileChannel;
+import java.io.IOException;
 import org.jboss.xnio.ChannelListener;
 
 /**
  * A stream sink channel.  This type of channel is a writable desination for bytes.
  */
 public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel {
+
+    /**
+     * Transfer bytes into this channel from the given file.  Using this method in preference to {@link java.nio.channels.FileChannel#transferTo(long, long, java.nio.channels.WritableByteChannel)}
+     * may provide a performance advantage on some platforms.
+     *
+     * @param src the file to read from
+     * @param position the position within the file from which the transfer is to begin
+     * @param count the number of bytes to be transferred
+     * @return the number of bytes (possibly 0) that were actually transferred
+     * @throws IOException if an I/O error occurs
+     */
+    long transferFrom(FileChannel src, long position, long count) throws IOException;
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter();

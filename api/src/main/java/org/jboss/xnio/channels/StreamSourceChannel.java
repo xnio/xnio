@@ -24,12 +24,26 @@ package org.jboss.xnio.channels;
 
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.FileChannel;
+import java.io.IOException;
 import org.jboss.xnio.ChannelListener;
 
 /**
  * A stream source channel.  This type of channel is a readable source for bytes.
  */
 public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByteChannel, SuspendableReadChannel {
+
+    /**
+     * Transfers bytes into the given file from this channel.  Using this method in preference to {@link java.nio.channels.FileChannel#transferFrom(java.nio.channels.ReadableByteChannel, long, long)}
+     * may provide a performance advantage on some platforms.
+     *
+     * @param position the position within the file from which the transfer is to begin
+     * @param count the number of bytes to be transferred
+     * @param target the file to write to
+     * @return the number of bytes (possibly 0) that were actually transferred
+     * @throws IOException if an I/O error occurs
+     */
+    long transferTo(long position, long count, FileChannel target) throws IOException;
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter();
