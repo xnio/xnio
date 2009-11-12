@@ -165,7 +165,10 @@ final class NioTcpServer implements TcpServer {
                 }
                 final Binding channel = new Binding(serverSocketChannel);
                 boundChannels.add(channel);
-                IoUtils.<BoundChannel<InetSocketAddress>>invokeChannelListener(channel, bindListener);
+                final ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener = this.bindListener;
+                if (bindListener != null) {
+                    executor.execute(IoUtils.<BoundChannel<InetSocketAddress>>getChannelListenerTask(channel, bindListener));
+                }
                 return new FinishedIoFuture<BoundChannel<InetSocketAddress>>(channel);
             } catch (IOException e) {
                 return new FailedIoFuture<BoundChannel<InetSocketAddress>>(e);
@@ -177,8 +180,8 @@ final class NioTcpServer implements TcpServer {
         synchronized (lock) {
             if (! closed) {
                 log.trace("Closing %s", this);
-                IoUtils.<TcpServer>invokeChannelListener(this, closeListener);
                 closed = true;
+                IoUtils.<TcpServer>invokeChannelListener(executor, this, closeListener);
                 final ArrayList<Binding> list = new ArrayList<Binding>(boundChannels);
                 for (final Binding boundChannel : list) {
                     IoUtils.safeClose(boundChannel);
@@ -341,10 +344,10 @@ final class NioTcpServer implements TcpServer {
         public void close() throws IOException {
             if (open.getAndSet(false)) synchronized (lock) {
                 chanLog.trace("Closing %s", this);
-                IoUtils.invokeChannelListener(this, closeListener);
                 try {
                     channel.close();
                 } finally {
+                    IoUtils.invokeChannelListener(executor, this, closeListener);
                     xnio.removeManaged(this);
                 }
             }

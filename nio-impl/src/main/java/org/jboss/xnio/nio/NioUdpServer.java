@@ -239,7 +239,7 @@ class NioUdpServer implements UdpServer {
                     it.remove();
                 }
                 IoUtils.safeClose(mbeanHandle);
-                IoUtils.<UdpServer>invokeChannelListener(this, closeListener);
+                IoUtils.<UdpServer>invokeChannelListener(executor, this, closeListener);
             }
         }
     }

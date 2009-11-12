@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.nio.channels.Channel;
+import org.jboss.xnio.channels.BoundChannel;
 
 /**
  * A channel destination.  This is the inverse of {@code ChannelSource}; it is used to accept a single connection from a remote
@@ -35,10 +36,12 @@ import java.nio.channels.Channel;
  */
 public interface ChannelDestination<A, T extends Channel> {
     /**
-     * Accept a connection.  The local address can be read at any time from the returned future connection.
+     * Accept a connection.  The bind listener will be called when the channel is bound; the open listener will be called
+     * when the connection is accepted.  It is not guaranteed that the open listener will be called after the bind listener.
      *
-     * @param openListener the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the handler which will be notified when the channel is bound locally, or {@code null} for none
      * @return the future connection
      */
-    FutureConnection<A, T> accept(ChannelListener<? super T> openListener);
+    IoFuture<T> accept(ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel<A>> bindListener);
 }

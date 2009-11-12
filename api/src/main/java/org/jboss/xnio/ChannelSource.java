@@ -31,6 +31,7 @@ import java.nio.channels.Channel;
  * @param <T> the type of channel
  */
 public interface ChannelSource<T extends Channel> {
+
     /**
      * Open a channel.
      *

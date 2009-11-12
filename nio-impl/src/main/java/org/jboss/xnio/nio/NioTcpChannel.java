@@ -45,6 +45,8 @@ import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Options;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.UnsupportedOptionException;
+import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.management.TcpConnectionMBean;
 
@@ -109,6 +111,39 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         } catch (NotCompliantMBeanException e) {
             throw new IOException("Failed to register channel mbean: " + e);
         }
+    }
+
+    BoundChannel<InetSocketAddress> getBoundChannel() {
+        return new BoundChannel<InetSocketAddress>() {
+            public InetSocketAddress getLocalAddress() {
+                return NioTcpChannel.this.getLocalAddress();
+            }
+
+            public ChannelListener.Setter<? extends BoundChannel<InetSocketAddress>> getCloseSetter() {
+                return NioTcpChannel.this.getCloseSetter();
+            }
+
+            public boolean isOpen() {
+                return NioTcpChannel.this.isOpen();
+            }
+
+            public void close() throws IOException {
+                NioTcpChannel.this.close();
+            }
+
+            public boolean supportsOption(final Option<?> option) {
+                return NioTcpChannel.this.supportsOption(option);
+            }
+
+            public <T> T getOption(final Option<T> option) throws IOException {
+                return NioTcpChannel.this.getOption(option);
+            }
+
+            public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                NioTcpChannel.this.setOption(option, value);
+                return this;
+            }
+        };
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {

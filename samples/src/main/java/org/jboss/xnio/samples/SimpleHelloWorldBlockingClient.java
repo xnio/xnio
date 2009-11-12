@@ -26,7 +26,7 @@ import org.jboss.xnio.Xnio;
 import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.TcpConnector;
-import org.jboss.xnio.FutureConnection;
+import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.Channels;
 import java.net.InetSocketAddress;
@@ -36,12 +36,15 @@ import java.nio.charset.Charset;
 
 public final class SimpleHelloWorldBlockingClient {
 
+    private SimpleHelloWorldBlockingClient() {
+    }
+
     public static void main(String[] args) throws Exception {
         final Charset charset = Charset.forName("utf-8");
         final Xnio xnio = Xnio.create();
         try {
             final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
-            final FutureConnection<InetSocketAddress,TcpChannel> futureConnection = connector.connectTo(new InetSocketAddress("localhost", 12345), IoUtils.nullChannelListener());
+            final IoFuture<TcpChannel> futureConnection = connector.connectTo(new InetSocketAddress("localhost", 12345), null, null);
             final TcpChannel channel = futureConnection.get();
             try {
                 // Send the greeting

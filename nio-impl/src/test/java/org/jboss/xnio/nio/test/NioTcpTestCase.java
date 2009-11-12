@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.TestCase;
 import static org.jboss.xnio.Buffers.flip;
-import org.jboss.xnio.FutureConnection;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoUtils;
 import static org.jboss.xnio.IoUtils.safeClose;
@@ -46,7 +45,9 @@ import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.Options;
 import org.jboss.xnio.XnioConfiguration;
+import org.jboss.xnio.FutureResult;
 import org.jboss.xnio.channels.TcpChannel;
+import org.jboss.xnio.channels.BoundChannel;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.test.support.LoggingHelper;
@@ -77,7 +78,7 @@ public final class NioTcpTestCase extends TestCase {
             try {
                 server.bind(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)).await();
                 final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
-                final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingChannelListener<TcpChannel>(clientHandler, threadFactory));
+                final IoFuture<TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingChannelListener<TcpChannel>(clientHandler, threadFactory), null);
                 final TcpChannel channel = ioFuture.get();
                 try {
                     body.run();
@@ -524,7 +525,9 @@ public final class NioTcpTestCase extends TestCase {
         final Xnio xnio = NioXnio.create();
         try {
             final TcpAcceptor acceptor = xnio.createTcpAcceptor(OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
-            final FutureConnection<? extends InetSocketAddress, TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new ChannelListener<TcpChannel>() {
+            final FutureResult<InetSocketAddress> futureAddressResult = new FutureResult<InetSocketAddress>();
+            final IoFuture<InetSocketAddress> futureAddress = futureAddressResult.getIoFuture();
+            final IoFuture<TcpChannel> futureConnection = acceptor.acceptTo(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), new ChannelListener<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
                 private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);
@@ -579,8 +582,12 @@ public final class NioTcpTestCase extends TestCase {
                     channel.resumeWrites();
                     serverOpened.set(true);
                 }
+            }, new ChannelListener<BoundChannel<InetSocketAddress>>() {
+                public void handleEvent(final BoundChannel<InetSocketAddress> channel) {
+                    futureAddressResult.setResult(channel.getLocalAddress());
+                }
             });
-            final InetSocketAddress localAddress = futureConnection.getLocalAddress();
+            final InetSocketAddress localAddress = futureAddress.get();
             final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
             final IoFuture<TcpChannel> ioFuture = connector.connectTo(localAddress, new ChannelListener<TcpChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
@@ -637,7 +644,7 @@ public final class NioTcpTestCase extends TestCase {
                     channel.resumeWrites();
                     clientOpened.set(true);
                 }
-            });
+            }, null);
             assertTrue("Read timed out", readLatch.await(500L, TimeUnit.MILLISECONDS));
             final TcpChannel clientChannel = ioFuture.get();
             final TcpChannel serverChannel = futureConnection.get();

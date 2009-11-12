@@ -47,7 +47,7 @@ public final class EchoClient {
         final Xnio xnio = Xnio.create();
         try {
             final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);
-            final IoFuture<? extends TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler());
+            final IoFuture<? extends TcpChannel> ioFuture = connector.connectTo(new InetSocketAddress(InetAddress.getByName(args[0]), Integer.parseInt(args[1])), new EchoHandler(), INIT_ME);
             final TcpChannel channel = ioFuture.get();
             try {
                 while (channel.isOpen()) {

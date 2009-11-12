@@ -38,7 +38,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
 import org.jboss.xnio.log.Logger;
 
@@ -90,6 +92,10 @@ public final class IoUtils {
     private static final Cancellable NULL_CANCELLABLE = new Cancellable() {
         public Cancellable cancel() {
             return this;
+        }
+    };
+    private static final ChannelListener.Setter<?> NULL_SETTER = new ChannelListener.Setter<Channel>() {
+        public void set(final ChannelListener<? super Channel> channelListener) {
         }
     };
     private static final IoUtils.ResultNotifier RESULT_NOTIFIER = new IoUtils.ResultNotifier();
@@ -525,14 +531,46 @@ public final class IoUtils {
      * @return {@code true} if the handler completed successfully, or {@code false} if it failed
      */
     public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
-        listenerLog.trace("Invoking listener %s", channelListener);
         if (channelListener != null) try {
+            listenerLog.trace("Invoking listener %s", channelListener);
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
             listenerLog.error(t, "A channel event listener threw an exception");
             return false;
         }
         return true;
+    }
+
+    /**
+     * Invoke a channel listener on a given channel, logging any errors, using the given executor.
+     *
+     * @param executor the executor
+     * @param channel the channel
+     * @param channelListener the channel listener
+     * @param <T> the channel type
+     */
+    public static <T extends Channel> void invokeChannelListener(Executor executor, T channel, ChannelListener<? super T> channelListener) {
+        try {
+            executor.execute(getChannelListenerTask(channel, channelListener));
+        } catch (RejectedExecutionException ree) {
+            invokeChannelListener(channel, channelListener);
+        }
+    }
+
+    /**
+     * Get a task which invokes the given channel listener on the given channel.
+     *
+     * @param channel the channel
+     * @param channelListener the channel listener
+     * @param <T> the channel type
+     * @return the runnable task
+     */
+    public static <T extends Channel> Runnable getChannelListenerTask(final T channel, final ChannelListener<? super T> channelListener) {
+        return new Runnable() {
+            public void run() {
+                invokeChannelListener(channel, channelListener);
+            }
+        };
     }
 
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
@@ -575,6 +613,33 @@ public final class IoUtils {
                 updater.set(channel, channelListener);
             }
         };
+    }
+
+    /**
+     * Get a setter based on an atomic reference.  Used by channel implementations to avoid having to
+     * define an anonymous class for each listener field.
+     *
+     * @param atomicReference the atomic reference
+     * @param <T> the channel type
+     * @return the setter
+     */
+    public static <T extends Channel> ChannelListener.Setter<T> getSetter(final AtomicReference<ChannelListener<? super T>> atomicReference) {
+        return new ChannelListener.Setter<T>() {
+            public void set(final ChannelListener<? super T> channelListener) {
+                atomicReference.set(channelListener);
+            }
+        };
+    }
+
+    /**
+     * Get a channel listener setter which does nothing.
+     *
+     * @param <T> the channel type
+     * @return a setter which does nothing
+     */
+    @SuppressWarnings({ "unchecked" })
+    public static <T extends Channel> ChannelListener.Setter<T> nullSetter() {
+        return (ChannelListener.Setter<T>) NULL_SETTER;
     }
 
     /**

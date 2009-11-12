@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.nio.channels.Channel;
+import org.jboss.xnio.channels.BoundChannel;
 
 /**
  * A connector.  Instances of this interface are used to connect to arbitrary peers from arbitrary bound source addresses.
@@ -36,10 +37,11 @@ public interface Connector<A, T extends Channel> {
      * Establish a connection to a destination.
      *
      * @param dest the destination address
-     * @param openListener the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the handler which will be notified when the channel is bound, or {@code null} for none
      * @return the future result of this operation
      */
-    FutureConnection<A, T> connectTo(A dest, ChannelListener<? super T> openListener);
+    IoFuture<T> connectTo(A dest, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel<A>> bindListener);
 
     /**
      * Create a client that always connects to the given destination.

@@ -314,9 +314,8 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     }
 
     /**
-     * Add a cancellation handler.  The argument will be cancelled whenever this instance's {@code cancel()} method
-     * is invoked.  The argument may be cancelled more than once, in the event that this {@code IoFuture} instance
-     * is cancelled more than once; the handler should be prepared to handle this situation.
+     * Add a cancellation handler.  The argument will be cancelled whenever this {@code IoFuture} is cancelled.  If
+     * the {@code IoFuture} is already cancelled when this method is called, the handler will be called directly.
      *
      * @param cancellable the cancel handler
      */

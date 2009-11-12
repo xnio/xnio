@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.nio.channels.Channel;
+import org.jboss.xnio.channels.BoundChannel;
 
 /**
  * An acceptor.  This is the inverse of {@code Connector}; it is used to accept a single connection from a remote
@@ -39,10 +40,11 @@ public interface Acceptor<A, T extends Channel> {
      * is chosen in a manner specific to the OS and/or channel type.
      *
      * @param dest the destination address
-     * @param openListener the handler which will be notified when the channel is open
+     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the handler which will be notified when the acceptor is bound, or {@code null} for none
      * @return the future connection
      */
-    FutureConnection<A, T> acceptTo(A dest, ChannelListener<? super T> openListener);
+    IoFuture<T> acceptTo(A dest, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel<A>> bindListener);
 
     /**
      * Create a channel destination for this acceptor, which always uses a specific destination address.  If a wildcard
