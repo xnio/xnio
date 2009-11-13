@@ -49,7 +49,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * shutdown operation.  If writes were already shut down successfully, calling this method again will have no
      * additional effect.
      *
-     * @returns {@code true} if the write channel was closed, or {@code false} if the operation would have blocked
+     * @return {@code true} if the write channel was closed, or {@code false} if the operation would have blocked
      *
      * @throws IOException if an I/O error occurs
      */
