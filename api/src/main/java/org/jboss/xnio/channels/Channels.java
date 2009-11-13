@@ -26,6 +26,9 @@ import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.Options;
+import org.jboss.xnio.SslClientAuthMode;
+import org.jboss.xnio.Sequence;
 import org.jboss.xnio.log.Logger;
 
 import java.io.IOException;
@@ -39,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 /**
  * A utility class containing static methods to convert from one channel type to another.
@@ -66,43 +70,103 @@ public final class Channels {
         return new WrappingAllocatedMessageChannel(streamChannel, optionMap);
     }
 
+    /**
+     * Create a channel listener which wraps an incoming channel connection with an allocated message channel.
+     *
+     * @param channelListener the channel listener
+     * @param optionMap the initial options
+     * @return the stream channel listener
+     * @see org.jboss.xnio.Options#MAX_INBOUND_MESSAGE_SIZE
+     * @see org.jboss.xnio.Options#MAX_OUTBOUND_MESSAGE_SIZE
+     *
+     * @since 2.0
+     */
+    public static ChannelListener<StreamChannel> createAllocatedMessageStreamChannelListener(final ChannelListener<? super AllocatedMessageChannel> channelListener, final OptionMap optionMap) {
+        return new ChannelListener<StreamChannel>() {
+            public void handleEvent(final StreamChannel channel) {
+                channelListener.handleEvent(createAllocatedMessageChannel(channel, optionMap));
+            }
+        };
+    }
+
     private static final Logger sslLog = Logger.getLogger("org.jboss.xnio.ssl");
 
     /**
      * Create a SSL/TLS-enabled channel over a TCP channel.  Uses the given {@code SSLContext}, and uses the option map to configure
-     * the parameters of the connection (including whether this side is the client or the server).
+     * the parameters of the connection (including whether this side is the client or the server).  By default, the channel
+     * will run in client mode.
      *
      * @param sslContext the SSL context to use
      * @param tcpChannel the TCP channel over which the connection is encapsulated
      * @param executor the executor to use for executing asynchronous tasks
      * @param optionMap the configuration options for the channel
      * @return the new SSL TCP channel
+     * @see org.jboss.xnio.Options#SSL_CLIENT_AUTH_MODE
+     * @see org.jboss.xnio.Options#SSL_USE_CLIENT_MODE
+     * @see org.jboss.xnio.Options#SSL_ENABLE_SESSION_CREATION
+     * @see org.jboss.xnio.Options#SSL_ENABLED_CIPHER_SUITES
+     * @see org.jboss.xnio.Options#SSL_ENABLED_PROTOCOLS
      *
      * @since 2.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
     public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) throws IOException {
+        return createSslTcpChannel(sslContext, tcpChannel, executor, optionMap, false);
+    }
+
+    private static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server) throws IOException {
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
-        // todo - option map
-        return new WrappingSslTcpChannel(tcpChannel, sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort()), executor);
+        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
+        final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, ! server);
+        engine.setUseClientMode(clientMode);
+        if (! clientMode) {
+            final SslClientAuthMode clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
+            if (clientAuthMode != null) switch (clientAuthMode) {
+                case NOT_REQUESTED:
+                    engine.setNeedClientAuth(false);
+                    engine.setWantClientAuth(false);
+                    break;
+                case REQUESTED:
+                    engine.setWantClientAuth(true);
+                    break;
+                case REQUIRED:
+                    engine.setNeedClientAuth(true);
+                    break;
+            }
+        }
+        engine.setEnableSessionCreation(optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true));
+        final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
+        if (cipherSuites != null) {
+            engine.setEnabledCipherSuites(cipherSuites.toArray(new String[cipherSuites.size()]));
+        }
+        final Sequence<String> protocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
+        if (protocols != null) {
+            engine.setEnabledProtocols(protocols.toArray(new String[protocols.size()]));
+        }
+        return new WrappingSslTcpChannel(tcpChannel, engine, executor);
     }
 
     /**
-     * Create a channel lister which wraps the incoming connection with an SSL connection.
+     * Create a channel lister which wraps the incoming connection with an SSL connection.  By default, the channel
+     * will run in server mode.
      *
      * @param sslContext the SSL context to use
      * @param sslChannelListener the SSL TCP channel listener which should be executed with the SSL connection
      * @param executor the executor to use for executing asynchronous tasks
      * @param optionMap the configuration options for the channel
      * @return the new SSL-enabled TCP channel listener
-     * @throws IOException
+     * @see org.jboss.xnio.Options#SSL_CLIENT_AUTH_MODE
+     * @see org.jboss.xnio.Options#SSL_USE_CLIENT_MODE
+     * @see org.jboss.xnio.Options#SSL_ENABLE_SESSION_CREATION
+     * @see org.jboss.xnio.Options#SSL_ENABLED_CIPHER_SUITES
+     * @see org.jboss.xnio.Options#SSL_ENABLED_PROTOCOLS
+     * @since 2.0
      */
-    public static ChannelListener<TcpChannel> createSslTcpChannelListener(final SSLContext sslContext, final ChannelListener<? super SslTcpChannel> sslChannelListener, final Executor executor, final OptionMap optionMap) throws IOException {
+    public static ChannelListener<TcpChannel> createSslTcpChannelListener(final SSLContext sslContext, final ChannelListener<? super SslTcpChannel> sslChannelListener, final Executor executor, final OptionMap optionMap) {
         return new ChannelListener<TcpChannel>() {
             public void handleEvent(final TcpChannel channel) {
                 boolean ok = false;
                 try {
-                    sslChannelListener.handleEvent(createSslTcpChannel(sslContext, channel, executor, optionMap));
+                    sslChannelListener.handleEvent(createSslTcpChannel(sslContext, channel, executor, optionMap, true));
                     ok = true;
                 } catch (IOException e) {
                     sslLog.error(e, "Failed to open SSL channel");

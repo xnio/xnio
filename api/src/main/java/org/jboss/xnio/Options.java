@@ -154,18 +154,11 @@ public final class Options {
     public static final Option<Integer> MAX_OUTBOUND_MESSAGE_SIZE = Option.simple(Options.class, "MAX_OUTBOUND_MESSAGE_SIZE", Integer.class);
 
     /**
-     * Signify that client authentication is requested on an SSL channel.
+     * Specify the SSL client authentication mode.
      *
      * @since 2.0
      */
-    public static final Option<Boolean> SSL_WANT_CLIENT_AUTH = Option.simple(Options.class, "SSL_WANT_CLIENT_AUTH", Boolean.class);
-
-    /**
-     * Signify that client authentication is required on an SSL channel.
-     *
-     * @since 2.0
-     */
-    public static final Option<Boolean> SSL_NEED_CLIENT_AUTH = Option.simple(Options.class, "SSL_NEED_CLIENT_AUTH", Boolean.class);
+    public static final Option<SslClientAuthMode> SSL_CLIENT_AUTH_MODE = Option.simple(Options.class, "SSL_CLIENT_AUTH_MODE", SslClientAuthMode.class);
 
     /**
      * Specify the cipher suites for an SSL/TLS session.  If a listed cipher suites is not supported, it is ignored; however, if you
