@@ -111,7 +111,11 @@ final class ManagedServerSocket extends ServerSocket {
             return new Listener[] {
                 new Listener() {
                     public InetSocketAddress getBindAddress() {
-                        return (InetSocketAddress) local;
+                        final InetSocketAddress lsa = (InetSocketAddress) local;
+                        if (lsa == null) {
+                            return new InetSocketAddress(0);
+                        }
+                        return lsa;
                     }
 
                     public long getAcceptedConnections() {

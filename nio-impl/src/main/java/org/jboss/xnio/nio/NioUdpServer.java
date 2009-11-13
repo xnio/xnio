@@ -273,7 +273,11 @@ class NioUdpServer implements UdpServer {
                         }
 
                         public InetSocketAddress getBindAddress() {
-                            return channel.getLocalAddress();
+                            final InetSocketAddress lsa = (InetSocketAddress) channel.getLocalAddress();
+                            if (lsa == null) {
+                                return new InetSocketAddress(0);
+                            }
+                            return lsa;
                         }
 
                         public void close() {

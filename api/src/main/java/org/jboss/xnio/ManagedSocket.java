@@ -200,7 +200,11 @@ final class ManagedSocket extends Socket {
         }
 
         public InetSocketAddress getBindAddress() {
-            return (InetSocketAddress) getLocalSocketAddress();
+            final InetSocketAddress lsa = (InetSocketAddress) getLocalSocketAddress();
+            if (lsa == null) {
+                return new InetSocketAddress(0);
+            }
+            return lsa;
         }
 
         public void close() {

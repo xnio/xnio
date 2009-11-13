@@ -97,16 +97,24 @@ final class NioTcpConnector implements TcpConnector {
         };
     }
 
+    private static InetSocketAddress getNonNull(InetSocketAddress addr) {
+        if (addr == null) {
+            return new InetSocketAddress(0);
+        } else {
+            return addr;
+        }
+    }
+
     private IoFuture<TcpChannel> doConnectTo(final InetSocketAddress dest, final ChannelListener<? super TcpChannel> openListener, final ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener) {
         try {
-            final InetSocketAddress src = this.src;
-            log.trace("Connecting from %s to %s", src == null ? "-any-" : src, dest);
+            final InetSocketAddress src = getNonNull(this.src);
+            log.trace("Connecting from %s to %s", src, dest);
             final SocketChannel socketChannel = SocketChannel.open();
             socketChannel.configureBlocking(false);
             final Socket socket = socketChannel.socket();
             final Executor executor = this.executor;
             final NioXnio nioXnio = this.nioXnio;
-            final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, optionMap.get(Options.MANAGE_CONNECTIONS, true));
+            final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, optionMap.get(Options.MANAGE_CONNECTIONS, true), src, dest);
             nioXnio.addManaged(channel);
             configureStream(socket);
             socket.bind(src);
@@ -114,7 +122,7 @@ final class NioTcpConnector implements TcpConnector {
                 IoUtils.invokeChannelListener(executor, channel.getBoundChannel(), bindListener);
             }
             if (socketChannel.connect(dest)) {
-                log.trace("Connection from %s to %s is up (immediate)", src == null ? "-any-" : src, dest);
+                log.trace("Connection from %s to %s is up (immediate)", src, dest);
                 executor.execute(IoUtils.<TcpChannel>getChannelListenerTask(channel, openListener));
                 return new FinishedIoFuture<TcpChannel>(channel);
             } else {

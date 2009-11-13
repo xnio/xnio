@@ -177,7 +177,7 @@ final class NioTcpAcceptor implements TcpAcceptor {
                     if (optionMap.contains(Options.TCP_OOB_INLINE)) socket.setOOBInline(optionMap.get(Options.TCP_OOB_INLINE).booleanValue());
                     if (optionMap.contains(Options.TCP_NODELAY)) socket.setTcpNoDelay(optionMap.get(Options.TCP_NODELAY).booleanValue());
                     final NioXnio nioXnio = NioTcpAcceptor.this.nioXnio;
-                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, optionMap.get(Options.MANAGE_CONNECTIONS, true));
+                    final NioTcpChannel channel = new NioTcpChannel(nioXnio, socketChannel, executor, optionMap.get(Options.MANAGE_CONNECTIONS, true), (InetSocketAddress) socket.getLocalSocketAddress(), (InetSocketAddress) socket.getRemoteSocketAddress());
                     ok = true;
                     nioXnio.addManaged(channel);
                     IoUtils.<TcpChannel>invokeChannelListener(channel, openListener);

@@ -265,7 +265,7 @@ final class NioTcpServer implements TcpServer {
                         if (oobInline != null) socket.setOOBInline(oobInline.booleanValue());
                         final Boolean tcpNoDelay = NioTcpServer.this.tcpNoDelay;
                         if (tcpNoDelay != null) socket.setTcpNoDelay(tcpNoDelay.booleanValue());
-                        final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, executor, manageConnections);
+                        final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, executor, manageConnections, (InetSocketAddress) socket.getLocalSocketAddress(), (InetSocketAddress) socket.getRemoteSocketAddress());
                         xnio.addManaged(channel);
                         ok = IoUtils.<TcpChannel>invokeChannelListener(channel, openListener);
                         if (ok) {
@@ -393,6 +393,9 @@ final class NioTcpServer implements TcpServer {
                     final long acceptedConnections = channel.acceptedConnections.get();
                     listeners[i ++] = new Listener() {
                         public InetSocketAddress getBindAddress() {
+                            if (bindAddress == null) {
+                                return new InetSocketAddress(0);
+                            }
                             return bindAddress;
                         }
 

@@ -95,7 +95,7 @@ final class NioTcpChannel implements TcpChannel, Closeable {
 
     private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(Options.CLOSE_ABORT);
 
-    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final Executor executor, final boolean manage) throws IOException {
+    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final Executor executor, final boolean manage, final InetSocketAddress bindAddress, final InetSocketAddress peerAddress) throws IOException {
         this.socketChannel = socketChannel;
         this.nioXnio = nioXnio;
         socket = socketChannel.socket();
@@ -107,7 +107,7 @@ final class NioTcpChannel implements TcpChannel, Closeable {
             writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
         }
         try {
-            mbeanHandle = manage ? nioXnio.registerMBean(new MBean()) : IoUtils.nullCloseable();
+            mbeanHandle = manage ? nioXnio.registerMBean(new MBean(bindAddress, peerAddress)) : IoUtils.nullCloseable();
         } catch (NotCompliantMBeanException e) {
             throw new IOException("Failed to register channel mbean: " + e);
         }
@@ -350,9 +350,13 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public final class MBean extends StandardMBean implements TcpConnectionMBean {
+        private final InetSocketAddress bindAddress;
+        private final InetSocketAddress peerAddress;
 
-        public MBean() throws NotCompliantMBeanException {
+        public MBean(final InetSocketAddress bindAddress, final InetSocketAddress peerAddress) throws NotCompliantMBeanException {
             super(TcpConnectionMBean.class);
+            this.bindAddress = bindAddress;
+            this.peerAddress = peerAddress;
         }
 
         public long getBytesRead() {
@@ -376,11 +380,11 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         }
 
         public InetSocketAddress getPeerAddress() {
-            return (InetSocketAddress) socket.getRemoteSocketAddress();
+            return peerAddress;
         }
 
         public InetSocketAddress getBindAddress() {
-            return (InetSocketAddress) socket.getLocalSocketAddress();
+            return bindAddress;
         }
 
         public void close() {
