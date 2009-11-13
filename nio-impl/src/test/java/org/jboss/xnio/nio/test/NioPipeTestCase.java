@@ -59,7 +59,7 @@ public final class NioPipeTestCase extends TestCase {
     private void doOneWayPipeTest(final Runnable body, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) throws Exception {
         final XnioConfiguration config = new XnioConfiguration();
         config.setThreadFactory(threadFactory);
-        Xnio xnio = NioXnio.create(config);
+        Xnio xnio = Xnio.create("nio", config);
         try {
             final IoFuture<? extends Closeable> future = xnio.createOneWayPipeConnection(sourceHandler, sinkHandler);
             final Closeable closeable = future.get();
@@ -76,7 +76,7 @@ public final class NioPipeTestCase extends TestCase {
     private void doTwoWayPipeTest(final Runnable body, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) throws Exception {
         final XnioConfiguration config = new XnioConfiguration();
         config.setThreadFactory(threadFactory);
-        Xnio xnio = NioXnio.create(config);
+        Xnio xnio = Xnio.create("nio", config);
         try {
             final IoFuture<? extends Closeable> future = xnio.createPipeConnection(leftHandler, rightHandler);
             final Closeable closeable = future.get();

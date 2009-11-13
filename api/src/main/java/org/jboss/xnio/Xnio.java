@@ -36,6 +36,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -83,29 +84,29 @@ public abstract class Xnio implements Closeable {
         Logger.getLogger("org.jboss.xnio").info("XNIO Version " + Version.VERSION);
     }
 
-    private static final String NIO_IMPL_CLASS_NAME = "org.jboss.xnio.nio.NioXnio";
-    private static final String PROVIDER_CLASS;
+    private static final String NIO_IMPL_PROVIDER = "nio";
+    private static final String PROVIDER_NAME;
     private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
     private static final String MANAGEMENT_DOMAIN = "jboss.xnio";
 
     private static final AtomicLong mbeanSequence = new AtomicLong();
 
     private static String AGENTID_PROPNAME = "xnio.agentid";
-    private static String PROVIDER_PROPNAME = "xnio.provider";
+    private static String PROVIDER_PROPNAME = "xnio.provider.name";
 
-    private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction(PROVIDER_PROPNAME, NIO_IMPL_CLASS_NAME);
+    private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction(PROVIDER_PROPNAME, NIO_IMPL_PROVIDER);
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
 
     private static final Permission SUBCLASS_PERMISSION = new RuntimePermission("xnioProvider");
 
     static {
-        String providerClassName = NIO_IMPL_CLASS_NAME;
+        String providerClassName = NIO_IMPL_PROVIDER;
         try {
             providerClassName = AccessController.doPrivileged(GET_PROVIDER_ACTION);
         } catch (Throwable t) {
             // ignored
         }
-        PROVIDER_CLASS = providerClassName;
+        PROVIDER_NAME = providerClassName;
     }
 
     private final List<MBeanServer> mBeanServers = new ArrayList<MBeanServer>();
@@ -123,55 +124,46 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create an instance of the default XNIO provider.  The class name of this provider can be specified through the
-     * {@code xnio.provider} system property.  Any failure to create the XNIO provider will cause an {@code java.io.IOException}
+     * Create an instance of the default XNIO provider.  The provider name can be specified through the
+     * {@code xnio.provider.name} system property.  Any failure to create the XNIO provider will cause an {@code java.io.IOException}
      * to be thrown.
      *
      * @return an XNIO instance
-     * @throws IOException the the XNIO provider could not be created
+     * @throws IOException if the XNIO provider could not be created
      */
     public static Xnio create() throws IOException {
-        final Xnio result;
-        try {
-            Class<? extends Xnio> xnioClass = Class.forName(PROVIDER_CLASS).asSubclass(Xnio.class);
-            final Method method = xnioClass.getDeclaredMethod("create");
-            if ((method.getModifiers() & mask) != mask) {
-                throw new NoSuchMethodException("Not public and static");
+        return create(PROVIDER_NAME, new XnioConfiguration());
+    }
+
+    /**
+     * Create an instance of the default XNIO provider.  The provider name can be specified through the
+     * {@code xnio.provider.name} system property.  Any failure to create the XNIO provider will cause an {@code java.io.IOException}
+     * to be thrown.
+     *
+     * @param configuration the configuration parameters for the implementation
+     * @return an XNIO instance
+     * @throws IOException if the XNIO provider could not be created
+     */
+    public static Xnio create(XnioConfiguration configuration) throws IOException {
+        return create(PROVIDER_NAME, configuration);
+    }
+
+    /**
+     * Create an instance of the named XNIO provider.  Any failure to create the XNIO provider will cause an {@code java.io.IOException}
+     * to be thrown.
+     *
+     * @param implName the name of the implementation
+     * @param configuration the configuration parameters for the implementation
+     * @return an XNIO instance
+     * @throws IOException if the XNIO provider could not be created
+     */
+    public static Xnio create(String implName, XnioConfiguration configuration) throws IOException {
+        for (XnioProvider xnioProvider : ServiceLoader.load(XnioProvider.class)) {
+            if (implName.equals(xnioProvider.getName())) {
+                return xnioProvider.getNewInstance(configuration);
             }
-            result = (Xnio) method.invoke(null);
-        } catch (ClassCastException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" is not really an XNIO provider");
-            ioe.initCause(e);
-            throw ioe;
-        } catch (ClassNotFoundException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not found");
-            ioe.initCause(e);
-            throw ioe;
-        } catch (IllegalAccessException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an illegal access exception");
-            ioe.initCause(e);
-            throw ioe;
-        } catch (InvocationTargetException e) {
-            final Throwable cause = e.getCause();
-            if (cause instanceof IOException) {
-                throw (IOException) cause;
-            } else if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            } else {
-                final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" create() method threw an exception");
-                ioe.initCause(cause);
-                throw ioe;
-            }
-        } catch (NoSuchMethodException e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" does not have an accessible no-argument static create() method");
-            ioe.initCause(e);
-            throw ioe;
-        } catch (ExceptionInInitializerError e) {
-            final IOException ioe = new IOException("The XNIO provider class \"" + PROVIDER_CLASS + "\" was not instantiatable due to an error in initialization");
-            ioe.initCause(e);
-            throw ioe;
         }
-        return result;
+        throw new IOException("No XNIO provider named \"" + implName + "\" could be found");
     }
 
     private static final AtomicInteger xnioSequence = new AtomicInteger(1);

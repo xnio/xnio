@@ -20,34 +20,20 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio;
+package org.jboss.xnio.nio;
 
+import org.jboss.xnio.XnioProvider;
+import org.jboss.xnio.Xnio;
+import org.jboss.xnio.XnioConfiguration;
 import java.io.IOException;
 
-/**
- * A descriptor for automatically-discovered XNIO provider type.  Since instances of this interface are
- * constructed automatically, implementing classes should have a no-arg constructor.
- * <p>
- * To add an automatically-discovered XNIO provider type, create a file called {@code "META-INF/services/org.jboss.xnio.XnioProvider"}
- * and populate it with the names of classes that implement this interface.
- *
- * @see java.util.ServiceLoader
- */
-public interface XnioProvider {
+public final class NioXnioProvider implements XnioProvider {
 
-    /**
-     * Get the name of this provider's type.
-     *
-     * @return the name
-     */
-    String getName();
+    public String getName() {
+        return "nio";
+    }
 
-    /**
-     * Get a new provider instance.
-     *
-     * @param configuration the configuration to use
-     * @return the new provider instance
-     * @throws java.io.IOException if the new provider instance could not be created
-     */
-    Xnio getNewInstance(XnioConfiguration configuration) throws IOException;
+    public Xnio getNewInstance(final XnioConfiguration configuration) throws IOException {
+        return NioXnio.create(configuration);
+    }
 }

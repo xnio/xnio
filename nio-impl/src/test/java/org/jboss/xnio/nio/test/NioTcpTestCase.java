@@ -71,7 +71,7 @@ public final class NioTcpTestCase extends TestCase {
         final XnioConfiguration conf = new XnioConfiguration();
         conf.setThreadFactory(threadFactory);
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
-        Xnio xnio = NioXnio.create(conf);
+        Xnio xnio = Xnio.create("nio", conf);
         try {
             final TcpServer server  = xnio.createTcpServer(new CatchingChannelListener<TcpChannel>(serverHandler, threadFactory),
                     OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());

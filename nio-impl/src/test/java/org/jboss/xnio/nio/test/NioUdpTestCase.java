@@ -78,7 +78,7 @@ public final class NioUdpTestCase extends TestCase {
             final XnioConfiguration config = new XnioConfiguration();
             config.setThreadFactory(threadFactory);
             config.setExecutor(closeableExecutor);
-            final Xnio xnio = NioXnio.create(config);
+            Xnio xnio = Xnio.create("nio", config);
             try {
                 doServerSidePart(multicast, handler, body, xnio);
                 xnio.close();
@@ -118,7 +118,7 @@ public final class NioUdpTestCase extends TestCase {
             final XnioConfiguration config = new XnioConfiguration();
             config.setThreadFactory(threadFactory);
             config.setExecutor(closeableExecutor);
-            final Xnio xnio = NioXnio.create(config);
+            final Xnio xnio = Xnio.create("nio", config);
             try {
                 doServerSidePart(serverMulticast, serverHandler, new Runnable() {
                     public void run() {
