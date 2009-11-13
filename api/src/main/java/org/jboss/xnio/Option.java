@@ -84,20 +84,6 @@ public abstract class Option<T> implements Serializable {
     }
 
     /**
-     * Create an option with a flag set type.  The class object given <b>must</b> represent some immutable type, otherwise
-     * unexpected behavior may result.
-     *
-     * @param declClass the declaring class of the option
-     * @param name the (field) name of this option
-     * @param elementType the class of the flag values associated with this option
-     * @param <T> the type of the flag values associated with this option
-     * @return the option instance
-     */
-    public static <T extends Enum<T>> Option<FlagSet<T>> flags(final Class<?> declClass, final String name, final Class<T> elementType) {
-        return new FlagsOption<T>(declClass, name, elementType);
-    }
-
-    /**
      * Get the name of this option.
      *
      * @return the option name
@@ -301,31 +287,6 @@ final class SingleOption<T> extends Option<T> {
 
     public T parseValue(final String string) throws IllegalArgumentException {
         return parser.parseValue(string);
-    }
-}
-
-final class FlagsOption<T extends Enum<T>> extends Option<FlagSet<T>> {
-
-    private static final long serialVersionUID = -5487268452958691541L;
-
-    private transient final Class<T> elementType;
-
-    FlagsOption(final Class<?> declClass, final String name, final Class<T> elementType) {
-        super(declClass, name);
-        this.elementType = elementType;
-    }
-
-    public FlagSet<T> cast(final Object o) throws ClassCastException {
-        final FlagSet<?> flagSet = (FlagSet<?>) o;
-        return flagSet.cast(elementType);
-    }
-
-    public FlagSet<T> parseValue(final String string) throws IllegalArgumentException {
-        final List<T> list = new ArrayList<T>();
-        for (String value : string.split(",")) {
-            list.add(Enum.valueOf(elementType, value.trim()));
-        }
-        return FlagSet.copyOf(elementType, list);
     }
 }
 
