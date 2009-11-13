@@ -99,14 +99,18 @@
                     </includes>
                 </configuration>
             </plugin>
-        </plugins>
-    </build>
-
-    <reporting>
-        <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <version>2.5</version>
                 <configuration>
                     <doclet>net.gleamynode.apiviz.APIviz</doclet>
@@ -125,7 +129,7 @@
                 </configuration>
             </plugin>
         </plugins>
-    </reporting>
+    </build>
 
     <distributionManagement>
         <repository>
