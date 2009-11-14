@@ -38,29 +38,30 @@
         <module>test-support</module>
     </modules>
 
-    <build/>
-
-    <reporting>
+    <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.5</version>
-                <configuration>
-                    <doclet>net.gleamynode.apiviz.APIviz</doclet>
-                    <docletArtifact>
-                        <groupId>org.jboss.apiviz</groupId>
-                        <artifactId>apiviz</artifactId>
-                        <version>1.2.5.GA</version>
-                    </docletArtifact>
-                    <doctitle><![CDATA[XNIO ]]>${version}</doctitle>
-                    <header><![CDATA[XNIO ]]>${version}</header>
-                    <footer><![CDATA[XNIO ]]>${version}</footer>
-                    <bottom><![CDATA[<i>Copyright &#169; 2009 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
-                    <links>
-                        <link>http://java.sun.com/j2se/1.5.0/docs/api/</link>
-                    </links>
-                </configuration>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>1.0-beta-1</version>
+                <executions>
+                    <execution>
+                        <id>enforce-java-maven-versions</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>2.2.1</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>1.6</version>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -70,7 +71,7 @@
                 </configuration>
             </plugin>
         </plugins>
-    </reporting>
+    </build>
 
     <distributionManagement>
         <repository>
