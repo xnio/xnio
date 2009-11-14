@@ -254,19 +254,6 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
             return this;
         }
 
-        /**
-         * Set a key-value pair, where the value is a flag type.
-         *
-         * @param key the key
-         * @param values the values
-         * @param <T> the option type
-         * @return this builder
-         */
-        public <T extends Enum<T>> Builder setFlags(Option<FlagSet<T>> key, T... values) {
-            list.add(new OVPair<FlagSet<T>>(key, FlagSet.of(values)));
-            return this;
-        }
-
         private <T> void copy(Map<?, ?> map, Option<T> option) {
             set(option, option.cast(map.get(option)));
         }
