@@ -24,9 +24,6 @@ package org.jboss.xnio;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.Permission;
 import java.security.PrivilegedAction;
@@ -86,7 +83,6 @@ public abstract class Xnio implements Closeable {
 
     private static final String NIO_IMPL_PROVIDER = "nio";
     private static final String PROVIDER_NAME;
-    private static final int mask = Modifier.STATIC | Modifier.PUBLIC;
     private static final String MANAGEMENT_DOMAIN = "jboss.xnio";
 
     private static final AtomicLong mbeanSequence = new AtomicLong();
