@@ -233,7 +233,6 @@ final class NioTcpServer implements TcpServer {
             return this;
         }
     }
-
     // NioCore interface
 
     private final class Handler implements Runnable {
@@ -298,7 +297,7 @@ final class NioTcpServer implements TcpServer {
         return bindSetter;
     }
 
-    public ChannelListener.Setter<TcpChannel> getConnectSetter() {
+    public ChannelListener.Setter<TcpChannel> getOpenSetter() {
         return openSetter;
     }
 

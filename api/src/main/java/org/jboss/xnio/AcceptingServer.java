@@ -42,10 +42,10 @@ public interface AcceptingServer<A, T extends BoundChannel<A>, C extends Connect
     ChannelListener.Setter<? extends AcceptingServer<A, T, C>> getCloseSetter();
 
     /**
-     * Get the connect handler setter for this server.  The handler will be called each time a connection is accepted.
+     * Get the open handler setter for this server.  The handler will be called each time a connection is accepted.
      * If the handler is {@code null}, the channel will be immediately closed.
      *
-     * @return the connect setter
+     * @return the open setter
      */
-    ChannelListener.Setter<? extends C> getConnectSetter();
+    ChannelListener.Setter<? extends C> getOpenSetter();
 }

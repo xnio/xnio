@@ -38,5 +38,5 @@ public interface TcpServer extends AcceptingServer<InetSocketAddress, BoundChann
     ChannelListener.Setter<? extends TcpServer> getCloseSetter();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends TcpChannel> getConnectSetter();
+    ChannelListener.Setter<? extends TcpChannel> getOpenSetter();
 }

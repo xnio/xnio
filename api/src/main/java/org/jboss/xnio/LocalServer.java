@@ -37,5 +37,5 @@ public interface LocalServer extends AcceptingServer<String, BoundChannel<String
     ChannelListener.Setter<? extends AcceptingServer<String, BoundChannel<String>, LocalChannel>> getCloseSetter();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends LocalChannel> getConnectSetter();
+    ChannelListener.Setter<? extends LocalChannel> getOpenSetter();
 }
