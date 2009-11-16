@@ -230,4 +230,74 @@ public final class Options {
      * is specific to the channel in question; however, whatever the channel type, this flag is generally read-only.
      */
     public static final Option<Boolean> SECURE = Option.simple(Options.class, "SECURE", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which implement forward secrecy between sessions are required.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_FORWARD_SECRECY
+     */
+    public static final Option<Boolean> SASL_POLICY_FORWARD_SECRECY = Option.simple(Options.class, "SASL_POLICY_FORWARD_SECRECY", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which are susceptible to active (non-dictionary) attacks are permitted.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_NOACTIVE
+     */
+    public static final Option<Boolean> SASL_POLICY_NOACTIVE = Option.simple(Options.class, "SASL_POLICY_NOACTIVE", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which accept anonymous logins are permitted.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_NOANONYMOUS
+     */
+    public static final Option<Boolean> SASL_POLICY_NOANONYMOUS = Option.simple(Options.class, "SASL_POLICY_NOANONYMOUS", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which are susceptable to passive dictionary attacks are permitted.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_NODICTIONARY
+     */
+    public static final Option<Boolean> SASL_POLICY_NODICTIONARY = Option.simple(Options.class, "SASL_POLICY_NODICTIONARY", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which are susceptible to simple plain passive attacks are permitted.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_NOPLAINTEXT
+     */
+    public static final Option<Boolean> SASL_POLICY_NOPLAINTEXT = Option.simple(Options.class, "SASL_POLICY_NOPLAINTEXT", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms which pass client credentials are required.
+     *
+     * @see javax.security.sasl.Sasl#POLICY_PASS_CREDENTIALS
+     */
+    public static final Option<Boolean> SASL_POLICY_PASS_CREDENTIALS = Option.simple(Options.class, "SASL_POLICY_PASS_CREDENTIALS", Boolean.class);
+
+    /**
+     * Specify the SASL quality-of-protection to use.
+     *
+     * @see javax.security.sasl.Sasl#QOP
+     */
+    public static final Option<Sequence<SaslQop>> SASL_QOP = Option.sequence(Options.class, "SASL_QOP", SaslQop.class);
+
+    /**
+     * Specify the SASL cipher strength to use.
+     *
+     * @see javax.security.sasl.Sasl#STRENGTH
+     */
+    public static final Option<SaslStrength> SASL_STRENGTH = Option.simple(Options.class, "SASL_STRENGTH", SaslStrength.class);
+
+    /**
+     * Specify whether the SASL server must authenticate to the client.
+     *
+     * @see javax.security.sasl.Sasl#SERVER_AUTH
+     */
+    public static final Option<Boolean> SASL_SERVER_AUTH = Option.simple(Options.class, "SASL_SERVER_AUTH", Boolean.class);
+
+    /**
+     * Specify whether SASL mechanisms should attempt to reuse authenticated session information.
+     *
+     * @see javax.security.sasl.Sasl#REUSE
+     */
+    public static final Option<Boolean> SASL_REUSE = Option.simple(Options.class, "SASL_REUSE", Boolean.class);
 }
