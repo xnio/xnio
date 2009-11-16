@@ -98,7 +98,46 @@ public abstract class Option<T> implements Serializable {
      * @return the string representation
      */
     public String toString() {
-        return super.toString() + " (" + declClass.getName() + "#" + name + ")";
+        return declClass.getName() + "." + name;
+    }
+
+    /**
+     * Get an option from a string name, using the given classloader.  If the classloader is {@code null}, the bootstrap
+     * classloader will be used.
+     *
+     * @param name the option string
+     * @param classLoader the class loader
+     * @return the option
+     * @throws IllegalArgumentException if the given option name is not valid
+     */
+    public static Option<?> fromString(String name, ClassLoader classLoader) throws IllegalArgumentException {
+        final int lastDot = name.lastIndexOf('.');
+        if (lastDot == -1) {
+            throw new IllegalArgumentException("Invalid option name");
+        }
+        final String fieldName = name.substring(lastDot + 1);
+        final String className = name.substring(0, lastDot);
+        try {
+            final Field field = Class.forName(className, true, classLoader).getField(fieldName);
+            final int modifiers = field.getModifiers();
+            if (! Modifier.isProtected(modifiers)) {
+                throw new IllegalArgumentException("Invalid Option instance (the field is not public)");
+            }
+            if (! Modifier.isStatic(modifiers)) {
+                throw new IllegalArgumentException("Invalid Option instance (the field is not static)");
+            }
+            final Option option = (Option) field.get(null);
+            if (option == null) {
+                throw new IllegalArgumentException("Invalid null Option");
+            }
+            return option;
+        } catch (NoSuchFieldException e) {
+            throw new IllegalArgumentException("No such field");
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException("Illegal access", e);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Class '" + className + "' not found");
+        }
     }
 
     /**
