@@ -300,4 +300,9 @@ public final class Options {
      * @see javax.security.sasl.Sasl#REUSE
      */
     public static final Option<Boolean> SASL_REUSE = Option.simple(Options.class, "SASL_REUSE", Boolean.class);
+
+    /**
+     * A list of SASL mechanisms, in decreasing order of preference.
+     */
+    public static final Option<Sequence<String>> SASL_MECHANISMS = Option.sequence(Options.class, "SASL_MECHANISMS", String.class);
 }
