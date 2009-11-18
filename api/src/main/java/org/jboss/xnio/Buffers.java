@@ -738,8 +738,8 @@ public final class Buffers {
      * @return the buffer allocator
      * @since 1.1
      */
-    public static BufferAllocator<ByteBuffer> createHeapByteBufferAllocator(final int size) {
-        return new BufferAllocator<ByteBuffer>() {
+    public static Pool<ByteBuffer> createHeapByteBufferAllocator(final int size) {
+        return new Pool<ByteBuffer>() {
             public ByteBuffer allocate() {
                 return ByteBuffer.allocate(size);
             }
