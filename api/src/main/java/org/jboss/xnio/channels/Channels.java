@@ -45,7 +45,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
 /**
- * A utility class containing static methods to convert from one channel type to another.
+ * A utility class containing static methods to support channel usage.
  *
  * @apiviz.exclude
  */
@@ -55,38 +55,36 @@ public final class Channels {
     }
 
     /**
-     * Create an allocated message channel which wraps a stream channel using a simple length-body protocol.  The
-     * maximum inbound and outbound message sizes may be specified in the option map.
+     * Create and install a stream channel listener which unwraps messages and passes them to a handler.  The listener
+     * is installed into the given channel.  The user message handler may be set (and changed at any time)
+     * via the returned setter.  The corresponding write side can be created via {@link #createMessageWriter(StreamSinkChannel, org.jboss.xnio.OptionMap)}.
      *
-     * @param streamChannel the stream channel
+     * @param channel the stream source channel
      * @param optionMap the initial options
-     * @return the allocated message channel
+     * @return the setter for the new message handler
      * @see org.jboss.xnio.Options#MAX_INBOUND_MESSAGE_SIZE
-     * @see org.jboss.xnio.Options#MAX_OUTBOUND_MESSAGE_SIZE
      *
      * @since 2.0
      */
-    public static AllocatedMessageChannel createAllocatedMessageChannel(final StreamChannel streamChannel, final OptionMap optionMap) {
-        return new WrappingAllocatedMessageChannel(streamChannel, optionMap);
+    public static MessageHandler.Setter createMessageReader(final StreamSourceChannel channel, final OptionMap optionMap) {
+        final MessageStreamChannelListener listener = new MessageStreamChannelListener(optionMap);
+        channel.getReadSetter().set(listener);
+        return listener.getSetter();
     }
 
     /**
-     * Create a channel listener which wraps an incoming channel connection with an allocated message channel.
+     * Create a writable message channel which wraps a stream sink channel using a simple length-body protocol.  The
+     * corresponding read side can be created via {@link #createMessageReader(StreamSourceChannel, org.jboss.xnio.OptionMap)}.
      *
-     * @param channelListener the channel listener
+     * @param channel the stream sink channel
      * @param optionMap the initial options
-     * @return the stream channel listener
-     * @see org.jboss.xnio.Options#MAX_INBOUND_MESSAGE_SIZE
+     * @return the message channel
      * @see org.jboss.xnio.Options#MAX_OUTBOUND_MESSAGE_SIZE
      *
      * @since 2.0
      */
-    public static ChannelListener<StreamChannel> createAllocatedMessageStreamChannelListener(final ChannelListener<? super AllocatedMessageChannel> channelListener, final OptionMap optionMap) {
-        return new ChannelListener<StreamChannel>() {
-            public void handleEvent(final StreamChannel channel) {
-                channelListener.handleEvent(createAllocatedMessageChannel(channel, optionMap));
-            }
-        };
+    public static WritableMessageChannel createMessageWriter(final StreamSinkChannel channel, final OptionMap optionMap) {
+        return new StreamSinkMessageChannel(channel, optionMap);
     }
 
     private static final Logger sslLog = Logger.getLogger("org.jboss.xnio.ssl");

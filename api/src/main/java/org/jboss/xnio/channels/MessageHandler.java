@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2009, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -22,21 +22,20 @@
 
 package org.jboss.xnio.channels;
 
-import org.jboss.xnio.ChannelListener;
+import java.nio.ByteBuffer;
+import java.io.IOException;
 
 /**
- * A channel that sends and receives whole messages.  Recevied whole messages are stored in a preallocated buffer.
- *
- * @apiviz.landmark
+ * A handler interface for incoming messages.
  */
-public interface AllocatedMessageChannel extends ReadableAllocatedMessageChannel, WritableMessageChannel, SuspendableChannel, Configurable {
+public interface MessageHandler {
+    void handleMessage(ByteBuffer buffer);
 
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends AllocatedMessageChannel> getReadSetter();
+    void handleEof();
 
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends AllocatedMessageChannel> getCloseSetter();
+    void handleException(IOException e);
 
-    /** {@inheritDoc} */
-    ChannelListener.Setter<? extends AllocatedMessageChannel> getWriteSetter();
+    interface Setter {
+        void set(MessageHandler messageHandler);
+    }
 }
