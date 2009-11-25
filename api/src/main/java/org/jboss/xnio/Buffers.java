@@ -29,6 +29,7 @@ import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.nio.BufferOverflowException;
 import java.util.Arrays;
 import java.io.IOException;
 
@@ -835,5 +836,97 @@ public final class Buffers {
             }
         }
         return t;
+    }
+
+    /**
+     * Put the string into the byte buffer, encoding it using "modified UTF-8" encoding.
+     *
+     * @param dest the byte buffer
+     * @param orig the source bytes
+     * @return the byte buffer
+     * @throws BufferOverflowException if there is not enough space in the buffer for the complete string
+     * @see java.io.DataOutput#writeUTF(String)
+     */
+    public static ByteBuffer putModifiedUtf8(ByteBuffer dest, String orig) throws BufferOverflowException {
+        final char[] chars = orig.toCharArray();
+        for (char c : chars) {
+            if (c > 0 && c <= 0x7f) {
+                dest.put((byte) c);
+            } else if (c <= 0x07ff) {
+                dest.put((byte)(0xc0 | 0x1f & c >> 6));
+                dest.put((byte)(0x80 | 0x3f & c));
+            } else {
+                dest.put((byte)(0xe0 | 0x0f & c >> 12));
+                dest.put((byte)(0x80 | 0x3f & c >> 6));
+                dest.put((byte)(0x80 | 0x3f & c));
+            }
+        }
+        return dest;
+    }
+
+    /**
+     * Get a 0-terminated string from the byte buffer, decoding it using "modified UTF-8" encoding.
+     *
+     * @param src the source buffer
+     * @return the string
+     * @throws BufferUnderflowException if the end of the buffer was reached before encountering a {@code 0}
+     */
+    public static String getModifiedUtf8Z(ByteBuffer src) throws BufferUnderflowException {
+        final StringBuilder builder = new StringBuilder();
+        for (;;) {
+            final int ch = readUTFChar(src);
+            if (ch == -1) {
+                return builder.toString();
+            }
+            builder.append((char) ch);
+        }
+    }
+
+    /**
+     * Get a modified UTF-8 string from the remainder of the buffer.
+     *
+     * @param src the buffer
+     * @return the modified UTF-8 string
+     * @throws BufferUnderflowException if the buffer ends abruptly in the midst of a single character
+     */
+    public static String getModifiedUtf8(ByteBuffer src) throws BufferUnderflowException {
+        final StringBuilder builder = new StringBuilder();
+        while (src.hasRemaining()) {
+            final int ch = readUTFChar(src);
+            if (ch == -1) {
+                builder.append('\0');
+            } else {
+                builder.append((char) ch);
+            }
+        }
+        return builder.toString();
+    }
+
+    private static int readUTFChar(final ByteBuffer src) throws BufferUnderflowException {
+        final int a = src.get() & 0xff;
+        if (a == 0) {
+            return -1;
+        } else if (a < 0x80) {
+            return (char)a;
+        } else if (a < 0xc0) {
+            return '?';
+        } else if (a < 0xe0) {
+            final int b = src.get() & 0xff;
+            if ((b & 0xc0) != 0x80) {
+                return '?';
+            }
+            return (a & 0x1f) << 6 | b & 0x3f;
+        } else if (a < 0xf0) {
+            final int b = src.get() & 0xff;
+            if ((b & 0xc0) != 0x80) {
+                return '?';
+            }
+            final int c = src.get() & 0xff;
+            if ((c & 0xc0) != 0x80) {
+                return '?';
+            }
+            return (a & 0x0f) << 12 | (b & 0x3f) << 6 | c & 0x3f;
+        }
+        return '?';
     }
 }
