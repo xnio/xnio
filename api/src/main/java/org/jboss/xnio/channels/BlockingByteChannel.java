@@ -27,12 +27,13 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.io.Flushable;
 
 /**
  * A blocking wrapper for a {@code StreamChannel}.  Read and write operations will block until some data may be transferred.
  * Once any amount of data is read or written, the operation will return.
  */
-public class BlockingByteChannel implements ScatteringByteChannel, GatheringByteChannel, ByteChannel {
+public class BlockingByteChannel implements ScatteringByteChannel, GatheringByteChannel, ByteChannel, Flushable {
     private final StreamChannel delegate;
 
     /**
@@ -147,6 +148,11 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
     /** {@inheritDoc} */
     public boolean isOpen() {
         return delegate.isOpen();
+    }
+
+    /** {@inheritDoc} */
+    public void flush() throws IOException {
+        Channels.flushBlocking(delegate);
     }
 
     /** {@inheritDoc} */
