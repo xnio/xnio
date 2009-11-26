@@ -32,6 +32,7 @@ import java.nio.channels.spi.SelectorProvider;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -44,6 +45,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.net.InetSocketAddress;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import org.jboss.xnio.ChannelSource;
 import org.jboss.xnio.FailedIoFuture;
 import org.jboss.xnio.FinishedIoFuture;
@@ -80,6 +83,12 @@ import org.jboss.xnio.management.UdpServerMBean;
 public final class NioXnio extends Xnio {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.nio");
+
+    private interface SelectorCreator {
+        Selector open() throws IOException;
+    }
+
+    private final SelectorCreator selectorCreator;
 
     static {
         log.info("XNIO NIO Implementation Version " + Version.VERSION);
@@ -227,6 +236,50 @@ public final class NioXnio extends Xnio {
             log.warn("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
         }
         log.trace("Starting up with selector provider %s", providerClassName);
+        selectorCreator = AccessController.doPrivileged(
+            new PrivilegedAction<SelectorCreator>() {
+                public SelectorCreator run() {
+                    try {
+                        // A Polling selector is most efficient on most platforms for one-off selectors.  Try to hack a way to get them on demand.
+                        final Class<? extends Selector> selectorImplClass = Class.forName("sun.nio.ch.PollSelectorImpl").asSubclass(Selector.class);
+                        final Constructor<? extends Selector> constructor = selectorImplClass.getDeclaredConstructor(SelectorProvider.class);
+                        // Usually package private.  So untrusting.
+                        constructor.setAccessible(true);
+                        log.trace("Using polling selector type for temporary selectors.");
+                        return new SelectorCreator() {
+                            public Selector open() throws IOException {
+                                try {
+                                    return constructor.newInstance(SelectorProvider.provider());
+                                } catch (InstantiationException e) {
+                                    return Selector.open();
+                                } catch (IllegalAccessException e) {
+                                    return Selector.open();
+                                } catch (InvocationTargetException e) {
+                                    try {
+                                        throw e.getTargetException();
+                                    } catch (java.io.IOException e2) {
+                                        throw e2;
+                                    } catch (RuntimeException e2) {
+                                        throw e2;
+                                    } catch (Throwable t) {
+                                        throw new IllegalStateException("Unexpected invocation exception", t);
+                                    }
+                                }
+                            }
+                        };
+                    } catch (Exception e) {
+                        // ignore.
+                    }
+                    // Can't get our selector type?  That's OK, just use the default.
+                    log.trace("Using default selector type for temporary selectors.");
+                    return new SelectorCreator() {
+                        public Selector open() throws IOException {
+                            return Selector.open();
+                        }
+                    };
+                }
+            }
+        );
         ThreadFactory selectorThreadFactory = configuration.getThreadFactory();
         final OptionMap optionMap = getOptionMap(configuration);
         final int readSelectorThreads = optionMap.get(Options.READ_THREADS, 1);
@@ -655,7 +708,7 @@ public final class NioXnio extends Xnio {
                     cache[selectorCacheCount = cnt - 1] = null;
                 }
             } else {
-                return Selector.open();
+                return selectorCreator.open();
             }
         } finally {
             selectorCacheLock.unlock();
