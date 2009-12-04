@@ -44,7 +44,6 @@ final class NioSelectorRunnable implements Runnable {
     private final Selector selector;
     private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
-    private final AtomicBoolean selecting = new AtomicBoolean(true);
     private volatile int keyLoad;
     private volatile Thread thread;
 
@@ -57,14 +56,12 @@ final class NioSelectorRunnable implements Runnable {
             task.run(selector);
         } else {
             selectorWorkQueue.add(task);
-            if (selecting.getAndSet(false)) {
-                selector.wakeup();
-            }
+            selector.wakeup();
         }
     }
 
     public void wakeup() {
-        if (selecting.getAndSet(false) && Thread.currentThread() != thread) {
+        if (Thread.currentThread() != thread) {
             selector.wakeup();
         }
     }
@@ -100,7 +97,6 @@ final class NioSelectorRunnable implements Runnable {
                 }
                 keyLoad = selector.keys().size();
                 selector.select();
-                selecting.set(true);
                 for (SelectorTask task = queue.poll(); task != null; task = queue.poll()) try {
                     task.run(selector);
                 } catch (Throwable t) {
