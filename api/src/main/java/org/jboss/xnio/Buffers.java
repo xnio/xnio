@@ -30,6 +30,8 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 import java.nio.BufferOverflowException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
 import java.util.Arrays;
 import java.io.IOException;
 
@@ -928,5 +930,394 @@ public final class Buffers {
             return (a & 0x0f) << 12 | (b & 0x3f) << 6 | c & 0x3f;
         }
         return '?';
+    }
+
+    /**
+     * Read an ASCIIZ ({@code NUL}-terminated) string from a byte buffer, appending the results to the given string
+     * builder.  If no {@code NUL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readAsciiZ(final ByteBuffer src, final StringBuilder builder) {
+        return readAsciiZ(src, builder, '?');
+    }
+
+    /**
+     * Read an ASCIIZ ({@code NUL}-terminated) string from a byte buffer, appending the results to the given string
+     * builder.  If no {@code NUL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readAsciiZ(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final byte b = src.get();
+            if (b == 0) {
+                return true;
+            }
+            builder.append(b < 0 ? replacement : (char) b);
+        }
+    }
+
+    /**
+     * Read a single line of ASCII text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readAsciiLine(final ByteBuffer src, final StringBuilder builder) {
+        return readAsciiLine(src, builder, '?');
+    }
+
+    /**
+     * Read a single line of ASCII text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readAsciiLine(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final byte b = src.get();
+            builder.append(b < 0 ? replacement : (char) b);
+            if (b == '\n') {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * Read the remainder of a buffer as ASCII text, appending the results to the given string
+     * builder.  If an invalid byte is read, the character {@code '?'} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     */
+    public static void readAscii(final ByteBuffer src, final StringBuilder builder) {
+        readAscii(src, builder, '?');
+    }
+
+    /**
+     * Read the remainder of a buffer as ASCII text, appending the results to the given string
+     * builder.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     */
+    public static void readAscii(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return;
+            }
+            final byte b = src.get();
+            builder.append(b < 0 ? replacement : (char) b);
+        }
+    }
+
+    /**
+     * Read the remainder of a buffer as ASCII text, up to a certain limit, appending the results to the given string
+     * builder.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param limit the maximum number of characters to write
+     * @param replacement the replacement character for invalid bytes
+     */
+    public static void readAscii(final ByteBuffer src, final StringBuilder builder, int limit, final char replacement) {
+        while (limit > 0) {
+            if (! src.hasRemaining()) {
+                return;
+            }
+            final byte b = src.get();
+            builder.append(b < 0 ? replacement : (char) b);
+            limit--;
+        }
+    }
+
+    /**
+     * Read a {@code NUL}-terminated Latin-1 string from a byte buffer, appending the results to the given string
+     * builder.  If no {@code NUL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readLatin1Z(final ByteBuffer src, final StringBuilder builder) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final byte b = src.get();
+            if (b == 0) {
+                return true;
+            }
+            builder.append((char) (b & 0xff));
+        }
+    }
+
+    /**
+     * Read a single line of Latin-1 text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readLatin1Line(final ByteBuffer src, final StringBuilder builder) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final byte b = src.get();
+            builder.append((char) (b & 0xff));
+            if (b == '\n') {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * Read the remainder of a buffer as ASCII text, appending the results to the given string
+     * builder.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     */
+    public static void readLatin1(final ByteBuffer src, final StringBuilder builder) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return;
+            }
+            final byte b = src.get();
+            builder.append((char) (b & 0xff));
+        }
+    }
+
+    /**
+     * Read a {@code NUL}-terminated {@link java.io.DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
+     * builder.  If no {@code NUL} byte is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte sequence is read, the character {@code '?'} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readModifiedUtf8Z(final ByteBuffer src, final StringBuilder builder) {
+        return readModifiedUtf8Z(src, builder, '?');
+    }
+
+    /**
+     * Read a {@code NUL}-terminated {@link java.io.DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
+     * builder.  If no {@code NUL} byte is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte sequence is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readModifiedUtf8Z(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final int a = src.get() & 0xff;
+            if (a == 0) {
+                return true;
+            } else if (a < 0x80) {
+                builder.append((char)a);
+            } else if (a < 0xc0) {
+                builder.append(replacement);
+            } else if (a < 0xe0) {
+                if (src.hasRemaining()) {
+                    final int b = src.get() & 0xff;
+                    if ((b & 0xc0) != 0x80) {
+                        builder.append(replacement);
+                    } else {
+                        builder.append((char) ((a & 0x1f) << 6 | b & 0x3f));
+                    }
+                } else {
+                    unget(src, 1);
+                    return false;
+                }
+            } else if (a < 0xf0) {
+                if (src.hasRemaining()) {
+                    final int b = src.get() & 0xff;
+                    if ((b & 0xc0) != 0x80) {
+                        builder.append(replacement);
+                    } else {
+                        if (src.hasRemaining()) {
+                            final int c = src.get() & 0xff;
+                            if ((c & 0xc0) != 0x80) {
+                                builder.append(replacement);
+                            } else {
+                                builder.append((char) ((a & 0x0f) << 12 | (b & 0x3f) << 6 | c & 0x3f));
+                            }
+                        } else {
+                            unget(src, 2);
+                            return false;
+                        }
+                    }
+                } else {
+                    unget(src, 1);
+                    return false;
+                }
+            }
+        }
+    }
+
+    /**
+     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readModifiedUtf8Line(final ByteBuffer src, final StringBuilder builder) {
+        return readModifiedUtf8Line(src, builder, '?');
+    }
+
+    /**
+     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readModifiedUtf8Line(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final int a = src.get() & 0xff;
+            if (a < 0x80) {
+                builder.append((char)a);
+                if (a == '\n') {
+                    return true;
+                }
+            } else if (a < 0xc0) {
+                builder.append(replacement);
+            } else if (a < 0xe0) {
+                if (src.hasRemaining()) {
+                    final int b = src.get() & 0xff;
+                    if ((b & 0xc0) != 0x80) {
+                        builder.append(replacement);
+                    } else {
+                        final char ch = (char) ((a & 0x1f) << 6 | b & 0x3f);
+                        builder.append(ch);
+                        if (ch == '\n') {
+                            return true;
+                        }
+                    }
+                } else {
+                    unget(src, 1);
+                    return false;
+                }
+            } else if (a < 0xf0) {
+                if (src.hasRemaining()) {
+                    final int b = src.get() & 0xff;
+                    if ((b & 0xc0) != 0x80) {
+                        builder.append(replacement);
+                    } else {
+                        if (src.hasRemaining()) {
+                            final int c = src.get() & 0xff;
+                            if ((c & 0xc0) != 0x80) {
+                                builder.append(replacement);
+                            } else {
+                                final char ch = (char) ((a & 0x0f) << 12 | (b & 0x3f) << 6 | c & 0x3f);
+                                builder.append(ch);
+                                if (ch == '\n') {
+                                    return true;
+                                }
+                            }
+                        } else {
+                            unget(src, 2);
+                            return false;
+                        }
+                    }
+                } else {
+                    unget(src, 1);
+                    return false;
+                }
+            }
+        }
+    }
+
+    /**
+     * Read a single line of text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  Invalid bytes are handled according to the policy specified by the {@code decoder} instance.
+     * Since this method decodes only one character at a time, it should not be expected to have the same performance
+     * as the other optimized, character set-specific methods specified in this class.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param decoder the decoder to use
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readLine(final ByteBuffer src, final StringBuilder builder, final CharsetDecoder decoder) {
+        final CharBuffer oneChar = CharBuffer.allocate(1);
+        for (;;) {
+            final CoderResult coderResult = decoder.decode(src, oneChar, false);
+            if (coderResult.isUnderflow()) {
+                return false;
+            }
+            if (oneChar.hasRemaining()) {
+                throw new IllegalStateException();
+            }
+            final char ch = oneChar.get(0);
+            builder.append(ch);
+            if (ch == '\n') {
+                return true;
+            }
+            oneChar.clear();
+        }
     }
 }
