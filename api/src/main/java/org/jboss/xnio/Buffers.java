@@ -977,14 +977,14 @@ public final class Buffers {
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
-     * to the string builder in its place.
+     * to the string builder in its place.  The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
      * @return {@code true} if the entire string was read, {@code false} if more data is needed
      */
     public static boolean readAsciiLine(final ByteBuffer src, final StringBuilder builder) {
-        return readAsciiLine(src, builder, '?');
+        return readAsciiLine(src, builder, '?', '\n');
     }
 
     /**
@@ -992,7 +992,7 @@ public final class Buffers {
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
-     * to the string builder in its place.
+     * to the string builder in its place.  The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
@@ -1000,13 +1000,31 @@ public final class Buffers {
      * @return {@code true} if the entire string was read, {@code false} if more data is needed
      */
     public static boolean readAsciiLine(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        return readAsciiLine(src, builder, replacement, '\n');
+    }
+
+    /**
+     * Read a single line of ASCII text from a byte buffer, appending the results to the given string
+     * builder, using the given delimiter character instead of {@code EOL}.  If no delimiter character is encountered,
+     * {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.  The delimiter character will be included in the resultant string.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     * @param delimiter the character which marks the end of the line
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readAsciiLine(final ByteBuffer src, final StringBuilder builder, final char replacement, final char delimiter) {
         for (;;) {
             if (! src.hasRemaining()) {
                 return false;
             }
             final byte b = src.get();
             builder.append(b < 0 ? replacement : (char) b);
-            if (b == '\n') {
+            if (b == delimiter) {
                 return true;
             }
         }
@@ -1091,7 +1109,7 @@ public final class Buffers {
      * Read a single line of Latin-1 text from a byte buffer, appending the results to the given string
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
-     * in the source buffer.
+     * in the source buffer.  The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
@@ -1105,6 +1123,30 @@ public final class Buffers {
             final byte b = src.get();
             builder.append((char) (b & 0xff));
             if (b == '\n') {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * Read a single line of Latin-1 text from a byte buffer, appending the results to the given string
+     * builder.  If no delimiter character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  The delimiter character will be included in the resultant string.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param delimiter the character which marks the end of the line
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readLatin1Line(final ByteBuffer src, final StringBuilder builder, final char delimiter) {
+        for (;;) {
+            if (! src.hasRemaining()) {
+                return false;
+            }
+            final byte b = src.get();
+            builder.append((char) (b & 0xff));
+            if (b == delimiter) {
                 return true;
             }
         }
@@ -1208,7 +1250,7 @@ public final class Buffers {
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
-     * to the string builder in its place.
+     * to the string builder in its place.  The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
@@ -1223,7 +1265,7 @@ public final class Buffers {
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
-     * to the string builder in its place.
+     * to the string builder in its place.  The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
@@ -1231,6 +1273,23 @@ public final class Buffers {
      * @return {@code true} if the entire string was read, {@code false} if more data is needed
      */
     public static boolean readModifiedUtf8Line(final ByteBuffer src, final StringBuilder builder, final char replacement) {
+        return readModifiedUtf8Line(src, builder, replacement, '\n');
+    }
+
+    /**
+     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
+     * to the string builder in its place.  The delimiter character will be included in the resultant string.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param replacement the replacement character for invalid bytes
+     * @param delimiter the character which marks the end of the line
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readModifiedUtf8Line(final ByteBuffer src, final StringBuilder builder, final char replacement, final char delimiter) {
         for (;;) {
             if (! src.hasRemaining()) {
                 return false;
@@ -1238,7 +1297,7 @@ public final class Buffers {
             final int a = src.get() & 0xff;
             if (a < 0x80) {
                 builder.append((char)a);
-                if (a == '\n') {
+                if (a == delimiter) {
                     return true;
                 }
             } else if (a < 0xc0) {
@@ -1251,7 +1310,7 @@ public final class Buffers {
                     } else {
                         final char ch = (char) ((a & 0x1f) << 6 | b & 0x3f);
                         builder.append(ch);
-                        if (ch == '\n') {
+                        if (ch == delimiter) {
                             return true;
                         }
                     }
@@ -1272,7 +1331,7 @@ public final class Buffers {
                             } else {
                                 final char ch = (char) ((a & 0x0f) << 12 | (b & 0x3f) << 6 | c & 0x3f);
                                 builder.append(ch);
-                                if (ch == '\n') {
+                                if (ch == delimiter) {
                                     return true;
                                 }
                             }
@@ -1296,6 +1355,7 @@ public final class Buffers {
      * in the source buffer.  Invalid bytes are handled according to the policy specified by the {@code decoder} instance.
      * Since this method decodes only one character at a time, it should not be expected to have the same performance
      * as the other optimized, character set-specific methods specified in this class.
+     * The {@code EOL} character will be included in the resultant string.
      *
      * @param src the source buffer
      * @param builder the destination builder
@@ -1303,6 +1363,25 @@ public final class Buffers {
      * @return {@code true} if the entire string was read, {@code false} if more data is needed
      */
     public static boolean readLine(final ByteBuffer src, final StringBuilder builder, final CharsetDecoder decoder) {
+        return readLine(src, builder, decoder, '\n');
+    }
+
+    /**
+     * Read a single line of text from a byte buffer, appending the results to the given string
+     * builder.  If no delimiter character is encountered, {@code false} is returned, indicating that more data needs
+     * to be acquired before the operation can be complete.  On return, there may be data remaining
+     * in the source buffer.  Invalid bytes are handled according to the policy specified by the {@code decoder} instance.
+     * Since this method decodes only one character at a time, it should not be expected to have the same performance
+     * as the other optimized, character set-specific methods specified in this class.  The delimiter character will be
+     * included in the resultant string.
+     *
+     * @param src the source buffer
+     * @param builder the destination builder
+     * @param decoder the decoder to use
+     * @param delimiter the character which marks the end of the line
+     * @return {@code true} if the entire string was read, {@code false} if more data is needed
+     */
+    public static boolean readLine(final ByteBuffer src, final StringBuilder builder, final CharsetDecoder decoder, final char delimiter) {
         final CharBuffer oneChar = CharBuffer.allocate(1);
         for (;;) {
             final CoderResult coderResult = decoder.decode(src, oneChar, false);
@@ -1314,7 +1393,7 @@ public final class Buffers {
             }
             final char ch = oneChar.get(0);
             builder.append(ch);
-            if (ch == '\n') {
+            if (ch == delimiter) {
                 return true;
             }
             oneChar.clear();
