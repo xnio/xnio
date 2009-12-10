@@ -28,7 +28,9 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Properties;
 import java.io.Serializable;
+import org.jboss.xnio.log.Logger;
 
 /**
  * An immutable map of options to option values.  No {@code null} keys or values are permitted.
@@ -125,6 +127,8 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
      */
     public static final class Builder {
 
+        private static final Logger log = Logger.getLogger("org.jboss.xnio.option.parse");
+
         private Builder() {
         }
 
@@ -139,6 +143,66 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         private List<OVPair<?>> list = new ArrayList<OVPair<?>>();
+
+        /**
+         * Set a key-value pair, parsing the value from the given string.
+         *
+         * @param key the key
+         * @param stringValue the string value
+         * @param <T> the option type
+         * @return this builder
+         */
+        public <T> Builder parse(Option<T> key, String stringValue) {
+            set(key, key.parseValue(stringValue));
+            return this;
+        }
+
+        /**
+         * Add all options from a properties file.  Finds all entries which start with a given prefix; the remainder
+         * of the property key (after the prefix) is the option name, and the value is the option value.
+         *
+         * @param props the properties to read
+         * @param prefix the prefix
+         * @param optionClassLoader the class loader to use to resolve option names
+         * @return this builder
+         */
+        public Builder parseAll(Properties props, String prefix, ClassLoader optionClassLoader) {
+            for (String name : props.stringPropertyNames()) {
+                if (name.startsWith(prefix)) {
+                    final String optionName = name.substring(prefix.length());
+                    try {
+                        final Option<?> option = Option.fromString(optionName, optionClassLoader);
+                        parse(option, props.getProperty(name));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Unknown option '%s' in property '%s'", optionName, name);
+                    }
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Add all options from a properties file.  Finds all entries which start with a given prefix; the remainder
+         * of the property key (after the prefix) is the option name, and the value is the option value.
+         *
+         * @param props the properties to read
+         * @param prefix the prefix
+         * @return this builder
+         */
+        public Builder parseAll(Properties props, String prefix) {
+            for (String name : props.stringPropertyNames()) {
+                if (name.startsWith(prefix)) {
+                    final String optionName = name.substring(prefix.length());
+                    try {
+                        final Option<?> option = Option.fromString(optionName, null);
+                        parse(option, props.getProperty(name));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Unknown option '%s' in property '%s'", optionName, name);
+                    }
+                }
+            }
+            return this;
+        }
 
         /**
          * Set a key-value pair.
