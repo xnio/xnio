@@ -24,6 +24,8 @@ package org.jboss.xnio;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.FileNotFoundException;
 import java.security.AccessController;
 import java.security.Permission;
 import java.security.PrivilegedAction;
@@ -34,7 +36,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -84,11 +90,13 @@ public abstract class Xnio implements Closeable {
     private static final String NIO_IMPL_PROVIDER = "nio";
     private static final String PROVIDER_NAME;
     private static final String MANAGEMENT_DOMAIN = "jboss.xnio";
+    private static final String PROPERTIES = "xnio.properties";
 
     private static final AtomicLong mbeanSequence = new AtomicLong();
 
     private static String AGENTID_PROPNAME = "xnio.agentid";
     private static String PROVIDER_PROPNAME = "xnio.provider.name";
+    private static String PROPERTY_FILE_PROPNAME = "xnio.property.file";
 
     private static final PrivilegedAction<String> GET_PROVIDER_ACTION = new GetPropertyAction(PROVIDER_PROPNAME, NIO_IMPL_PROVIDER);
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
@@ -117,6 +125,94 @@ public abstract class Xnio implements Closeable {
      */
     protected Executor getExecutor() {
         return executor;
+    }
+
+    private static Xnio instance = null;
+    private static final Object instanceLock = new Object();
+
+    /**
+     * Get or create a singleton XNIO provider instance, which is automatically configured from a properties file.
+     * <p>
+     * The boot classpath is searched for a file named {@code "xnio.properties"} (the name can be overridden by way of
+     * the {@code "xnio.property.file"} system property).  This file contains properties which are used to configure
+     * the default single XNIO provider.
+     * <p>
+     * The following properties are recognized:
+     * <ul>
+     * <li>{@code handler.threadpool} - a boolean value which specifies whether channel listeners should be invoked via
+     *      a thread pool executor.  A value of {@code true} indicates that a thread pool should be created; a value of
+     *      {@code false} (the default) indicates that the listeners should be invoked from the current thread.</li>
+     * <li>{@code handler.threadpool.coresize} - an integer value which specifies the core size of the thread pool.
+     *      The default value is 8 threads.</li>
+     * <li>{@code handler.threadpool.maxsize} - an integer value which specifies the maximum size of the thread pool.
+     *      The default value is 128 threads.</li>
+     * <li>{@code handler.threadpool.keepaliveseconds} - an integer value which specifies the number of seconds an idle
+     *      thread should be kept alive before exiting.  The default value is 30 seconds.</li>
+     * <li>{@code handler.threadpool.queuelength} - an integer value which specifies the length of the task queue for the
+     *      listener thread pool.  The default value is 64.</li>
+     * <li>{@code name} - the name of the single XNIO provider instance.  The default value is {@code "system"}.</li>
+     * <li><code>provider.option.<i>&lt;option-name&gt;</i></code> - An option to add to the XNIO provider's option map.  The
+     *      value is the value for the option.</li>
+     * <li>{@code provider} - the provider implementation to use.  If not specified, a default provider will be located and
+     *      used.</li>
+     * </ul>
+     *
+     * @return the configured global XNIO instance
+     * @throws IOException if the XNIO provider could not be created
+     */
+    public static Xnio getInstance() throws IOException {
+        synchronized (instanceLock) {
+            final Xnio instance = Xnio.instance;
+            if (instance != null) {
+                return instance;
+            }
+            return (Xnio.instance = createConfigured());
+        }
+    }
+
+    private static Xnio createConfigured() throws IOException {
+        try {
+            return AccessController.doPrivileged(new PrivilegedAction<Xnio>() {
+                public Xnio run() {
+                    final String fileName = System.getProperty(PROPERTY_FILE_PROPNAME, PROPERTIES);
+                    final Properties props = new Properties();
+                    try {
+                        props.load(new InputStreamReader(getClass().getResourceAsStream(fileName)));
+                    } catch (FileNotFoundException e) {
+                        // fall out
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    final XnioConfiguration conf = new XnioConfiguration();
+                    if (Boolean.parseBoolean(props.getProperty("handler.threadpool", "false"))) {
+                        conf.setExecutor(
+                                new ThreadPoolExecutor(
+                                        Integer.parseInt(props.getProperty("handler.threadpool.coresize", "8")),
+                                        Integer.parseInt(props.getProperty("handler.threadpool.maxsize", "128")),
+                                        Long.parseLong(props.getProperty("handler.threadpool.keepaliveseconds", "30")),
+                                        TimeUnit.SECONDS,
+                                        new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty("handler.threadpool.queuelength", "64"))),
+                                        new ThreadPoolExecutor.CallerRunsPolicy()
+                                )
+                        );
+                    }
+                    conf.setName(props.getProperty("name", "system"));
+                    final String OPTION_PREFIX = "provider.option.";
+                    conf.setOptionMap(OptionMap.builder().parseAll(props, OPTION_PREFIX).getMap());
+                    try {
+                        return Xnio.create(props.getProperty("provider", PROVIDER_NAME), conf);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
+        } catch (RuntimeException e) {
+            final Throwable c = e.getCause();
+            if (c instanceof IOException) {
+                throw (IOException)c;
+            }
+            throw e;
+        }
     }
 
     /**
