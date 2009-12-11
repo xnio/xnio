@@ -343,7 +343,9 @@ final class SequenceOption<T> extends Option<Sequence<T>> {
     }
 
     public Sequence<T> cast(final Object o) {
-        if (o instanceof Sequence) {
+        if (o == null) {
+            return null;
+        } else if (o instanceof Sequence) {
             return ((Sequence<?>)o).cast(elementType);
         } else if (o instanceof Object[]){
             return Sequence.of((Object[])o).cast(elementType);
