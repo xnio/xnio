@@ -97,6 +97,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
      * the TCP channel becomes readable.
      */
     private final Condition readAwaiters = mainLock.newCondition();
+    /**
+     * Condition: threads waiting in awaitWritable(); signalAll whenever {@code needsUnwrap} is cleared
+     */
+    private final Condition writeAwaiters = mainLock.newCondition();
 
     private boolean userReads;
     private boolean userWrites;
@@ -466,6 +470,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                     }
                     readAwaiters.await();
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     throw new InterruptedIOException();
                 }
             }
@@ -490,6 +495,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                     }
                     readAwaiters.await(time, timeUnit);
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     throw new InterruptedIOException();
                 }
             }
@@ -499,11 +505,39 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     }
 
     public void awaitWritable() throws IOException {
-        tcpChannel.awaitWritable();
+        final Lock mainLock = this.mainLock;
+        mainLock.lock();
+        try {
+            if (needsUnwrap) {
+                tcpChannel.resumeReads();
+            } else {
+                tcpChannel.resumeWrites();
+            }
+            writeAwaiters.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException();
+        } finally {
+            mainLock.unlock();
+        }
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        tcpChannel.awaitWritable(time, timeUnit);
+        final Lock mainLock = this.mainLock;
+        mainLock.lock();
+        try {
+            if (needsUnwrap) {
+                tcpChannel.resumeReads();
+            } else {
+                tcpChannel.resumeWrites();
+            }
+            writeAwaiters.await(time, timeUnit);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException();
+        } finally {
+            mainLock.unlock();
+        }
     }
 
     public int write(final ByteBuffer src) throws IOException {
@@ -606,6 +640,17 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                                 } finally {
                                                     receiveBuffer.flip();
                                                 }
+                                            }
+                                            case BUFFER_OVERFLOW: {
+                                                // read buffer is not big enough.
+                                                final ByteBuffer readBuffer = this.readBuffer;
+                                                final int appBufSize = sslEngine.getSession().getApplicationBufferSize();
+                                                if (readBuffer.capacity() >= appBufSize) {
+                                                    // it's already the required size...
+                                                    throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
+                                                }
+                                                this.readBuffer = ByteBuffer.allocate(appBufSize).put(readBuffer);
+                                                continue UNWRAP;
                                             }
                                             case CLOSED: {
                                                 return consumed == 0 ? -1 : consumed;
@@ -752,6 +797,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                         // first wrap an empty buffer into the send buffer
                                         final ByteBuffer sendBuffer = this.sendBuffer;
                                         final SSLEngineResult wrapResult = sslEngine.wrap(Buffers.EMPTY_BYTE_BUFFER, sendBuffer);
+                                        writeAwaiters.signalAll();
                                         switch (wrapResult.getStatus()) {
                                             case BUFFER_OVERFLOW: {
                                                 // check to see if the send buffer is too small
@@ -829,9 +875,12 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 if (needsWrap) {
                     readAwaiters.signalAll();
                 }
-                if (userWrites && ! needsUnwrap) {
-                    userWrites = false;
-                    runWrite = true;
+                if (! needsUnwrap) {
+                    writeAwaiters.signalAll();
+                    if (userWrites) {
+                        userWrites = false;
+                        runWrite = true;
+                    }
                 }
                 if (userReads && needsWrap) {
                     userReads = false;
@@ -853,6 +902,9 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
             final Lock mainLock = WrappingSslTcpChannel.this.mainLock;
             mainLock.lock();
             try {
+                if (needsUnwrap) {
+                    writeAwaiters.signalAll();
+                }
                 if (! needsWrap) {
                     readAwaiters.signalAll();
                     if (userReads) {
