@@ -26,6 +26,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.security.AccessController;
 import java.security.Permission;
 import java.security.PrivilegedAction;
@@ -103,7 +104,6 @@ public abstract class Xnio implements Closeable {
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
 
     private static final Permission SUBCLASS_PERMISSION = new RuntimePermission("xnioProvider");
-    private static final Permission CREATE_PERMISSION = new RuntimePermission("createXnio");
 
     static {
         String providerClassName = NIO_IMPL_PROVIDER;
@@ -146,7 +146,7 @@ public abstract class Xnio implements Closeable {
      * <li><code><i>&lt;name&gt;</i>.handler.threadpool.coresize</code> - an integer value which specifies the core size of the thread pool.
      *      The default value is 8 threads.</li>
      * <li><code><i>&lt;name&gt;</i>.handler.threadpool.maxsize</code> - an integer value which specifies the maximum size of the thread pool.
-     *      The default value is 128 threads.</li>
+     *      The default value is 64 threads.</li>
      * <li><code><i>&lt;name&gt;</i>.handler.threadpool.keepaliveseconds</code> - an integer value which specifies the number of seconds an idle
      *      thread should be kept alive before exiting.  The default value is 30 seconds.</li>
      * <li><code><i>&lt;name&gt;</i>.handler.threadpool.queuelength</code> - an integer value which specifies the length of the task queue for the
@@ -190,9 +190,18 @@ public abstract class Xnio implements Closeable {
                     final String fileName = System.getProperty(PROPERTY_FILE_PROPNAME, PROPERTIES);
                     final Properties props = new Properties();
                     try {
-                        props.load(new InputStreamReader(getClass().getResourceAsStream(fileName)));
-                    } catch (FileNotFoundException e) {
-                        // fall out
+                        final InputStream stream = getClass().getResourceAsStream(fileName);
+                        if (stream != null) try {
+                            final InputStreamReader reader = new InputStreamReader(stream, "utf-8");
+                            try {
+                                props.load(reader);
+                                reader.close();
+                            } finally {
+                                IoUtils.safeClose(reader);
+                            }
+                        } finally {
+                            IoUtils.safeClose(stream);
+                        }
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -201,7 +210,7 @@ public abstract class Xnio implements Closeable {
                         conf.setExecutor(
                                 new ThreadPoolExecutor(
                                         Integer.parseInt(props.getProperty(name + ".handler.threadpool.coresize", "8")),
-                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.maxsize", "128")),
+                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.maxsize", "64")),
                                         Long.parseLong(props.getProperty(name + ".handler.threadpool.keepaliveseconds", "30")),
                                         TimeUnit.SECONDS,
                                         new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty(name + ".handler.threadpool.queuelength", "64"))),
