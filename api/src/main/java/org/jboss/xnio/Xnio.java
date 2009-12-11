@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Properties;
+import java.util.HashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -102,6 +103,7 @@ public abstract class Xnio implements Closeable {
     private static final PrivilegedAction<String> GET_AGENTID_ACTION = new GetPropertyAction(AGENTID_PROPNAME, null);
 
     private static final Permission SUBCLASS_PERMISSION = new RuntimePermission("xnioProvider");
+    private static final Permission CREATE_PERMISSION = new RuntimePermission("createXnio");
 
     static {
         String providerClassName = NIO_IMPL_PROVIDER;
@@ -127,50 +129,61 @@ public abstract class Xnio implements Closeable {
         return executor;
     }
 
-    private static Xnio instance = null;
-    private static final Object instanceLock = new Object();
+    private static final Map<String, Xnio> instanceMap = new HashMap<String, Xnio>();
 
     /**
-     * Get or create a singleton XNIO provider instance, which is automatically configured from a properties file.
+     * Get or create a named XNIO provider instance, which is automatically configured from a properties file.
      * <p>
      * The boot classpath is searched for a file named {@code "xnio.properties"} (the name can be overridden by way of
      * the {@code "xnio.property.file"} system property).  This file contains properties which are used to configure
-     * the default single XNIO provider.
+     * all created providers.
      * <p>
      * The following properties are recognized:
      * <ul>
-     * <li>{@code handler.threadpool} - a boolean value which specifies whether channel listeners should be invoked via
+     * <li><code><i>&lt;name&gt;</i>.handler.threadpool</code> - a boolean value which specifies whether channel listeners should be invoked via
      *      a thread pool executor.  A value of {@code true} indicates that a thread pool should be created; a value of
      *      {@code false} (the default) indicates that the listeners should be invoked from the current thread.</li>
-     * <li>{@code handler.threadpool.coresize} - an integer value which specifies the core size of the thread pool.
+     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.coresize</code> - an integer value which specifies the core size of the thread pool.
      *      The default value is 8 threads.</li>
-     * <li>{@code handler.threadpool.maxsize} - an integer value which specifies the maximum size of the thread pool.
+     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.maxsize</code> - an integer value which specifies the maximum size of the thread pool.
      *      The default value is 128 threads.</li>
-     * <li>{@code handler.threadpool.keepaliveseconds} - an integer value which specifies the number of seconds an idle
+     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.keepaliveseconds</code> - an integer value which specifies the number of seconds an idle
      *      thread should be kept alive before exiting.  The default value is 30 seconds.</li>
-     * <li>{@code handler.threadpool.queuelength} - an integer value which specifies the length of the task queue for the
+     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.queuelength</code> - an integer value which specifies the length of the task queue for the
      *      listener thread pool.  The default value is 64.</li>
-     * <li>{@code name} - the name of the single XNIO provider instance.  The default value is {@code "system"}.</li>
-     * <li><code>provider.option.<i>&lt;option-name&gt;</i></code> - An option to add to the XNIO provider's option map.  The
+     * <li><code><i>&lt;name&gt;</i>.provider.option.<i>&lt;option-name&gt;</i></code> - An option to add to the XNIO provider's option map.  The
      *      value is the value for the option.</li>
-     * <li>{@code provider} - the provider implementation to use.  If not specified, a default provider will be located and
+     * <li><code><i>&lt;name&gt;</i>.provider</code> - the provider implementation to use.  If not specified, a default provider will be located and
      *      used.</li>
      * </ul>
      *
+     * @param name the provider name to get
      * @return the configured global XNIO instance
      * @throws IOException if the XNIO provider could not be created
      */
-    public static Xnio getInstance() throws IOException {
-        synchronized (instanceLock) {
-            final Xnio instance = Xnio.instance;
+    public static Xnio getInstance(final String name) throws IOException {
+        synchronized (instanceMap) {
+            final Xnio instance = instanceMap.get(name);
             if (instance != null) {
                 return instance;
             }
-            return (Xnio.instance = createConfigured());
+            final Xnio newInstance = createConfigured(name);
+            instanceMap.put(name, newInstance);
+            return newInstance;
         }
     }
 
-    private static Xnio createConfigured() throws IOException {
+    /**
+     * Get the {@code "default"} instance.  Equivalent to calling {@link #getInstance(String) getInstance("default")}.
+     *
+     * @return the default instance
+     * @throws IOException if the XNIO provider could not be created
+     */
+    public static Xnio getInstance() throws IOException {
+        return getInstance("default");
+    }
+
+    private static Xnio createConfigured(final String name) throws IOException {
         try {
             return AccessController.doPrivileged(new PrivilegedAction<Xnio>() {
                 public Xnio run() {
@@ -184,23 +197,22 @@ public abstract class Xnio implements Closeable {
                         throw new RuntimeException(e);
                     }
                     final XnioConfiguration conf = new XnioConfiguration();
-                    if (Boolean.parseBoolean(props.getProperty("handler.threadpool", "false"))) {
+                    if (Boolean.parseBoolean(props.getProperty(name + ".handler.threadpool", "false"))) {
                         conf.setExecutor(
                                 new ThreadPoolExecutor(
-                                        Integer.parseInt(props.getProperty("handler.threadpool.coresize", "8")),
-                                        Integer.parseInt(props.getProperty("handler.threadpool.maxsize", "128")),
-                                        Long.parseLong(props.getProperty("handler.threadpool.keepaliveseconds", "30")),
+                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.coresize", "8")),
+                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.maxsize", "128")),
+                                        Long.parseLong(props.getProperty(name + ".handler.threadpool.keepaliveseconds", "30")),
                                         TimeUnit.SECONDS,
-                                        new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty("handler.threadpool.queuelength", "64"))),
+                                        new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty(name + ".handler.threadpool.queuelength", "64"))),
                                         new ThreadPoolExecutor.CallerRunsPolicy()
                                 )
                         );
                     }
-                    conf.setName(props.getProperty("name", "system"));
-                    final String OPTION_PREFIX = "provider.option.";
-                    conf.setOptionMap(OptionMap.builder().parseAll(props, OPTION_PREFIX).getMap());
+                    conf.setName(name);
+                    conf.setOptionMap(OptionMap.builder().parseAll(props, name + ".provider.option.").getMap());
                     try {
-                        return Xnio.create(props.getProperty("provider", PROVIDER_NAME), conf);
+                        return Xnio.create(props.getProperty(name + ".provider", PROVIDER_NAME), conf);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
