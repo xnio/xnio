@@ -25,7 +25,6 @@ package org.jboss.xnio;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.security.AccessController;
 import java.security.Permission;
