@@ -78,4 +78,19 @@ class XnioLogRecord extends LogRecord {
         setSourceClassName("<unknown>");
         setSourceMethodName("<unknown>");
     }
+
+    protected Object writeReplace() {
+        final LogRecord replacement = new LogRecord(getLevel(), getMessage());
+        replacement.setResourceBundle(getResourceBundle());
+        replacement.setLoggerName(getLoggerName());
+        replacement.setMillis(getMillis());
+        replacement.setParameters(getParameters());
+        replacement.setResourceBundleName(getResourceBundleName());
+        replacement.setSequenceNumber(getSequenceNumber());
+        replacement.setSourceClassName(getSourceClassName());
+        replacement.setSourceMethodName(getSourceMethodName());
+        replacement.setThreadID(getThreadID());
+        replacement.setThrown(getThrown());
+        return replacement;
+    }
 }
