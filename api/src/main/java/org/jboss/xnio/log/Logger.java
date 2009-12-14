@@ -100,8 +100,6 @@ public final class Logger {
             LogRecord record = new XnioLogRecord(level, fmtMsg);
             record.setLoggerName(name);
             if (ex != null) record.setThrown(ex);
-            record.setSourceMethodName("");
-            record.setSourceClassName("");
             logger.log(record);
         } catch (Throwable t) {
             // ignore it, I guess...
