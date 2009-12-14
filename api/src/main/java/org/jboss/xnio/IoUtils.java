@@ -533,7 +533,7 @@ public final class IoUtils {
      */
     public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
         if (channelListener != null) try {
-            listenerLog.trace("Invoking listener %s", channelListener);
+            listenerLog.trace("Invoking listener %s on channel %s", channelListener, channel);
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
             listenerLog.error(t, "A channel event listener threw an exception");
