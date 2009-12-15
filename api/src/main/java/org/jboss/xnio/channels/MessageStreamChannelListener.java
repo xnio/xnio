@@ -28,8 +28,12 @@ import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
 import org.jboss.xnio.Options;
+import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.log.Logger;
 
 final class MessageStreamChannelListener implements ChannelListener<StreamSourceChannel> {
+
+    private static final Logger listenerLog = Logger.getLogger("org.jboss.xnio.message-listener");
 
     private final int maxInboundMessageSize;
 
@@ -139,27 +143,30 @@ final class MessageStreamChannelListener implements ChannelListener<StreamSource
     private void handleMessage(final ByteBuffer readBuffer) {
         final MessageHandler messageHandler = this.messageHandler;
         if (messageHandler != null) try {
+            listenerLog.trace("Invoking message read listener %s", messageHandler);
             messageHandler.handleMessage(readBuffer);
         } catch (Throwable t) {
-            // todo log
+            listenerLog.trace(t, "A channel message data listener threw an exception");
         }
     }
 
     private void handleEof() {
         final MessageHandler messageHandler = this.messageHandler;
         if (messageHandler != null) try {
+            listenerLog.trace("Invoking message EOF listener %s", messageHandler);
             messageHandler.handleEof();
         } catch (Throwable t) {
-            // todo log
+            listenerLog.trace(t, "A channel message EOF listener threw an exception");
         }
     }
 
     private void handleException(final IOException e) {
         final MessageHandler messageHandler = this.messageHandler;
         if (messageHandler != null) try {
+            listenerLog.trace("Invoking message exception listener %s for exception %s", messageHandler, e);
             messageHandler.handleException(e);
         } catch (Throwable t) {
-            // todo log
+            listenerLog.trace(t, "A channel message exception listener threw an exception");
         }
     }
 }

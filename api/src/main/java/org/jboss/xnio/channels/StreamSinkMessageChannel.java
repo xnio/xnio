@@ -139,6 +139,7 @@ final class StreamSinkMessageChannel implements WritableMessageChannel {
                             }
                         }
                         writeLengthBuf.clear();
+                        writeState = WriteState.LENGTH;
                         // fall thru
                     }
                     case BODY: {
@@ -150,6 +151,7 @@ final class StreamSinkMessageChannel implements WritableMessageChannel {
                             }
                         }
                         this.writeBuffer = null;
+                        writeState = WriteState.WAITING;
                         // fall thru
                     }
                     case WAITING: {
@@ -211,6 +213,7 @@ final class StreamSinkMessageChannel implements WritableMessageChannel {
                             }
                         }
                         writeLengthBuf.clear();
+                        writeState = WriteState.BODY;
                         // fall thru
                     }
                     case BODY: {
