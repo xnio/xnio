@@ -107,11 +107,11 @@ public final class Channels {
      *
      * @since 2.0
      */
-    public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) throws IOException {
+    public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) {
         return createSslTcpChannel(sslContext, tcpChannel, executor, optionMap, false);
     }
 
-    private static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server) throws IOException {
+    private static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server) {
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress();
         final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
         final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, ! server);
@@ -168,8 +168,6 @@ public final class Channels {
                 try {
                     sslChannelListener.handleEvent(createSslTcpChannel(sslContext, channel, executor, optionMap, true));
                     ok = true;
-                } catch (IOException e) {
-                    sslLog.error(e, "Failed to open SSL channel");
                 } finally {
                     if (! ok) IoUtils.safeClose(channel);
                 }
