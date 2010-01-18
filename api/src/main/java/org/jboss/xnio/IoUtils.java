@@ -766,6 +766,28 @@ public final class IoUtils {
         return NULL_CANCELLABLE;
     }
 
+    /**
+     * Get a channel listener which executes a delegate channel listener via an executor.  If an exception occurs
+     * submitting the task, the associated channel is closed.
+     *
+     * @param listener the listener to invoke
+     * @param executor the executor with which to invoke the listener
+     * @param <T> the channel type
+     * @return a delegating channel listener
+     */
+    public static <T extends Channel> ChannelListener<T> executorChannelListener(final ChannelListener<T> listener, final Executor executor) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                try {
+                    executor.execute(getChannelListenerTask(channel, listener));
+                } catch (RejectedExecutionException e) {
+                    listenerLog.error("Failed to submit task to executor: %s (closing %s)", e, channel);
+                    safeClose(channel);
+                }
+            }
+        };
+    }
+
     private static class ResultNotifier<T> extends IoFuture.HandlingNotifier<T, Result<T>> {
 
         public void handleCancelled(final Result<T> result) {
