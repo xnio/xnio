@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.ChannelListener;
 
 /**
- * A suspendable writable channel.  This type of channel is associated with a handler which can suspend and resume
+ * A suspendable writable channel.  This type of channel is associated with a listener which can suspend and resume
  * writes as needed.
  */
 public interface SuspendableWriteChannel extends CloseableChannel {
@@ -38,7 +38,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void suspendWrites();
 
     /**
-     * Resume writes on this channel.  The write handler channel listener will be
+     * Resume writes on this channel.  The write listener will be
      * called as soon as the channel becomes writable.
      */
     void resumeWrites();
@@ -80,7 +80,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
 
     /**
-     * Get the setter which can be used to change the write handler for this channel.  When the handler is called,
+     * Get the setter which can be used to change the write listener for this channel.  When the listener is called,
      * additional notifications are automatically suspended.
      *
      * @return the setter

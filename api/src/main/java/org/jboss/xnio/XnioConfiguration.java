@@ -86,18 +86,18 @@ public final class XnioConfiguration {
     }
 
     /**
-     * Get the default handler executor for the XNIO provider instance.
+     * Get the default listener executor for the XNIO provider instance.
      *
-     * @return the default handler executor
+     * @return the default listener executor
      */
     public Executor getExecutor() {
         return executor;
     }
 
     /**
-     * Set the default hander executor for the XNIO provider instance.
+     * Set the default listener executor for the XNIO provider instance.
      *
-     * @param executor the default handler executor
+     * @param executor the default listener executor
      */
     public void setExecutor(final Executor executor) {
         this.executor = executor;

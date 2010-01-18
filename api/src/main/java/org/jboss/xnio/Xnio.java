@@ -120,7 +120,7 @@ public abstract class Xnio implements Closeable {
     private final Executor executor;
 
     /**
-     * Get the default handler executor.
+     * Get the default listener executor.
      *
      * @return the executor
      */
@@ -139,16 +139,16 @@ public abstract class Xnio implements Closeable {
      * <p>
      * The following properties are recognized:
      * <ul>
-     * <li><code><i>&lt;name&gt;</i>.handler.threadpool</code> - a boolean value which specifies whether channel listeners should be invoked via
+     * <li><code><i>&lt;name&gt;</i>.listener.threadpool</code> - a boolean value which specifies whether channel listeners should be invoked via
      *      a thread pool executor.  A value of {@code true} indicates that a thread pool should be created; a value of
      *      {@code false} (the default) indicates that the listeners should be invoked from the current thread.</li>
-     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.coresize</code> - an integer value which specifies the core size of the thread pool.
+     * <li><code><i>&lt;name&gt;</i>.listener.threadpool.coresize</code> - an integer value which specifies the core size of the thread pool.
      *      The default value is 8 threads.</li>
-     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.maxsize</code> - an integer value which specifies the maximum size of the thread pool.
+     * <li><code><i>&lt;name&gt;</i>.listener.threadpool.maxsize</code> - an integer value which specifies the maximum size of the thread pool.
      *      The default value is 64 threads.</li>
-     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.keepaliveseconds</code> - an integer value which specifies the number of seconds an idle
+     * <li><code><i>&lt;name&gt;</i>.listener.threadpool.keepaliveseconds</code> - an integer value which specifies the number of seconds an idle
      *      thread should be kept alive before exiting.  The default value is 30 seconds.</li>
-     * <li><code><i>&lt;name&gt;</i>.handler.threadpool.queuelength</code> - an integer value which specifies the length of the task queue for the
+     * <li><code><i>&lt;name&gt;</i>.listener.threadpool.queuelength</code> - an integer value which specifies the length of the task queue for the
      *      listener thread pool.  The default value is 64.</li>
      * <li><code><i>&lt;name&gt;</i>.provider.option.<i>&lt;option-name&gt;</i></code> - An option to add to the XNIO provider's option map.  The
      *      value is the value for the option.</li>
@@ -205,14 +205,14 @@ public abstract class Xnio implements Closeable {
                         throw new RuntimeException(e);
                     }
                     final XnioConfiguration conf = new XnioConfiguration();
-                    if (Boolean.parseBoolean(props.getProperty(name + ".handler.threadpool", "false"))) {
+                    if (Boolean.parseBoolean(props.getProperty(name + ".listener.threadpool", "false"))) {
                         conf.setExecutor(
                                 new ThreadPoolExecutor(
-                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.coresize", "8")),
-                                        Integer.parseInt(props.getProperty(name + ".handler.threadpool.maxsize", "64")),
-                                        Long.parseLong(props.getProperty(name + ".handler.threadpool.keepaliveseconds", "30")),
+                                        Integer.parseInt(props.getProperty(name + ".listener.threadpool.coresize", "8")),
+                                        Integer.parseInt(props.getProperty(name + ".listener.threadpool.maxsize", "64")),
+                                        Long.parseLong(props.getProperty(name + ".listener.threadpool.keepaliveseconds", "30")),
                                         TimeUnit.SECONDS,
-                                        new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty(name + ".handler.threadpool.queuelength", "64"))),
+                                        new ArrayBlockingQueue<Runnable>(Integer.parseInt(props.getProperty(name + ".listener.threadpool.queuelength", "64"))),
                                         new ThreadPoolExecutor.CallerRunsPolicy()
                                 )
                         );
@@ -382,38 +382,38 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create an unbound TCP server.  The given executor will be used to execute handler methods.
+     * Create an unbound TCP server.  The given executor will be used to execute listener methods.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      * @return the unbound TCP server
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public TcpServer createTcpServer(Executor executor, ChannelListener<? super TcpChannel> openHandler, OptionMap optionMap) {
+    public TcpServer createTcpServer(Executor executor, ChannelListener<? super TcpChannel> openListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("TCP Server");
     }
 
     /**
-     * Create an unbound TCP server.  The provider's default executor will be used to execute handler methods.
+     * Create an unbound TCP server.  The provider's default executor will be used to execute listener methods.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      * @return the unbound TCP server
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public TcpServer createTcpServer(ChannelListener<? super TcpChannel> openHandler, OptionMap optionMap) {
-        return createTcpServer(executor, openHandler, optionMap);
+    public TcpServer createTcpServer(ChannelListener<? super TcpChannel> openListener, OptionMap optionMap) {
+        return createTcpServer(executor, openListener, optionMap);
     }
 
     /**
-     * Create a TCP connector.  The given executor will be used to execute handler methods.
+     * Create a TCP connector.  The given executor will be used to execute listener methods.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param optionMap the initial configuration for the connector
      * @return the TCP connector
      *
@@ -425,7 +425,7 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP connector.  The provider's default executor will be used to execute handler methods.
+     * Create a TCP connector.  The provider's default executor will be used to execute listener methods.
      *
      * @param optionMap the initial configuration for the connector
      * @return the TCP connector
@@ -438,9 +438,9 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP connector.  The given executor will be used to execute handler methods.
+     * Create a TCP connector.  The given executor will be used to execute listener methods.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param src the source address for connections
      * @param optionMap the initial configuration for the connector
      * @return the TCP connector
@@ -453,7 +453,7 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a TCP connector.  The provider's default executor will be used to execute handler methods.
+     * Create a TCP connector.  The provider's default executor will be used to execute listener methods.
      *
      * @param src the source address for connections
      * @param optionMap the initial configuration for the connector
@@ -469,10 +469,10 @@ public abstract class Xnio implements Closeable {
     /**
      * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
      * done if multicast is needed, since some providers have a performance penalty associated with multicast.
-     * The given executor will be used to execute handler methods.
+     * The given executor will be used to execute listener methods.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param bindListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
@@ -480,16 +480,16 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public UdpServer createUdpServer(Executor executor, ChannelListener<? super UdpChannel> openHandler, OptionMap optionMap) {
+    public UdpServer createUdpServer(Executor executor, ChannelListener<? super UdpChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("UDP Server");
     }
 
     /**
      * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
      * done if multicast is needed, since some providers have a performance penalty associated with multicast.
-     * The provider's default executor will be used to execute handler methods.
+     * The provider's default executor will be used to execute listener methods.
      *
-     * @param openHandler the initial open-connection handler
+     * @param bindListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      *
      * @return a factory that can be used to configure the new UDP server
@@ -497,14 +497,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public UdpServer createUdpServer(ChannelListener<? super UdpChannel> openHandler, OptionMap optionMap) {
-        return createUdpServer(executor, openHandler, optionMap);
+    public UdpServer createUdpServer(ChannelListener<? super UdpChannel> bindListener, OptionMap optionMap) {
+        return createUdpServer(executor, bindListener, optionMap);
     }
 
     /**
      * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
      * done if multicast is needed, since some providers have a performance penalty associated with multicast.
-     * The provider's default executor will be used to execute handler methods.
+     * The provider's default executor will be used to execute listener methods.
      *
      * @param optionMap the initial configuration for the server
      *
@@ -518,173 +518,173 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
-     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
+     * Create a pipe "server".  The provided open listener acts upon the server "end" of the
      * pipe. The returned channel source is used to establish connections to the server.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamChannel> createPipeServer(Executor executor, ChannelListener<? super StreamChannel> openHandler) {
+    public ChannelSource<? extends StreamChannel> createPipeServer(Executor executor, ChannelListener<? super StreamChannel> openListener) {
         throw new UnsupportedOperationException("Pipe Server");
     }
 
     /**
-     * Create a pipe "server".  The provided handler factory is used to supply handlers for the server "end" of the
+     * Create a pipe "server".  The provided open listener acts upon the server "end" of the
      * pipe. The returned channel source is used to establish connections to the server.  The provider's default executor will be used to
-     * execute handler methods.
+     * execute listener methods.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamChannel> createPipeServer(ChannelListener<? super StreamChannel> openHandler) {
-        return createPipeServer(executor, openHandler);
+    public ChannelSource<? extends StreamChannel> createPipeServer(ChannelListener<? super StreamChannel> openListener) {
+        return createPipeServer(executor, openListener);
     }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * server to the client.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(Executor executor, ChannelListener<? super StreamSinkChannel> openHandler) {
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(Executor executor, ChannelListener<? super StreamSinkChannel> openListener) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * server to the client.  The provider's default executor will be used to
-     * execute handler methods.
+     * execute listener methods.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ChannelListener<? super StreamSinkChannel> openHandler) {
-        return createPipeSourceServer(executor, openHandler);
+    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ChannelListener<? super StreamSinkChannel> openListener) {
+        return createPipeSourceServer(executor, openListener);
     }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * client to the server.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(Executor executor, ChannelListener<? super StreamSourceChannel> openHandler) {
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(Executor executor, ChannelListener<? super StreamSourceChannel> openListener) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
 
     /**
-     * Create a one-way pipe "server".  The provided handler factory is used to supply handlers for the server "end" of
+     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
      * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
      * client to the server.  The provider's default executor will be used to
-     * execute handler methods.
+     * execute listener methods.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener the initial open-connection listener
      *
      * @return the client channel source
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(ChannelListener<? super StreamSourceChannel> openHandler) {
-        return createPipeSinkServer(executor, openHandler);
+    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(ChannelListener<? super StreamSourceChannel> openListener) {
+        return createPipeSinkServer(executor, openListener);
     }
 
     /**
      * Create a single pipe connection.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param leftHandler the open handler for the "left" side of the pipe
-     * @param rightHandler the open handler for the "right" side of the pipe
+     * @param executor the executor to use to execute the listeners
+     * @param leftListener the open listener for the "left" side of the pipe
+     * @param rightListener the open listener for the "right" side of the pipe
      *
      * @return the future connection
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public IoFuture<? extends Closeable> createPipeConnection(Executor executor, ChannelListener<? super StreamChannel> leftHandler, ChannelListener<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(Executor executor, ChannelListener<? super StreamChannel> leftListener, ChannelListener<? super StreamChannel> rightListener) {
         throw new UnsupportedOperationException("Pipe Connection");
     }
 
     /**
      * Create a single pipe connection.  The provider's default executor will be used to
-     * execute handler methods.
+     * execute listener methods.
      *
-     * @param leftHandler the handler for the "left" side of the pipe
-     * @param rightHandler the handler for the "right" side of the pipe
+     * @param leftListener the listener for the "left" side of the pipe
+     * @param rightListener the listener for the "right" side of the pipe
      *
      * @return the future connection
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public IoFuture<? extends Closeable> createPipeConnection(ChannelListener<? super StreamChannel> leftHandler, ChannelListener<? super StreamChannel> rightHandler) {
-        return createPipeConnection(executor, leftHandler, rightHandler);
+    public IoFuture<? extends Closeable> createPipeConnection(ChannelListener<? super StreamChannel> leftListener, ChannelListener<? super StreamChannel> rightListener) {
+        return createPipeConnection(executor, leftListener, rightListener);
     }
 
     /**
      * Create a single one-way pipe connection.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param sourceHandler the handler for the "source" side of the pipe
-     * @param sinkHandler the handler for the "sink" side of the pipe
+     * @param executor the executor to use to execute the listeners
+     * @param sourceListener the listener for the "source" side of the pipe
+     * @param sinkListener the listener for the "sink" side of the pipe
      *
      * @return the future connection
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(Executor executor, ChannelListener<? super StreamSourceChannel> sourceHandler, ChannelListener<? super StreamSinkChannel> sinkHandler) {
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(Executor executor, ChannelListener<? super StreamSourceChannel> sourceListener, ChannelListener<? super StreamSinkChannel> sinkListener) {
         throw new UnsupportedOperationException("One-way Pipe Connection");
     }
 
     /**
      * Create a single one-way pipe connection.  The provider's default executor will be used to
-     * execute handler methods.
+     * execute listener methods.
      *
-     * @param sourceHandler the handler for the "source" side of the pipe
-     * @param sinkHandler the handler for the "sink" side of the pipe
+     * @param sourceListener the listener for the "source" side of the pipe
+     * @param sinkListener the listener for the "sink" side of the pipe
      *
      * @return the future connection
      *
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(ChannelListener<? super StreamSourceChannel> sourceHandler, ChannelListener<? super StreamSinkChannel> sinkHandler) {
-        return createOneWayPipeConnection(executor, sourceHandler, sinkHandler);
+    public IoFuture<? extends Closeable> createOneWayPipeConnection(ChannelListener<? super StreamSourceChannel> sourceListener, ChannelListener<? super StreamSinkChannel> sinkListener) {
+        return createOneWayPipeConnection(executor, sourceListener, sinkListener);
     }
 
     /**
      * Create a TCP acceptor.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param optionMap the initial configuration for the acceptor
      * @return the TCP acceptor
      *
@@ -711,7 +711,7 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a local stream server.  The stream server can be bound to one or more files in the filesystem.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param openListener a listener which is notified on channel open
      * @param optionMap the initial configuration for the server
      *
@@ -742,7 +742,7 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a local stream connector.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param optionMap the initial configuration for the connector
      *
      * @return the stream connector
@@ -771,8 +771,8 @@ public abstract class Xnio implements Closeable {
     /**
      * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
-     * @param executor the executor to use to execute the handlers
-     * @param openHandler the initial open-connection handler
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      *
      * @return the new datagram server
@@ -780,14 +780,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalDatagramServer(Executor executor, ChannelListener<? super DatagramChannel<String>> openHandler, OptionMap optionMap) {
+    public LocalServer createLocalDatagramServer(Executor executor, ChannelListener<? super DatagramChannel<String>> openListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Local IPC Datagram Server");
     }
 
     /**
      * Create a local datagram server.  The datagram server is bound to one or more files in the filesystem.
      *
-     * @param openHandler the initial open-connection handler
+     * @param openListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      *
      * @return the new datagram server
@@ -795,14 +795,14 @@ public abstract class Xnio implements Closeable {
      * @since 2.0
      */
     @SuppressWarnings({ "UnusedDeclaration" })
-    public LocalServer createLocalDatagramServer(ChannelListener<? super DatagramChannel<String>> openHandler, OptionMap optionMap) {
-        return createLocalDatagramServer(executor, openHandler, optionMap);
+    public LocalServer createLocalDatagramServer(ChannelListener<? super DatagramChannel<String>> openListener, OptionMap optionMap) {
+        return createLocalDatagramServer(executor, openListener, optionMap);
     }
 
     /**
      * Create a local datagram connector.
      *
-     * @param executor the executor to use to execute the handlers
+     * @param executor the executor to use to execute the listeners
      * @param optionMap the initial configuration for the connector
      * @return the new datagram connector
      *

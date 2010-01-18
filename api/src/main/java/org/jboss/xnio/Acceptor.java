@@ -40,8 +40,8 @@ public interface Acceptor<A, T extends Channel> {
      * is chosen in a manner specific to the OS and/or channel type.
      *
      * @param dest the destination address
-     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the handler which will be notified when the acceptor is bound, or {@code null} for none
+     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
      * @return the future connection
      */
     IoFuture<T> acceptTo(A dest, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel<A>> bindListener);

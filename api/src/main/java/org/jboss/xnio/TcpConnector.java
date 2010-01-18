@@ -36,18 +36,18 @@ public interface TcpConnector extends Connector<InetSocketAddress, TcpChannel> {
     /**
      * Establish a connection to a TCP server.
      *
-     * @param dest the destination address
-     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the handler which will be notified when the channel is bound, or {@code null} for none
+     * @param destination the destination address
+     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
      * @return the future result of this operation
      */
-    IoFuture<TcpChannel> connectTo(InetSocketAddress dest, ChannelListener<? super TcpChannel> openListener, ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener);
+    IoFuture<TcpChannel> connectTo(InetSocketAddress destination, ChannelListener<? super TcpChannel> openListener, ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener);
 
     /**
      * Create a client that always connects to the given TCP server.
      *
-     * @param dest the destination to connect to
+     * @param destination the destination to connect to
      * @return the client
      */
-    TcpChannelSource createChannelSource(InetSocketAddress dest);
+    TcpChannelSource createChannelSource(InetSocketAddress destination);
 }

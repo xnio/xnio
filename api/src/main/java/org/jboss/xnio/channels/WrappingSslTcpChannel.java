@@ -420,7 +420,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 executor.execute(readTriggeredTask);
             } else {
                 if (needsWrap) {
-                    // read can't proceed until stuff is written, so wait for writability and then call the read handler
+                    // read can't proceed until stuff is written, so wait for writability and then call the read listener
                     // during which the user will call read() which really writes... sigh
                     tcpChannel.resumeWrites();
                 } else {

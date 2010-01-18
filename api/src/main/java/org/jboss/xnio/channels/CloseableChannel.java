@@ -26,14 +26,14 @@ import java.nio.channels.Channel;
 import org.jboss.xnio.ChannelListener;
 
 /**
- * A channel which is closable.  A handler may be registered which is triggered (only once) on channel close.
+ * A channel which is closeable.  A listener may be registered which is triggered (only once) on channel close.
  *
  * @since 2.0
  */
 public interface CloseableChannel extends Channel, Configurable {
     /**
-     * Get the setter which can be used to change the close handler for this channel.  If the channel is already
-     * closed, then the handler will not be called.
+     * Get the setter which can be used to change the close listener for this channel.  If the channel is already
+     * closed, then the listener will not be called.
      *
      * @return the setter
      */

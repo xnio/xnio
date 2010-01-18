@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.ChannelListener;
 
 /**
- * A suspendable readable channel.  This type of channel is associated with a handler which can suspend and resume
+ * A suspendable readable channel.  This type of channel is associated with a listener which can suspend and resume
  * reads as needed.
  */
 public interface SuspendableReadChannel extends CloseableChannel {
@@ -38,7 +38,7 @@ public interface SuspendableReadChannel extends CloseableChannel {
     void suspendReads();
 
     /**
-     * Resume reads on this channel.  The read handler channel listener will be
+     * Resume reads on this channel.  The read listener will be
      * called as soon as there is data available to be read.
      */
     void resumeReads();
@@ -75,7 +75,7 @@ public interface SuspendableReadChannel extends CloseableChannel {
     void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
 
     /**
-     * Get the setter which can be used to change the read handler for this channel.  When the handler is called,
+     * Get the setter which can be used to change the read listener for this channel.  When the listener is called,
      * additional notifications are automatically suspended.
      *
      * @return the setter

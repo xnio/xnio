@@ -39,8 +39,8 @@ public interface ChannelDestination<A, T extends Channel> {
      * Accept a connection.  The bind listener will be called when the channel is bound; the open listener will be called
      * when the connection is accepted.  It is not guaranteed that the open listener will be called after the bind listener.
      *
-     * @param openListener the handler which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the handler which will be notified when the channel is bound locally, or {@code null} for none
+     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
+     * @param bindListener the listener which will be notified when the channel is bound locally, or {@code null} for none
      * @return the future connection
      */
     IoFuture<T> accept(ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel<A>> bindListener);

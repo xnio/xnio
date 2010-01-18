@@ -53,7 +53,7 @@ public interface BoundServer<A, T extends BoundChannel<A>> extends CloseableChan
     IoFuture<? extends T> bind(A address);
 
     /**
-     * Get the bind handler setter for this channel.  The handler is called every time a channel is bound.
+     * Get the bind listener setter for this channel.  The listener is called every time a channel is bound.
      *
      * @return the listener setter
      */
