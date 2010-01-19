@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.security.AccessController;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Permission;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
@@ -46,8 +48,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.net.InetSocketAddress;
+import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.channels.Channels;
 import org.jboss.xnio.channels.ConnectedStreamChannel;
 import org.jboss.xnio.channels.DatagramChannel;
+import org.jboss.xnio.channels.SslTcpChannel;
 import org.jboss.xnio.channels.StreamChannel;
 import org.jboss.xnio.channels.StreamSinkChannel;
 import org.jboss.xnio.channels.StreamSourceChannel;
@@ -74,6 +79,7 @@ import javax.management.ObjectName;
 import javax.management.RuntimeOperationsException;
 import javax.net.SocketFactory;
 import javax.net.ServerSocketFactory;
+import javax.net.ssl.SSLContext;
 
 /**
  * The XNIO entry point class.
@@ -411,6 +417,68 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Create an unbound TCP SSL server.  The given executor will be used to execute listener methods and SSL tasks.
+     *
+     * @param executor the executor to use to execute the listeners
+     * @param openListener the initial open-connection listener
+     * @param optionMap the initial configuration for the server
+     * @return the unbound TCP SSL server
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpServer createTcpSslServer(Executor executor, ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        final SSLContext sslContext = getSSLContext(optionMap);
+        final SslEngineSslTcpServer server = new SslEngineSslTcpServer(sslContext, createTcpServer(executor, null, optionMap), executor, optionMap);
+        if (openListener != null) server.getOpenSetter().set(openListener);
+        return server;
+    }
+
+    private SSLContext getSSLContext(final OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException {
+        final String provider = optionMap.get(Options.SSL_PROVIDER);
+        final String protocol = optionMap.get(Options.SSL_PROTOCOL);
+        final SSLContext sslContext;
+        if (protocol == null) {
+            sslContext = SSLContext.getDefault();
+        } else if (provider == null) {
+            sslContext = SSLContext.getInstance(protocol);
+        } else {
+            sslContext = SSLContext.getInstance(protocol, provider);
+        }
+        return sslContext;
+    }
+
+    /**
+     * Create an unbound TCP SSL server.  The provider's default executor will be used to execute listener methods and SSL tasks.
+     *
+     * @param openListener the initial open-connection listener
+     * @param optionMap the initial configuration for the server
+     * @return the unbound TCP SSL server
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpServer createTcpSslServer(ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createTcpSslServer(executor, openListener, optionMap);
+    }
+
+    /**
+     * Create an unbound TCP SSL server.  The provider's default executor will be used to execute listener methods and SSL tasks.
+     *
+     * @param optionMap the initial configuration for the server
+     * @return the unbound TCP SSL server
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpServer createTcpSslServer(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createTcpSslServer(null, optionMap);
+    }
+
+    /**
      * Create a TCP connector.  The given executor will be used to execute listener methods.
      *
      * @param executor the executor to use to execute the listeners
@@ -464,6 +532,69 @@ public abstract class Xnio implements Closeable {
     @SuppressWarnings({ "UnusedDeclaration" })
     public TcpConnector createTcpConnector(InetSocketAddress src, OptionMap optionMap) {
         return createTcpConnector(executor, src, optionMap);
+    }
+
+    /**
+     * Create an SSL TCP connector.  The given executor will be used to execute listener methods.
+     *
+     * @param executor the executor to use to execute the listeners
+     * @param src the source address for connections
+     * @param optionMap the initial configuration for the connector
+     * @return the SSL TCP connector
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpConnector createSslTcpConnector(final Executor executor, InetSocketAddress src, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        final SSLContext sslContext = getSSLContext(optionMap);
+        final TcpConnector connector = createTcpConnector(executor, src, optionMap);
+        return new SslTcpConnector() {
+            @SuppressWarnings({ "deprecation" })
+            public IoFuture<SslTcpChannel> connectTo(final InetSocketAddress destination, final ChannelListener<? super SslTcpChannel> openListener, final ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener) {
+                final FutureResult<SslTcpChannel> futureResult = new FutureResult<SslTcpChannel>(executor);
+                connector.connectTo(destination, new ChannelListener<TcpChannel>() {
+                    public void handleEvent(final TcpChannel tcpChannel) {
+                        final SslTcpChannel channel = Channels.createSslTcpChannel(sslContext, tcpChannel, executor, optionMap);
+                        futureResult.setResult(channel);
+                        IoUtils.invokeChannelListener(channel, openListener);
+                    }
+                }, bindListener).addNotifier(
+                    new IoFuture.HandlingNotifier<TcpChannel, FutureResult<SslTcpChannel>>() {
+                        public void handleCancelled(final FutureResult<SslTcpChannel> result) {
+                            result.setCancelled();
+                        }
+
+                        public void handleFailed(final IOException exception, final FutureResult<SslTcpChannel> result) {
+                            result.setException(exception);
+                        }
+                    }, futureResult);
+                return futureResult.getIoFuture();
+            }
+
+            public ChannelSource<SslTcpChannel> createChannelSource(final InetSocketAddress destination) {
+                return new ChannelSource<SslTcpChannel>() {
+                    public IoFuture<? extends SslTcpChannel> open(final ChannelListener<? super SslTcpChannel> openListener) {
+                        return connectTo(destination, openListener, null);
+                    }
+                };
+            }
+        };
+    }
+
+    /**
+     * Create an SSL TCP connector.  The provider's default executor will be used to execute listener methods.
+     *
+     * @param src the source address for connections
+     * @param optionMap the initial configuration for the connector
+     * @return the SSL TCP connector
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpConnector createSslTcpConnector(InetSocketAddress src, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpConnector(executor, src, optionMap);
     }
 
     /**

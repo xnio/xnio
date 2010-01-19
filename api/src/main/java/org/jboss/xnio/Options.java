@@ -200,6 +200,13 @@ public final class Options {
     public static final Option<String> SSL_PROVIDER = Option.simple(Options.class, "SSL_PROVIDER", String.class);
 
     /**
+     * Specify the protocol name for an SSL context.
+     *
+     * @since 2.1
+     */
+    public static final Option<String> SSL_PROTOCOL = Option.simple(Options.class, "SSL_PROTOCOL", String.class);
+
+    /**
      * Specify the SSL send buffer size.
      *
      * @since 2.0

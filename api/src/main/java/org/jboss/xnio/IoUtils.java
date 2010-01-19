@@ -632,6 +632,47 @@ public final class IoUtils {
     }
 
     /**
+     * Get a channel listener setter which delegates to the given target setter with a different channel type.
+     *
+     * @param target the target setter
+     * @param realChannel the channel to send in to the listener
+     * @param <T> the real channel type
+     * @return the delegating setter
+     */
+    public static <T extends Channel> ChannelListener.Setter<T> getDelegatingSetter(final ChannelListener.Setter<? extends Channel> target, final T realChannel) {
+        return target == null ? null : new DelegatingSetter<T>(target, realChannel);
+    }
+
+    private static class DelegatingSetter<T extends Channel> implements ChannelListener.Setter<T> {
+        private final ChannelListener.Setter<? extends Channel> setter;
+        private final T realChannel;
+
+        DelegatingSetter(final ChannelListener.Setter<? extends Channel> setter, final T realChannel) {
+            this.setter = setter;
+            this.realChannel = realChannel;
+        }
+
+        public void set(final ChannelListener<? super T> channelListener) {
+            setter.set(channelListener == null ? null : new DelegatingChannelListener<T>(channelListener, realChannel));
+        }
+    }
+
+    private static class DelegatingChannelListener<T extends Channel> implements ChannelListener<T> {
+
+        private final ChannelListener<? super T> channelListener;
+        private final T realChannel;
+
+        public DelegatingChannelListener(final ChannelListener<? super T> channelListener, final T realChannel) {
+            this.channelListener = channelListener;
+            this.realChannel = realChannel;
+        }
+
+        public void handleEvent(final Channel channel) {
+            channelListener.handleEvent(realChannel);
+        }
+    }
+
+    /**
      * Get a channel listener setter which does nothing.
      *
      * @param <T> the channel type

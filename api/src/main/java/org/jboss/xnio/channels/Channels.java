@@ -29,6 +29,7 @@ import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.Options;
 import org.jboss.xnio.SslClientAuthMode;
 import org.jboss.xnio.Sequence;
+import org.jboss.xnio.Xnio;
 import org.jboss.xnio.log.Logger;
 
 import java.io.IOException;
@@ -106,6 +107,7 @@ public final class Channels {
      * @see org.jboss.xnio.Options#SSL_ENABLED_PROTOCOLS
      *
      * @since 2.0
+     * @deprecated Use the methods on {@link Xnio} instead in order to support alternate, non-JSSE implementations.
      */
     public static SslTcpChannel createSslTcpChannel(final SSLContext sslContext, final TcpChannel tcpChannel, final Executor executor, final OptionMap optionMap) {
         return createSslTcpChannel(sslContext, tcpChannel, executor, optionMap, false);
@@ -146,6 +148,21 @@ public final class Channels {
     }
 
     /**
+     * Create a SSL/TLS-enabled channel over a TCP channel.  Uses the given {@code SSLEngine} which should already be fully configured.
+     *
+     * @param tcpChannel the TCP channel
+     * @param sslEngine the SSL engine
+     * @param sslExecutor the SSL executor
+     * @return the SSL TCP channel
+     *
+     * @since 2.1
+     * @deprecated Use the methods on {@link Xnio} instead in order to support alternate, non-JSSE implementations.
+     */
+    public static SslTcpChannel createSslTcpChannel(final TcpChannel tcpChannel, final SSLEngine sslEngine, final Executor sslExecutor) {
+        return new WrappingSslTcpChannel(tcpChannel, sslEngine, sslExecutor);
+    }
+
+    /**
      * Create a channel lister which wraps the incoming connection with an SSL connection.  By default, the channel
      * will run in server mode.
      *
@@ -160,6 +177,7 @@ public final class Channels {
      * @see org.jboss.xnio.Options#SSL_ENABLED_CIPHER_SUITES
      * @see org.jboss.xnio.Options#SSL_ENABLED_PROTOCOLS
      * @since 2.0
+     * @deprecated Use the methods on {@link Xnio} instead in order to support alternate, non-JSSE implementations.
      */
     public static ChannelListener<TcpChannel> createSslTcpChannelListener(final SSLContext sslContext, final ChannelListener<? super SslTcpChannel> sslChannelListener, final Executor executor, final OptionMap optionMap) {
         return new ChannelListener<TcpChannel>() {

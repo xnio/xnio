@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2010, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -23,31 +23,29 @@
 package org.jboss.xnio;
 
 import java.net.InetSocketAddress;
-import org.jboss.xnio.channels.TcpChannel;
 import org.jboss.xnio.channels.BoundChannel;
+import org.jboss.xnio.channels.SslTcpChannel;
 
 /**
- * A connector specifically for connecting to TCP servers.
  *
- * @apiviz.landmark
  */
-public interface TcpConnector extends Connector<InetSocketAddress, TcpChannel> {
+public interface SslTcpConnector extends Connector<InetSocketAddress, SslTcpChannel>{
 
     /**
-     * Establish a connection to a TCP server.
+     * Establish a connection to an SSL TCP server.
      *
      * @param destination the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
      * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
      * @return the future result of this operation
      */
-    IoFuture<TcpChannel> connectTo(InetSocketAddress destination, ChannelListener<? super TcpChannel> openListener, ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener);
+    IoFuture<SslTcpChannel> connectTo(InetSocketAddress destination, ChannelListener<? super SslTcpChannel> openListener, ChannelListener<? super BoundChannel<InetSocketAddress>> bindListener);
 
     /**
-     * Create a channel source that always connects to the given TCP server.
+     * Create a channel source that always connects to the given SSL TCP server.
      *
      * @param destination the destination to connect to
      * @return the channel source
      */
-    TcpChannelSource createChannelSource(InetSocketAddress destination);
+    ChannelSource<SslTcpChannel> createChannelSource(InetSocketAddress destination);
 }
