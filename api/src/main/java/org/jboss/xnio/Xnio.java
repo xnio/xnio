@@ -428,7 +428,7 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.1
      */
-    public SslTcpServer createTcpSslServer(Executor executor, ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public SslTcpServer createSslTcpServer(Executor executor, ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         final SSLContext sslContext = getSSLContext(optionMap);
         final SslEngineSslTcpServer server = new SslEngineSslTcpServer(sslContext, createTcpServer(executor, null, optionMap), executor, optionMap);
         if (openListener != null) server.getOpenSetter().set(openListener);
@@ -460,8 +460,8 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.1
      */
-    public SslTcpServer createTcpSslServer(ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createTcpSslServer(executor, openListener, optionMap);
+    public SslTcpServer createSslTcpServer(ChannelListener<? super SslTcpChannel> openListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpServer(executor, openListener, optionMap);
     }
 
     /**
@@ -474,8 +474,8 @@ public abstract class Xnio implements Closeable {
      *
      * @since 2.1
      */
-    public SslTcpServer createTcpSslServer(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createTcpSslServer(null, optionMap);
+    public SslTcpServer createSslTcpServer(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpServer(null, optionMap);
     }
 
     /**
