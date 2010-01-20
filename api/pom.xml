@@ -28,7 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <properties>
-        <xnio.version>2.1.0.CR1</xnio.version>
+        <xnio.version>2.1.0.CR2-SNAPSHOT</xnio.version>
     </properties>
 
     <groupId>org.jboss.xnio</groupId>
