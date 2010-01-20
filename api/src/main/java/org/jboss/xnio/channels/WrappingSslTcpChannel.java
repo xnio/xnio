@@ -935,4 +935,8 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
             if (runWrite) runWriteListener();
         }
     }
+
+    public String toString() {
+        return String.format("SSL wrapped <%s> %s", Integer.toHexString(super.hashCode()), tcpChannel);
+    }
 }
