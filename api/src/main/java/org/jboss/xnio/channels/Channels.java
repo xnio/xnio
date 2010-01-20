@@ -135,6 +135,8 @@ public final class Channels {
         final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
         if (cipherSuites != null) {
             engine.setEnabledCipherSuites(cipherSuites.toArray(new String[cipherSuites.size()]));
+        } else {
+            engine.setEnabledCipherSuites(engine.getSupportedCipherSuites());
         }
         final Sequence<String> protocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
         if (protocols != null) {
