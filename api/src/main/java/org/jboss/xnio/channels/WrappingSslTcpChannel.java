@@ -606,7 +606,17 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                 case NEED_UNWRAP: {
                                     UNWRAP: for (;;) {
                                         final ByteBuffer receiveBuffer = this.receiveBuffer;
-                                        final SSLEngineResult unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
+                                        final ByteBuffer readBuffer = this.readBuffer;
+                                        final SSLEngineResult unwrapResult;
+                                        readBuffer.compact();
+                                        try {
+                                            unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
+                                        } finally {
+                                            readBuffer.flip();
+                                        }
+                                        if (! receiveBuffer.hasRemaining()) {
+                                            receiveBuffer.clear().flip();
+                                        }
                                         readAwaiters.signalAll();
                                         switch (unwrapResult.getStatus()) {
                                             case BUFFER_UNDERFLOW: {
@@ -643,13 +653,12 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                             }
                                             case BUFFER_OVERFLOW: {
                                                 // read buffer is not big enough.
-                                                final ByteBuffer readBuffer = this.readBuffer;
                                                 final int appBufSize = sslEngine.getSession().getApplicationBufferSize();
                                                 if (readBuffer.capacity() >= appBufSize) {
                                                     // it's already the required size...
                                                     throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                                                 }
-                                                this.readBuffer = ByteBuffer.allocate(appBufSize).put(readBuffer);
+                                                this.readBuffer = Buffers.flip(ByteBuffer.allocate(appBufSize).put(readBuffer));
                                                 continue UNWRAP;
                                             }
                                             case CLOSED: {
@@ -711,9 +720,18 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 final ByteBuffer[] target = new ByteBuffer[length + 1];
                 System.arraycopy(dsts, offset, target, 0, length);
                 target[length] = readBuffer;
-                final SSLEngineResult unwrapResult = sslEngine.unwrap(receiveBuffer, target);
+                readBuffer.compact();
+                final SSLEngineResult unwrapResult;
+                final boolean readBufferFilled;
+                try {
+                    final int t = readBuffer.position();
+                    unwrapResult = sslEngine.unwrap(receiveBuffer, target);
+                    readBufferFilled = t != readBuffer.position();
+                } finally {
+                    readBuffer.flip();
+                }
                 if (! receiveBuffer.hasRemaining()) {
-                    receiveBuffer.clear();
+                    receiveBuffer.clear().flip();
                 }
                 final int produced = unwrapResult.bytesProduced();
 
@@ -750,9 +768,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                         try {
                             rres = tcpChannel.read(receiveBuffer);
                         } finally {
-                            if (receiveBuffer.position() > 0) {
-                                receiveBuffer.flip();
-                            }
+                            receiveBuffer.flip();
                         }
                         if (rres == -1) {
                             // TCP stream EOF... give the ssl engine the bad news
@@ -773,15 +789,11 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                     case OK: {
                         needsUnwrap = false;
                         if (produced > 0) {
-                            if (produced > r) {
-                                readBuffer.flip();
+                            if (readBufferFilled) {
                                 // we just added data to readBuffer!  notify the waiters, cos that's the rules baby
                                 readAwaiters.signalAll();
-                                return r;
-                            } else {
-                                // readBuffer is still empty
-                                return produced;
                             }
+                            return produced;
                         } else {
                             // find out why nothing was produced if everything is "OK" :-/
                             switch (unwrapResult.getHandshakeStatus()) {
