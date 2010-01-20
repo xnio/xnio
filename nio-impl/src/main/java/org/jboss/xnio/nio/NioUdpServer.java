@@ -192,7 +192,7 @@ class NioUdpServer implements UdpServer {
                 executor.execute(new Runnable() {
                     public void run() {
                         try {
-                            bindListener.handleEvent(udpSocketChannel);
+                            IoUtils.<UdpChannel>invokeChannelListener(udpSocketChannel, bindListener);
                             if (! futureUdpChannel.done()) {
                                 IoUtils.safeClose(udpSocketChannel);
                             }
