@@ -97,7 +97,7 @@ public final class Logger {
             } else {
                 fmtMsg = msg;
             }
-            LogRecord record = new LogRecord(level, fmtMsg);
+            LogRecord record = new XnioLogRecord(level, fmtMsg);
             record.setLoggerName(name);
             if (ex != null) record.setThrown(ex);
             record.setSourceMethodName("");
