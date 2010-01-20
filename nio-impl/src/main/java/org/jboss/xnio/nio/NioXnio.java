@@ -331,12 +331,9 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public TcpServer createTcpServer(final Executor executor, final ChannelListener<? super TcpChannel> openHandler, final OptionMap optionMap) {
+    public TcpServer createTcpServer(final Executor executor, final ChannelListener<? super TcpChannel> openListener, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
-        }
-        if (openHandler == null) {
-            throw new NullPointerException("openHandler is null");
         }
         if (optionMap == null) {
             throw new NullPointerException("optionMap is null");
@@ -345,7 +342,7 @@ public final class NioXnio extends Xnio {
             if (closed) {
                 throw notOpen();
             }
-            return NioTcpServer.create(this, executor, openHandler, optionMap);
+            return NioTcpServer.create(this, executor, openListener, optionMap);
         }
     }
 
@@ -366,12 +363,9 @@ public final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    public UdpServer createUdpServer(final Executor executor, final ChannelListener<? super UdpChannel> openHandler, final OptionMap optionMap) {
+    public UdpServer createUdpServer(final Executor executor, final ChannelListener<? super UdpChannel> bindListener, final OptionMap optionMap) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
-        }
-        if (openHandler == null) {
-            throw new NullPointerException("openHandler is null");
         }
         if (optionMap == null) {
             throw new NullPointerException("optionMap is null");
@@ -381,9 +375,9 @@ public final class NioXnio extends Xnio {
                 throw notOpen();
             }
             if (optionMap.contains(Options.MULTICAST) && optionMap.get(Options.MULTICAST).booleanValue()) {
-                return new BioUdpServer(this, executor, openHandler, optionMap);
+                return new BioUdpServer(this, executor, bindListener, optionMap);
             } else {
-                return new NioUdpServer(this, executor, openHandler, optionMap);
+                return new NioUdpServer(this, executor, bindListener, optionMap);
             }
         }
     }
@@ -493,15 +487,15 @@ public final class NioXnio extends Xnio {
         }
     }
 
-    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final ChannelListener<? super StreamChannel> leftHandler, final ChannelListener<? super StreamChannel> rightHandler) {
+    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final ChannelListener<? super StreamChannel> leftListener, final ChannelListener<? super StreamChannel> rightListener) {
         if (executor == null) {
             throw new NullPointerException("executor is null");
         }
-        if (leftHandler == null) {
-            throw new NullPointerException("leftHandler is null");
+        if (leftListener == null) {
+            throw new NullPointerException("leftListener is null");
         }
-        if (rightHandler == null) {
-            throw new NullPointerException("rightHandler is null");
+        if (rightListener == null) {
+            throw new NullPointerException("rightListener is null");
         }
         synchronized (lock) {
             if (closed) {
@@ -509,8 +503,8 @@ public final class NioXnio extends Xnio {
             }
             try {
                 final NioPipeConnection connection = new NioPipeConnection(this);
-                if (! IoUtils.<StreamChannel>invokeChannelListener(connection.getLeftSide(), leftHandler) ||
-                        ! IoUtils.<StreamChannel>invokeChannelListener(connection.getRightSide(), rightHandler)) {
+                if (! IoUtils.<StreamChannel>invokeChannelListener(connection.getLeftSide(), leftListener) ||
+                        ! IoUtils.<StreamChannel>invokeChannelListener(connection.getRightSide(), rightListener)) {
                     IoUtils.safeClose(connection);
                 }
                 return new FinishedIoFuture<Closeable>(connection);
