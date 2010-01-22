@@ -23,6 +23,7 @@
 package org.jboss.xnio;
 
 import java.nio.channels.Channel;
+import java.util.EventListener;
 
 /**
  * A listener for channel events.  Possible channel events include: channel readable, channel writable, channel
@@ -32,7 +33,7 @@ import java.nio.channels.Channel;
  *
  * @since 2.0
  */
-public interface ChannelListener<T extends Channel> {
+public interface ChannelListener<T extends Channel> extends EventListener {
 
     /**
      * Handle the event on this channel.
