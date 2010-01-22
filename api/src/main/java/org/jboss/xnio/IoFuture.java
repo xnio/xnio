@@ -22,6 +22,7 @@
 
 package org.jboss.xnio;
 
+import java.util.EventListener;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.io.IOException;
@@ -176,7 +177,7 @@ public interface IoFuture<T> extends Cancellable {
      * @param <A> the attachment type
      * @apiviz.exclude
      */
-    interface Notifier<T, A> {
+    interface Notifier<T, A> extends EventListener {
         /**
          * Receive notification of the completion of an outstanding operation.
          *
