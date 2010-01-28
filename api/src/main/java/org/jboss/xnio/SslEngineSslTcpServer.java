@@ -77,8 +77,6 @@ final class SslEngineSslTcpServer implements SslTcpServer {
                     final String[] cipherSuites = SslEngineSslTcpServer.this.cipherSuites;
                     if (cipherSuites != null) {
                         engine.setEnabledCipherSuites(cipherSuites);
-                    } else {
-                        engine.setEnabledCipherSuites(engine.getSupportedCipherSuites());
                     }
                     final String[] protocols = SslEngineSslTcpServer.this.protocols;
                     if (protocols != null) {
