@@ -122,7 +122,7 @@
                     <doctitle><![CDATA[XNIO API ]]>${version}</doctitle>
                     <header><![CDATA[XNIO API ]]>${version}</header>
                     <footer><![CDATA[XNIO API ]]>${version}</footer>
-                    <bottom><![CDATA[<i>Copyright &#169; 2009 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
+                    <bottom><![CDATA[<i>Copyright &#169; 2010 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
                     <links>
                         <link>http://java.sun.com/javase/6/docs/</link>
                     </links>
