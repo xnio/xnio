@@ -26,6 +26,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.Flushable;
+import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.Buffers;
 
 /**
@@ -34,6 +35,7 @@ import org.jboss.xnio.Buffers;
  */
 public class BlockingWritableByteChannel implements GatheringByteChannel, Flushable {
     private final StreamSinkChannel delegate;
+    private volatile long writeTimeout;
 
     /**
      * Construct a new instance.
@@ -42,6 +44,36 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
      */
     public BlockingWritableByteChannel(final StreamSinkChannel delegate) {
         this.delegate = delegate;
+    }
+
+    /**
+     * Construct a new instance.
+     *
+     * @param delegate the channel to forward I/O operations to
+     * @param writeTimeout the write timeout
+     * @param writeTimeoutUnit the write timeout unit
+     */
+    public BlockingWritableByteChannel(final StreamSinkChannel delegate, final long writeTimeout, final TimeUnit writeTimeoutUnit) {
+        if (writeTimeout < 0L) {
+            throw new IllegalArgumentException("Negative write timeout");
+        }
+        this.delegate = delegate;
+        final long calcTimeout = writeTimeoutUnit.toMillis(writeTimeout);
+        this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
+    /**
+     * Set the write timeout.
+     *
+     * @param writeTimeout the write timeout
+     * @param writeTimeoutUnit the write timeout unit
+     */
+    public void setWriteTimeout(long writeTimeout, TimeUnit writeTimeoutUnit) {
+        if (writeTimeout < 0L) {
+            throw new IllegalArgumentException("Negative write timeout");
+        }
+        final long calcTimeout = writeTimeoutUnit.toMillis(writeTimeout);
+        this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
     /**
@@ -56,8 +88,20 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
         final StreamSinkChannel delegate = this.delegate;
         long res;
-        while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
-            delegate.awaitWritable();
+        final long writeTimeout = this.writeTimeout;
+        if (writeTimeout == 0L) {
+            while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
+                delegate.awaitWritable();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + writeTimeout;
+            while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
+                if (now >= deadline) {
+                    throw new WriteTimeoutException("Write timed out");
+                }
+                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
+            }
         }
         return res;
     }
@@ -83,8 +127,20 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
     public int write(final ByteBuffer src) throws IOException {
         final StreamSinkChannel delegate = this.delegate;
         int res;
-        while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
-            delegate.awaitWritable();
+        final long writeTimeout = this.writeTimeout;
+        if (writeTimeout == 0L) {
+            while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
+                delegate.awaitWritable();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + writeTimeout;
+            while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
+                if (now >= deadline) {
+                    throw new WriteTimeoutException("Write timed out");
+                }
+                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
+            }
         }
         return res;
     }
@@ -96,7 +152,20 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
 
     /** {@inheritDoc} */
     public void flush() throws IOException {
-        Channels.flushBlocking(delegate);
+        final StreamSinkChannel delegate = this.delegate;
+        final long writeTimeout = this.writeTimeout;
+        if (writeTimeout == 0L) {
+            Channels.flushBlocking(delegate);
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + writeTimeout;
+            while (! delegate.flush()) {
+                if (now >= deadline) {
+                    throw new WriteTimeoutException("Flush timed out");
+                }
+                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
+            }
+        }
     }
 
     /** {@inheritDoc} */

@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An output stream which writes to a stream sink channel.  All write operations are directly
@@ -37,62 +38,126 @@ import java.nio.ByteBuffer;
  * @since 1.2
  */
 public class ChannelOutputStream extends OutputStream {
-    protected volatile boolean closed;
+
     protected final StreamSinkChannel channel;
+    protected volatile boolean closed;
+    protected volatile long timeout;
+
+    /**
+     * Construct a new instance.  No write timeout is configured.
+     *
+     * @param channel the channel to wrap
+     */
+    public ChannelOutputStream(final StreamSinkChannel channel) {
+        this.channel = channel;
+    }
 
     /**
      * Construct a new instance.
      *
      * @param channel the channel to wrap
+     * @param timeout the write timeout
+     * @param unit the write timeout units
      */
-    public ChannelOutputStream(StreamSinkChannel channel) {
+    public ChannelOutputStream(final StreamSinkChannel channel, final long timeout, final TimeUnit unit) {
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
         this.channel = channel;
+        final long calcTimeout = unit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
     private static IOException closed() {
         return new IOException("The output stream is closed");
     }
 
+    /**
+     * Get the write timeout.
+     *
+     * @param unit the time unit
+     * @return the timeout in the given unit
+     */
+    public long getWriteTimeout(TimeUnit unit) {
+        return unit.convert(timeout, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Set the write timeout.  Does not affect write operations in progress.
+     *
+     * @param timeout the write timeout, or 0 for none
+     * @param unit the time unit
+     */
+    public void setWriteTimeout(long timeout, TimeUnit unit) {
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
+        final long calcTimeout = unit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
     /** {@inheritDoc} */
     public void write(final int b) throws IOException {
         if (closed) throw closed();
         final ByteBuffer buffer = ByteBuffer.wrap(new byte[] { (byte) b });
-        while (channel.write(buffer) == 0) {
-            channel.awaitWritable();
-            if (closed) throw closed();
+        final long timeout = this.timeout;
+        if (timeout == 0L) {
+            while (channel.write(buffer) == 0) {
+                channel.awaitWritable();
+                if (closed) throw closed();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + timeout;
+            while (channel.write(buffer) == 0) {
+                if (now >= deadline) {
+                    throw new WriteTimeoutException("Write timed out");
+                }
+                channel.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
+                if (closed) throw closed();
+                now = System.currentTimeMillis();
+            }
         }
     }
 
     /** {@inheritDoc} */
     public void write(final byte[] b) throws IOException {
-        if (closed) throw closed();
-        final ByteBuffer buffer = ByteBuffer.wrap(b);
-        while (buffer.hasRemaining()) {
-            while (channel.write(buffer) == 0) {
-                try {
-                    channel.awaitWritable();
-                } catch (InterruptedIOException e) {
-                    e.bytesTransferred = buffer.position();
-                    throw e;
-                }
-                if (closed) throw closed();
-            }
-        }
+        write(b, 0, b.length);
     }
 
     /** {@inheritDoc} */
     public void write(final byte[] b, final int off, final int len) throws IOException {
         if (closed) throw closed();
         final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
-        while (buffer.hasRemaining()) {
-            while (channel.write(buffer) == 0) {
-                try {
-                    channel.awaitWritable();
-                } catch (InterruptedIOException e) {
-                    e.bytesTransferred = buffer.position();
-                    throw e;
+        final long timeout = this.timeout;
+        if (timeout == 0L) {
+            while (buffer.hasRemaining()) {
+                while (channel.write(buffer) == 0) {
+                    try {
+                        channel.awaitWritable();
+                    } catch (InterruptedIOException e) {
+                        e.bytesTransferred = buffer.position();
+                        throw e;
+                    }
+                    if (closed) throw closed();
                 }
-                if (closed) throw closed();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + timeout;
+            while (buffer.hasRemaining()) {
+                while (channel.write(buffer) == 0) {
+                    try {
+                        if (now >= deadline) {
+                            throw new WriteTimeoutException("Write timed out");
+                        }
+                        channel.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedIOException e) {
+                        e.bytesTransferred = buffer.position();
+                        throw e;
+                    }
+                    if (closed) throw closed();
+                }
             }
         }
     }

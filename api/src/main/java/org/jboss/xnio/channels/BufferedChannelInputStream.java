@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2009, JBoss Inc., and individual contributors as indicated
+ * Copyright 2010, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -24,8 +24,11 @@ package org.jboss.xnio.channels;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import static java.lang.Math.min;
+
+import java.util.concurrent.TimeUnit;
 import org.jboss.xnio.Buffers;
 
 /**
@@ -40,6 +43,7 @@ public class BufferedChannelInputStream extends InputStream {
     private final StreamSourceChannel channel;
     private final ByteBuffer buffer;
     private volatile boolean closed;
+    private volatile long timeout;
 
     /**
      * Construct a new instance.
@@ -60,6 +64,58 @@ public class BufferedChannelInputStream extends InputStream {
     }
 
     /**
+     * Construct a new instance.
+     *
+     * @param channel the channel to wrap
+     * @param bufferSize the size of the internal buffer
+     * @param timeout the initial read timeout, or O for none
+     * @param unit the time unit for the read timeout
+     */
+    public BufferedChannelInputStream(final StreamSourceChannel channel, final int bufferSize, final long timeout, final TimeUnit unit) {
+        if (channel == null) {
+            throw new NullPointerException("channel is null");
+        }
+        if (unit == null) {
+            throw new NullPointerException("unit is null");
+        }
+        if (bufferSize < 1) {
+            throw new IllegalArgumentException("Buffer size must be at least one byte");
+        }
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
+        this.channel = channel;
+        buffer = ByteBuffer.allocate(bufferSize);
+        buffer.limit(0);
+        final long calcTimeout = unit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
+    /**
+     * Get the read timeout.
+     *
+     * @param unit the time unit
+     * @return the timeout in the given unit
+     */
+    public long getReadTimeout(TimeUnit unit) {
+        return unit.convert(timeout, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Set the read timeout.  Does not affect read operations in progress.
+     *
+     * @param timeout the read timeout, or 0 for none
+     * @param unit the time unit
+     */
+    public void setReadTimeout(long timeout, TimeUnit unit) {
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
+        final long calcTimeout = unit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
+    /**
      * Read a byte, blocking if necessary.
      *
      * @return the byte read, or -1 if the end of the stream has been reached
@@ -69,13 +125,32 @@ public class BufferedChannelInputStream extends InputStream {
         if (closed) return -1;
         final ByteBuffer buffer = this.buffer;
         final StreamSourceChannel channel = this.channel;
-        while (! buffer.hasRemaining()) {
-            buffer.clear();
-            final int res = Channels.readBlocking(channel, buffer);
-            if (res == -1) {
-                return -1;
+        final long timeout = this.timeout;
+        if (timeout == 0L) {
+            while (! buffer.hasRemaining()) {
+                buffer.clear();
+                final int res = Channels.readBlocking(channel, buffer);
+                if (res == -1) {
+                    return -1;
+                }
+                buffer.flip();
             }
-            buffer.flip();
+        } else {
+            if (! buffer.hasRemaining()) {
+                long now = System.currentTimeMillis();
+                final long deadline = timeout - now;
+                do {
+                    buffer.clear();
+                    if (deadline <= now) {
+                        throw new ReadTimeoutException("Read timed out");
+                    }
+                    final int res = Channels.readBlocking(channel, buffer, deadline - now, TimeUnit.MILLISECONDS);
+                    if (res == -1) {
+                        return -1;
+                    }
+                    buffer.flip();
+                } while (! buffer.hasRemaining());
+            }
         }
         return buffer.get() & 0xff;
     }
@@ -104,16 +179,44 @@ public class BufferedChannelInputStream extends InputStream {
         }
         if (closed) return -1;
         final StreamSourceChannel channel = this.channel;
-        while (len > 0) {
-            final ByteBuffer dst = ByteBuffer.wrap(b, off, len);
-            int res = total > 0 ? channel.read(dst) : Channels.readBlocking(channel, dst);
-            if (res == -1) {
-                return total == 0 ? -1 : total;
+        final long timeout = this.timeout;
+        try {
+            if (timeout == 0L) {
+                while (len > 0) {
+                    final ByteBuffer dst = ByteBuffer.wrap(b, off, len);
+                    int res = total > 0 ? channel.read(dst) : Channels.readBlocking(channel, dst);
+                    if (res == -1) {
+                        return total == 0 ? -1 : total;
+                    }
+                    total += res;
+                    if (res == 0) {
+                        break;
+                    }
+                }
+            } else {
+                while (len > 0) {
+                    final ByteBuffer dst = ByteBuffer.wrap(b, off, len);
+                    int res;
+                    if (total > 0) {
+                        res = channel.read(dst);
+                    } else {
+                        res = Channels.readBlocking(channel, dst, timeout, TimeUnit.MILLISECONDS);
+                        if (res == 0) {
+                            throw new ReadTimeoutException("Read timed out");
+                        }
+                    }
+                    if (res == -1) {
+                        return total == 0 ? -1 : total;
+                    }
+                    total += res;
+                    if (res == 0) {
+                        break;
+                    }
+                }
             }
-            total += res;
-            if (res == 0) {
-                break;
-            }
+        } catch (InterruptedIOException e) {
+            e.bytesTransferred = total;
+            throw e;
         }
         return total;
     }

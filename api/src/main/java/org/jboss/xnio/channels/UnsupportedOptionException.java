@@ -27,7 +27,7 @@ package org.jboss.xnio.channels;
  *
  * @apiviz.exclude
  */
-public final class UnsupportedOptionException extends IllegalArgumentException {
+public class UnsupportedOptionException extends IllegalArgumentException {
     private static final long serialVersionUID = 250195510855241708L;
 
     /**

@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An input stream which reads from a stream source channel.  All read operations are directly
@@ -39,9 +40,10 @@ import java.nio.ByteBuffer;
 public class ChannelInputStream extends InputStream {
     protected final StreamSourceChannel channel;
     protected volatile boolean closed;
+    protected volatile long timeout;
 
     /**
-     * Construct a new instance.
+     * Construct a new instance.  The stream will have no read timeout.
      *
      * @param channel the channel to wrap
      */
@@ -49,65 +51,135 @@ public class ChannelInputStream extends InputStream {
         this.channel = channel;
     }
 
+    /**
+     * Construct a new instance.
+     *
+     * @param channel the channel to wrap
+     * @param timeout the read timeout, or O for none
+     * @param timeoutUnit the time unit for read timeouts
+     */
+    public ChannelInputStream(final StreamSourceChannel channel, final long timeout, final TimeUnit timeoutUnit) {
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
+        this.channel = channel;
+        final long calcTimeout = timeoutUnit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
+    /**
+     * Get the read timeout.
+     *
+     * @param unit the time unit
+     * @return the timeout in the given unit
+     */
+    public long getReadTimeout(TimeUnit unit) {
+        return unit.convert(timeout, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Set the read timeout.  Does not affect read operations in progress.
+     *
+     * @param timeout the read timeout, or 0 for none
+     * @param unit the time unit
+     */
+    public void setReadTimeout(long timeout, TimeUnit unit) {
+        if (timeout < 0L) {
+            throw new IllegalArgumentException("Negative timeout");
+        }
+        final long calcTimeout = unit.toMillis(timeout);
+        this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
     /** {@inheritDoc} */
     public int read() throws IOException {
         if (closed) return -1;
         final byte[] array = new byte[1];
         final ByteBuffer buffer = ByteBuffer.wrap(array);
-        for (;;) {
-            final int res = channel.read(buffer);
-            if (res == -1) {
-                return -1;
-            }
-            if (res == 1) {
-                return array[0] & 0xff;
-            }
-            channel.awaitReadable();
-            if (closed) return -1;
-        }
-    }
-
-    /** {@inheritDoc} */
-    public int read(final byte b[]) throws IOException {
-        if (closed) return -1;
-        final ByteBuffer buffer = ByteBuffer.wrap(b);
-        for (;;) {
-            final int res = channel.read(buffer);
-            if (res == -1) {
-                return -1;
-            }
-            if (res > 0) {
-                return res;
-            }
-            try {
+        long timeout = this.timeout;
+        if (timeout == 0L) {
+            for (;;) {
+                final int res = channel.read(buffer);
+                if (res == -1) {
+                    return -1;
+                }
+                if (res == 1) {
+                    return array[0] & 0xff;
+                }
                 channel.awaitReadable();
-            } catch (InterruptedIOException e) {
-                e.bytesTransferred = buffer.position();
-                throw e;
+                if (closed) return -1;
             }
-            if (closed) return -1;
+        } else {
+            long now = System.currentTimeMillis();
+            long deadline = now + timeout;
+            for (;;) {
+                final int res = channel.read(buffer);
+                if (res == -1) {
+                    return -1;
+                }
+                if (res == 1) {
+                    return array[0] & 0xff;
+                }
+                if (now >= deadline) {
+                    throw new ReadTimeoutException("Read timed out");
+                }
+                channel.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);
+                if (closed) return -1;
+                now = System.currentTimeMillis();
+            }
         }
     }
 
     /** {@inheritDoc} */
-    public int read(final byte b[], final int off, final int len) throws IOException {
+    public int read(final byte[] b) throws IOException {
+        return read(b, 0, b.length);
+    }
+
+    /** {@inheritDoc} */
+    public int read(final byte[] b, final int off, final int len) throws IOException {
         if (closed) return -1;
         final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
-        for (;;) {
-            final int res = channel.read(buffer);
-            if (res == -1) {
-                return -1;
+        long timeout = this.timeout;
+        if (timeout == 0L) {
+            for (;;) {
+                final int res = channel.read(buffer);
+                if (res == -1) {
+                    return -1;
+                }
+                if (res > 0) {
+                    return res;
+                }
+                try {
+                    channel.awaitReadable();
+                } catch (InterruptedIOException e) {
+                    e.bytesTransferred = buffer.position();
+                    throw e;
+                }
+                if (closed) return -1;
             }
-            if (res > 0) {
-                return res;
+        } else {
+            long now = System.currentTimeMillis();
+            long deadline = now + timeout;
+            for (;;) {
+                final int res = channel.read(buffer);
+                if (res == -1) {
+                    return -1;
+                }
+                if (res > 0) {
+                    return res;
+                }
+                try {
+                    if (now >= deadline) {
+                        throw new ReadTimeoutException("Read timed out");
+                    }
+                    channel.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);
+                } catch (InterruptedIOException e) {
+                    e.bytesTransferred = buffer.position();
+                    throw e;
+                }
+                if (closed) return -1;
+                now = System.currentTimeMillis();
             }
-            try {
-                channel.awaitReadable();
-            } catch (InterruptedIOException e) {
-                e.bytesTransferred = buffer.position();
-                throw e;
-            }
-            if (closed) return -1;
         }
     }
 

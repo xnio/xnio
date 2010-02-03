@@ -25,13 +25,16 @@ package org.jboss.xnio.channels;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A blocking wrapper for a {@code StreamSourceChannel}.  Read operations will block until some data may be transferred.
- * Once any amount of data is read, the operation will return.
+ * Once any amount of data is read, the operation will return.  If a read timeout is specified, then the read methods
+ * will return a 0 if the timeout has elapsed without any data transfer.
  */
 public class BlockingReadableByteChannel implements ScatteringByteChannel {
     private final StreamSourceChannel delegate;
+    private volatile long readTimeout;
 
     /**
      * Construct a new instance.
@@ -40,6 +43,36 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
      */
     public BlockingReadableByteChannel(final StreamSourceChannel delegate) {
         this.delegate = delegate;
+    }
+
+    /**
+     * Construct a new instance.
+     *
+     * @param delegate the channel to forward I/O operations to
+     * @param readTimeout the read timeout
+     * @param readTimeoutUnit the read timeout unit
+     */
+    public BlockingReadableByteChannel(final StreamSourceChannel delegate, final long readTimeout, final TimeUnit readTimeoutUnit) {
+        if (readTimeout < 0L) {
+            throw new IllegalArgumentException("Negative read timeout");
+        }
+        this.delegate = delegate;
+        final long calcTimeout = readTimeoutUnit.toMillis(readTimeout);
+        this.readTimeout = readTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
+    }
+
+    /**
+     * Set the read timeout.
+     *
+     * @param readTimeout the read timeout
+     * @param readTimeoutUnit the read timeout unit
+     */
+    public void setReadTimeout(long readTimeout, TimeUnit readTimeoutUnit) {
+        if (readTimeout < 0L) {
+            throw new IllegalArgumentException("Negative read timeout");
+        }
+        final long calcTimeout = readTimeoutUnit.toMillis(readTimeout);
+        this.readTimeout = readTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
     /**
@@ -54,8 +87,20 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         final StreamSourceChannel delegate = this.delegate;
         long res;
-        while ((res = delegate.read(dsts, offset, length)) == 0L) {
-            delegate.awaitReadable();
+        final long readTimeout = this.readTimeout;
+        if (readTimeout == 0L) {
+            while ((res = delegate.read(dsts, offset, length)) == 0L) {
+                delegate.awaitReadable();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + readTimeout;
+            while ((res = delegate.read(dsts, offset, length)) == 0L) {
+                if (now >= deadline) {
+                    throw new ReadTimeoutException("Read timed out");
+                }
+                delegate.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);
+            }
         }
         return res;
     }
@@ -68,12 +113,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
      * @throws IOException if an I/O error occurs
      */
     public long read(final ByteBuffer[] dsts) throws IOException {
-        final StreamSourceChannel delegate = this.delegate;
-        long res;
-        while ((res = delegate.read(dsts)) == 0L) {
-            delegate.awaitReadable();
-        }
-        return res;
+        return read(dsts, 0, dsts.length);
     }
 
     /**
@@ -86,8 +126,20 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
     public int read(final ByteBuffer dst) throws IOException {
         final StreamSourceChannel delegate = this.delegate;
         int res;
-        while ((res = delegate.read(dst)) == 0) {
-            delegate.awaitReadable();
+        final long readTimeout = this.readTimeout;
+        if (readTimeout == 0L) {
+            while ((res = delegate.read(dst)) == 0L) {
+                delegate.awaitReadable();
+            }
+        } else {
+            long now = System.currentTimeMillis();
+            final long deadline = now + readTimeout;
+            while ((res = delegate.read(dst)) == 0L) {
+                if (now >= deadline) {
+                    throw new ReadTimeoutException("Read timed out");
+                }
+                delegate.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);
+            }
         }
         return res;
     }
