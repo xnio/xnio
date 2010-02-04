@@ -93,7 +93,15 @@ final class NioTcpChannel implements TcpChannel, Closeable {
 
     private final Closeable mbeanHandle;
 
-    private static final Set<Option<?>> OPTIONS = Collections.<Option<?>>singleton(Options.CLOSE_ABORT);
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(Options.CLOSE_ABORT)
+            .add(Options.KEEP_ALIVE)
+            .add(Options.TCP_OOB_INLINE)
+            .add(Options.RECEIVE_BUFFER)
+            .add(Options.SEND_BUFFER)
+            .add(Options.TCP_NODELAY)
+            .add(Options.IP_TRAFFIC_CLASS)
+            .create();
 
     public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final Executor executor, final boolean manage, final InetSocketAddress bindAddress, final InetSocketAddress peerAddress) throws IOException {
         this.socketChannel = socketChannel;
@@ -313,21 +321,41 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         return OPTIONS.contains(option);
     }
 
-    @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        if (Options.CLOSE_ABORT.equals(option)) {
-            return (T) Boolean.valueOf(socket.getSoLinger() != -1);
+        if (option == Options.CLOSE_ABORT) {
+            return option.cast(Boolean.valueOf(socket.getSoLinger() != -1));
+        } else if (option == Options.KEEP_ALIVE) {
+            return option.cast(Boolean.valueOf(socket.getKeepAlive()));
+        } else if (option == Options.TCP_OOB_INLINE) {
+            return option.cast(Boolean.valueOf(socket.getOOBInline()));
+        } else if (option == Options.RECEIVE_BUFFER) {
+            return option.cast(Integer.valueOf(socket.getReceiveBufferSize()));
+        } else if (option == Options.SEND_BUFFER) {
+            return option.cast(Integer.valueOf(socket.getSendBufferSize()));
+        } else if (option == Options.TCP_NODELAY) {
+            return option.cast(Boolean.valueOf(socket.getTcpNoDelay()));
+        } else if (option == Options.IP_TRAFFIC_CLASS) {
+            return option.cast(Integer.valueOf(socket.getTrafficClass()));
         } else {
             return null;
         }
     }
 
     public <T> NioTcpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (Options.CLOSE_ABORT.equals(option)) {
-            if (value == null) {
-                throw new NullPointerException("value is null");
-            }
+        if (option == Options.CLOSE_ABORT) {
             socket.setSoLinger(((Boolean) value).booleanValue(), 0);
+        } else if (option == Options.KEEP_ALIVE) {
+            socket.setKeepAlive(((Boolean) value).booleanValue());
+        } else if (option == Options.TCP_OOB_INLINE) {
+            socket.setOOBInline(((Boolean) value).booleanValue());
+        } else if (option == Options.RECEIVE_BUFFER) {
+            socket.setReceiveBufferSize(((Integer) value).intValue());
+        } else if (option == Options.SEND_BUFFER) {
+            socket.setSendBufferSize(((Integer) value).intValue());
+        } else if (option == Options.TCP_NODELAY) {
+            socket.setTcpNoDelay(((Boolean) value).booleanValue());
+        } else if (option == Options.IP_TRAFFIC_CLASS) {
+            socket.setTrafficClass(((Integer) value).intValue());
         }
         return this;
     }
