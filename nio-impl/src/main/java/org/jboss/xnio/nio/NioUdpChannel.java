@@ -23,6 +23,7 @@
 package org.jboss.xnio.nio;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.InetSocketAddress;
@@ -30,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.xnio.Option;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.IoUtils;
+import org.jboss.xnio.Options;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.Configurable;
 import org.jboss.xnio.channels.MultipointReadResult;
@@ -252,15 +255,43 @@ class NioUdpChannel implements UdpChannel {
         throw new UnsupportedOperationException("Multicast join");
     }
 
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(Options.BROADCAST)
+            .add(Options.RECEIVE_BUFFER)
+            .add(Options.SEND_BUFFER)
+            .add(Options.IP_TRAFFIC_CLASS)
+            .create();
+
     public boolean supportsOption(final Option<?> option) {
-        return false;
+        return OPTIONS.contains(option);
     }
 
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        return null;
+        final DatagramSocket socket = datagramChannel.socket();
+        if (option == Options.RECEIVE_BUFFER) {
+            return option.cast(Integer.valueOf(socket.getReceiveBufferSize()));
+        } else if (option == Options.SEND_BUFFER) {
+            return option.cast(Integer.valueOf(socket.getSendBufferSize()));
+        } else if (option == Options.BROADCAST) {
+            return option.cast(Boolean.valueOf(socket.getBroadcast()));
+        } else if (option == Options.IP_TRAFFIC_CLASS) {
+            return option.cast(Integer.valueOf(socket.getTrafficClass()));
+        } else {
+            return null;
+        }
     }
 
     public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        final DatagramSocket socket = datagramChannel.socket();
+        if (option == Options.RECEIVE_BUFFER) {
+            socket.setReceiveBufferSize(((Integer) value).intValue());
+        } else if (option == Options.SEND_BUFFER) {
+            socket.setSendBufferSize(((Integer) value).intValue());
+        } else if (option == Options.IP_TRAFFIC_CLASS) {
+            socket.setTrafficClass(((Integer) value).intValue());
+        } else if (option == Options.BROADCAST) {
+            socket.setBroadcast(((Boolean) value).booleanValue());
+        }
         return this;
     }
 

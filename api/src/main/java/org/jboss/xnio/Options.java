@@ -40,12 +40,6 @@ public final class Options {
     public static final Option<Boolean> MULTICAST = Option.simple(Options.class, "MULTICAST", Boolean.class);
 
     /**
-     * Type of service for IP sockets.  The value type for this option is {@code int}.  The value given is only
-     * a hint to the operating system, and may be ignored.
-     */
-    public static final Option<Integer> IP_TOS = Option.simple(Options.class, "IP_TOS", Integer.class);
-
-    /**
      * Enable broadcast support for IP datagram sockets.  The value type for this option is {@code boolean}.  If you
      * intend to send datagrams to a broadcast address, this option must be enabled.
      */
