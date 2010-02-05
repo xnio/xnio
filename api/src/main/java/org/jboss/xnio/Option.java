@@ -126,7 +126,7 @@ public abstract class Option<T> implements Serializable {
             if (! Modifier.isStatic(modifiers)) {
                 throw new IllegalArgumentException("Invalid Option instance (the field is not static)");
             }
-            final Option option = (Option) field.get(null);
+            final Option<?> option = (Option<?>) field.get(null);
             if (option == null) {
                 throw new IllegalArgumentException("Invalid null Option");
             }
@@ -174,7 +174,7 @@ public abstract class Option<T> implements Serializable {
             if (! Modifier.isStatic(modifiers)) {
                 throw new InvalidObjectException("Invalid Option instance (the field is not static)");
             }
-            final Option option = (Option) field.get(null);
+            final Option<?> option = (Option<?>) field.get(null);
             if (option == null) {
                 throw new InvalidObjectException("Invalid null Option");
             }

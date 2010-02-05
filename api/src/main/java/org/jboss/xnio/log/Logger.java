@@ -76,7 +76,7 @@ public final class Logger {
      * @param claxx the class name
      * @return the matching logger
      */
-    public static Logger getLogger(final Class claxx) {
+    public static Logger getLogger(final Class<?> claxx) {
         return getLogger(claxx.getName());
     }
 

@@ -28,7 +28,6 @@ import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
 import org.jboss.xnio.Options;
-import org.jboss.xnio.IoUtils;
 import org.jboss.xnio.log.Logger;
 
 final class MessageStreamChannelListener implements ChannelListener<StreamSourceChannel> {
