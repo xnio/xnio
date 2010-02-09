@@ -240,12 +240,14 @@ final class NioTcpServer implements TcpServer {
         private final Executor executor;
         private final AtomicLong globalAcceptedConnections;
         private final AtomicLong acceptedConnections;
+        private final Binding binding;
 
-        public Handler(final ServerSocketChannel channel, final Executor executor, final AtomicLong acceptedConnections, final AtomicLong connections) {
+        Handler(final ServerSocketChannel channel, final Executor executor, final AtomicLong acceptedConnections, final AtomicLong connections, final Binding binding) {
             socketChannel = channel;
             this.executor = executor;
             globalAcceptedConnections = acceptedConnections;
             this.acceptedConnections = connections;
+            this.binding = binding;
         }
 
         public void run() {
@@ -281,10 +283,12 @@ final class NioTcpServer implements TcpServer {
                     }
                 }
             } catch (ClosedChannelException e) {
-                log.trace("Channel closed: %s", e.getMessage());
+                log.trace("Channel closed: %s", e);
+                IoUtils.safeClose(binding);
                 return;
             } catch (IOException e) {
                 log.trace(e, "I/O error on TCP server");
+                IoUtils.safeClose(binding);
             }
         }
     }
@@ -328,7 +332,7 @@ final class NioTcpServer implements TcpServer {
             this.channel = channel;
             serverSocket = channel.socket();
             address = (InetSocketAddress) serverSocket.getLocalSocketAddress();
-            handle = xnio.addConnectHandler(channel, new Handler(channel, executor, globalAcceptedConnections, acceptedConnections), false);
+            handle = xnio.addConnectHandler(channel, new Handler(channel, executor, globalAcceptedConnections, acceptedConnections, this), false);
             handle.resume(SelectionKey.OP_ACCEPT);
         }
 

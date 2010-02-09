@@ -267,13 +267,15 @@ public final class NioTcpTestCase extends TestCase {
                 channel.getReadSetter().set(new ChannelListener<TcpChannel>() {
                     public void handleEvent(final TcpChannel channel) {
                         try {
-                            final int c = channel.read(ByteBuffer.allocate(100));
+                            int c;
+                            while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
+                                clientReceived.addAndGet(c);
+                            }
                             if (c == -1) {
                                 if (delayClientStop.getAndSet(true)) {
                                     channel.close();
                                 }
                             } else {
-                                clientReceived.addAndGet(c);
                                 channel.resumeReads();
                             }
                         } catch (Throwable t) {
@@ -286,16 +288,19 @@ public final class NioTcpTestCase extends TestCase {
                     public void handleEvent(final TcpChannel channel) {
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
-                            buffer.put("This Is A Test\r\n".getBytes("UTF-8"));
-                            final int c = channel.write(flip(buffer));
-                            if (clientSent.addAndGet(c) > 1000) {
-                                channel.shutdownWrites();
-                                if (delayClientStop.getAndSet(true)) {
-                                    channel.close();
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            while ((c = channel.write(buffer)) > 0) {
+                                if (clientSent.addAndGet(c) > 1000) {
+                                    channel.shutdownWrites();
+                                    if (delayClientStop.getAndSet(true)) {
+                                        channel.close();
+                                    }
+                                    return;
                                 }
-                            } else {
-                                channel.resumeWrites();
+                                buffer.rewind();
                             }
+                            channel.resumeWrites();
                         } catch (Throwable t) {
                             t.printStackTrace();
                             throw new RuntimeException(t);
@@ -316,13 +321,15 @@ public final class NioTcpTestCase extends TestCase {
                 channel.getReadSetter().set(new ChannelListener<TcpChannel>() {
                     public void handleEvent(final TcpChannel channel) {
                         try {
-                            final int c = channel.read(ByteBuffer.allocate(100));
+                            int c;
+                            while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
+                                serverReceived.addAndGet(c);
+                            }
                             if (c == -1) {
                                 if (delayServerStop.getAndSet(true)) {
                                     channel.close();
                                 }
                             } else {
-                                serverReceived.addAndGet(c);
                                 channel.resumeReads();
                             }
                         } catch (Throwable t) {
@@ -335,16 +342,19 @@ public final class NioTcpTestCase extends TestCase {
                     public void handleEvent(final TcpChannel channel) {
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
-                            buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8"));
-                            final int c = channel.write(flip(buffer));
-                            if (serverSent.addAndGet(c) > 1000) {
-                                channel.shutdownWrites();
-                                if (delayServerStop.getAndSet(true)) {
-                                    channel.close();
+                            buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            while ((c = channel.write(buffer)) > 0) {
+                                if (serverSent.addAndGet(c) > 1000) {
+                                    channel.shutdownWrites();
+                                    if (delayServerStop.getAndSet(true)) {
+                                        channel.close();
+                                    }
+                                    return;
                                 }
-                            } else {
-                                channel.resumeWrites();
+                                buffer.rewind();
                             }
+                            channel.resumeWrites();
                         } catch (Throwable t) {
                             t.printStackTrace();
                             throw new RuntimeException(t);
