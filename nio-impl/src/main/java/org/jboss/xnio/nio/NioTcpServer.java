@@ -348,6 +348,7 @@ final class NioTcpServer implements TcpServer {
             if (open.getAndSet(false)) synchronized (lock) {
                 chanLog.trace("Closing %s", this);
                 try {
+                    handle.suspend();
                     channel.close();
                 } finally {
                     IoUtils.invokeChannelListener(executor, this, closeListener);
