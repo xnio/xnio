@@ -70,7 +70,7 @@ public final class NioTcpTestCase extends TestCase {
     private void doConnectionTest(final Runnable body, final ChannelListener<? super TcpChannel> clientHandler, final ChannelListener<? super TcpChannel> serverHandler) throws Exception {
         final XnioConfiguration conf = new XnioConfiguration();
         conf.setThreadFactory(threadFactory);
-        conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(50)));
+        conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(800), new ThreadPoolExecutor.CallerRunsPolicy()));
         Xnio xnio = Xnio.create("nio", conf);
         try {
             final TcpServer server  = xnio.createTcpServer(new CatchingChannelListener<TcpChannel>(serverHandler, threadFactory),
