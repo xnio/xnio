@@ -32,7 +32,6 @@ import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.ChannelListener;
 import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.nio.NioXnio;
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 import static org.jboss.xnio.Buffers.flip;
@@ -91,6 +90,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testOneWayPipeConnect() throws Exception {
+        log.info("Test: testOneWayPipeConnect");
         threadFactory.clear();
         doOneWayPipeTest(new Runnable() {
             public void run() {
@@ -106,6 +106,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testTwoWayPipeConnect() throws Exception {
+        log.info("Test: testTwoWayPipeConnect");
         threadFactory.clear();
         doTwoWayPipeTest(new Runnable() {
             public void run() {
@@ -121,6 +122,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testOneWayPipeSourceClose() throws Exception {
+        log.info("Test: testOneWayPipeSourceClose");
         threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
@@ -192,6 +194,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testOneWayPipeSinkClose() throws Exception {
+        log.info("Test: testOneWayPipeSinkClose");
         threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
@@ -277,6 +280,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testOneWayPipeSinkCloseFromOpenHandler() throws Exception {
+        log.info("Test: testOneWayPipeSinkCloseFromOpenHandler");
         threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
@@ -356,6 +360,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testTwoWayPipeLeftClose() throws Exception {
+        log.info("Test: testTwoWayPipeLeftClose");
         threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean leftOK = new AtomicBoolean(false);
@@ -425,6 +430,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testTwoWayTransfer() throws Exception {
+        log.info("Test: testTwoWayTransfer");
         threadFactory.clear();
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger leftSent = new AtomicInteger(0);
@@ -544,6 +550,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testStopClosesBothSides() throws Exception {
+        log.info("Test: testStopClosesBothSides");
         threadFactory.clear();
         final AtomicBoolean leftOK = new AtomicBoolean(false);
         final AtomicBoolean rightOK = new AtomicBoolean(false);
@@ -573,6 +580,7 @@ public final class NioPipeTestCase extends TestCase {
     }
 
     public void testStopClosesBothSidesOneWay() throws Exception {
+        log.info("Test: testStopClosesBothSidesOneWay");
         threadFactory.clear();
         final AtomicBoolean sourceOK = new AtomicBoolean(false);
         final AtomicBoolean sinkOK = new AtomicBoolean(false);
