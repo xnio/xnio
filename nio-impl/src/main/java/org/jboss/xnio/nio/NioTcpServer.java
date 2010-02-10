@@ -332,7 +332,7 @@ final class NioTcpServer implements TcpServer {
             this.channel = channel;
             serverSocket = channel.socket();
             address = (InetSocketAddress) serverSocket.getLocalSocketAddress();
-            handle = xnio.addConnectHandler(channel, new Handler(channel, executor, globalAcceptedConnections, acceptedConnections, this), false);
+            handle = xnio.addConnectHandler(channel, new Handler(channel, IoUtils.directExecutor(), globalAcceptedConnections, acceptedConnections, this), false);
             handle.resume(SelectionKey.OP_ACCEPT);
         }
 
