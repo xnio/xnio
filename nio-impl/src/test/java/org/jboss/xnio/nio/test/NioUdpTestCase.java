@@ -107,6 +107,15 @@ public final class NioUdpTestCase extends TestCase {
         try {
             body.run();
             server.close();
+        } catch (RuntimeException e) {
+            log.error(e, "Error running part");
+            throw e;
+        } catch (IOException e) {
+            log.error(e, "Error running part");
+            throw e;
+        } catch (Error e) {
+            log.error(e, "Error running part");
+            throw e;
         } finally {
             IoUtils.safeClose(server);
         }

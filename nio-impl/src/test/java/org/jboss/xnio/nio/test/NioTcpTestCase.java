@@ -85,6 +85,12 @@ public final class NioTcpTestCase extends TestCase {
                     channel.close();
                     server.close();
                     xnio.close();
+                } catch (Exception e) {
+                    log.error(e, "Error running body");
+                    throw e;
+                } catch (Error e) {
+                    log.error(e, "Error running body");
+                    throw e;
                 } finally {
                     safeClose(channel);
                 }

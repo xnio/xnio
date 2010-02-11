@@ -64,6 +64,12 @@ public final class NioPipeTestCase extends TestCase {
             final Closeable closeable = future.get();
             try {
                 body.run();
+            } catch (Exception e) {
+                log.error(e, "Error running body");
+                throw e;
+            } catch (Error e) {
+                log.error(e, "Error running body");
+                throw e;
             } finally {
                 IoUtils.safeClose(closeable);
             }
@@ -81,6 +87,12 @@ public final class NioPipeTestCase extends TestCase {
             final Closeable closeable = future.get();
             try {
                 body.run();
+            } catch (Exception e) {
+                log.error(e, "Error running body");
+                throw e;
+            } catch (Error e) {
+                log.error(e, "Error running body");
+                throw e;
             } finally {
                 IoUtils.safeClose(closeable);
             }
