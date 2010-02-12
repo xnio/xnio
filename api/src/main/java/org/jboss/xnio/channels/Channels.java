@@ -341,7 +341,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
+    public static <C extends WritableMessageChannel> void sendBlocking(C channel, ByteBuffer buffer) throws IOException {
         while (! channel.send(buffer)) {
             channel.awaitWritable();
         }
@@ -360,7 +360,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+    public static <C extends WritableMessageChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         long remaining = unit.toMillis(time);
         long now = System.currentTimeMillis();
         while (remaining > 0L) {
@@ -385,7 +385,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+    public static <C extends WritableMessageChannel> void sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         while (! channel.send(buffers, offs, len)) {
             channel.awaitWritable();
         }
@@ -406,7 +406,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends WritableMessageChannel & SuspendableWriteChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+    public static <C extends WritableMessageChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long remaining = unit.toMillis(time);
         long now = System.currentTimeMillis();
         while (remaining > 0L) {
@@ -519,7 +519,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer) throws IOException {
+    public static <C extends ReadableMessageChannel> int receiveBlocking(C channel, ByteBuffer buffer) throws IOException {
         int res;
         while ((res = channel.receive(buffer)) == 0) {
             channel.awaitReadable();
@@ -540,7 +540,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends ReadableMessageChannel & SuspendableReadChannel> int receiveBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+    public static <C extends ReadableMessageChannel> int receiveBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
         int res = channel.receive(buffer);
         if ((res) == 0) {
             channel.awaitReadable(time, unit);
@@ -563,7 +563,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
+    public static <C extends ReadableMessageChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len) throws IOException {
         long res;
         while ((res = channel.receive(buffers, offs, len)) == 0) {
             channel.awaitReadable();
@@ -586,7 +586,7 @@ public final class Channels {
      * @throws IOException if an I/O exception occurs
      * @since 1.2
      */
-    public static <C extends ReadableMessageChannel & SuspendableReadChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+    public static <C extends ReadableMessageChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
         long res = channel.receive(buffers, offs, len);
         if ((res) == 0) {
             channel.awaitReadable(time, unit);

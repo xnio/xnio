@@ -46,7 +46,7 @@ import org.jboss.xnio.XnioConfiguration;
 import org.jboss.xnio.log.Logger;
 import org.jboss.xnio.channels.MultipointReadResult;
 import org.jboss.xnio.channels.UdpChannel;
-import org.jboss.xnio.nio.NioXnio;
+
 import org.jboss.xnio.test.support.LoggingHelper;
 import org.jboss.xnio.test.support.TestThreadFactory;
 
