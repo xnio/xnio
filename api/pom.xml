@@ -29,6 +29,7 @@
 
     <properties>
         <xnio.version>2.1.0.CR2-SNAPSHOT</xnio.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <groupId>org.jboss.xnio</groupId>
