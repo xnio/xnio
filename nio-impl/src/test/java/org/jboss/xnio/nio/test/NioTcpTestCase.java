@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.TestCase;
-import static org.jboss.xnio.Buffers.flip;
 import org.jboss.xnio.IoFuture;
 import org.jboss.xnio.IoUtils;
 import static org.jboss.xnio.IoUtils.safeClose;
