@@ -752,7 +752,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
-            final ByteBuffer readBuffer = this.readBuffer;
+            ByteBuffer readBuffer = this.readBuffer;
             final int r = readBuffer.remaining();
             if (r > 0) {
                 log.trace("Returning data from read buffer %s", readBuffer);
@@ -795,7 +795,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                             // the say the buf is too small, yet it's already at least their required size...?
                             throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                         }
-                        log.trace("Grew application readBuffer to %s", this.readBuffer = ByteBuffer.allocate(appBufSize));
+                        log.trace("Grew application readBuffer to %s", readBuffer = this.readBuffer = ByteBuffer.allocate(appBufSize));
                         // try again with the bigger buffer...
                         continue;
                     }
