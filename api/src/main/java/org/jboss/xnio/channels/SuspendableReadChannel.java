@@ -45,6 +45,7 @@ public interface SuspendableReadChannel extends CloseableChannel {
 
     /**
      * Places this readable channel at "end of stream".  Further reads will result in EOF.
+     * Shutting down all directions of a channel will cause {@link #close()} to be called automatically.
      *
      * @throws IOException if an I/O error occurs
      */

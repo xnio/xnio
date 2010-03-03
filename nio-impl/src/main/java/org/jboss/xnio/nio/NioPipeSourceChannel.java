@@ -123,7 +123,7 @@ final class NioPipeSourceChannel implements StreamSourceChannel {
     }
 
     public void shutdownReads() throws IOException {
-        channel.close();
+        close();
     }
 
     public void awaitReadable() throws IOException {

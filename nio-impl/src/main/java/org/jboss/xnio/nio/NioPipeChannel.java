@@ -29,7 +29,7 @@ import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.FileChannel;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +49,6 @@ final class NioPipeChannel implements StreamChannel {
     private final Pipe.SinkChannel sinkChannel;
     private final NioHandle sourceHandle;
     private final NioHandle sinkHandle;
-    private final AtomicBoolean callFlag = new AtomicBoolean(false);
     private final NioXnio nioXnio;
     private final AtomicLong bytes;
     private final AtomicLong messages;
@@ -59,9 +58,13 @@ final class NioPipeChannel implements StreamChannel {
     private volatile ChannelListener<? super StreamChannel> writeListener = null;
     private volatile ChannelListener<? super StreamChannel> closeListener = null;
 
+    private volatile int closeBits = 0;
+
     private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "readListener");
     private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "writeListener");
     private static final AtomicReferenceFieldUpdater<NioPipeChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeChannel.class, ChannelListener.class, "closeListener");
+
+    private static final AtomicIntegerFieldUpdater<NioPipeChannel> closeBitsUpdater = AtomicIntegerFieldUpdater.newUpdater(NioPipeChannel.class, "closeBits");
 
     private final ChannelListener.Setter<StreamChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
     private final ChannelListener.Setter<StreamChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
@@ -139,17 +142,30 @@ final class NioPipeChannel implements StreamChannel {
         return sourceChannel.isOpen() && sinkChannel.isOpen();
     }
 
+    private static int setBits(NioPipeChannel instance, int bits) {
+        int old;
+        int updated;
+        do {
+            old = instance.closeBits;
+            updated = old | bits;
+            if (updated == old) {
+                break;
+            }
+        } while (! closeBitsUpdater.compareAndSet(instance, old, updated));
+        return old;
+    }
+
     public void close() throws IOException {
         // since we've got two channels, only rethrow a failure on the WRITE side, since that's the side that stands to lose data
         IoUtils.safeClose(sourceChannel);
         try {
             sinkChannel.close();
         } finally {
-            nioXnio.removeManaged(this);
-            if (callFlag.getAndSet(true) == false) {
+            if (setBits(this, 0x04) < 0x04) {
+                nioXnio.removeManaged(this);
                 IoUtils.<StreamChannel>invokeChannelListener(this, closeListener);
+                IoUtils.safeClose(mbeanHandle);
             }
-            IoUtils.safeClose(mbeanHandle);
         }
     }
 
@@ -201,16 +217,28 @@ final class NioPipeChannel implements StreamChannel {
     }
 
     public void shutdownReads() throws IOException {
-        sourceChannel.close();
+        boolean ok = false;
+        try {
+            sourceChannel.close();
+            ok = true;
+        } finally {
+            if (setBits(this, 0x02) == 0x03) {
+                if (ok) close(); else IoUtils.safeClose(this);
+            }
+        }
     }
 
     public boolean shutdownWrites() throws IOException {
-        if (flush()) {
+        boolean ok = false;
+        try {
             sinkChannel.close();
-            return true;
-        } else {
-            return false;
+            ok = true;
+        } finally {
+            if (setBits(this, 0x01) == 0x03) {
+                if (ok) close(); else IoUtils.safeClose(this);
+            }
         }
+        return true;
     }
 
     public void awaitReadable() throws IOException {

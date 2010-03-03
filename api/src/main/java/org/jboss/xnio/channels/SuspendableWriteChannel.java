@@ -47,7 +47,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * Indicate that writing is complete for this channel.  Further attempts to write after this method is invoked will
      * result in an exception; however, this method may have to be invoked multiple times in order to complete the
      * shutdown operation.  If writes were already shut down successfully, calling this method again will have no
-     * additional effect.
+     * additional effect.  Shutting down all directions of a channel will cause {@link #close()} to be called automatically.
      *
      * @return {@code true} if the write channel was closed, or {@code false} if the operation would have blocked
      *

@@ -31,7 +31,6 @@ import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.FileChannel;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
@@ -78,13 +77,13 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     private final NioHandle readHandle;
     private final NioHandle writeHandle;
     private final NioXnio nioXnio;
-    private volatile int closeCalled = 0;
+    private volatile int closeBits = 0;
     private volatile long bytesRead = 0L;
     private volatile long bytesWritten = 0L;
     private volatile long msgsRead = 0L;
     private volatile long msgsWritten = 0L;
 
-    private static final AtomicIntegerFieldUpdater<NioTcpChannel> closeCalledUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpChannel.class, "closeCalled");
+    private static final AtomicIntegerFieldUpdater<NioTcpChannel> closeBitsUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpChannel.class, "closeBits");
 
     private static final AtomicLongFieldUpdater<NioTcpChannel> bytesReadUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesRead");
     private static final AtomicLongFieldUpdater<NioTcpChannel> bytesWrittenUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesWritten");
@@ -207,16 +206,29 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public boolean isOpen() {
-        return closeCalled == 0 && socketChannel.isOpen();
+        return socketChannel.isOpen();
+    }
+
+    private static int setBits(NioTcpChannel instance, int bits) {
+        int old;
+        int updated;
+        do {
+            old = instance.closeBits;
+            updated = old | bits;
+            if (updated == old) {
+                break;
+            }
+        } while (! closeBitsUpdater.compareAndSet(instance, old, updated));
+        return old;
     }
 
     public void close() throws IOException {
-        if (closeCalledUpdater.compareAndSet(this, 0, 1)) {
+        if (setBits(this, 0x04) < 0x04) {
             log.trace("Closing %s", this);
-            IoUtils.<TcpChannel>invokeChannelListener(this, closeListener);
             nioXnio.removeManaged(this);
-            IoUtils.safeClose(mbeanHandle);
             socketChannel.close();
+            IoUtils.<TcpChannel>invokeChannelListener(this, closeListener);
+            IoUtils.safeClose(mbeanHandle);
         }
     }
 
@@ -281,16 +293,28 @@ final class NioTcpChannel implements TcpChannel, Closeable {
     }
 
     public void shutdownReads() throws IOException {
-        socket.shutdownInput();
+        boolean ok = false;
+        try {
+            socket.shutdownInput();
+            ok = true;
+        } finally {
+            if (setBits(this, 0x02) == 0x03) {
+                if (ok) close(); else IoUtils.safeClose(this);
+            }
+        }
     }
 
     public boolean shutdownWrites() throws IOException {
-        if (flush()) {
+        boolean ok = false;
+        try {
             socket.shutdownOutput();
-            return true;
-        } else {
-            return false;
+            ok = true;
+        } finally {
+            if (setBits(this, 0x01) == 0x03) {
+                if (ok) close(); else IoUtils.safeClose(this);
+            }
         }
+        return true;
     }
 
     public void awaitReadable() throws IOException {

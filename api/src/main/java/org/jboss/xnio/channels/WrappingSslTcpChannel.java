@@ -267,7 +267,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                         // not enough data in receive buffer, fill it up
                                         receiveBuffer.compact();
                                         try {
-                                            log.trace("Reading data into receive buffer %s");
+                                            log.trace("Reading data into receive buffer %s", receiveBuffer);
                                             final int res = tcpChannel.read(receiveBuffer);
                                             if (res == -1) {
                                                 log.trace("End of input stream reached");
@@ -749,6 +749,9 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        if (dsts.length == 0 || length == 0) {
+            return 0L;
+        }
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
@@ -762,19 +765,12 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
             final SSLEngine sslEngine = this.sslEngine;
             UNWRAP: for (;;) {
                 final ByteBuffer receiveBuffer = this.receiveBuffer;
-                // no bytes in the read buffer (it is fully cleared) - need to unwrap some
-                final ByteBuffer[] target = new ByteBuffer[length + 1];
-                System.arraycopy(dsts, offset, target, 0, length);
-                target[length] = readBuffer;
-                readBuffer.compact();
                 final SSLEngineResult unwrapResult;
-                final boolean readBufferFilled;
+                readBuffer.compact();
                 try {
-                    final int t = readBuffer.position();
-                    log.trace("Unwrapping from %s to %s (and possibly more)", receiveBuffer, target[0]);
-                    unwrapResult = sslEngine.unwrap(receiveBuffer, target);
+                    log.trace("Unwrapping from %s to %s... (and possibly more)", receiveBuffer, readBuffer);
+                    unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
                     log.trace("Unwrap result is %s", unwrapResult);
-                    readBufferFilled = t != readBuffer.position();
                 } finally {
                     readBuffer.flip();
                 }
@@ -786,6 +782,11 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 // this statement RIGHT HERE is why I hate SSLEngine oh so much
                 switch (unwrapResult.getStatus()) {
                     case BUFFER_OVERFLOW: {
+                        if (readBuffer.hasRemaining()) {
+                            readAwaiters.signalAll();
+                            log.trace("Returning data from read buffer %s", readBuffer);
+                            return Buffers.put(dsts, offset, length, readBuffer);
+                        }
                         // read buffer too small!  dynamically resize & repeat...
                         // the read buffer would still be empty at this point (by the spec) - if not, blow up
                         assert readBuffer.position() == 0;
@@ -796,6 +797,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                             throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                         }
                         log.trace("Grew application readBuffer to %s", readBuffer = this.readBuffer = ByteBuffer.allocate(appBufSize));
+                        readBuffer.limit(0);
                         // try again with the bigger buffer...
                         continue;
                     }
@@ -843,11 +845,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                     case OK: {
                         needsUnwrap = false;
                         if (produced > 0) {
-                            if (readBufferFilled) {
-                                // we just added data to readBuffer!  notify the waiters, cos that's the rules baby
-                                readAwaiters.signalAll();
-                            }
-                            return produced;
+                            // we just added data to readBuffer!  notify the waiters, cos that's the rules baby
+                            readAwaiters.signalAll();
+                            log.trace("Returning data from read buffer %s", readBuffer);
+                            return Buffers.put(dsts, offset, length, readBuffer);
                         } else {
                             // find out why nothing was produced if everything is "OK" :-/
                             switch (unwrapResult.getHandshakeStatus()) {
@@ -1000,6 +1001,6 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     }
 
     public String toString() {
-        return String.format("SSL wrapped <%H> %s", this, tcpChannel);
+        return String.format("SSL wrapped <%h> %s", this, tcpChannel);
     }
 }
