@@ -48,6 +48,8 @@ import org.jboss.xnio.Buffers;
 import org.jboss.xnio.Options;
 import org.jboss.xnio.log.Logger;
 
+import static org.jboss.xnio.Buffers.flip;
+
 final class WrappingSslTcpChannel implements SslTcpChannel {
 
     private static final Logger log = Logger.getLogger("org.jboss.xnio.ssl");
@@ -114,8 +116,8 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
 
     /**
      * The application data read buffer.  Filled if a read required more space than the user buffer had available.  Reads
-     * pull data from this buffer first, and additional data from unwrap() if needed.  This buffer should remain either
-     * empty or flipped for reading when the lock is not held.
+     * pull data from this buffer first, and additional data from unwrap() if needed.  This buffer should remain
+     * compacted for writing when the lock isn't held.
      */
     private ByteBuffer readBuffer = Buffers.EMPTY_BYTE_BUFFER;
 
@@ -416,7 +418,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
-            if (readBuffer.hasRemaining()) {
+            if (readBuffer.position() > 0) {
                 executor.execute(readTriggeredTask);
             } else {
                 if (needsWrap) {
@@ -482,7 +484,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         try {
             // loop only once so that if the TCP channel becomes readable, control flow can resume
             // spurious wakeups are forgivable
-            if (!readBuffer.hasRemaining()) {
+            if (readBuffer.position() == 0) {
                 try {
                     if (needsWrap) {
                         // read can't proceed until stuff is written, so wait for writability
@@ -507,7 +509,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         try {
             // loop only once so that if the TCP channel becomes readable, control flow can resume
             // spurious wakeups are forgivable
-            if (!readBuffer.hasRemaining()) {
+            if (readBuffer.position() == 0) {
                 try {
                     if (needsWrap) {
                         // read can't proceed until stuff is written, so wait for writability
@@ -643,14 +645,9 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                         final ByteBuffer receiveBuffer = this.receiveBuffer;
                                         final ByteBuffer readBuffer = this.readBuffer;
                                         final SSLEngineResult unwrapResult;
-                                        readBuffer.compact();
-                                        try {
-                                            log.trace("Unwrapping from receive buffer %s to read buffer %s", receiveBuffer, readBuffer);
-                                            unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
-                                            log.trace("Unwrap result is %s", unwrapResult);
-                                        } finally {
-                                            readBuffer.flip();
-                                        }
+                                        log.trace("Unwrapping from receive buffer %s to read buffer %s", receiveBuffer, readBuffer);
+                                        unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
+                                        log.trace("Unwrap result is %s", unwrapResult);
                                         if (! receiveBuffer.hasRemaining()) {
                                             receiveBuffer.clear().flip();
                                         }
@@ -701,7 +698,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                                     throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                                                 }
                                                 log.trace("Read buffer is too small, growing from %s", readBuffer);
-                                                log.trace("Grew read buffer to %s", this.readBuffer = Buffers.flip(ByteBuffer.allocate(appBufSize).put(readBuffer)));
+                                                log.trace("Grew read buffer to %s", this.readBuffer = flip(ByteBuffer.allocate(appBufSize).put(flip(readBuffer))));
                                                 continue UNWRAP;
                                             }
                                             case CLOSED: {
@@ -710,7 +707,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                             }
                                             case OK: {
                                                 log.trace("Unwrap succeeded, proceeding with wrap");
-                                                // great, now we shold be able to proceed with wrap
+                                                // great, now we should be able to proceed with wrap
                                                 continue WRAP;
                                             }
                                             default: {
@@ -756,24 +753,23 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         mainLock.lock();
         try {
             ByteBuffer readBuffer = this.readBuffer;
-            final int r = readBuffer.remaining();
-            if (r > 0) {
+            if (readBuffer.position() > 0) {
                 log.trace("Returning data from read buffer %s", readBuffer);
-                return Buffers.put(dsts, offset, length, readBuffer);
+                readBuffer.flip();
+                try {
+                    return Buffers.put(dsts, offset, length, readBuffer);
+                } finally {
+                    readBuffer.compact();
+                }
             }
             final TcpChannel tcpChannel = this.tcpChannel;
             final SSLEngine sslEngine = this.sslEngine;
             UNWRAP: for (;;) {
                 final ByteBuffer receiveBuffer = this.receiveBuffer;
                 final SSLEngineResult unwrapResult;
-                readBuffer.compact();
-                try {
-                    log.trace("Unwrapping from %s to %s... (and possibly more)", receiveBuffer, readBuffer);
-                    unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
-                    log.trace("Unwrap result is %s", unwrapResult);
-                } finally {
-                    readBuffer.flip();
-                }
+                log.trace("Unwrapping from %s to %s... (and possibly more)", receiveBuffer, readBuffer);
+                unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
+                log.trace("Unwrap result is %s", unwrapResult);
                 if (! receiveBuffer.hasRemaining()) {
                     receiveBuffer.clear().flip();
                 }
@@ -797,7 +793,6 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                             throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                         }
                         log.trace("Grew application readBuffer to %s", readBuffer = this.readBuffer = ByteBuffer.allocate(appBufSize));
-                        readBuffer.limit(0);
                         // try again with the bigger buffer...
                         continue;
                     }
