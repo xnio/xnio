@@ -113,6 +113,8 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
     private boolean needsWrap;
     // writers need an unwrap to proceed
     private boolean needsUnwrap;
+    // signal new data available
+    private boolean newReadData;
 
     /**
      * The application data read buffer.  Filled if a read required more space than the user buffer had available.  Reads
@@ -205,9 +207,13 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 while (sendBuffer.hasRemaining()) {
                     log.trace("Flushing send buffer %s", sendBuffer);
                     if (tcpChannel.write(sendBuffer) == 0) {
-                        log.trace("Flush would block, return false");
+                        log.trace("Send (in flush) would block, return false");
                         return false;
                     }
+                }
+                if (! tcpChannel.flush()) {
+                    log.trace("Flushing TCP channel would block, return false");
+                    return false;
                 }
             } finally {
                 sendBuffer.compact();
@@ -254,6 +260,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                 readAwaiters.signalAll();
                                 switch (unwrapResult.getStatus()) {
                                     case BUFFER_UNDERFLOW: {
+                                        newReadData = false;
                                         // not enough data.  First, see if there is room left in the receive buf - if not, grow it.
                                         if (receiveBuffer.position() == 0 && receiveBuffer.limit() == receiveBuffer.capacity()) {
                                             log.trace("Receive buffer is too small, growing from %s", receiveBuffer);
@@ -282,6 +289,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                                 needsUnwrap = true;
                                                 return false;
                                             } else {
+                                                newReadData = true;
                                                 // retry the unwrap!
                                                 continue UNWRAP;
                                             }
@@ -418,17 +426,20 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
-            if (readBuffer.position() > 0) {
+            if (readBuffer.position() > 0 || newReadData) {
+                log.trace("Application resumeReads() -> Execute read handler");
                 executor.execute(readTriggeredTask);
             } else {
+                userReads = true;
                 if (needsWrap) {
                     // read can't proceed until stuff is written, so wait for writability and then call the read listener
                     // during which the user will call read() which really writes... sigh
+                    log.trace("Application resumeReads() -> SSL resumeWrites()");
                     tcpChannel.resumeWrites();
                 } else {
+                    log.trace("Application resumeReads() -> SSL resumeReads()");
                     tcpChannel.resumeReads();
                 }
-                userReads = true;
             }
         } finally {
             mainLock.unlock();
@@ -439,12 +450,14 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         final Lock mainLock = this.mainLock;
         mainLock.lock();
         try {
+            userWrites = true;
             if (needsUnwrap) {
+                log.trace("Application resumeWrites() -> SSL resumeReads()");
                 tcpChannel.resumeReads();
             } else {
+                log.trace("Application resumeWrites() -> SSL resumeWrites()");
                 tcpChannel.resumeWrites();
             }
-            userWrites = true;
         } finally {
             mainLock.unlock();
         }
@@ -488,8 +501,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 try {
                     if (needsWrap) {
                         // read can't proceed until stuff is written, so wait for writability
+                        log.trace("Application awaitReadable() -> SSL resumeWrites()");
                         tcpChannel.resumeWrites();
                     } else {
+                        log.trace("Application awaitReadable() -> SSL resumeReads()");
                         tcpChannel.resumeReads();
                     }
                     readAwaiters.await();
@@ -513,8 +528,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                 try {
                     if (needsWrap) {
                         // read can't proceed until stuff is written, so wait for writability
+                        log.trace("Application awaitReadable() -> SSL resumeWrites()");
                         tcpChannel.resumeWrites();
                     } else {
+                        log.trace("Application awaitReadable() -> SSL resumeReads()");
                         tcpChannel.resumeReads();
                     }
                     readAwaiters.await(time, timeUnit);
@@ -533,8 +550,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         mainLock.lock();
         try {
             if (needsUnwrap) {
+                log.trace("Application awaitWritable() -> SSL resumeReads()");
                 tcpChannel.resumeReads();
             } else {
+                log.trace("Application awaitWritable() -> SSL resumeWrites()");
                 tcpChannel.resumeWrites();
             }
             writeAwaiters.await();
@@ -551,8 +570,10 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
         mainLock.lock();
         try {
             if (needsUnwrap) {
+                log.trace("Application awaitWritable() -> SSL resumeReads()");
                 tcpChannel.resumeReads();
             } else {
+                log.trace("Application awaitWritable() -> SSL resumeWrites()");
                 tcpChannel.resumeWrites();
             }
             writeAwaiters.await(time, timeUnit);
@@ -654,6 +675,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                         readAwaiters.signalAll();
                                         switch (unwrapResult.getStatus()) {
                                             case BUFFER_UNDERFLOW: {
+                                                newReadData = false;
                                                 // not enough data.  First, see if there is room left in the receive buf - if not, grow it.
                                                 if (receiveBuffer.position() == 0 && receiveBuffer.limit() == receiveBuffer.capacity()) {
                                                     log.trace("Receive buffer is not large enough to feed unwrap, growing from %s", receiveBuffer);
@@ -684,6 +706,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                                     } else {
                                                         log.trace("Read successful, retrying unwrap");
                                                         // retry the unwrap!
+                                                        newReadData = true;
                                                         continue UNWRAP;
                                                     }
                                                 } finally {
@@ -797,6 +820,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                         continue;
                     }
                     case BUFFER_UNDERFLOW: {
+                        newReadData = false;
                         // not enough data.  First, see if there is room left in the receive buf - if not, grow it.
                         if (receiveBuffer.position() == 0 && receiveBuffer.limit() == receiveBuffer.capacity()) {
                             // receive buffer is full but it's still not big enough, so grow it
@@ -827,6 +851,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                         } else if (rres == 0) {
                             return 0;
                         }
+                        newReadData = true;
                         // else some data was received, so continue
                         continue;
                     }

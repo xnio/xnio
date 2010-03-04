@@ -22,6 +22,11 @@
 
 package org.jboss.xnio.channels;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.jboss.xnio.OptionMap;
 import org.jboss.xnio.Buffers;
 import org.jboss.xnio.ChannelListener;
@@ -136,11 +141,25 @@ public final class Channels {
         engine.setEnableSessionCreation(optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true));
         final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
         if (cipherSuites != null) {
-            engine.setEnabledCipherSuites(cipherSuites.toArray(new String[cipherSuites.size()]));
+            final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
+            final List<String> finalList = new ArrayList<String>();
+            for (String name : cipherSuites) {
+                if (supported.contains(name)) {
+                    finalList.add(name);
+                }
+            }
+            engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
         }
         final Sequence<String> protocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
         if (protocols != null) {
-            engine.setEnabledProtocols(protocols.toArray(new String[protocols.size()]));
+            final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedProtocols()));
+            final List<String> finalList = new ArrayList<String>();
+            for (String name : protocols) {
+                if (supported.contains(name)) {
+                    finalList.add(name);
+                }
+            }
+            engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
         return new WrappingSslTcpChannel(tcpChannel, engine, executor);
     }

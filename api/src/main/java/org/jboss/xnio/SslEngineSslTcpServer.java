@@ -24,7 +24,11 @@ package org.jboss.xnio;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.jboss.xnio.channels.BoundChannel;
@@ -76,11 +80,25 @@ final class SslEngineSslTcpServer implements SslTcpServer {
                     engine.setEnableSessionCreation(enableSessionCreation);
                     final String[] cipherSuites = SslEngineSslTcpServer.this.cipherSuites;
                     if (cipherSuites != null) {
-                        engine.setEnabledCipherSuites(cipherSuites);
+                        final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
+                        final List<String> finalList = new ArrayList<String>();
+                        for (String name : cipherSuites) {
+                            if (supported.contains(name)) {
+                                finalList.add(name);
+                            }
+                        }
+                        engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
                     }
                     final String[] protocols = SslEngineSslTcpServer.this.protocols;
                     if (protocols != null) {
-                        engine.setEnabledProtocols(protocols);
+                        final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedProtocols()));
+                        final List<String> finalList = new ArrayList<String>();
+                        for (String name : protocols) {
+                            if (supported.contains(name)) {
+                                finalList.add(name);
+                            }
+                        }
+                        engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
                     }
                     channelListener.handleEvent(Channels.createSslTcpChannel(tcpChannel, engine, sslExecutor));
                 }
