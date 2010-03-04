@@ -268,15 +268,14 @@ final class NioTcpServer implements TcpServer {
                         if (tcpNoDelay != null) socket.setTcpNoDelay(tcpNoDelay.booleanValue());
                         final NioTcpChannel channel = new NioTcpChannel(xnio, socketChannel, executor, manageConnections, (InetSocketAddress) socket.getLocalSocketAddress(), (InetSocketAddress) socket.getRemoteSocketAddress());
                         xnio.addManaged(channel);
+                        log.trace("TCP server accepted connection");
                         ok = IoUtils.<TcpChannel>invokeChannelListener(channel, openListener);
                         if (ok) {
                             acceptedConnections.incrementAndGet();
                             globalAcceptedConnections.incrementAndGet();
-                            log.trace("TCP server accepted connection");
                         }
                     } finally {
                         if (! ok) {
-                            log.trace("TCP server failed to accept connection");
                             // do NOT call close handler, since open handler was either not called or it failed
                             IoUtils.safeClose(socketChannel);
                         }
