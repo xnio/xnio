@@ -698,7 +698,7 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                                                     throw new IOException("Unexpected/inexplicable buffer overflow from the SSL engine");
                                                 }
                                                 log.trace("Read buffer is too small, growing from %s", readBuffer);
-                                                log.trace("Grew read buffer to %s", this.readBuffer = flip(ByteBuffer.allocate(appBufSize).put(flip(readBuffer))));
+                                                log.trace("Grew read buffer to %s", this.readBuffer = ByteBuffer.allocate(appBufSize).put(flip(readBuffer)));
                                                 continue UNWRAP;
                                             }
                                             case CLOSED: {
@@ -767,25 +767,25 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
             UNWRAP: for (;;) {
                 final ByteBuffer receiveBuffer = this.receiveBuffer;
                 final SSLEngineResult unwrapResult;
-                log.trace("Unwrapping from %s to %s... (and possibly more)", receiveBuffer, readBuffer);
+                log.trace("Unwrapping from %s to %s", receiveBuffer, readBuffer);
                 unwrapResult = sslEngine.unwrap(receiveBuffer, readBuffer);
                 log.trace("Unwrap result is %s", unwrapResult);
-                if (! receiveBuffer.hasRemaining()) {
-                    receiveBuffer.clear().flip();
-                }
                 final int produced = unwrapResult.bytesProduced();
 
                 // this statement RIGHT HERE is why I hate SSLEngine oh so much
                 switch (unwrapResult.getStatus()) {
                     case BUFFER_OVERFLOW: {
-                        if (readBuffer.hasRemaining()) {
+                        if (readBuffer.position() > 0) {
                             readAwaiters.signalAll();
                             log.trace("Returning data from read buffer %s", readBuffer);
-                            return Buffers.put(dsts, offset, length, readBuffer);
+                            readBuffer.flip();
+                            try {
+                                return Buffers.put(dsts, offset, length, readBuffer);
+                            } finally {
+                                readBuffer.compact();
+                            }
                         }
                         // read buffer too small!  dynamically resize & repeat...
-                        // the read buffer would still be empty at this point (by the spec) - if not, blow up
-                        assert readBuffer.position() == 0;
                         log.trace("Growing application readBuffer from %s", readBuffer);
                         final int appBufSize = sslEngine.getSession().getApplicationBufferSize();
                         if (readBuffer.capacity() >= appBufSize) {
@@ -843,7 +843,12 @@ final class WrappingSslTcpChannel implements SslTcpChannel {
                             // we just added data to readBuffer!  notify the waiters, cos that's the rules baby
                             readAwaiters.signalAll();
                             log.trace("Returning data from read buffer %s", readBuffer);
-                            return Buffers.put(dsts, offset, length, readBuffer);
+                            readBuffer.flip();
+                            try {
+                                return Buffers.put(dsts, offset, length, readBuffer);
+                            } finally {
+                                readBuffer.compact();
+                            }
                         } else {
                             // find out why nothing was produced if everything is "OK" :-/
                             switch (unwrapResult.getHandshakeStatus()) {
