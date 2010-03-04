@@ -174,7 +174,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, optionClassLoader);
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
-                        log.warn("Unknown option '%s' in property '%s'", optionName, name);
+                        log.warn("Invalid option '%s' in property '%s': %s", optionName, name, e);
                     }
                 }
             }
@@ -197,7 +197,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, null);
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
-                        log.warn("Unknown option '%s' in property '%s'", optionName, name);
+                        log.warn("Invalid option '%s' in property '%s': %s", optionName, name, e);
                     }
                 }
             }
