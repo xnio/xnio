@@ -67,6 +67,18 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
     }
 
     /**
+     * Get the value of an option from this option map, with a specified default if the value is missing.
+     *
+     * @param option the option to get
+     * @param <T> the type of the option
+     * @return the option value, or {@code null} if it is not present
+     */
+    public <T> T get(Option<T> option, T defaultValue) {
+        final Object o = value.get(option);
+        return o == null ? defaultValue : option.cast(o);
+    }
+
+    /**
      * Get a boolean value from this option map, with a specified default if the value is missing.
      *
      * @param option the option to get
@@ -88,6 +100,18 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
     public int get(Option<Integer> option, int defaultValue) {
         final Object o = value.get(option);
         return o == null ? defaultValue : option.cast(o).intValue();
+    }
+
+    /**
+     * Get a long value from this option map, with a specified default if the value is missing.
+     *
+     * @param option the option to get
+     * @param defaultValue the default value if the option is not present
+     * @return the result
+     */
+    public long get(Option<Long> option, long defaultValue) {
+        final Object o = value.get(option);
+        return o == null ? defaultValue : option.cast(o).longValue();
     }
 
     /**
