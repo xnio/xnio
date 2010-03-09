@@ -37,6 +37,17 @@
     <artifactId>xnio-nio</artifactId>
     <version>${xnio.version}</version>
     <packaging>jar</packaging>
+    <licenses>
+        <license>
+            <name>LGPL 2.1</name>
+            <url>http://www.gnu.org/licenses/lgpl-2.1.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <organization>
+        <name>JBoss, a division of Red Hat, Inc.</name>
+        <url>http://www.jboss.org/</url>
+    </organization>
     <dependencies>
         <dependency>
             <groupId>org.jboss.xnio</groupId>
