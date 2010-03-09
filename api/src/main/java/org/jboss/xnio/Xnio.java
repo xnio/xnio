@@ -598,6 +598,20 @@ public abstract class Xnio implements Closeable {
     }
 
     /**
+     * Create an SSL TCP connector.  The provider's default executor will be used to execute listener methods.
+     *
+     * @param optionMap the initial configuration for the connector
+     * @return the SSL TCP connector
+     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
+     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
+     *
+     * @since 2.1
+     */
+    public SslTcpConnector createSslTcpConnector(final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpConnector(executor, null, optionMap);
+    }
+
+    /**
      * Create an unbound UDP server.  The UDP server can be configured to be multicast-capable; this should only be
      * done if multicast is needed, since some providers have a performance penalty associated with multicast.
      * The given executor will be used to execute listener methods.
