@@ -168,7 +168,7 @@ public abstract class Option<T> implements Serializable {
         try {
             final Field field = declClass.getField(name);
             final int modifiers = field.getModifiers();
-            if (! Modifier.isProtected(modifiers)) {
+            if (! Modifier.isPublic(modifiers)) {
                 throw new InvalidObjectException("Invalid Option instance (the field is not public)");
             }
             if (! Modifier.isStatic(modifiers)) {
