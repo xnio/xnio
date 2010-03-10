@@ -34,7 +34,7 @@
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Parent POM</name>
-    <version>2.1.0.CR2</version>
+    <version>2.1.0.CR3-SNAPSHOT</version>
     <description>The parent POM of the XNIO project</description>
     <modules>
         <module>api</module>
