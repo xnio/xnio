@@ -96,16 +96,15 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             deadline = Long.MAX_VALUE;
         }
         synchronized (lock) {
+            Status status;
             boolean intr = Thread.interrupted();
             try {
-                while (status == Status.WAITING) try {
+                while ((status = this.status) == Status.WAITING && duration > 0L) try {
                     lock.wait(duration);
                 } catch (InterruptedException e) {
                     intr = true;
-                }
-                duration = deadline - System.currentTimeMillis();
-                if (duration <= 0L) {
-                    return Status.WAITING;
+                } finally {
+                    duration = deadline - System.currentTimeMillis();
                 }
             } finally {
                 if (intr) {
