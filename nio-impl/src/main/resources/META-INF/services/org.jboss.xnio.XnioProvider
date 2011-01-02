@@ -20,4 +20,4 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 #
 # This module defines the NIO XNIO provider
-org.jboss.xnio.nio.NioXnioProvider
+org.xnio.nio.NioXnioProvider

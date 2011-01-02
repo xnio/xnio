@@ -20,10 +20,10 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.test;
+package org.xnio.nio.test;
 
-import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.test.support.TestThreadFactory;
+import org.xnio.ChannelListener;
+import org.xnio.test.support.TestThreadFactory;
 import java.nio.channels.Channel;
 
 /**

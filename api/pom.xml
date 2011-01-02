@@ -27,40 +27,28 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <properties>
-        <xnio.version>2.1.0.CR3-SNAPSHOT</xnio.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <groupId>org.jboss.xnio</groupId>
+    <groupId>org.xnio</groupId>
     <artifactId>xnio-api</artifactId>
     <packaging>jar</packaging>
     <name>XNIO API</name>
-    <version>${xnio.version}</version>
+    <version>3.0.0.Beta1-SNAPSHOT</version>
     <description>The API JAR of the XNIO project</description>
     <url>http://www.jboss.org/xnio</url>
-    <licenses>
-        <license>
-            <name>LGPL 2.1</name>
-            <url>http://www.gnu.org/licenses/lgpl-2.1.html</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-    <organization>
-        <name>JBoss, a division of Red Hat, Inc.</name>
-        <url>http://www.jboss.org/</url>
-    </organization>
-    <scm>
-        <connection>scn:svn:http://anonsvn.jboss.org/repos/xnio/xnio-base/trunk/api</connection>
-        <developerConnection>scn:svn:https://svn.jboss.org/repos/xnio/xnio-base/trunk/api</developerConnection>
-        <url>http://anonsvn.jboss.org/repos/xnio/xnio-base/trunk/api</url>
-    </scm>
-    <issueManagement>
-        <system>jira</system>
-        <url>http://jira.jboss.com/jira/browse/XNIO</url>
-    </issueManagement>
+
+    <parent>
+        <groupId>org.jboss</groupId>
+        <artifactId>jboss-parent</artifactId>
+        <version>6-beta-1</version>
+    </parent>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jboss.logging</groupId>
+            <artifactId>jboss-logging</artifactId>
+            <version>3.0.0.Beta2</version>
+            <!-- Not part of the API, so set as "provided" -->
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -68,9 +56,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.xnio</groupId>
+            <groupId>org.xnio</groupId>
             <artifactId>xnio-testing-support</artifactId>
-            <version>${xnio.version}</version>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -78,13 +66,10 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.1</version>
                 <configuration>
                     <debug>true</debug>
-                    <source>1.6</source>
-                    <target>1.6</target>
                     <showDeprecation>false</showDeprecation>
                     <showWarnings>true</showWarnings>
                     <fork>true</fork>
@@ -118,10 +103,10 @@
                 <configuration>
                     <bytecodeInjections>
                         <bytecodeInjection>
-                            <expression>${xnio.version}</expression>
+                            <expression>${project.version}</expression>
                             <targetMembers>
                                 <methodBodyReturn>
-                                    <className>org.jboss.xnio.Version</className>
+                                    <className>org.xnio.Version</className>
                                     <methodName>getVersionString</methodName>
                                 </methodBodyReturn>
                             </targetMembers>
@@ -134,7 +119,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.jboss.xnio.Version</mainClass>
+                            <mainClass>org.xnio.Version</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -152,7 +137,6 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <includes>
@@ -161,18 +145,7 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.6.1</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
                 <configuration>
                     <detectJavaApiLink>false</detectJavaApiLink>
                     <detectLinks>false</detectLinks>
@@ -182,9 +155,9 @@
                         <artifactId>apiviz</artifactId>
                         <version>1.3.0.GA</version>
                     </docletArtifact>
-                    <doctitle><![CDATA[XNIO API ]]>${version}</doctitle>
-                    <header><![CDATA[XNIO API ]]>${version}</header>
-                    <footer><![CDATA[XNIO API ]]>${version}</footer>
+                    <doctitle><![CDATA[XNIO API ]]>${project.version}</doctitle>
+                    <header><![CDATA[XNIO API ]]>${project.version}</header>
+                    <footer><![CDATA[XNIO API ]]>${project.version}</footer>
                     <bottom><![CDATA[<i>Copyright &#169; 2010 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
                     <links>
                         <link>http://java.sun.com/javase/6/docs/api/</link>
@@ -193,12 +166,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>repository.jboss.org</id>
-            <name>JBoss Maven2 Repository</name>
-            <url>http://repository.jboss.org/maven2</url>
-        </repository>
-    </distributionManagement>
 </project>

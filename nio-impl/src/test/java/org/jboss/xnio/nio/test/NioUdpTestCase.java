@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.test;
+package org.xnio.nio.test;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -34,21 +34,19 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import junit.framework.TestCase;
-import org.jboss.xnio.Buffers;
-import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.Xnio;
-import org.jboss.xnio.CloseableExecutor;
-import org.jboss.xnio.UdpServer;
-import org.jboss.xnio.OptionMap;
-import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.Options;
-import org.jboss.xnio.XnioConfiguration;
-import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.channels.MultipointReadResult;
-import org.jboss.xnio.channels.UdpChannel;
+import org.xnio.Buffers;
+import org.xnio.IoUtils;
+import org.xnio.Xnio;
+import org.xnio.CloseableExecutor;
+import org.xnio.UdpServer;
+import org.xnio.OptionMap;
+import org.xnio.ChannelListener;
+import org.xnio.Options;
+import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.log.Logger;
 
-import org.jboss.xnio.test.support.LoggingHelper;
-import org.jboss.xnio.test.support.TestThreadFactory;
+import org.xnio.test.support.LoggingHelper;
+import org.xnio.test.support.TestThreadFactory;
 
 /**
  *
@@ -72,7 +70,7 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private synchronized void doServerSideTest(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body) throws IOException {
+    private synchronized void doServerSideTest(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body) throws IOException {
         final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
             final XnioConfiguration config = new XnioConfiguration();
@@ -90,18 +88,18 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private void doServerSidePart(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
+    private void doServerSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
         final InetSocketAddress bindAddress = SERVER_SOCKET_ADDRESS;
         doPart(multicast, handler, body, bindAddress, xnio);
     }
 
-    private void doClientSidePart(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
+    private void doClientSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
         final InetSocketAddress bindAddress = CLIENT_SOCKET_ADDRESS;
         doPart(multicast, handler, body, bindAddress, xnio);
     }
 
-    private synchronized void doPart(final boolean multicast, final ChannelListener<UdpChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final UdpServer server = xnio.createUdpServer(new CatchingChannelListener<UdpChannel>(handler, threadFactory),
+    private synchronized void doPart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
+        final UdpServer server = xnio.createUdpServer(new CatchingChannelListener<MulticastMessageChannel>(handler, threadFactory),
                 OptionMap.builder().set(Options.MULTICAST, Boolean.valueOf(multicast)).getMap());
         server.bind(bindAddress).await();
         try {
@@ -121,7 +119,7 @@ public final class NioUdpTestCase extends TestCase {
         }
     }
 
-    private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<UdpChannel> serverHandler, final ChannelListener<UdpChannel> clientHandler, final Runnable body) throws IOException {
+    private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<MulticastMessageChannel> serverHandler, final ChannelListener<MulticastMessageChannel> clientHandler, final Runnable body) throws IOException {
         final CloseableExecutor closeableExecutor = IoUtils.closeableExecutor(new ThreadPoolExecutor(5, 5, 50L, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>(), threadFactory), 5L, TimeUnit.SECONDS);
         try {
             final XnioConfiguration config = new XnioConfiguration();
@@ -150,10 +148,10 @@ public final class NioUdpTestCase extends TestCase {
     private void doServerCreate(boolean multicast) throws Exception {
         final AtomicBoolean openedOk = new AtomicBoolean(false);
         final AtomicBoolean closedOk = new AtomicBoolean(false);
-        doServerSideTest(multicast, new ChannelListener<UdpChannel>() {
-            public void handleEvent(final UdpChannel channel) {
-                channel.getCloseSetter().set(new ChannelListener<UdpChannel>() {
-                    public void handleEvent(final UdpChannel channel) {
+        doServerSideTest(multicast, new ChannelListener<MulticastMessageChannel>() {
+            public void handleEvent(final MulticastMessageChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<MulticastMessageChannel>() {
+                    public void handleEvent(final MulticastMessageChannel channel) {
                         closedOk.set(true);
                     }
                 });
@@ -187,11 +185,11 @@ public final class NioUdpTestCase extends TestCase {
         final CountDownLatch receivedLatch = new CountDownLatch(1);
         final CountDownLatch doneLatch = new CountDownLatch(2);
         final byte[] payload = new byte[] { 10, 5, 15, 10, 100, -128, 30, 0, 0 };
-        doClientServerSide(clientMulticast, serverMulticast, new ChannelListener<UdpChannel>() {
-            public void handleEvent(final UdpChannel channel) {
+        doClientServerSide(clientMulticast, serverMulticast, new ChannelListener<MulticastMessageChannel>() {
+            public void handleEvent(final MulticastMessageChannel channel) {
                 log.info("In handleEvent for %s", channel);
-                channel.getReadSetter().set(new ChannelListener<UdpChannel>() {
-                    public void handleEvent(final UdpChannel channel) {
+                channel.getReadSetter().set(new ChannelListener<MulticastMessageChannel>() {
+                    public void handleEvent(final MulticastMessageChannel channel) {
                         log.info("In handleReadable for %s", channel);
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(50);
@@ -227,16 +225,16 @@ public final class NioUdpTestCase extends TestCase {
                 channel.resumeReads();
                 startLatch.countDown();
             }
-        }, new ChannelListener<UdpChannel>() {
-            public void handleEvent(final UdpChannel channel) {
+        }, new ChannelListener<MulticastMessageChannel>() {
+            public void handleEvent(final MulticastMessageChannel channel) {
                 log.info("In handleEvent for %s", channel);
-                channel.getWriteSetter().set(new ChannelListener<UdpChannel>() {
-                    public void handleEvent(final UdpChannel channel) {
+                channel.getWriteSetter().set(new ChannelListener<MulticastMessageChannel>() {
+                    public void handleEvent(final MulticastMessageChannel channel) {
                         log.info("In handleWritable for %s", channel);
                         try {
                             if (clientOK.get()) {
                                 log.info("Extra writable notification on %s (?!)", channel);
-                            } else if (! channel.send(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
+                            } else if (! channel.sendTo(SERVER_SOCKET_ADDRESS, ByteBuffer.wrap(payload))) {
                                 log.info("Whoops, spurious write notification for %s", channel);
                                 channel.resumeWrites();
                             } else {

@@ -26,26 +26,28 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
-    <name>XNIO Parent POM</name>
-    <version>2.1.0.CR3-SNAPSHOT</version>
-    <description>The parent POM of the XNIO project</description>
+    <name>XNIO Aggregator POM</name>
+    <version>3.0.0.Beta1-SNAPSHOT</version>
+    <description>The aggregator POM of the XNIO project</description>
+
     <modules>
         <module>api</module>
         <module>nio-impl</module>
         <module>test-support</module>
     </modules>
 
+    <parent>
+        <groupId>org.jboss</groupId>
+        <artifactId>jboss-parent</artifactId>
+        <version>5</version>
+    </parent>
+
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <configuration>
                     <skip>true</skip>
@@ -53,12 +55,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>repository.jboss.org</id>
-            <name>JBoss Maven2 Repository</name>
-            <url>http://repository.jboss.org/maven2</url>
-        </repository>
-    </distributionManagement>
 </project>

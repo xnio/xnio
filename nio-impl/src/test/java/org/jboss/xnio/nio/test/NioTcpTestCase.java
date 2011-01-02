@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.test;
+package org.xnio.nio.test;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -33,24 +33,23 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import junit.framework.TestCase;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.IoUtils;
-import static org.jboss.xnio.IoUtils.safeClose;
-import org.jboss.xnio.TcpAcceptor;
-import org.jboss.xnio.TcpConnector;
-import org.jboss.xnio.Xnio;
-import org.jboss.xnio.TcpServer;
-import org.jboss.xnio.OptionMap;
-import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.Options;
-import org.jboss.xnio.XnioConfiguration;
-import org.jboss.xnio.FutureResult;
-import org.jboss.xnio.channels.TcpChannel;
-import org.jboss.xnio.channels.BoundChannel;
-import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.nio.NioXnio;
-import org.jboss.xnio.test.support.LoggingHelper;
-import org.jboss.xnio.test.support.TestThreadFactory;
+import org.xnio.IoFuture;
+import org.xnio.IoUtils;
+import static org.xnio.IoUtils.safeClose;
+import org.xnio.TcpAcceptor;
+import org.xnio.TcpConnector;
+import org.xnio.Xnio;
+import org.xnio.TcpServer;
+import org.xnio.OptionMap;
+import org.xnio.ChannelListener;
+import org.xnio.Options;
+import org.xnio.FutureResult;
+import org.xnio.channels.TcpChannel;
+import org.xnio.channels.BoundChannel;
+import org.xnio.log.Logger;
+import org.xnio.nio.NioXnio;
+import org.xnio.test.support.LoggingHelper;
+import org.xnio.test.support.TestThreadFactory;
 
 /**
  *
@@ -72,8 +71,7 @@ public final class NioTcpTestCase extends TestCase {
         conf.setExecutor(new ThreadPoolExecutor(4, 10, 1000L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(800), new ThreadPoolExecutor.CallerRunsPolicy()));
         Xnio xnio = Xnio.create("nio", conf);
         try {
-            final TcpServer server  = xnio.createTcpServer(new CatchingChannelListener<TcpChannel>(serverHandler, threadFactory),
-                    OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+            final TcpServer server  = xnio.createStreamServer(new CatchingChannelListener<TcpChannel>(serverHandler, threadFactory), OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
             try {
                 server.bind(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT)).await();
                 final TcpConnector connector = xnio.createTcpConnector(OptionMap.EMPTY);

@@ -20,21 +20,20 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.jboss.xnio.nio.test;
+package org.xnio.nio.test;
 
 import junit.framework.TestCase;
-import org.jboss.xnio.channels.StreamChannel;
-import org.jboss.xnio.channels.StreamSourceChannel;
-import org.jboss.xnio.channels.StreamSinkChannel;
-import org.jboss.xnio.IoUtils;
-import org.jboss.xnio.Xnio;
-import org.jboss.xnio.IoFuture;
-import org.jboss.xnio.ChannelListener;
-import org.jboss.xnio.XnioConfiguration;
-import org.jboss.xnio.log.Logger;
-import org.jboss.xnio.test.support.LoggingHelper;
-import org.jboss.xnio.test.support.TestThreadFactory;
-import static org.jboss.xnio.Buffers.flip;
+import org.xnio.channels.StreamChannel;
+import org.xnio.channels.StreamSourceChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.IoUtils;
+import org.xnio.Xnio;
+import org.xnio.IoFuture;
+import org.xnio.ChannelListener;
+import org.xnio.log.Logger;
+import org.xnio.test.support.LoggingHelper;
+import org.xnio.test.support.TestThreadFactory;
+import static org.xnio.Buffers.flip;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;

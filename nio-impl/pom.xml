@@ -26,33 +26,31 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <properties>
-        <xnio.version>2.1.0.CR3-SNAPSHOT</xnio.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <name>XNIO NIO Implementation</name>
     <description>The NIO implementation of the XNIO project</description>
-    <groupId>org.jboss.xnio</groupId>
+    <groupId>org.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
-    <version>${xnio.version}</version>
+    <version>3.0.0.Beta1-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <licenses>
-        <license>
-            <name>LGPL 2.1</name>
-            <url>http://www.gnu.org/licenses/lgpl-2.1.html</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-    <organization>
-        <name>JBoss, a division of Red Hat, Inc.</name>
-        <url>http://www.jboss.org/</url>
-    </organization>
+
+    <parent>
+        <groupId>org.jboss</groupId>
+        <artifactId>jboss-parent</artifactId>
+        <version>6-beta-1</version>
+    </parent>
+    
     <dependencies>
         <dependency>
-            <groupId>org.jboss.xnio</groupId>
+            <groupId>org.jboss.logging</groupId>
+            <artifactId>jboss-logging</artifactId>
+            <version>3.0.0.Beta3</version>
+            <!-- Not part of the API, so set as "provided" -->
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.xnio</groupId>
             <artifactId>xnio-api</artifactId>
-            <version>${xnio.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -61,43 +59,20 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.xnio</groupId>
+            <groupId>org.xnio</groupId>
             <artifactId>xnio-testing-support</artifactId>
-            <version>${xnio.version}</version>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.1</version>
-                <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
-                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>repository.jboss.org</id>
-            <name>JBoss Maven2 Repository</name>
-            <url>http://repository.jboss.org/maven2</url>
-        </repository>
-    </distributionManagement>
 </project>

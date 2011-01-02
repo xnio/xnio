@@ -26,29 +26,26 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <properties>
-        <xnio.version>2.1.0.CR3-SNAPSHOT</xnio.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <name>XNIO Testing Support</name>
-    <version>${xnio.version}</version>
+    <version>3.0.0.Beta1-SNAPSHOT</version>
     <description>The test support module of the XNIO project</description>
 
-    <groupId>org.jboss.xnio</groupId>
+    <groupId>org.xnio</groupId>
     <artifactId>xnio-testing-support</artifactId>
     <packaging>jar</packaging>
+
     <dependencies/>
+
+    <parent>
+        <groupId>org.jboss</groupId>
+        <artifactId>jboss-parent</artifactId>
+        <version>6-beta-1</version>
+    </parent>
+
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.1</version>
-                <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
-                </configuration>
                 <dependencies>
                     <dependency>
                         <groupId>org.codehaus.plexus</groupId>
@@ -59,7 +56,6 @@
                 </dependencies>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <configuration>
                     <skip>true</skip>
@@ -67,12 +63,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>repository.jboss.org</id>
-            <name>JBoss Maven2 Repository</name>
-            <url>http://repository.jboss.org/maven2</url>
-        </repository>
-    </distributionManagement>
 </project>
