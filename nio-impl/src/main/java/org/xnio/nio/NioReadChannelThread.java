@@ -20,26 +20,15 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio;
+package org.xnio.nio;
+
+import org.xnio.ReadChannelThread;
 
 /**
- * An XNIO provider, used by the service loader discovery mechanism.
- *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface XnioProvider {
-
-    /**
-     * Get the XNIO instance for this provider.
-     *
-     * @return the XNIO instance
-     */
-    Xnio getInstance();
-
-    /**
-     * Get the provider name.
-     *
-     * @return the name
-     */
-    String getName();
+final class NioReadChannelThread extends AbstractNioChannelThread implements ReadChannelThread {
+    protected NioReadChannelThread(final NioSelectorRunnable runnable) {
+        super(runnable);
+    }
 }

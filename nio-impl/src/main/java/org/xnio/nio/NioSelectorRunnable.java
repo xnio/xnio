@@ -24,15 +24,19 @@ package org.xnio.nio;
 
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ClosedSelectorException;
+import java.nio.channels.IllegalBlockingModeException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import org.xnio.log.Logger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import org.jboss.logging.Logger;
+import org.xnio.IoUtils;
 
 /**
  *
@@ -42,10 +46,13 @@ final class NioSelectorRunnable implements Runnable {
     private static final Logger log = Logger.getLogger("org.xnio.nio.selector");
 
     private final Selector selector;
-    private final Queue<SelectorTask> selectorWorkQueue = new ConcurrentLinkedQueue<SelectorTask>();
-    private final AtomicBoolean shutdown = new AtomicBoolean(false);
+    private final Queue<SelectorTask> selectorWorkQueue = new ArrayDeque<SelectorTask>();
+    private volatile int shutdown = 0;
     private volatile int keyLoad;
     private volatile Thread thread;
+
+    private static final AtomicIntegerFieldUpdater<NioSelectorRunnable> shutdownUpdater = AtomicIntegerFieldUpdater.newUpdater(NioSelectorRunnable.class, "shutdown");
+    private volatile AbstractNioChannelThread channelThread;
 
     protected NioSelectorRunnable() throws IOException {
         selector = Selector.open();
@@ -55,7 +62,9 @@ final class NioSelectorRunnable implements Runnable {
         if (Thread.currentThread() == thread) {
             task.run(selector);
         } else {
-            selectorWorkQueue.add(task);
+            synchronized (selectorWorkQueue) {
+                selectorWorkQueue.add(task);
+            }
             selector.wakeup();
         }
     }
@@ -71,65 +80,97 @@ final class NioSelectorRunnable implements Runnable {
     }
 
     public void shutdown() {
-        if (! shutdown.getAndSet(true)) {
-            try {
-                selector.close();
-            } catch (Throwable t) {
-                log.trace(t, "Failed to close selector");
-            }
-            final Thread thread = this.thread;
-            if (thread != null && thread != Thread.currentThread()) try {
-                thread.interrupt();
-            } catch (Throwable t) {
-                log.trace(t, "Failed to interrupt selector thread");
-            }
+        if (shutdownUpdater.compareAndSet(this, 0, 1)) {
+            wakeup();
         }
     }
 
     public void run() {
         thread = Thread.currentThread();
         final Selector selector = this.selector;
+        log.tracef("NIO selector thread started (%s, %s)", thread, selector);
         final Queue<SelectorTask> queue = selectorWorkQueue;
-        for (; ;) {
-            try {
-                if (shutdown.get()) {
-                    return;
-                }
-                keyLoad = selector.keys().size();
-                selector.select();
-                for (SelectorTask task = queue.poll(); task != null; task = queue.poll()) try {
-                    task.run(selector);
-                } catch (Throwable t) {
-                    log.trace(t, "NIO selector task failed");
-                }
-                final Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                final Iterator<SelectionKey> iterator = selectedKeys.iterator();
-                while (iterator.hasNext()) {
-                    final SelectionKey key = iterator.next();
-                    iterator.remove();
-                    try {
-                        final NioHandle handle = (NioHandle) key.attachment();
-                        if (handle.isOneshot()) {
-                            key.interestOps(0);
+        try {
+            for (; ;) {
+                try {
+                    synchronized (queue) {
+                        for (SelectorTask task = queue.poll(); task != null; task = queue.poll()) try {
+                            task.run(selector);
+                        } catch (Throwable t) {
+                            log.tracef(t, "NIO selector task failed");
                         }
-                        handle.getHandlerExecutor().execute(handle.getHandler());
-                    } catch (CancelledKeyException e) {
-                        log.trace("Key %s cancelled", key);
-                    } catch (Throwable t) {
-                        log.trace(t, "Failed to execute handler");
+                        final int keyLoad = this.keyLoad = selector.keys().size();
+                        if (keyLoad == 0 && shutdown != 0) {
+                            return;
+                        }
+                    }
+                    selector.select();
+                    final Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                    final Iterator<SelectionKey> iterator = selectedKeys.iterator();
+                    while (iterator.hasNext()) {
+                        final SelectionKey key = iterator.next();
+                        iterator.remove();
+                        try {
+                            final NioHandle<?> handle = (NioHandle<?>) key.attachment();
+                            if (handle.isOneShot()) {
+                                key.interestOps(0);
+                            }
+                            handle.invoke();
+                        } catch (CancelledKeyException e) {
+                            log.tracef("Key %s cancelled", key);
+                        }
+                    }
+                } catch (ClosedSelectorException e) {
+                    // THIS is the "official" signalling mechanism
+                    log.tracef("Selector %s closed", selector);
+                    return;
+                } catch (IOException e) {
+                    log.trace("I/O error in selector loop", e);
+                }
+                if (Thread.interrupted()) {
+                    log.trace("Selector thread interrupted");
+                    // do nothing else.  Shutdown is tested at the top of the loop
+                }
+            }
+        } finally {
+            IoUtils.safeClose(selector);
+            log.tracef("NIO selector thread finished (%s)", thread);
+            thread = null;
+            synchronized (queue) {
+                shutdown = 1;
+                queue.notifyAll();
+            }
+            channelThread.done();
+        }
+    }
+
+    SelectionKey register(final AbstractSelectableChannel channel, final int ops) throws ClosedChannelException {
+        if (shutdown != 0) {
+            throw new ClosedChannelException();
+        }
+        if (Thread.currentThread() == thread) {
+            return channel.register(selector, ops);
+        } else {
+            final SynchronousHolder<SelectionKey> holder = new SynchronousHolder<SelectionKey>();
+            runTask(new SelectorTask() {
+                public void run(final Selector selector) {
+                    try {
+                        if (shutdown != 0) {
+                            throw new ClosedChannelException();
+                        }
+                        holder.set(channel.register(selector, ops));
+                    } catch (IllegalBlockingModeException e) {
+                        holder.setProblem(e);
+                    } catch (ClosedChannelException e) {
+                        holder.setProblem(e);
                     }
                 }
-            } catch (ClosedSelectorException e) {
-                // THIS is the "official" signalling mechanism
-                log.trace("Selector %s closed", selector);
-                return;
-            } catch (IOException e) {
-                log.trace(e, "I/O error in selector loop");
-            }
-            if (Thread.interrupted()) {
-                log.trace("Selector thread interrupted");
-                // do nothing else.  Shutdown is tested at the top of the loop
-            }
+            });
+            return holder.get();
         }
+    }
+
+    void setChannelThread(final AbstractNioChannelThread channelThread) {
+        this.channelThread = channelThread;
     }
 }

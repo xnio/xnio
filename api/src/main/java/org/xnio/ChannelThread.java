@@ -22,16 +22,12 @@
 
 package org.xnio;
 
-import java.io.Closeable;
-import java.io.IOException;
-import org.xnio.channels.CloseableChannel;
-
 /**
  * A channel thread.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface ChannelThread<C extends CloseableChannel> extends Closeable {
+public interface ChannelThread {
 
     /**
      * Get the approximate load on this thread, in channels.
@@ -40,17 +36,53 @@ public interface ChannelThread<C extends CloseableChannel> extends Closeable {
      */
     int getLoad();
 
-    /** {@inheritDoc} */
-    void close() throws IOException;
+    /**
+     * Initiate shutdown of this thread.  The thread will accept no new channel associations, but will
+     * continue running until all existing channel associations have terminated.
+     */
+    void shutdown();
 
     /**
-     * Add a channel to this channel thread.  This method may be called from any thread at any time during
-     * the life of this thread.
+     * Wait for this thread to terminate.
      *
-     * @param channel the channel to add
-     * @throws IOException if an error occurs while adding the channel to this thread
-     * @throws IllegalArgumentException if the channel belongs to an incompatible provider
-     * @throws ClassCastException if the channel is of the wrong type
+     * @throws InterruptedException if the calling thread was interrupted while waiting
      */
-    void addChannel(C channel) throws IOException, IllegalArgumentException, ClassCastException;
+    void awaitTermination() throws InterruptedException;
+
+    /**
+     * Add a task to run upon termination of this thread.  If the thread is already terminated,
+     * the task will be called immediately from the calling thread.
+     *
+     * @param listener the termination task
+     */
+    void addTerminationListener(Listener listener);
+
+    /**
+     * Remove a termination listener.
+     *
+     * @param listener the listener to remove
+     */
+    void removeTerminationListener(Listener listener);
+
+    /**
+     * A listener for a channel thread.
+     */
+    interface Listener {
+
+        /**
+         * Handle the termination initiation of the given channel thread.  This method is called before termination
+         * begins, allowing users and thread pools to remove the thread as needed.
+         *
+         * @param thread the thread that is being terminated
+         */
+        void handleTerminationInitiated(ChannelThread thread);
+
+        /**
+         * Handle the termination completion of the given channel thread.  This method is called after the thread
+         * has finished all shutdown activities before the thread itself exits.
+         *
+         * @param thread the thread that was terminated
+         */
+        void handleTerminationComplete(ChannelThread thread);
+    }
 }

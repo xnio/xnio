@@ -24,24 +24,22 @@ package org.xnio;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.nio.channels.Selector;
 import java.nio.channels.Channel;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipFile;
+import org.jboss.logging.Logger;
+import org.xnio.channels.BoundChannel;
 
 import java.util.logging.Handler;
 
@@ -84,17 +82,9 @@ public final class IoUtils {
             return string;
         }
     };
-    private static final ChannelListener<Channel> NULL_LISTENER = new ChannelListener<Channel>() {
-        public void handleEvent(final Channel channel) {
-        }
-    };
     private static final Cancellable NULL_CANCELLABLE = new Cancellable() {
         public Cancellable cancel() {
             return this;
-        }
-    };
-    private static final ChannelListener.Setter<?> NULL_SETTER = new ChannelListener.Setter<Channel>() {
-        public void set(final ChannelListener<? super Channel> channelListener) {
         }
     };
     private static final IoUtils.ResultNotifier RESULT_NOTIFIER = new IoUtils.ResultNotifier();
@@ -120,38 +110,6 @@ public final class IoUtils {
     }
 
     /**
-     * Get a closeable executor wrapper for an {@code ExecutorService}.  The given timeout is used to determine how long
-     * the {@code close()} method will wait for a clean shutdown before the executor is shut down forcefully.
-     *
-     * @param executorService the executor service
-     * @param timeout the timeout
-     * @param unit the unit for the timeout
-     * @return a new closeable executor
-     */
-    public static CloseableExecutor closeableExecutor(final ExecutorService executorService, final long timeout, final TimeUnit unit) {
-        return new CloseableExecutor() {
-            public void close() throws IOException {
-                executorService.shutdown();
-                try {
-                    if (executorService.awaitTermination(timeout, unit)) {
-                        return;
-                    }
-                    executorService.shutdownNow();
-                    throw new IOException("Executor did not shut down cleanly (killed)");
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    executorService.shutdownNow();
-                    throw new InterruptedIOException("Interrupted while awaiting executor shutdown");
-                }
-            }
-
-            public void execute(final Runnable command) {
-                executorService.execute(command);
-            }
-        };
-    }
-
-    /**
      * Get the null closeable.  This is a simple {@code Closeable} instance that does nothing when its {@code close()}
      * method is invoked.
      *
@@ -174,7 +132,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -189,7 +147,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -204,7 +162,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -219,7 +177,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -234,7 +192,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -249,7 +207,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -264,7 +222,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.trace(t, "Closing resource failed");
+            closeLog.tracef(t, "Closing resource failed");
         }
     }
 
@@ -519,173 +477,6 @@ public final class IoUtils {
         }
     }
 
-    private static final Logger listenerLog = Logger.getLogger("org.xnio.channel-listener");
-
-    /**
-     * Invoke a channel listener on a given channel, logging any errors.
-     *
-     * @param channel the channel
-     * @param channelListener the channel listener
-     * @param <T> the channel type
-     * @return {@code true} if the listener completed successfully, or {@code false} if it failed
-     */
-    public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
-        if (channelListener != null) try {
-            listenerLog.trace("Invoking listener %s on channel %s", channelListener, channel);
-            channelListener.handleEvent(channel);
-        } catch (Throwable t) {
-            listenerLog.error(t, "A channel event listener threw an exception");
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Invoke a channel listener on a given channel, logging any errors, using the given executor.
-     *
-     * @param executor the executor
-     * @param channel the channel
-     * @param channelListener the channel listener
-     * @param <T> the channel type
-     */
-    public static <T extends Channel> void invokeChannelListener(Executor executor, T channel, ChannelListener<? super T> channelListener) {
-        try {
-            executor.execute(getChannelListenerTask(channel, channelListener));
-        } catch (RejectedExecutionException ree) {
-            invokeChannelListener(channel, channelListener);
-        }
-    }
-
-    /**
-     * Get a task which invokes the given channel listener on the given channel.
-     *
-     * @param channel the channel
-     * @param channelListener the channel listener
-     * @param <T> the channel type
-     * @return the runnable task
-     */
-    public static <T extends Channel> Runnable getChannelListenerTask(final T channel, final ChannelListener<? super T> channelListener) {
-        return new Runnable() {
-            public void run() {
-                invokeChannelListener(channel, channelListener);
-            }
-        };
-    }
-
-    private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
-        public void handleEvent(final Channel channel) {
-            IoUtils.safeClose(channel);
-        }
-    };
-
-    /**
-     * Get a channel listener which closes the channel when notified.
-     *
-     * @return the channel listener
-     */
-    public static ChannelListener<Channel> closingChannelListener() {
-        return CLOSING_CHANNEL_LISTENER;
-    }
-
-    /**
-     * Get a channel listener which does nothing.
-     *
-     * @return the null channel listener
-     */
-    public static ChannelListener<Channel> nullChannelListener() {
-        return NULL_LISTENER;
-    }
-
-    /**
-     * Get a setter based on an atomic reference field updater.  Used by channel implementations to avoid having to
-     * define an anonymous class for each listener field.
-     *
-     * @param channel the channel
-     * @param updater the updater
-     * @param <T> the channel type
-     * @param <C> the holding class
-     * @return the setter
-     */
-    public static <T extends Channel, C> ChannelListener.Setter<T> getSetter(final C channel, final AtomicReferenceFieldUpdater<C, ChannelListener> updater) {
-        return new ChannelListener.Setter<T>() {
-            public void set(final ChannelListener<? super T> channelListener) {
-                updater.set(channel, channelListener);
-            }
-        };
-    }
-
-    /**
-     * Get a setter based on an atomic reference.  Used by channel implementations to avoid having to
-     * define an anonymous class for each listener field.
-     *
-     * @param atomicReference the atomic reference
-     * @param <T> the channel type
-     * @return the setter
-     */
-    public static <T extends Channel> ChannelListener.Setter<T> getSetter(final AtomicReference<ChannelListener<? super T>> atomicReference) {
-        return new ChannelListener.Setter<T>() {
-            public void set(final ChannelListener<? super T> channelListener) {
-                atomicReference.set(channelListener);
-            }
-        };
-    }
-
-    /**
-     * Get a channel listener setter which delegates to the given target setter with a different channel type.
-     *
-     * @param target the target setter
-     * @param realChannel the channel to send in to the listener
-     * @param <T> the real channel type
-     * @return the delegating setter
-     */
-    public static <T extends Channel> ChannelListener.Setter<T> getDelegatingSetter(final ChannelListener.Setter<? extends Channel> target, final T realChannel) {
-        return target == null ? null : delegatingSetter(target, realChannel);
-    }
-
-    private static <T extends Channel, O extends Channel> DelegatingSetter<T, O> delegatingSetter(final ChannelListener.Setter<O> setter, final T realChannel) {
-        return new DelegatingSetter<T,O>(setter, realChannel);
-    }
-
-    private static class DelegatingSetter<T extends Channel, O extends Channel> implements ChannelListener.Setter<T> {
-        private final ChannelListener.Setter<O> setter;
-        private final T realChannel;
-
-        DelegatingSetter(final ChannelListener.Setter<O> setter, final T realChannel) {
-            this.setter = setter;
-            this.realChannel = realChannel;
-        }
-
-        public void set(final ChannelListener<? super T> channelListener) {
-            setter.set(channelListener == null ? null : new DelegatingChannelListener<T, O>(channelListener, realChannel));
-        }
-    }
-
-    private static class DelegatingChannelListener<T extends Channel, O extends Channel> implements ChannelListener<O> {
-
-        private final ChannelListener<? super T> channelListener;
-        private final T realChannel;
-
-        public DelegatingChannelListener(final ChannelListener<? super T> channelListener, final T realChannel) {
-            this.channelListener = channelListener;
-            this.realChannel = realChannel;
-        }
-
-        public void handleEvent(final Channel channel) {
-            channelListener.handleEvent(realChannel);
-        }
-    }
-
-    /**
-     * Get a channel listener setter which does nothing.
-     *
-     * @param <T> the channel type
-     * @return a setter which does nothing
-     */
-    @SuppressWarnings({ "unchecked" })
-    public static <T extends Channel> ChannelListener.Setter<T> nullSetter() {
-        return (ChannelListener.Setter<T>) NULL_SETTER;
-    }
-
     /**
      * Get a notifier which forwards the result to another {@code IoFuture}'s manager.
      *
@@ -810,28 +601,6 @@ public final class IoUtils {
         return NULL_CANCELLABLE;
     }
 
-    /**
-     * Get a channel listener which executes a delegate channel listener via an executor.  If an exception occurs
-     * submitting the task, the associated channel is closed.
-     *
-     * @param listener the listener to invoke
-     * @param executor the executor with which to invoke the listener
-     * @param <T> the channel type
-     * @return a delegating channel listener
-     */
-    public static <T extends Channel> ChannelListener<T> executorChannelListener(final ChannelListener<T> listener, final Executor executor) {
-        return new ChannelListener<T>() {
-            public void handleEvent(final T channel) {
-                try {
-                    executor.execute(getChannelListenerTask(channel, listener));
-                } catch (RejectedExecutionException e) {
-                    listenerLog.error("Failed to submit task to executor: %s (closing %s)", e, channel);
-                    safeClose(channel);
-                }
-            }
-        };
-    }
-
     private static class ResultNotifier<T> extends IoFuture.HandlingNotifier<T, Result<T>> {
 
         public void handleCancelled(final Result<T> result) {
@@ -845,5 +614,37 @@ public final class IoUtils {
         public void handleDone(final T value, final Result<T> result) {
             result.setResult(value);
         }
+    }
+
+    /**
+     * Create a channel source from a connector.
+     *
+     * @param connector the connector to use
+     * @param destination the destination to connect to
+     * @param <C> the channel type
+     * @return the channel source
+     */
+    public static <C extends Channel> ChannelSource<C> getChannelSource(final Connector<C> connector, final SocketAddress destination) {
+        return new ChannelSource<C>() {
+            public IoFuture<? extends C> open(final ChannelListener<? super C> openListener) {
+                return connector.connectTo(destination, openListener, null);
+            }
+        };
+    }
+
+    /**
+     * Create a channel destination from a acceptor.
+     *
+     * @param acceptor the acceptor to use
+     * @param destination the destination to accept on
+     * @param <C> the channel type
+     * @return the channel destination
+     */
+    public static <C extends Channel> ChannelDestination<C> getChannelDestination(final Acceptor<C> acceptor, final SocketAddress destination) {
+        return new ChannelDestination<C>() {
+            public IoFuture<? extends C> accept(final ChannelListener<? super C> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+                return acceptor.acceptTo(destination, openListener, bindListener);
+            }
+        };
     }
 }

@@ -22,21 +22,28 @@
 
 package org.xnio.nio;
 
-/**
- *
- */
-final class SynchronousHolder<T, E extends Throwable> {
+import java.nio.channels.ClosedChannelException;
+
+final class SynchronousHolder<T> {
     private T held;
-    private E problem;
+    private Throwable problem;
     private boolean set = false;
 
-    public T get() throws E {
+    public T get() throws ClosedChannelException {
         boolean intr = false;
         try {
             synchronized (this) {
                 for (;;) {
                     if (problem != null) {
-                        throw problem;
+                        try {
+                            throw problem;
+                        } catch (ClosedChannelException e) {
+                            throw e;
+                        } catch (RuntimeException e) {
+                            throw e;
+                        } catch (Throwable t) {
+                            throw new IllegalStateException(t);
+                        }
                     } else if (set) {
                         return held;
                     }
@@ -62,7 +69,14 @@ final class SynchronousHolder<T, E extends Throwable> {
         }
     }
 
-    public void setProblem(E problem) {
+    public void setProblem(ClosedChannelException problem) {
+        synchronized (this) {
+            this.problem = problem;
+            notify();
+        }
+    }
+
+    public void setProblem(RuntimeException problem) {
         synchronized (this) {
             this.problem = problem;
             notify();

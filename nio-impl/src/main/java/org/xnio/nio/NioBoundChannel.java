@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2008, JBoss Inc., and individual contributors as indicated
+ * Copyright 2011, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -23,59 +23,47 @@
 package org.xnio.nio;
 
 import java.io.IOException;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.Pipe;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import java.net.SocketAddress;
+import org.xnio.ChannelListener;
 import org.xnio.Option;
+import org.xnio.channels.BoundChannel;
 
-/**
- *
- */
-final class NioPipeSinkChannel extends AbstractNioStreamSinkChannel<NioPipeSinkChannel> {
+final class NioBoundChannel implements BoundChannel {
+    private final BoundChannel realBoundChannel;
 
-    private final Pipe.SinkChannel channel;
-    private final AtomicBoolean callFlag = new AtomicBoolean(false);
-
-    NioPipeSinkChannel(final NioXnio xnio, final Pipe.SinkChannel channel) {
-        super(xnio);
-        this.channel = channel;
+    NioBoundChannel(final BoundChannel realBoundChannel) {
+        this.realBoundChannel = realBoundChannel;
     }
 
-    protected GatheringByteChannel getWriteChannel() {
-        return channel;
+    public SocketAddress getLocalAddress() {
+        return realBoundChannel.getLocalAddress();
     }
 
-    public boolean isOpen() {
-        return channel.isOpen();
+    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+        return realBoundChannel.getLocalAddress(type);
+    }
+
+    public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
+        return realBoundChannel.getCloseSetter();
     }
 
     public void close() throws IOException {
-        if (! callFlag.getAndSet(true)) {
-            invokeCloseHandler();
-            channel.close();
-        }
+        realBoundChannel.close();
     }
 
-    public boolean shutdownWrites() throws IOException {
-        close();
-        return true;
+    public boolean isOpen() {
+        return realBoundChannel.isOpen();
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return false;
+        return realBoundChannel.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
+        return realBoundChannel.getOption(option);
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("pipe sink channel (NIO) <%s>", Integer.toString(hashCode(), 16));
+        return realBoundChannel.setOption(option, value);
     }
 }

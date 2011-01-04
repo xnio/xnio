@@ -22,26 +22,25 @@
 
 package org.xnio.nio;
 
+import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.xnio.ChannelListeners;
 
-/**
- *
- */
-final class NioHandle {
+final class NioHandle<C extends Channel> {
     private final SelectionKey selectionKey;
     private final NioSelectorRunnable selectorRunnable;
-    private final Runnable handler;
-    private final Executor handlerExecutor;
-    private final boolean oneshot;
+    private final NioSetter<C> handlerSetter;
+    private final boolean oneShot;
+    private final C channel;
 
-    NioHandle(final SelectionKey selectionKey, final NioSelectorRunnable selectorRunnable, final Runnable handler, final Executor handlerExecutor, final boolean oneshot) {
+    NioHandle(final SelectionKey selectionKey, final NioSelectorRunnable selectorRunnable, final NioSetter<C> handlerSetter, final boolean oneShot, final C channel) {
         this.selectionKey = selectionKey;
         this.selectorRunnable = selectorRunnable;
-        this.handler = handler;
-        this.handlerExecutor = handlerExecutor;
-        this.oneshot = oneshot;
+        this.handlerSetter = handlerSetter;
+        this.oneShot = oneShot;
+        this.channel = channel;
     }
 
     SelectionKey getSelectionKey() {
@@ -52,20 +51,37 @@ final class NioHandle {
         return selectorRunnable;
     }
 
-    Runnable getHandler() {
-        return handler;
-    }
-
-    Executor getHandlerExecutor() {
-        return handlerExecutor;
+    NioSetter<C> getHandlerSetter() {
+        return handlerSetter;
     }
 
     void cancelKey() {
+        final AtomicBoolean lock = new AtomicBoolean();
         selectorRunnable.runTask(new SelectorTask() {
             public void run(final Selector selector) {
                 selectionKey.cancel();
+                synchronized (lock) {
+                    lock.set(true);
+                    lock.notifyAll();
+                }
             }
         });
+        boolean intr = false;
+        try {
+            synchronized (lock) {
+                while (! lock.get()) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        intr = true;
+                    }
+                }
+            }
+        } finally {
+            if (intr) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     void resume(final int op) {
@@ -78,7 +94,15 @@ final class NioHandle {
         selectorRunnable.wakeup();
     }
 
-    boolean isOneshot() {
-        return oneshot;
+    boolean isOneShot() {
+        return oneShot;
+    }
+
+    C getChannel() {
+        return channel;
+    }
+
+    void invoke() {
+        ChannelListeners.invokeChannelListener(channel, handlerSetter.get());
     }
 }

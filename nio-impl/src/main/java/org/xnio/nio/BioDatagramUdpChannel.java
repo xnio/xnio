@@ -27,25 +27,25 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.Selector;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import org.jboss.logging.Logger;
+import org.xnio.Buffers;
+import org.xnio.ChannelListeners;
 import org.xnio.Option;
-import org.xnio.ChannelListener;
-import org.xnio.IoUtils;
 import org.xnio.Options;
-import org.xnio.channels.Configurable;
+import org.xnio.ReadChannelThread;
+import org.xnio.WriteChannelThread;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
-import org.xnio.log.Logger;
 
 /**
  *
@@ -58,23 +58,17 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     private final ByteBuffer receiveBuffer;
     private final DatagramPacket sendPacket;
     private final ByteBuffer sendBuffer;
-    private final Executor handlerExecutor;
-    private final Runnable readHandlerTask = new ReadHandlerTask();
-    private final Runnable writeHandlerTask = new WriteHandlerTask();
     private final ReaderTask readerTask = new ReaderTask();
     private final WriterTask writerTask = new WriterTask();
+    private final ReadHandlerTask readHandlerTask = new ReadHandlerTask();
+    private final WriteHandlerTask writeHandlerTask = new WriteHandlerTask();
 
-    private volatile ChannelListener<? super MulticastMessageChannel> readListener = null;
-    private volatile ChannelListener<? super MulticastMessageChannel> writeListener = null;
-    private volatile ChannelListener<? super MulticastMessageChannel> closeListener = null;
+    private final NioSetter<BioDatagramUdpChannel> readSetter = new NioSetter<BioDatagramUdpChannel>();
+    private final NioSetter<BioDatagramUdpChannel> writeSetter = new NioSetter<BioDatagramUdpChannel>();
+    private final NioSetter<BioDatagramUdpChannel> closeSetter = new NioSetter<BioDatagramUdpChannel>();
 
-    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "readListener");
-    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "writeListener");
-    private static final AtomicReferenceFieldUpdater<BioDatagramUdpChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(BioDatagramUdpChannel.class, ChannelListener.class, "closeListener");
-
-    private final ChannelListener.Setter<MulticastMessageChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
-    private final ChannelListener.Setter<MulticastMessageChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
-    private final ChannelListener.Setter<MulticastMessageChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+    private volatile NioReadChannelThread readThread;
+    private volatile NioWriteChannelThread writeThread;
 
     private final Object readLock = new Object();
     private final Object writeLock = new Object();
@@ -91,22 +85,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     private IOException readException;
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final AtomicLong globalBytesRead;
-    private final AtomicLong globalBytesWritten;
-    private final AtomicLong globalMessagesRead;
-    private final AtomicLong globalMessagesWritten;
-    final AtomicLong bytesRead = new AtomicLong();
-    final AtomicLong bytesWritten = new AtomicLong();
-    final AtomicLong messagesRead = new AtomicLong();
-    final AtomicLong messagesWritten = new AtomicLong();
 
-    BioDatagramUdpChannel(int sendBufSize, int recvBufSize, final Executor handlerExecutor, final DatagramSocket datagramSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
+    BioDatagramUdpChannel(int sendBufSize, int recvBufSize, final DatagramSocket datagramSocket) {
         this.datagramSocket = datagramSocket;
-        this.handlerExecutor = handlerExecutor;
-        this.globalBytesRead = globalBytesRead;
-        this.globalBytesWritten = globalBytesWritten;
-        this.globalMessagesRead = globalMessagesRead;
-        this.globalMessagesWritten = globalMessagesWritten;
         if (sendBufSize == -1) {
             sendBufSize = 4096;
         } else if (sendBufSize < 0) {
@@ -123,7 +104,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         receiveBuffer = ByteBuffer.wrap(recvBufferBytes);
         sendPacket = new DatagramPacket(sendBufferBytes, sendBufSize);
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
-        log.trace("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
+        log.tracef("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
     }
 
     protected void open() {
@@ -146,18 +127,18 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 readerTask.cancel();
             }
         }
-        log.trace("Channel %s opened", this);
+        log.tracef("Channel %s opened", this);
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getReadSetter() {
+    public NioSetter<BioDatagramUdpChannel> getReadSetter() {
         return readSetter;
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getWriteSetter() {
+    public NioSetter<BioDatagramUdpChannel> getWriteSetter() {
         return writeSetter;
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getCloseSetter() {
+    public NioSetter<BioDatagramUdpChannel> getCloseSetter() {
         return closeSetter;
     }
 
@@ -165,14 +146,19 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         return true;
     }
 
-    public InetSocketAddress getLocalAddress() {
-        return (InetSocketAddress) datagramSocket.getLocalSocketAddress();
+    public SocketAddress getLocalAddress() {
+        return datagramSocket.getLocalSocketAddress();
     }
 
-    public MultipointReadResult<InetSocketAddress> receive(final ByteBuffer buffer) throws IOException {
+    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+        final SocketAddress address = getLocalAddress();
+        return type.isInstance(address) ? type.cast(address) : null;
+    }
+
+    public int receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer buffer) throws IOException {
         synchronized (readLock) {
             if (!readable) {
-                return null;
+                return 0;
             }
             readable = false;
             if (readException != null) {
@@ -187,20 +173,43 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
             receiveBuffer.limit(size);
             buffer.put(receiveBuffer);
             readLock.notify();
-            final InetSocketAddress socketAddress = (InetSocketAddress) receivePacket.getSocketAddress();
-            bytesRead.addAndGet(size);
-            globalBytesRead.addAndGet(size);
-            messagesRead.incrementAndGet();
-            globalMessagesRead.incrementAndGet();
-            return new MultipointReadResult<InetSocketAddress>() {
-                public InetSocketAddress getSourceAddress() {
-                    return socketAddress;
-                }
+            final SocketAddress socketAddress = receivePacket.getSocketAddress();
+            if (addressBuffer != null) {
+                addressBuffer.setSourceAddress(socketAddress);
+                addressBuffer.setDestinationAddress(null);
+            }
+            return size;
+        }
+    }
 
-                public InetSocketAddress getDestinationAddress() {
-                    return null;
+    public long receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer[] buffers) throws IOException {
+        return receiveFrom(addressBuffer, buffers, 0, buffers.length);
+    }
+
+    public long receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
+        synchronized (readLock) {
+            if (!readable) {
+                return 0;
+            }
+            readable = false;
+            if (readException != null) {
+                try {
+                    readException.setStackTrace(new Throwable().getStackTrace());
+                    throw readException;
+                } finally {
+                    readException = null;
                 }
-            };
+            }
+            final int size = (int) Math.min(Buffers.remaining(buffers, offs, len), (long) receiveBuffer.remaining());
+            receiveBuffer.limit(size);
+            Buffers.copy(buffers, offs, len, receiveBuffer);
+            readLock.notify();
+            final SocketAddress socketAddress = receivePacket.getSocketAddress();
+            if (addressBuffer != null) {
+                addressBuffer.setSourceAddress(socketAddress);
+                addressBuffer.setDestinationAddress(null);
+            }
+            return size;
         }
     }
 
@@ -219,12 +228,12 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
             try {
                 readerTask.cancel();
             } catch (Throwable t) {
-                log.trace(t, "Reader task cancel failed");
+                log.tracef(t, "Reader task cancel failed");
             }
             try {
                 writerTask.cancel();
             } catch (Throwable t) {
-                log.trace(t, "Writer task cancel failed");
+                log.tracef(t, "Writer task cancel failed");
             }
             synchronized (writeLock) {
                 writable = false;
@@ -233,12 +242,12 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 readable = false;
             }
             datagramSocket.close();
-            IoUtils.<MulticastMessageChannel>invokeChannelListener(this, closeListener);
-            log.trace("Closing channel %s", this);
+            ChannelListeners.invokeChannelListener(this, getCloseSetter().get());
+            log.tracef("Closing channel %s", this);
         }
     }
 
-    public boolean send(final InetSocketAddress target, final ByteBuffer buffer) throws IOException {
+    public boolean sendTo(final SocketAddress target, final ByteBuffer buffer) throws IOException {
         synchronized (writeLock) {
             if (! writable) {
                 return false;
@@ -247,11 +256,6 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
             if (sendBuffer.remaining() < buffer.remaining()) {
                 throw new IOException("Insufficient room in send buffer (send will never succeed); send buffer is " + sendBuffer.remaining() + " bytes, but transmitted datagram is " + buffer.remaining() + " bytes");
             }
-            final int cnt = buffer.remaining();
-            bytesWritten.addAndGet(cnt);
-            globalBytesWritten.addAndGet(cnt);
-            messagesWritten.incrementAndGet();
-            globalMessagesWritten.incrementAndGet();
             sendBuffer.put(buffer);
             sendPacket.setSocketAddress(target);
             sendPacket.setData(sendBuffer.array(), sendBuffer.arrayOffset(), sendBuffer.position());
@@ -261,11 +265,11 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
-    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts) throws IOException {
-        return send(target, dsts, 0, dsts.length);
+    public boolean sendTo(final SocketAddress target, final ByteBuffer[] dsts) throws IOException {
+        return sendTo(target, dsts, 0, dsts.length);
     }
 
-    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+    public boolean sendTo(final SocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         synchronized (writeLock) {
             if (! writable) {
                 return false;
@@ -305,7 +309,11 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         synchronized (readLock) {
             enableRead = true;
             if (readable) {
-                handlerExecutor.execute(readHandlerTask);
+                final NioReadChannelThread readThread = this.readThread;
+                if (readThread == null) {
+                    throw new IllegalStateException("No read thread");
+                }
+                readThread.runTask(readHandlerTask);
             }
         }
     }
@@ -314,7 +322,11 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         synchronized (writeLock) {
             enableWrite = true;
             if (writable) {
-                handlerExecutor.execute(writeHandlerTask);
+                final NioWriteChannelThread writeThread = this.writeThread;
+                if (writeThread == null) {
+                    throw new IllegalStateException("No write thread");
+                }
+                writeThread.runTask(writeHandlerTask);
             }
         }
     }
@@ -325,6 +337,14 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     public boolean shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
+    }
+
+    public void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
+        readThread = (NioReadChannelThread) thread;
+    }
+
+    public void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
+        writeThread = (NioWriteChannelThread) thread;
     }
 
     public void awaitReadable() throws IOException {
@@ -396,25 +416,29 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         return OPTIONS.contains(option);
     }
 
-    @SuppressWarnings({"unchecked"})
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
         if (Options.BROADCAST.equals(option)) {
-            return (T) Boolean.valueOf(datagramSocket.getBroadcast());
+            return option.cast(Boolean.valueOf(datagramSocket.getBroadcast()));
         } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
             final int v = datagramSocket.getTrafficClass();
-            return v == -1 ? null : (T) Integer.valueOf(v);
+            return v == -1 ? null : option.cast(Integer.valueOf(v));
         } else {
             return null;
         }
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        final Object old;
         if (Options.BROADCAST.equals(option)) {
+            old = Boolean.valueOf(datagramSocket.getBroadcast());
             datagramSocket.setBroadcast(Options.BROADCAST.cast(value).booleanValue());
         } else if (Options.IP_TRAFFIC_CLASS.equals(option)) {
+            old = Integer.valueOf(datagramSocket.getTrafficClass());
             datagramSocket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value).intValue());
+        } else {
+            return null;
         }
-        return this;
+        return option.cast(old);
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {
@@ -449,7 +473,8 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             readException = e;
                             readable = true;
                             if (enableRead) {
-                                handlerExecutor.execute(readHandlerTask);
+                                final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
+                                if (readThread != null) readThread.runTask(readHandlerTask);
                             }
                             continue;
                         }
@@ -459,7 +484,8 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         receiveBuffer.position(0);
                         readable = true;
                         if (enableRead) {
-                            handlerExecutor.execute(readHandlerTask);
+                            final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
+                            if (readThread != null) readThread.runTask(readHandlerTask);
                         }
                     }
                 }
@@ -488,7 +514,8 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         while (writable) {
                             if (enableWrite) {
                                 enableWrite = false;
-                                handlerExecutor.execute(writeHandlerTask);
+                                final NioWriteChannelThread writeThread = BioDatagramUdpChannel.this.writeThread;
+                                if (writeThread != null) writeThread.runTask(writeHandlerTask);
                             }
                             if (writable) try {
                                 writeLock.wait();
@@ -516,15 +543,15 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
-    private final class ReadHandlerTask implements Runnable {
-        public void run() {
-            IoUtils.<MulticastMessageChannel>invokeChannelListener(BioDatagramUdpChannel.this, readListener);
+    private final class ReadHandlerTask implements SelectorTask {
+        public void run(final Selector selector) {
+            ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getReadSetter().get());
         }
     }
 
-    private final class WriteHandlerTask implements Runnable {
-        public void run() {
-            IoUtils.<MulticastMessageChannel>invokeChannelListener(BioDatagramUdpChannel.this, writeListener);
+    private final class WriteHandlerTask implements SelectorTask {
+        public void run(final Selector selector) {
+            ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getWriteSetter().get());
         }
     }
 }

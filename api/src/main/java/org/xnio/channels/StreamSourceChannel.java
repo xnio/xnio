@@ -34,7 +34,7 @@ import org.xnio.ChannelListener;
 public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByteChannel, SuspendableReadChannel {
 
     /**
-     * Transfers bytes into the given file from this channel.  Using this method in preference to {@link java.nio.channels.FileChannel#transferFrom(java.nio.channels.ReadableByteChannel, long, long)}
+     * Transfers bytes into the given file from this channel.  Using this method in preference to {@link FileChannel#transferFrom(ReadableByteChannel, long, long)}
      * may provide a performance advantage on some platforms.
      *
      * @param position the position within the file from which the transfer is to begin

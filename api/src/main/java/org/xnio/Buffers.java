@@ -22,6 +22,8 @@
 
 package org.xnio;
 
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.nio.Buffer;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -46,7 +48,7 @@ public final class Buffers {
     /**
      * Flip a buffer.
      *
-     * @see java.nio.Buffer#flip()
+     * @see Buffer#flip()
      * @param <T> the buffer type
      * @param buffer the buffer to flip
      * @return the buffer instance
@@ -59,7 +61,7 @@ public final class Buffers {
     /**
      * Clear a buffer.
      *
-     * @see java.nio.Buffer#clear()
+     * @see Buffer#clear()
      * @param <T> the buffer type
      * @param buffer the buffer to clear
      * @return the buffer instance
@@ -72,7 +74,7 @@ public final class Buffers {
     /**
      * Set the buffer limit.
      *
-     * @see java.nio.Buffer#limit(int)
+     * @see Buffer#limit(int)
      * @param <T> the buffer type
      * @param buffer the buffer to set
      * @param limit the new limit
@@ -86,7 +88,7 @@ public final class Buffers {
     /**
      * Set the buffer mark.
      *
-     * @see java.nio.Buffer#mark()
+     * @see Buffer#mark()
      * @param <T> the buffer type
      * @param buffer the buffer to mark
      * @return the buffer instance
@@ -113,7 +115,7 @@ public final class Buffers {
     /**
      * Reset the buffer.
      *
-     * @see java.nio.Buffer#reset()
+     * @see Buffer#reset()
      * @param <T> the buffer type
      * @param buffer the buffer to reset
      * @return the buffer instance
@@ -126,7 +128,7 @@ public final class Buffers {
     /**
      * Rewind the buffer.
      *
-     * @see java.nio.Buffer#rewind()
+     * @see Buffer#rewind()
      * @param <T> the buffer type
      * @param buffer the buffer to rewind
      * @return the buffer instance
@@ -139,7 +141,7 @@ public final class Buffers {
     /**
      * Slice the buffer.  The original buffer's position will be moved up past the slice that was taken.
      *
-     * @see java.nio.ByteBuffer#slice()
+     * @see ByteBuffer#slice()
      * @param buffer the buffer to slice
      * @param sliceSize the size of the slice
      * @return the buffer slice
@@ -172,6 +174,160 @@ public final class Buffers {
     }
 
     /**
+     * Copy a portion of the buffer into a newly allocated buffer.  The original buffer's position will be moved up past the copy that was taken.
+     *
+     * @param buffer the buffer to slice
+     * @param sliceSize the size of the copy
+     * @param allocator the buffer allocator to use
+     * @return the buffer slice
+     */
+    public static ByteBuffer copy(ByteBuffer buffer, int sliceSize, BufferAllocator<ByteBuffer> allocator) {
+        if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
+            throw new BufferUnderflowException();
+        }
+        final int oldPos = buffer.position();
+        final int oldLim = buffer.limit();
+        if (sliceSize < 0) {
+            // count from end (sliceSize is NEGATIVE)
+            final ByteBuffer target = allocator.allocate(-sliceSize);
+            buffer.limit(oldLim + sliceSize);
+            try {
+                target.put(buffer);
+                return target;
+            } finally {
+                buffer.limit(oldLim);
+                buffer.position(oldLim + sliceSize);
+            }
+        } else {
+            // count from start
+            final ByteBuffer target = allocator.allocate(sliceSize);
+            buffer.limit(oldPos + sliceSize);
+            try {
+                target.put(buffer);
+                return target;
+            } finally {
+                buffer.limit(oldLim);
+                buffer.position(oldPos + sliceSize);
+            }
+        }
+    }
+
+    /**
+     * Copy as many bytes as possible from {@code source} into {@code destination}.
+     *
+     * @param destination the destination buffer
+     * @param source the source buffer
+     * @return the number of bytes put into the destination buffer
+     */
+    public static int copy(final ByteBuffer destination, final ByteBuffer source) {
+        final int sr = source.remaining();
+        final int dr = destination.remaining();
+        if (dr > sr) {
+            destination.put(source);
+            return sr;
+        } else {
+            destination.put(slice(source, dr));
+            return dr;
+        }
+    }
+
+    /**
+     * Copy as many bytes as possible from {@code sources} into {@code destinations} in a "scatter" fashion.
+     *
+     * @param destinations the destination buffers
+     * @param offset the offset into the destination buffers array
+     * @param length the number of buffers to update
+     * @param source the source buffer
+     * @return the number of bytes put into the destination buffers
+     */
+    public static long copy(final ByteBuffer[] destinations, final int offset, final int length, final ByteBuffer source) {
+        long t = 0L;
+        for (int i = 0; i < length; i ++) {
+            final ByteBuffer buffer = destinations[i + offset];
+            final int rem = buffer.remaining();
+            if (rem == 0) {
+                continue;
+            } else if (rem < source.remaining()) {
+                buffer.put(slice(source, rem));
+                t += rem;
+            } else {
+                buffer.put(source);
+                t += rem;
+                return t;
+            }
+        }
+        return t;
+    }
+
+    /**
+     * Copy as many bytes as possible from {@code sources} into {@code destination} in a "gather" fashion.
+     *
+     * @param destination the destination buffer
+     * @param sources the source buffers
+     * @param offset the offset into the source buffers array
+     * @param length the number of buffers to read from
+     * @return the number of bytes put into the destination buffers
+     */
+    public static long copy(final ByteBuffer destination, final ByteBuffer[] sources, final int offset, final int length) {
+        long t = 0L;
+        for (int i = 0; i < length; i ++) {
+            final ByteBuffer buffer = sources[i + offset];
+            final int rem = buffer.remaining();
+            if (rem == 0) {
+                continue;
+            } else if (rem > destination.remaining()) {
+                destination.put(slice(buffer, rem));
+                t += rem;
+                return t;
+            } else {
+                destination.put(buffer);
+                t += rem;
+            }
+        }
+        return t;
+    }
+
+    /**
+     * Copy as many bytes as possible from {@code sources} into {@code destinations} by a combined "scatter"/"gather" operation.
+     *
+     * @param destinations the destination buffers
+     * @param destOffset the offset into the destination buffers array
+     * @param destLength the number of buffers to write to
+     * @param sources the source buffers
+     * @param srcOffset the offset into the source buffers array
+     * @param srcLength the number of buffers to read from
+     * @return the number of bytes put into the destination buffers
+     */
+    public static long copy(final ByteBuffer[] destinations, final int destOffset, final int destLength, final ByteBuffer[] sources, final int srcOffset, final int srcLength) {
+        long t = 0L;
+        int s = 0, d = 0;
+        if (destLength == 0 || srcLength == 0) {
+            return 0L;
+        }
+        ByteBuffer source = sources[srcOffset];
+        ByteBuffer dest = destinations[destOffset];
+        while (s < srcLength && d < destLength) {
+            final int sr = source.remaining();
+            final int dr = dest.remaining();
+            if (sr < dr) {
+                dest.put(source);
+                source = sources[srcOffset + ++s];
+                t += sr;
+            } else if (sr > dr) {
+                dest.put(slice(source, dr));
+                dest = destinations[destOffset + ++d];
+                t += dr;
+            } else {
+                dest.put(source);
+                source = sources[srcOffset + ++s];
+                dest = destinations[destOffset + ++d];
+                t += sr;
+            }
+        }
+        return t;
+    }
+
+    /**
      * Fill a buffer with a repeated value.
      *
      * @param buffer the buffer to fill
@@ -198,7 +354,7 @@ public final class Buffers {
     /**
      * Slice the buffer.  The original buffer's position will be moved up past the slice that was taken.
      *
-     * @see java.nio.CharBuffer#slice()
+     * @see CharBuffer#slice()
      * @param buffer the buffer to slice
      * @param sliceSize the size of the slice
      * @return the buffer slice
@@ -257,7 +413,7 @@ public final class Buffers {
     /**
      * Slice the buffer.  The original buffer's position will be moved up past the slice that was taken.
      *
-     * @see java.nio.ShortBuffer#slice()
+     * @see ShortBuffer#slice()
      * @param buffer the buffer to slice
      * @param sliceSize the size of the slice
      * @return the buffer slice
@@ -316,7 +472,7 @@ public final class Buffers {
     /**
      * Slice the buffer.  The original buffer's position will be moved up past the slice that was taken.
      *
-     * @see java.nio.IntBuffer#slice()
+     * @see IntBuffer#slice()
      * @param buffer the buffer to slice
      * @param sliceSize the size of the slice
      * @return the buffer slice
@@ -375,7 +531,7 @@ public final class Buffers {
     /**
      * Slice the buffer.  The original buffer's position will be moved up past the slice that was taken.
      *
-     * @see java.nio.LongBuffer#slice()
+     * @see LongBuffer#slice()
      * @param buffer the buffer to slice
      * @param sliceSize the size of the slice
      * @return the buffer slice
@@ -437,7 +593,7 @@ public final class Buffers {
      * @see Buffer#position(int)
      * @param <T> the buffer type
      * @param buffer the buffer to set
-     * @param cnt the distantce to skip
+     * @param cnt the distance to skip
      * @return the buffer instance
      */
     public static <T extends Buffer> T skip(T buffer, int cnt) {
@@ -457,7 +613,7 @@ public final class Buffers {
      * @see Buffer#position(int)
      * @param <T> the buffer type
      * @param buffer the buffer to set
-     * @param cnt the distantce to skip backwards
+     * @param cnt the distance to skip backwards
      * @return the buffer instance
      */
     public static <T extends Buffer> T unget(T buffer, int cnt) {
@@ -819,40 +975,13 @@ public final class Buffers {
     }
 
     /**
-     * Put as many bytes as possible from {@code src} into the byte buffers in a scatter fashion.
-     *
-     * @param dsts the destination buffers
-     * @param doffs the offset into the destination buffers array
-     * @param dlen the number of buffers to update
-     * @param src the source buffer
-     */
-    public static long put(final ByteBuffer[] dsts, final int doffs, final int dlen, final ByteBuffer src) {
-        long t = 0L;
-        for (int i = 0; i < dlen; i ++) {
-            final ByteBuffer buffer = dsts[i + doffs];
-            final int dr = buffer.remaining();
-            if (dr == 0) {
-                continue;
-            } else if (dr < src.remaining()) {
-                buffer.put(slice(src, dr));
-                t += dr;
-            } else {
-                buffer.put(src);
-                t += dr;
-                return t;
-            }
-        }
-        return t;
-    }
-
-    /**
      * Put the string into the byte buffer, encoding it using "modified UTF-8" encoding.
      *
      * @param dest the byte buffer
      * @param orig the source bytes
      * @return the byte buffer
      * @throws BufferOverflowException if there is not enough space in the buffer for the complete string
-     * @see java.io.DataOutput#writeUTF(String)
+     * @see DataOutput#writeUTF(String)
      */
     public static ByteBuffer putModifiedUtf8(ByteBuffer dest, String orig) throws BufferOverflowException {
         final char[] chars = orig.toCharArray();
@@ -1175,7 +1304,7 @@ public final class Buffers {
     }
 
     /**
-     * Read a {@code NUL}-terminated {@link java.io.DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
+     * Read a {@code NUL}-terminated {@link DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
      * builder.  If no {@code NUL} byte is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte sequence is read, the character {@code '?'} is written
@@ -1190,7 +1319,7 @@ public final class Buffers {
     }
 
     /**
-     * Read a {@code NUL}-terminated {@link java.io.DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
+     * Read a {@code NUL}-terminated {@link DataInput modified UTF-8} string from a byte buffer, appending the results to the given string
      * builder.  If no {@code NUL} byte is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte sequence is read, the character designated by {@code replacement} is written
@@ -1198,6 +1327,7 @@ public final class Buffers {
      *
      * @param src the source buffer
      * @param builder the destination builder
+     * @param replacement the replacement character to use
      * @return {@code true} if the entire string was read, {@code false} if more data is needed
      */
     public static boolean readModifiedUtf8Z(final ByteBuffer src, final StringBuilder builder, final char replacement) {
@@ -1251,7 +1381,7 @@ public final class Buffers {
     }
 
     /**
-     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * Read a single line of {@link DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character {@code '?'} is written
@@ -1266,7 +1396,7 @@ public final class Buffers {
     }
 
     /**
-     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * Read a single line of {@link DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written
@@ -1282,7 +1412,7 @@ public final class Buffers {
     }
 
     /**
-     * Read a single line of {@link java.io.DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
+     * Read a single line of {@link DataInput modified UTF-8} text from a byte buffer, appending the results to the given string
      * builder.  If no {@code EOL} character is encountered, {@code false} is returned, indicating that more data needs
      * to be acquired before the operation can be complete.  On return, there may be data remaining
      * in the source buffer.  If an invalid byte is read, the character designated by {@code replacement} is written

@@ -56,9 +56,9 @@ public interface Configurable {
      * @param <T> the type of the option value
      * @param option the option to set
      * @param value the value of the option to set
-     * @return this channel
+     * @return the previous option value, if any
      * @throws IllegalArgumentException if the value is not acceptable for this option
      * @throws IOException if an I/O error occurred when modifying the option
      */
-    <T> Configurable setOption(Option<T> option, T value) throws IllegalArgumentException, IOException;
+    <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException;
 }

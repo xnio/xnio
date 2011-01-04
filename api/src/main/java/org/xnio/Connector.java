@@ -42,12 +42,4 @@ public interface Connector<T extends Channel> {
      * @return the future result of this operation
      */
     IoFuture<? extends T> connectTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
-
-    /**
-     * Create a client that always connects to the given destination.
-     *
-     * @param destination the destination to connect to
-     * @return the client
-     */
-    ChannelSource<T> createChannelSource(SocketAddress destination);
 }

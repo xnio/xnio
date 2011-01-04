@@ -22,7 +22,6 @@
 
 package org.xnio;
 
-import java.io.IOException;
 import org.xnio.channels.SuspendableAcceptChannel;
 
 /**
@@ -30,8 +29,5 @@ import org.xnio.channels.SuspendableAcceptChannel;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface ConnectionChannelThread extends ChannelThread<SuspendableAcceptChannel> {
-
-    /** {@inheritDoc} */
-    void addChannel(SuspendableAcceptChannel channel) throws IOException, IllegalArgumentException, ClassCastException;
+public interface ConnectionChannelThread extends ChannelThread {
 }

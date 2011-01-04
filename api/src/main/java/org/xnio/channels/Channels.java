@@ -22,6 +22,8 @@
 
 package org.xnio.channels;
 
+import java.io.InterruptedIOException;
+import java.nio.channels.FileChannel;
 import org.xnio.Buffers;
 
 import java.io.IOException;
@@ -31,6 +33,8 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
+import org.xnio.ReadChannelThread;
+import org.xnio.WriteChannelThread;
 
 /**
  * A utility class containing static methods to support channel usage.
@@ -452,15 +456,17 @@ public final class Channels {
      * an accept is possible, and then returns the accepted connection.
      *
      * @param channel the accepting channel
+     * @param readThread the initial read thread to use for the new connection, or {@code null} for none
+     * @param writeThread the initial write thread to use for the new connection, or {@code null} for none
      * @param <C> the connection channel type
      * @param <A> the accepting channel type
      * @return the accepted channel
      * @throws IOException if an I/O error occurs
      * @since 3.0
      */
-    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel) throws IOException {
+    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, ReadChannelThread readThread, WriteChannelThread writeThread) throws IOException {
         C accepted;
-        while ((accepted = channel.accept()) == null) {
+        while ((accepted = channel.accept(readThread, writeThread)) == null) {
             channel.awaitAcceptable();
         }
         return accepted;
@@ -471,6 +477,8 @@ public final class Channels {
      * an accept is possible, and then returns the accepted connection.
      *
      * @param channel the accepting channel
+     * @param readThread the initial read thread to use for the new connection, or {@code null} for none
+     * @param writeThread the initial write thread to use for the new connection, or {@code null} for none
      * @param time the amount of time to wait
      * @param unit the unit of time to wait
      * @param <C> the connection channel type
@@ -479,13 +487,73 @@ public final class Channels {
      * @throws IOException if an I/O error occurs
      * @since 3.0
      */
-    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, long time, TimeUnit unit) throws IOException {
-        final C accepted = channel.accept();
+    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, ReadChannelThread readThread, WriteChannelThread writeThread, long time, TimeUnit unit) throws IOException {
+        final C accepted = channel.accept(readThread, writeThread);
         if (accepted == null) {
             channel.awaitAcceptable(time, unit);
-            return channel.accept();
+            return channel.accept(readThread, writeThread);
         } else {
             return accepted;
+        }
+    }
+
+    /**
+     * Transfer bytes between two channels efficiently, blocking if necessary.
+     *
+     * @param destination the destination channel
+     * @param source the source file channel
+     * @param startPosition the start position in the source file
+     * @param count the number of bytes to transfer
+     * @throws IOException if an I/O error occurs
+     */
+    public static void transferBlocking(StreamSinkChannel destination, FileChannel source, long startPosition, final long count) throws IOException {
+        long remaining = count;
+        long res;
+        while (remaining > 0L) {
+            while ((res = destination.transferFrom(source, startPosition, remaining)) == 0L) {
+                try {
+                    destination.awaitWritable();
+                } catch (InterruptedIOException e) {
+                    final long bytes = count - remaining;
+                    if (bytes > (long) Integer.MAX_VALUE) {
+                        e.bytesTransferred = -1;
+                    } else {
+                        e.bytesTransferred = (int) bytes;
+                    }
+                }
+            }
+            remaining -= res;
+            startPosition += res;
+        }
+    }
+
+    /**
+     * Transfer bytes between two channels efficiently, blocking if necessary.
+     *
+     * @param destination the destination file channel
+     * @param source the source channel
+     * @param startPosition the start position in the destination file
+     * @param count the number of bytes to transfer
+     * @throws IOException if an I/O error occurs
+     */
+    public static void transferBlocking(FileChannel destination, StreamSourceChannel source, long startPosition, final long count) throws IOException {
+        long remaining = count;
+        long res;
+        while (remaining > 0L) {
+            while ((res = source.transferTo(startPosition, remaining, destination)) == 0L) {
+                try {
+                    source.awaitReadable();
+                } catch (InterruptedIOException e) {
+                    final long bytes = count - remaining;
+                    if (bytes > (long) Integer.MAX_VALUE) {
+                        e.bytesTransferred = -1;
+                    } else {
+                        e.bytesTransferred = (int) bytes;
+                    }
+                }
+            }
+            remaining -= res;
+            startPosition += res;
         }
     }
 }

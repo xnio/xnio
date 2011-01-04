@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
+import org.jboss.logging.Logger;
 
 /**
  * An abstract base class for {@code IoFuture} objects.  Used to easily produce implementations.
@@ -202,7 +203,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                 try {
                     notifier.notify(AbstractIoFuture.this, attachment);
                 } catch (Throwable t) {
-                    log.warn(t, "Running notifier failed");
+                    log.warnf(t, "Running notifier failed");
                 }
             }
         };
@@ -290,7 +291,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
     }
 
     /**
-     * Cancel an operation.  The actual cancel may be synchronous or asynchronous.  Implementors will use this method
+     * Cancel an operation.  The actual cancel may be synchronous or asynchronous.  Implementers will use this method
      * to initiate the cancel; use the {@link #setCancelled()} method to indicate that the cancel was successful.  The
      * default implementation calls any registered cancel handlers.
      *

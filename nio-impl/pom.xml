@@ -39,6 +39,10 @@
         <version>6-beta-1</version>
     </parent>
     
+    <properties>
+        <test.level>INFO</test.level>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.jboss.logging</groupId>
@@ -59,9 +63,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.xnio</groupId>
-            <artifactId>xnio-testing-support</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.jboss.logmanager</groupId>
+            <artifactId>jboss-logmanager</artifactId>
+            <version>1.2.0.CR8</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -72,6 +76,21 @@
             </plugin>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemProperties>
+                        <property>
+                            <name>java.util.logging.manager</name>
+                            <value>org.jboss.logmanager.LogManager</value>
+                        </property>
+                        <property>
+                            <name>test.level</name>
+                            <value>${test.level}</value>
+                        </property>
+                    </systemProperties>
+                </configuration>
             </plugin>
         </plugins>
     </build>

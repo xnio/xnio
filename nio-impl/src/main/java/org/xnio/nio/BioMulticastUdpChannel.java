@@ -28,9 +28,7 @@ import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.channels.MulticastMessageChannel;
@@ -42,9 +40,8 @@ import org.xnio.channels.UnsupportedOptionException;
 class BioMulticastUdpChannel extends BioDatagramUdpChannel implements MulticastMessageChannel {
     private final MulticastSocket multicastSocket;
 
-    @SuppressWarnings({"unchecked"})
-    BioMulticastUdpChannel(final int sendBufSize, final int recvBufSize, final Executor handlerExecutor, final MulticastSocket multicastSocket, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) {
-        super(sendBufSize, recvBufSize, handlerExecutor, multicastSocket, globalBytesRead, globalBytesWritten, globalMessagesRead, globalMessagesWritten);
+    BioMulticastUdpChannel(final int sendBufSize, final int recvBufSize, final MulticastSocket multicastSocket) {
+        super(sendBufSize, recvBufSize, multicastSocket );
         this.multicastSocket = multicastSocket;
     }
 
@@ -73,14 +70,15 @@ class BioMulticastUdpChannel extends BioDatagramUdpChannel implements MulticastM
         }
     }
 
-    public <T> BioMulticastUdpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        final Object old;
         if (Options.MULTICAST_TTL.equals(option)) {
+            old = Integer.valueOf(multicastSocket.getTimeToLive());
             multicastSocket.setTimeToLive(((Integer)value).intValue());
-            return this;
         } else {
-            super.setOption(option, value);
-            return this;
+            return super.setOption(option, value);
         }
+        return option.cast(old);
     }
 
     private final class BioKey implements Key {

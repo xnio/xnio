@@ -20,26 +20,35 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio;
+package org.xnio.channels;
+
+import java.io.IOException;
+import org.xnio.ChannelListener;
+import org.xnio.ReadChannelThread;
+import org.xnio.WriteChannelThread;
 
 /**
- * An XNIO provider, used by the service loader discovery mechanism.
+ * A channel which can accept connections.
+ *
+ * @param <C> the channel type
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface XnioProvider {
+public interface SimpleAcceptingChannel<C extends CloseableChannel> extends SuspendableAcceptChannel {
 
     /**
-     * Get the XNIO instance for this provider.
+     * Attempt to accept a connection.
      *
-     * @return the XNIO instance
+     * @param readThread the initial read thread to use for the new channel, or {@code null} for none
+     * @param writeThread the initial write thread to use for the new channel, or {@code null} for none
+     * @return the new connection, or {@code null} if none is available
+     * @throws IOException if an I/O error occurs
      */
-    Xnio getInstance();
+    C accept(ReadChannelThread readThread, WriteChannelThread writeThread) throws IOException;
 
-    /**
-     * Get the provider name.
-     *
-     * @return the name
-     */
-    String getName();
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends SimpleAcceptingChannel<C>> getAcceptSetter();
+
+    /** {@inheritDoc} */
+    ChannelListener.Setter<? extends SimpleAcceptingChannel<C>> getCloseSetter();
 }

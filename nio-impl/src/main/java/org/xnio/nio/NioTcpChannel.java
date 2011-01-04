@@ -22,20 +22,13 @@
 
 package org.xnio.nio;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SelectionKey;
+import java.net.SocketAddress;
+import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.FileChannel;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.jboss.logging.Logger;
@@ -43,54 +36,23 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
-import org.xnio.channels.TcpChannel;
-import org.xnio.channels.Configurable;
+import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.UnsupportedOptionException;
 import org.xnio.channels.BoundChannel;
-import org.xnio.management.TcpConnectionMBean;
-
-import javax.management.StandardMBean;
-import javax.management.NotCompliantMBeanException;
 
 /**
  *
  */
-final class NioTcpChannel implements TcpChannel, Closeable {
+final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implements ConnectedStreamChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.channel");
 
     private final SocketChannel socketChannel;
     private final Socket socket;
 
-    private volatile ChannelListener<? super TcpChannel> readListener = null;
-    private volatile ChannelListener<? super TcpChannel> writeListener = null;
-    private volatile ChannelListener<? super TcpChannel> closeListener = null;
-
-    private static final AtomicReferenceFieldUpdater<NioTcpChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpChannel.class, ChannelListener.class, "readListener");
-    private static final AtomicReferenceFieldUpdater<NioTcpChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpChannel.class, ChannelListener.class, "writeListener");
-    private static final AtomicReferenceFieldUpdater<NioTcpChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpChannel.class, ChannelListener.class, "closeListener");
-
-    private final ChannelListener.Setter<TcpChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
-    private final ChannelListener.Setter<TcpChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
-    private final ChannelListener.Setter<TcpChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
-
-    private final NioHandle readHandle;
-    private final NioHandle writeHandle;
-    private final NioXnio nioXnio;
     private volatile int closeBits = 0;
-    private volatile long bytesRead = 0L;
-    private volatile long bytesWritten = 0L;
-    private volatile long msgsRead = 0L;
-    private volatile long msgsWritten = 0L;
 
     private static final AtomicIntegerFieldUpdater<NioTcpChannel> closeBitsUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpChannel.class, "closeBits");
-
-    private static final AtomicLongFieldUpdater<NioTcpChannel> bytesReadUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesRead");
-    private static final AtomicLongFieldUpdater<NioTcpChannel> bytesWrittenUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "bytesWritten");
-    private static final AtomicLongFieldUpdater<NioTcpChannel> msgsReadUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "msgsRead");
-    private static final AtomicLongFieldUpdater<NioTcpChannel> msgsWrittenUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpChannel.class, "msgsWritten");
-
-    private final Closeable mbeanHandle;
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
             .add(Options.CLOSE_ABORT)
@@ -102,31 +64,24 @@ final class NioTcpChannel implements TcpChannel, Closeable {
             .add(Options.IP_TRAFFIC_CLASS)
             .create();
 
-    public NioTcpChannel(final NioXnio nioXnio, final SocketChannel socketChannel, final Executor executor, final boolean manage, final InetSocketAddress bindAddress, final InetSocketAddress peerAddress) throws IOException {
+    NioTcpChannel(final NioXnio xnio, final SocketChannel socketChannel) {
+        super(xnio);
         this.socketChannel = socketChannel;
-        this.nioXnio = nioXnio;
         socket = socketChannel.socket();
-        if (executor != null) {
-            readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler(), executor);
-            writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler(), executor);
-        } else {
-            readHandle = nioXnio.addReadHandler(socketChannel, new ReadHandler());
-            writeHandle = nioXnio.addWriteHandler(socketChannel, new WriteHandler());
-        }
-        try {
-            mbeanHandle = manage ? nioXnio.registerMBean(new MBean(bindAddress, peerAddress)) : IoUtils.nullCloseable();
-        } catch (NotCompliantMBeanException e) {
-            throw new IOException("Failed to register channel mbean: " + e);
-        }
     }
 
-    BoundChannel<InetSocketAddress> getBoundChannel() {
-        return new BoundChannel<InetSocketAddress>() {
-            public InetSocketAddress getLocalAddress() {
+    BoundChannel getBoundChannel() {
+        return new BoundChannel() {
+            public SocketAddress getLocalAddress() {
                 return NioTcpChannel.this.getLocalAddress();
             }
 
-            public ChannelListener.Setter<? extends BoundChannel<InetSocketAddress>> getCloseSetter() {
+            public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                final SocketAddress address = getLocalAddress();
+                return type.isInstance(address) ? type.cast(address) : null;
+            }
+
+            public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
                 return NioTcpChannel.this.getCloseSetter();
             }
 
@@ -146,67 +101,22 @@ final class NioTcpChannel implements TcpChannel, Closeable {
                 return NioTcpChannel.this.getOption(option);
             }
 
-            public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-                NioTcpChannel.this.setOption(option, value);
-                return this;
+            public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                return NioTcpChannel.this.setOption(option, value);
             }
         };
     }
 
-    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
-        return target.transferFrom(socketChannel, position, count);
-    }
-
-    public ChannelListener.Setter<TcpChannel> getReadSetter() {
-        return readSetter;
-    }
-
-    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        return src.transferTo(position, count, socketChannel);
-    }
-
-    public ChannelListener.Setter<TcpChannel> getWriteSetter() {
-        return writeSetter;
-    }
-
-    public ChannelListener.Setter<TcpChannel> getCloseSetter() {
-        return closeSetter;
-    }
-
-    public boolean flush() throws IOException {
-        return true;
-    }
-
-    public long write(final ByteBuffer[] srcs, final int offset,
-            final int length) throws IOException {
-        long written = socketChannel.write(srcs, offset, length);
-        if (written > 0) {
-            bytesWrittenUpdater.addAndGet(this, written);
-            msgsWrittenUpdater.incrementAndGet(this);
-        }
-        return written;
-    }
-
-    public long write(final ByteBuffer[] srcs) throws IOException {
-        long written = socketChannel.write(srcs);
-        if (written > 0) {
-            bytesWrittenUpdater.addAndGet(this, written);
-            msgsWrittenUpdater.incrementAndGet(this);
-        }
-        return written;
-    }
-
-    public int write(final ByteBuffer src) throws IOException {
-        int written = socketChannel.write(src);
-        if (written > 0) {
-            bytesWrittenUpdater.addAndGet(this, written);
-            msgsWrittenUpdater.incrementAndGet(this);
-        }
-        return written;
-    }
-
     public boolean isOpen() {
         return socketChannel.isOpen();
+    }
+
+    protected ScatteringByteChannel getReadChannel() {
+        return socketChannel;
+    }
+
+    protected GatheringByteChannel getWriteChannel() {
+        return socketChannel;
     }
 
     private static int setBits(NioTcpChannel instance, int bits) {
@@ -224,71 +134,9 @@ final class NioTcpChannel implements TcpChannel, Closeable {
 
     public void close() throws IOException {
         if (setBits(this, 0x04) < 0x04) {
-            log.trace("Closing %s", this);
-            nioXnio.removeManaged(this);
+            log.tracef("Closing %s", this);
             socketChannel.close();
-            IoUtils.<TcpChannel>invokeChannelListener(this, closeListener);
-            IoUtils.safeClose(mbeanHandle);
-        }
-    }
-
-    public long read(final ByteBuffer[] dsts, final int offset, final int length)
-            throws IOException {
-        long read = socketChannel.read(dsts, offset, length);
-        if (read > 0) {
-            bytesReadUpdater.addAndGet(this, read);
-            msgsReadUpdater.incrementAndGet(this);
-        }
-        return read;
-    }
-
-    public long read(final ByteBuffer[] dsts) throws IOException {
-        long read = socketChannel.read(dsts);
-        if (read > 0) {
-            bytesReadUpdater.addAndGet(this, read);
-            msgsReadUpdater.incrementAndGet(this);
-        }
-        return read;
-    }
-
-    public int read(final ByteBuffer dst) throws IOException {
-        int read = socketChannel.read(dst);
-        if (read > 0) {
-            bytesReadUpdater.addAndGet(this, read);
-            msgsReadUpdater.incrementAndGet(this);
-        }
-        return read;
-    }
-
-    public void suspendReads() {
-        try {
-            readHandle.suspend();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
-    }
-
-    public void suspendWrites() {
-        try {
-            writeHandle.suspend();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
-    }
-
-    public void resumeReads() {
-        try {
-            readHandle.resume(SelectionKey.OP_READ);
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
-    }
-
-    public void resumeWrites() {
-        try {
-            writeHandle.resume(SelectionKey.OP_WRITE);
-        } catch (CancelledKeyException ex) {
-            // ignore
+            invokeCloseHandler();
         }
     }
 
@@ -317,28 +165,22 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         return true;
     }
 
-    public void awaitReadable() throws IOException {
-        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_READ);
+    public SocketAddress getPeerAddress() {
+        return socket.getRemoteSocketAddress();
     }
 
-    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_READ, time, timeUnit);
+    public <A extends SocketAddress> A getPeerAddress(final Class<A> type) {
+        final SocketAddress address = getPeerAddress();
+        return type.isInstance(address) ? type.cast(address) : null;
     }
 
-    public void awaitWritable() throws IOException {
-        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_WRITE);
+    public SocketAddress getLocalAddress() {
+        return socket.getLocalSocketAddress();
     }
 
-    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
-    }
-
-    public InetSocketAddress getPeerAddress() {
-        return (InetSocketAddress) socket.getRemoteSocketAddress();
-    }
-
-    public InetSocketAddress getLocalAddress() {
-        return (InetSocketAddress) socket.getLocalSocketAddress();
+    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+        final SocketAddress address = getLocalAddress();
+        return type.isInstance(address) ? type.cast(address) : null;
     }
 
     public boolean supportsOption(final Option<?> option) {
@@ -365,82 +207,37 @@ final class NioTcpChannel implements TcpChannel, Closeable {
         }
     }
 
-    public <T> NioTcpChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        final Object old;
         if (option == Options.CLOSE_ABORT) {
+            old = Boolean.valueOf(socket.getSoLinger() != 0);
             socket.setSoLinger(((Boolean) value).booleanValue(), 0);
         } else if (option == Options.KEEP_ALIVE) {
+            old = Boolean.valueOf(socket.getKeepAlive());
             socket.setKeepAlive(((Boolean) value).booleanValue());
         } else if (option == Options.TCP_OOB_INLINE) {
+            old = Boolean.valueOf(socket.getOOBInline());
             socket.setOOBInline(((Boolean) value).booleanValue());
         } else if (option == Options.RECEIVE_BUFFER) {
+            old = Integer.valueOf(socket.getReceiveBufferSize());
             socket.setReceiveBufferSize(((Integer) value).intValue());
         } else if (option == Options.SEND_BUFFER) {
+            old = Integer.valueOf(socket.getSendBufferSize());
             socket.setSendBufferSize(((Integer) value).intValue());
         } else if (option == Options.TCP_NODELAY) {
+            old = Boolean.valueOf(socket.getTcpNoDelay());
             socket.setTcpNoDelay(((Boolean) value).booleanValue());
         } else if (option == Options.IP_TRAFFIC_CLASS) {
+            old = Integer.valueOf(socket.getTrafficClass());
             socket.setTrafficClass(((Integer) value).intValue());
+        } else {
+            return null;
         }
-        return this;
-    }
-
-    private final class ReadHandler implements Runnable {
-        public void run() {
-            IoUtils.<TcpChannel>invokeChannelListener(NioTcpChannel.this, readListener);
-        }
-    }
-
-    private final class WriteHandler implements Runnable {
-        public void run() {
-            IoUtils.<TcpChannel>invokeChannelListener(NioTcpChannel.this, writeListener);
-        }
+        return option.cast(old);
     }
 
     @Override
     public String toString() {
-        return String.format("TCP socket channel (NIO) <%s> (local: %s, remote: %s)", Integer.toString(hashCode(), 16), getLocalAddress(), getPeerAddress());
-    }
-
-    public final class MBean extends StandardMBean implements TcpConnectionMBean {
-        private final InetSocketAddress bindAddress;
-        private final InetSocketAddress peerAddress;
-
-        public MBean(final InetSocketAddress bindAddress, final InetSocketAddress peerAddress) throws NotCompliantMBeanException {
-            super(TcpConnectionMBean.class);
-            this.bindAddress = bindAddress;
-            this.peerAddress = peerAddress;
-        }
-
-        public long getBytesRead() {
-            return bytesRead;
-        }
-
-        public long getBytesWritten() {
-            return bytesWritten;
-        }
-
-        public long getMessagesRead() {
-            return msgsRead;
-        }
-
-        public long getMessagesWritten() {
-            return msgsWritten;
-        }
-
-        public String toString() {
-            return "ChannelMBean";
-        }
-
-        public InetSocketAddress getPeerAddress() {
-            return peerAddress;
-        }
-
-        public InetSocketAddress getBindAddress() {
-            return bindAddress;
-        }
-
-        public void close() {
-            IoUtils.safeClose(NioTcpChannel.this);
-        }
+        return String.format("TCP socket channel (NIO) <%h>", this);
     }
 }

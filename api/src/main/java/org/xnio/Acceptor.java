@@ -45,14 +45,4 @@ public interface Acceptor<T extends Channel> {
      * @return the future connection
      */
     IoFuture<? extends T> acceptTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
-
-    /**
-     * Create a channel destination for this acceptor, which always uses a specific destination address.  If a wildcard
-     * address is specified, then a destination address is chosen in a manner specific to the OS and/or channel type for
-     * each accept operation.
-     *
-     * @param destination the destination address
-     * @return a channel destination instance
-     */
-    ChannelDestination<T> createChannelDestination(SocketAddress destination);
 }

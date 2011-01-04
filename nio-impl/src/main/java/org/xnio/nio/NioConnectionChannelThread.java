@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2009, JBoss Inc., and individual contributors as indicated
+ * Copyright 2011, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -20,34 +20,15 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio.nio.test;
+package org.xnio.nio;
 
-import org.xnio.ChannelListener;
-import org.xnio.test.support.TestThreadFactory;
-import java.nio.channels.Channel;
+import org.xnio.ConnectionChannelThread;
 
 /**
- *
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class CatchingChannelListener<T extends Channel> implements ChannelListener<T> {
-
-    private final ChannelListener<? super T> delegate;
-    private final TestThreadFactory testThreadFactory;
-
-    public CatchingChannelListener(final ChannelListener<? super T> delegate, final TestThreadFactory factory) {
-        this.delegate = delegate;
-        testThreadFactory = factory;
-    }
-
-    public void handleEvent(final T channel) {
-        try {
-            if (delegate != null) delegate.handleEvent(channel);
-        } catch (RuntimeException t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        } catch (Error t) {
-            testThreadFactory.addProblem(t);
-            throw t;
-        }
+final class NioConnectionChannelThread extends AbstractNioChannelThread implements ConnectionChannelThread {
+    protected NioConnectionChannelThread(final NioSelectorRunnable runnable) {
+        super(runnable);
     }
 }

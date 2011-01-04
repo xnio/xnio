@@ -23,23 +23,27 @@
 package org.xnio;
 
 /**
- * An XNIO provider, used by the service loader discovery mechanism.
+ * A channel thread pool.  This is simply a collection of channel threads.
+ *
+ * @param <T> the channel thread type
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface XnioProvider {
+public interface ChannelThreadPool<T extends ChannelThread> {
 
     /**
-     * Get the XNIO instance for this provider.
+     * Get a thread from this pool.  The thread returned is based upon the load-balancing policy
+     * of the pool.  Note that getting a thread does not remove it from the pool.
      *
-     * @return the XNIO instance
+     * @return the thread
      */
-    Xnio getInstance();
+    T getThread();
 
     /**
-     * Get the provider name.
+     * Add a thread to the pool.  The thread should not already be in the pool; adding an already pooled thread
+     * has no effect.
      *
-     * @return the name
+     * @param thread the thread to add to the pool
      */
-    String getName();
+    void addToPool(T thread);
 }

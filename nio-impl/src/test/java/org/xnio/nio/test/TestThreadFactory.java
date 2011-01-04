@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio.test.support;
+package org.xnio.nio.test;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

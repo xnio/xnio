@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Properties;
 import java.io.Serializable;
+import org.jboss.logging.Logger;
 
 /**
  * An immutable map of options to option values.  No {@code null} keys or values are permitted.
@@ -69,6 +70,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
      * Get the value of an option from this option map, with a specified default if the value is missing.
      *
      * @param option the option to get
+     * @param defaultValue the value to return if the option is not set
      * @param <T> the type of the option
      * @return the option value, or {@code null} if it is not present
      */
@@ -146,6 +148,26 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
     }
 
     /**
+     * Create a single-valued option map.
+     *
+     * @param option the option to put in the map
+     * @param value the option value
+     * @param <T> the option value type
+     * @return the option map
+     *
+     * @since 3.0
+     */
+    public static <T> OptionMap create(Option<T> option, T value) {
+        if (option == null) {
+            throw new IllegalArgumentException("option is null");
+        }
+        if (value == null) {
+            throw new IllegalArgumentException("value is null");
+        }
+        return new OptionMap(Collections.<Option<?>, Object>singletonMap(option, option.cast(value)));
+    }
+
+    /**
      * A builder for immutable option maps.  Create an instance with the {@link OptionMap#builder()} method.
      */
     public static final class Builder {
@@ -197,7 +219,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, optionClassLoader);
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
-                        log.warn("Invalid option '%s' in property '%s': %s", optionName, name, e);
+                        log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
                     }
                 }
             }
@@ -220,7 +242,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, null);
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
-                        log.warn("Invalid option '%s' in property '%s': %s", optionName, name, e);
+                        log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
                     }
                 }
             }

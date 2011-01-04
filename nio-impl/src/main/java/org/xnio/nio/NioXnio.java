@@ -22,57 +22,47 @@
 
 package org.xnio.nio;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectableChannel;
+import java.net.MulticastSocket;
+import java.net.SocketAddress;
+import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.security.AccessController;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.net.InetSocketAddress;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import org.jboss.logging.Logger;
-import org.xnio.ChannelSource;
-import org.xnio.Connector;
+import org.xnio.Cancellable;
+import org.xnio.ChannelListeners;
+import org.xnio.ConnectionChannelThread;
 import org.xnio.FailedIoFuture;
 import org.xnio.FinishedIoFuture;
+import org.xnio.FutureResult;
 import org.xnio.IoFuture;
 import org.xnio.IoUtils;
-import org.xnio.TcpAcceptor;
-import org.xnio.TcpConnector;
-import org.xnio.TcpServer;
-import org.xnio.UdpServer;
+import org.xnio.Option;
+import org.xnio.Options;
+import org.xnio.ReadChannelThread;
 import org.xnio.Version;
+import org.xnio.WriteChannelThread;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.ChannelListener;
-import org.xnio.Options;
+import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.BoundChannel;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.channels.StreamChannel;
-import org.xnio.channels.StreamSinkChannel;
-import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
  */
-public final class NioXnio extends Xnio {
+final class NioXnio extends Xnio {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio");
 
@@ -86,148 +76,16 @@ public final class NioXnio extends Xnio {
         log.info("XNIO NIO Implementation Version " + Version.VERSION);
     }
 
-    private final Object lock = new Object();
-
     /**
-     * @protectedby lock
+     * Construct a new NIO-based XNIO provider instance.  Should only be invoked by the service loader.
      */
-    private volatile boolean closed;
-
-    private final List<NioSelectorRunnable> readers = new ArrayList<NioSelectorRunnable>();
-    private final List<NioSelectorRunnable> writers = new ArrayList<NioSelectorRunnable>();
-    private final List<NioSelectorRunnable> connectors = new ArrayList<NioSelectorRunnable>();
-
-    /**
-     * @protectedby lock
-     */
-    private final Set<Closeable> managedSet = new HashSet<Closeable>();
-
-    private static final class CreateAction implements PrivilegedExceptionAction<NioXnio> {
-        private final XnioConfiguration configuration;
-
-        public CreateAction(final XnioConfiguration configuration) {
-            this.configuration = configuration;
-        }
-
-        public NioXnio run() throws IOException {
-            return new NioXnio(configuration);
-        }
-    }
-
-    /**
-     * Create an NIO-based XNIO provider.  The provided configuration is used to set up the provider.
-     *
-     * @param configuration the configuration
-     * @return a new XNIO instance
-     * @throws IOException if an I/O error occurs while starting the service
-     * @since 1.2
-     */
-    public static Xnio create(XnioConfiguration configuration) throws IOException {
-        return doCreate(configuration);
-    }
-
-    private static NioXnio doCreate(final XnioConfiguration configuration) throws IOException {
-        try {
-            return AccessController.doPrivileged(new CreateAction(configuration));
-        } catch (PrivilegedActionException e) {
-            try {
-                throw e.getCause();
-            } catch (Error error) {
-                throw error;
-            } catch (RuntimeException re) {
-                throw re;
-            } catch (IOException ioe) {
-                throw ioe;
-            } catch (Throwable cause) {
-                throw new RuntimeException("Unexpected exception", cause);
-            }
-        }
-    }
-
-    /**
-     * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will create its own
-     * selector threads, of which there will be one reader thread, one writer thread, and one connect/accept thread.
-     *
-     * @return a new XNIO instance
-     * @throws IOException if an I/O error occurs while starting the service
-     */
-    public static Xnio create() throws IOException {
-        return doCreate(new XnioConfiguration());
-    }
-
-    /**
-     * Create an NIO-based XNIO provider.  A direct executor is used for the handlers; the provider will
-     * create its own selector threads.
-     *
-     * @param readSelectorThreads the number of threads to assign for readable events
-     * @param writeSelectorThreads the number of threads to assign for writable events
-     * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @return a new XNIO instance
-     * @throws IOException if an I/O error occurs while starting the service
-     * @throws IllegalArgumentException if a given argument is not valid
-     */
-    public static Xnio create(final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        final XnioConfiguration configuration = new XnioConfiguration();
-        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
-        return doCreate(configuration);
-    }
-
-    /**
-     * Create an NIO-based XNIO provider.  The given handler executor is used for the handlers; the provider will
-     * create its own selector threads.
-     *
-     * @param handlerExecutor the executor to use to handle events
-     * @param readSelectorThreads the number of threads to assign for readable events
-     * @param writeSelectorThreads the number of threads to assign for writable events
-     * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @return a new XNIO instance
-     * @throws IOException if an I/O error occurs while starting the service
-     * @throws IllegalArgumentException if a given argument is not valid
-     */
-    public static Xnio create(Executor handlerExecutor, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        if (handlerExecutor == null) {
-            throw new NullPointerException("handlerExecutor is null");
-        }
-        final XnioConfiguration configuration = new XnioConfiguration();
-        configuration.setExecutor(handlerExecutor);
-        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
-        return doCreate(configuration);
-    }
-
-    /**
-     * Create an NIO-based XNIO provider.  The given handler executor is used for the handlers; the given thread
-     * factory is used to create selector threads.
-     *
-     * @param handlerExecutor the executor to use to handle events
-     * @param selectorThreadFactory the selector thread factory to use
-     * @param readSelectorThreads the number of threads to assign for readable events
-     * @param writeSelectorThreads the number of threads to assign for writable events
-     * @param connectSelectorThreads the number of threads to assign for connect/accept events
-     * @return a new XNIO instance
-     * @throws IOException if an I/O error occurs while starting the service
-     * @throws IllegalArgumentException if a given argument is not valid
-     */
-    public static Xnio create(Executor handlerExecutor, ThreadFactory selectorThreadFactory, final int readSelectorThreads, final int writeSelectorThreads, final int connectSelectorThreads) throws IOException, IllegalArgumentException {
-        if (handlerExecutor == null) {
-            throw new NullPointerException("handlerExecutor is null");
-        }
-        if (selectorThreadFactory == null) {
-            throw new NullPointerException("selectorThreadFactory is null");
-        }
-        final XnioConfiguration configuration = new XnioConfiguration();
-        configuration.setExecutor(handlerExecutor);
-        configuration.setThreadFactory(selectorThreadFactory);
-        configuration.setOptionMap(OptionMap.builder().set(Options.READ_THREADS, readSelectorThreads).set(Options.WRITE_THREADS, writeSelectorThreads).set(Options.CONNECT_THREADS, connectSelectorThreads).getMap());
-        return doCreate(configuration);
-    }
-
-    private NioXnio(XnioConfiguration configuration) throws IOException {
-        super(configuration);
+    public NioXnio() {
+        super("nio");
         final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
         if ("sun.nio.ch.PollSelectorProvider".equals(providerClassName)) {
-            log.warn("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
+            log.warnf("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
         }
-        log.trace("Starting up with selector provider %s", providerClassName);
+        log.tracef("Starting up with selector provider %s", providerClassName);
         selectorCreator = AccessController.doPrivileged(
             new PrivilegedAction<SelectorCreator>() {
                 public SelectorCreator run() {
@@ -249,9 +107,11 @@ public final class NioXnio extends Xnio {
                                 } catch (InvocationTargetException e) {
                                     try {
                                         throw e.getTargetException();
-                                    } catch (java.io.IOException e2) {
+                                    } catch (IOException e2) {
                                         throw e2;
                                     } catch (RuntimeException e2) {
+                                        throw e2;
+                                    } catch (Error e2) {
                                         throw e2;
                                     } catch (Throwable t) {
                                         throw new IllegalStateException("Unexpected invocation exception", t);
@@ -272,451 +132,202 @@ public final class NioXnio extends Xnio {
                 }
             }
         );
-        ThreadFactory selectorThreadFactory = configuration.getThreadFactory();
-        final OptionMap optionMap = getOptionMap(configuration);
-        final int readSelectorThreads = optionMap.get(Options.READ_THREADS, 1);
-        final int writeSelectorThreads = optionMap.get(Options.WRITE_THREADS, 1);
-        final int connectSelectorThreads = optionMap.get(Options.CONNECT_THREADS, 1);
-        final int selectorCacheSize = optionMap.get(Options.SELECTOR_CACHE_SIZE, 30);
-        if (selectorThreadFactory == null) {
-            selectorThreadFactory = Executors.defaultThreadFactory();
-        }
-        if (readSelectorThreads < 1) {
-            throw new IllegalArgumentException("readSelectorThreads must be >= 1");
-        }
-        if (writeSelectorThreads < 1) {
-            throw new IllegalArgumentException("writeSelectorThreads must be >= 1");
-        }
-        if (connectSelectorThreads < 1) {
-            throw new IllegalArgumentException("connectSelectorThreads must be >= 1");
-        }
-        if (selectorCacheSize < 0) {
-            throw new IllegalArgumentException("selectorCacheSize must be >= 0");
-        }
-        cache = new Selector[selectorCacheSize];
-        synchronized (lock) {
-            for (int i = 0; i < readSelectorThreads; i ++) {
-                readers.add(new NioSelectorRunnable());
-            }
-            for (int i = 0; i < writeSelectorThreads; i ++) {
-                writers.add(new NioSelectorRunnable());
-            }
-            for (int i = 0; i < connectSelectorThreads; i ++) {
-                connectors.add(new NioSelectorRunnable());
-            }
-            for (NioSelectorRunnable runnable : readers) {
-                selectorThreadFactory.newThread(runnable).start();
-            }
-            for (NioSelectorRunnable runnable : writers) {
-                selectorThreadFactory.newThread(runnable).start();
-            }
-            for (NioSelectorRunnable runnable : connectors) {
-                selectorThreadFactory.newThread(runnable).start();
-            }
-            log.debug("Creating NioXnio instance using %d read threads, %d write threads, %d connect threads", Integer.valueOf(readSelectorThreads), Integer.valueOf(writeSelectorThreads), Integer.valueOf(connectSelectorThreads));
-        }
-    }
-
-    private static OptionMap getOptionMap(final XnioConfiguration configuration) {
-        final OptionMap optionMap = configuration.getOptionMap();
-        return optionMap == null ? OptionMap.EMPTY : optionMap;
     }
 
     /** {@inheritDoc} */
-    public TcpServer createTcpServer(final Executor executor, final ChannelListener<? super ConnectedStreamChannel> openListener, final OptionMap optionMap) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (optionMap == null) {
-            throw new NullPointerException("optionMap is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            return NioTcpServer.create(this, executor, openListener, optionMap);
-        }
+    public ReadChannelThread createReadChannelThread(final ThreadFactory threadFactory) throws IOException {
+        final NioSelectorRunnable runnable = new NioSelectorRunnable();
+        threadFactory.newThread(runnable).start();
+        return new NioReadChannelThread(runnable);
     }
 
     /** {@inheritDoc} */
-    public Connector<ConnectedStreamChannel> createTcpConnector(final InetSocketAddress src, final OptionMap optionMap) {
-        if (optionMap == null) {
-            throw new NullPointerException("optionMap is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            return NioTcpConnector.create(this, executor, optionMap, src);
-        }
+    public WriteChannelThread createWriteChannelThread(final ThreadFactory threadFactory) throws IOException {
+        final NioSelectorRunnable runnable = new NioSelectorRunnable();
+        threadFactory.newThread(runnable).start();
+        return new NioWriteChannelThread(runnable);
     }
 
     /** {@inheritDoc} */
-    public UdpServer createUdpServer(final Executor executor, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (optionMap == null) {
-            throw new NullPointerException("optionMap is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            if (optionMap.contains(Options.MULTICAST) && optionMap.get(Options.MULTICAST).booleanValue()) {
-                return new BioUdpServer(this, executor, bindListener, optionMap);
-            } else {
-                return new NioUdpServer(this, executor, bindListener, optionMap);
-            }
-        }
+    public ConnectionChannelThread createConnectionChannelThread(final ThreadFactory threadFactory) throws IOException {
+        final NioSelectorRunnable runnable = new NioSelectorRunnable();
+        threadFactory.newThread(runnable).start();
+        return new NioConnectionChannelThread(runnable);
     }
 
-    public ChannelSource<? extends StreamChannel> createPipeServer(final Executor executor, final ChannelListener<? super StreamChannel> leftOpenListener) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (leftOpenListener == null) {
-            throw new NullPointerException("openHandler is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
+    protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ConnectionChannelThread thread, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
+        final ServerSocketChannel channel = ServerSocketChannel.open();
+        channel.configureBlocking(false);
+        channel.socket().bind(bindAddress);
+        final NioTcpServer server = new NioTcpServer(this, channel);
+        server.setAcceptThread(thread);
+        server.getAcceptSetter().set((ChannelListener<? super NioTcpServer>) acceptListener);
+        return server;
+    }
+
+    /** {@inheritDoc} */
+    protected IoFuture<? extends ConnectedStreamChannel> connectTcp(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            final SocketChannel channel = SocketChannel.open();
+            channel.configureBlocking(false);
+            channel.socket().bind(bindAddress);
+            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel);
+            ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
+            if (channel.connect(destinationAddress)) {
+                tcpChannel.setReadThread(readThread);
+                tcpChannel.setWriteThread(writeThread);
+                //noinspection unchecked
+                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
+                return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
-            return new ChannelSource<StreamChannel>() {
-                public IoFuture<? extends StreamChannel> open(final ChannelListener<? super StreamChannel> rightOpenListener) {
-                    synchronized (lock) {
-                        if (closed) {
-                            throw notOpen();
-                        }
-                        final NioPipeConnection nioPipeConnection;
-                        try {
+            final NioSetter<SocketChannel> setter = new NioSetter<SocketChannel>();
+            final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
+            final NioHandle<SocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter, false);
+            setter.set(new ChannelListener<SocketChannel>() {
+                public void handleEvent(final SocketChannel channel) {
+                    try {
+                        if (channel.finishConnect()) {
+                            handle.cancelKey();
+                            tcpChannel.setReadThread(readThread);
+                            tcpChannel.setWriteThread(writeThread);
+                            futureResult.setResult(tcpChannel);
                             //noinspection unchecked
-                            nioPipeConnection = new NioPipeConnection(NioXnio.this);
-                            if (! IoUtils.<StreamChannel>invokeChannelListener(nioPipeConnection.getLeftSide(), leftOpenListener) ||
-                                    ! IoUtils.<StreamChannel>invokeChannelListener(nioPipeConnection.getRightSide(), rightOpenListener)) {
-                                IoUtils.safeClose(nioPipeConnection);
-                            }
-                        } catch (IOException e) {
-                            return new FailedIoFuture<StreamChannel>(e);
+                            ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                         }
-                        return new FinishedIoFuture<StreamChannel>(nioPipeConnection.getLeftSide());
+                    } catch (IOException e) {
+                        IoUtils.safeClose(channel);
+                        handle.cancelKey();
+                        futureResult.setException(e);
                     }
                 }
-            };
+            });
+            futureResult.addCancelHandler(new Cancellable() {
+                public Cancellable cancel() {
+                    if (futureResult.setCancelled()) {
+                        handle.cancelKey();
+                        IoUtils.safeClose(channel);
+                    }
+                    return this;
+                }
+            });
+            handle.resume(SelectionKey.OP_CONNECT);
+            return futureResult.getIoFuture();
+        } catch (IOException e) {
+            return new FailedIoFuture<ConnectedStreamChannel>(e);
         }
     }
 
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(final Executor executor, final ChannelListener<? super StreamSinkChannel> sinkOpenListener) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (sinkOpenListener == null) {
-            throw new NullPointerException("sinkOpenListener is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
+    protected IoFuture<? extends ConnectedStreamChannel> acceptTcp(final InetSocketAddress destination, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            final ServerSocketChannel channel = ServerSocketChannel.open();
+            channel.configureBlocking(false);
+            channel.socket().bind(destination);
+            final NioSetter<NioTcpChannel> closeSetter = new NioSetter<NioTcpChannel>();
+            //noinspection unchecked
+            ChannelListeners.invokeChannelListener(new BoundChannel() {
+                public SocketAddress getLocalAddress() {
+                    return channel.socket().getLocalSocketAddress();
+                }
+
+                public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                    final SocketAddress address = getLocalAddress();
+                    return type.isInstance(address) ? type.cast(address) : null;
+                }
+
+                public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
+                    return closeSetter;
+                }
+
+                public boolean isOpen() {
+                    return channel.isOpen();
+                }
+
+                public boolean supportsOption(final Option<?> option) {
+                    return false;
+                }
+
+                public <T> T getOption(final Option<T> option) throws IOException {
+                    return null;
+                }
+
+                public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                    return null;
+                }
+
+                public void close() throws IOException {
+                    channel.close();
+                }
+            }, bindListener);
+            final SocketChannel accepted = channel.accept();
+            if (accepted != null) {
+                IoUtils.safeClose(channel);
+                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted);
+                tcpChannel.setReadThread(readThread);
+                tcpChannel.setWriteThread(writeThread);
+                return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
-            return new ChannelSource<StreamSourceChannel>() {
-                public IoFuture<? extends StreamSourceChannel> open(final ChannelListener<? super StreamSourceChannel> sourceOpenListener) {
-                    synchronized (lock) {
-                        if (closed) {
-                            throw notOpen();
+            final NioSetter<ServerSocketChannel> setter = new NioSetter<ServerSocketChannel>();
+            final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
+            final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter, false);
+            setter.set(new ChannelListener<ServerSocketChannel>() {
+                public void handleEvent(final ServerSocketChannel channel) {
+                    try {
+                        final SocketChannel accepted = channel.accept();
+                        if (accepted != null) {
+                            IoUtils.safeClose(channel);
+                            accepted.configureBlocking(false);
+                            handle.cancelKey();
+                            final NioTcpChannel tcpChannel = new NioTcpChannel(NioXnio.this, accepted);
+                            tcpChannel.setReadThread(readThread);
+                            tcpChannel.setWriteThread(writeThread);
+                            futureResult.setResult(tcpChannel);
                         }
-                        final NioOneWayPipeConnection nioPipeConnection;
-                        try {
-                            //noinspection unchecked
-                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this);
-                            if (! IoUtils.<StreamSinkChannel>invokeChannelListener(nioPipeConnection.getSinkSide(), sinkOpenListener) ||
-                                    ! IoUtils.<StreamSourceChannel>invokeChannelListener(nioPipeConnection.getSourceSide(), sourceOpenListener)) {
-                                IoUtils.safeClose(nioPipeConnection);
-                            }
-                        } catch (IOException e) {
-                            return new FailedIoFuture<StreamSourceChannel>(e);
-                        }
-                        return new FinishedIoFuture<StreamSourceChannel>(nioPipeConnection.getSourceSide());
+                    } catch (IOException e) {
+                        IoUtils.safeClose(channel);
+                        handle.cancelKey();
+                        futureResult.setException(e);
                     }
                 }
-            };
+            });
+            handle.resume(SelectionKey.OP_ACCEPT);
+            return futureResult.getIoFuture();
+        } catch (IOException e) {
+            return new FailedIoFuture<ConnectedStreamChannel>(e);
         }
-    }
-
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceOpenListener) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (sourceOpenListener == null) {
-            throw new NullPointerException("sourceOpenListener is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            return new ChannelSource<StreamSinkChannel>() {
-                public IoFuture<? extends StreamSinkChannel> open(final ChannelListener<? super StreamSinkChannel> sinkOpenListener) {
-                    synchronized (lock) {
-                        if (closed) {
-                            throw notOpen();
-                        }
-                        final NioOneWayPipeConnection nioPipeConnection;
-                        try {
-                            //noinspection unchecked
-                            nioPipeConnection = new NioOneWayPipeConnection(NioXnio.this);
-                            if (! IoUtils.<StreamSourceChannel>invokeChannelListener(nioPipeConnection.getSourceSide(), sourceOpenListener) ||
-                                    ! IoUtils.<StreamSinkChannel>invokeChannelListener(nioPipeConnection.getSinkSide(), sinkOpenListener)) {
-                                IoUtils.safeClose(nioPipeConnection);
-                            }
-                        } catch (IOException e) {
-                            return new FailedIoFuture<StreamSinkChannel>(e);
-                        }
-                        return new FinishedIoFuture<StreamSinkChannel>(nioPipeConnection.getSinkSide());
-                    }
-                }
-            };
-        }
-    }
-
-    public IoFuture<? extends Closeable> createPipeConnection(final Executor executor, final ChannelListener<? super StreamChannel> leftListener, final ChannelListener<? super StreamChannel> rightListener) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (leftListener == null) {
-            throw new NullPointerException("leftListener is null");
-        }
-        if (rightListener == null) {
-            throw new NullPointerException("rightListener is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            try {
-                final NioPipeConnection connection = new NioPipeConnection(this);
-                if (! IoUtils.<StreamChannel>invokeChannelListener(connection.getLeftSide(), leftListener) ||
-                        ! IoUtils.<StreamChannel>invokeChannelListener(connection.getRightSide(), rightListener)) {
-                    IoUtils.safeClose(connection);
-                }
-                return new FinishedIoFuture<Closeable>(connection);
-            } catch (IOException e) {
-                return new FailedIoFuture<Closeable>(e);
-            }
-        }
-    }
-
-    public IoFuture<? extends Closeable> createOneWayPipeConnection(final Executor executor, final ChannelListener<? super StreamSourceChannel> sourceHandler, final ChannelListener<? super StreamSinkChannel> sinkHandler) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (sourceHandler == null) {
-            throw new NullPointerException("sourceHandler is null");
-        }
-        if (sinkHandler == null) {
-            throw new NullPointerException("sinkHandler is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            try {
-                final NioOneWayPipeConnection connection = new NioOneWayPipeConnection(this);
-                if (! IoUtils.<StreamSourceChannel>invokeChannelListener(connection.getSourceSide(), sourceHandler) ||
-                        ! IoUtils.<StreamSinkChannel>invokeChannelListener(connection.getSinkSide(), sinkHandler)) {
-                    IoUtils.safeClose(connection);
-                }
-                return new FinishedIoFuture<Closeable>(connection);
-            } catch (IOException e) {
-                return new FailedIoFuture<Closeable>(e);
-            }
-        }
-    }
-
-    public TcpAcceptor createTcpAcceptor(final Executor executor, final OptionMap optionMap) {
-        if (executor == null) {
-            throw new NullPointerException("executor is null");
-        }
-        if (optionMap == null) {
-            throw new NullPointerException("optionMap is null");
-        }
-        synchronized (lock) {
-            if (closed) {
-                throw notOpen();
-            }
-            return NioTcpAcceptor.create(this, executor, optionMap);
-        }
-    }
-
-    /**
-     * {@inheritDoc} This implementation relies on NIO mechanisms to awaken interrupted threads.
-     */
-    public void awaken(final Thread targetThread) {
-        // no-op
     }
 
     /** {@inheritDoc} */
-    public void close() throws IOException{
-        synchronized (lock) {
-            if (! closed) {
-                closed = true;
-                Iterator<Closeable> it = managedSet.iterator();
-                while (it.hasNext()) {
-                    Closeable closeable = it.next();
-                    it.remove();
-                    IoUtils.safeClose(closeable);
-                }
-                for (NioSelectorRunnable runnable : readers) {
-                    runnable.shutdown();
-                }
-                for (NioSelectorRunnable runnable : writers) {
-                    runnable.shutdown();
-                }
-                for (NioSelectorRunnable runnable : connectors) {
-                    runnable.shutdown();
-                }
-                readers.clear();
-                writers.clear();
-                connectors.clear();
-            }
+    public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
+        if (optionMap.get(Options.MULTICAST, false)) {
+            return new BioMulticastUdpChannel(optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), new MulticastSocket());
+        } else {
+            final DatagramChannel channel = DatagramChannel.open();
+            channel.configureBlocking(false);
+            channel.socket().bind(bindAddress);
+            final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
+            udpChannel.setReadThread(readThread);
+            udpChannel.setWriteThread(writeThread);
+            //noinspection unchecked
+            ChannelListeners.invokeChannelListener(udpChannel, bindListener);
+            return udpChannel;
         }
     }
 
-    public String toString() {
-        return "NIO " + super.toString();
-    }
-
-    protected Closeable registerMBean(final TcpServerMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final TcpConnectionMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final UdpServerMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final OneWayPipeConnectionMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final PipeConnectionMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final PipeServerMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final PipeSourceServerMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    protected Closeable registerMBean(final PipeSinkServerMBean mBean) {
-        return super.registerMBean(mBean);
-    }
-
-    private final AtomicInteger loadSequence = new AtomicInteger();
-
-    private NioHandle doAdd(final SelectableChannel channel, final List<NioSelectorRunnable> runnableSet, final Runnable handler, final boolean oneshot, final Executor executor) throws IOException {
-        if (closed) {
-            throw new ClosedChannelException();
+    private final ThreadLocal<Selector> selectorThreadLocal = new ThreadLocal<Selector>() {
+        public void remove() {
+            // if no selector was created, none will be closed
+            IoUtils.safeClose(get());
+            super.remove();
         }
-        final SynchronousHolder<NioHandle, IOException> holder = new SynchronousHolder<NioHandle, IOException>();
-        NioSelectorRunnable nioSelectorRunnable = runnableSet.get(loadSequence.getAndIncrement() % runnableSet.size());
-        final NioSelectorRunnable actualSelectorRunnable = nioSelectorRunnable;
-        nioSelectorRunnable.runTask(new SelectorTask() {
-            public void run(final Selector selector) {
-                try {
-                    final SelectionKey selectionKey = channel.register(selector, 0);
-                    final NioHandle handle = new NioHandle(selectionKey, actualSelectorRunnable, handler, executor, oneshot);
-                    selectionKey.attach(handle);
-                    holder.set(handle);
-                } catch (ClosedChannelException e) {
-                    holder.setProblem(e);
-                }
-            }
-        });
-        return holder.get();
-    }
-
-    NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler, final boolean oneshot) throws IOException {
-        return doAdd(channel, connectors, handler, oneshot, getExecutor());
-    }
-
-    NioHandle addConnectHandler(final SelectableChannel channel, final Runnable handler, final boolean oneshot, final Executor executor) throws IOException {
-        return doAdd(channel, connectors, handler, oneshot, executor);
-    }
-
-    NioHandle addReadHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, readers, handler, true, getExecutor());
-    }
-
-    NioHandle addReadHandler(final SelectableChannel channel, final Runnable handler, final Executor executor) throws IOException {
-        return doAdd(channel, readers, handler, true, executor);
-    }
-
-    NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler) throws IOException {
-        return doAdd(channel, writers, handler, true, getExecutor());
-    }
-
-    NioHandle addWriteHandler(final SelectableChannel channel, final Runnable handler, final Executor executor) throws IOException {
-        return doAdd(channel, writers, handler, true, executor);
-    }
-
-    void addManaged(Closeable closeable) {
-        synchronized (lock) {
-            managedSet.add(closeable);
-        }
-    }
-
-    void removeManaged(Closeable closeable) {
-        synchronized (lock) {
-            managedSet.remove(closeable);
-        }
-    }
-
-    private int selectorCacheCount;
-    private final Selector[] cache;
-    private final Lock selectorCacheLock = new ReentrantLock();
+    };
 
     Selector getSelector() throws IOException {
-        selectorCacheLock.lock();
-        try {
-            final int cnt = selectorCacheCount;
-            if (cnt > 0) {
-                final Selector[] cache = this.cache;
-                try {
-                    return cache[cnt - 1];
-                } finally {
-                    cache[selectorCacheCount = cnt - 1] = null;
-                }
-            } else {
-                return selectorCreator.open();
-            }
-        } finally {
-            selectorCacheLock.unlock();
+        final ThreadLocal<Selector> threadLocal = selectorThreadLocal;
+        Selector selector = threadLocal.get();
+        if (selector == null) {
+            selector = selectorCreator.open();
+            threadLocal.set(selector);
         }
-    }
-
-    void returnSelector(final Selector selector) {
-        selectorCacheLock.lock();
-        try {
-            final int cnt = selectorCacheCount;
-            if (cnt == cache.length) {
-                IoUtils.safeClose(selector);
-            } else {
-                // keep frequently used selectors "hot"
-                selectorCacheCount = cnt + 1;
-                cache[cnt] = selector;
-            }
-        } finally {
-            selectorCacheLock.unlock();
-        }
-    }
-
-    // private API
-
-    private static IllegalStateException notOpen() {
-        return new IllegalStateException("XNIO provider not open");
+        return selector;
     }
 }

@@ -41,14 +41,13 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 
 import org.jboss.logging.Logger;
-import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 
 import static org.xnio.Buffers.flip;
 
 @SuppressWarnings( { "ThisEscapedInObjectConstruction" })
-final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChannel {
+final class ConnectedSslStreamChannelImpl implements ConnectedSslStreamChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.ssl");
 
@@ -60,18 +59,18 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
     private volatile ChannelListener<? super ConnectedSslStreamChannel> writeListener = null;
     private volatile ChannelListener<? super ConnectedSslStreamChannel> closeListener = null;
 
-    private static final AtomicReferenceFieldUpdater<WrappingSslConnectedStreamChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(WrappingSslConnectedStreamChannel.class, ChannelListener.class, "readListener");
-    private static final AtomicReferenceFieldUpdater<WrappingSslConnectedStreamChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(WrappingSslConnectedStreamChannel.class, ChannelListener.class, "writeListener");
-    private static final AtomicReferenceFieldUpdater<WrappingSslConnectedStreamChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(WrappingSslConnectedStreamChannel.class, ChannelListener.class, "closeListener");
+    private static final AtomicReferenceFieldUpdater<ConnectedSslStreamChannelImpl, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(ConnectedSslStreamChannelImpl.class, ChannelListener.class, "readListener");
+    private static final AtomicReferenceFieldUpdater<ConnectedSslStreamChannelImpl, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(ConnectedSslStreamChannelImpl.class, ChannelListener.class, "writeListener");
+    private static final AtomicReferenceFieldUpdater<ConnectedSslStreamChannelImpl, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(ConnectedSslStreamChannelImpl.class, ChannelListener.class, "closeListener");
 
-    private final ChannelListener.Setter<ConnectedSslStreamChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
-    private final ChannelListener.Setter<ConnectedSslStreamChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
-    private final ChannelListener.Setter<ConnectedSslStreamChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
+    private final ChannelListener.Setter<ConnectedSslStreamChannel> readSetter = ChannelListeners.getSetter(this, readListenerUpdater);
+    private final ChannelListener.Setter<ConnectedSslStreamChannel> writeSetter = ChannelListeners.getSetter(this, writeListenerUpdater);
+    private final ChannelListener.Setter<ConnectedSslStreamChannel> closeSetter = ChannelListeners.getSetter(this, closeListenerUpdater);
 
     private final ChannelListener<ConnectedStreamChannel> tcpCloseListener = new ChannelListener<ConnectedStreamChannel>() {
         public void handleEvent(final ConnectedStreamChannel channel) {
-            IoUtils.safeClose(WrappingSslConnectedStreamChannel.this);
-            IoUtils.<ConnectedSslStreamChannel>invokeChannelListener(WrappingSslConnectedStreamChannel.this, closeListener);
+            IoUtils.safeClose(ConnectedSslStreamChannelImpl.this);
+            ChannelListeners.<ConnectedSslStreamChannel>invokeChannelListener(ConnectedSslStreamChannelImpl.this, closeListener);
         }
     };
 
@@ -86,11 +85,11 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
     private final ChannelListener<ConnectedStreamChannel> tcpWriteListener = new WriteListener();
 
     private void runReadListener() {
-        IoUtils.<ConnectedSslStreamChannel>invokeChannelListener(this, readListener);
+        ChannelListeners.<ConnectedSslStreamChannel>invokeChannelListener(this, readListener);
     }
 
     private void runWriteListener() {
-        IoUtils.<ConnectedSslStreamChannel>invokeChannelListener(this, writeListener);
+        ChannelListeners.<ConnectedSslStreamChannel>invokeChannelListener(this, writeListener);
     }
 
     private final Lock mainLock = new ReentrantLock();
@@ -101,7 +100,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
      */
     private final Condition readAwaiters = mainLock.newCondition();
     /**
-     * Condition: threads waiting in awaitWritable(); signalAll whenever {@code needsUnwrap} is cleared
+     * Condition: threads waiting in awaitWritable(); signalAll whenever {@code needsUnwrap} is cleared.
      */
     private final Condition writeAwaiters = mainLock.newCondition();
 
@@ -134,7 +133,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
      */
     private ByteBuffer sendBuffer = Buffers.EMPTY_BYTE_BUFFER;
 
-    WrappingSslConnectedStreamChannel(final ConnectedStreamChannel connectedStreamChannel, final SSLEngine sslEngine, final Executor executor) {
+    ConnectedSslStreamChannelImpl(final ConnectedStreamChannel connectedStreamChannel, final SSLEngine sslEngine, final Executor executor) {
         this.connectedStreamChannel = connectedStreamChannel;
         this.sslEngine = sslEngine;
         this.executor = executor;
@@ -405,17 +404,20 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
         }
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == Options.SSL_ENABLED_CIPHER_SUITES) {
             final Sequence<String> strings = Options.SSL_ENABLED_CIPHER_SUITES.cast(value);
+            final String[] old = sslEngine.getEnabledCipherSuites();
             sslEngine.setEnabledCipherSuites(strings.toArray(new String[strings.size()]));
+            return option.cast(old);
         } else if (option == Options.SSL_ENABLED_PROTOCOLS) {
             final Sequence<String> strings = Options.SSL_ENABLED_PROTOCOLS.cast(value);
+            final String[] old = sslEngine.getEnabledProtocols();
             sslEngine.setEnabledProtocols(strings.toArray(new String[strings.size()]));
+            return option.cast(old);
         } else {
-            connectedStreamChannel.setOption(option, value);
+            return connectedStreamChannel.setOption(option, value);
         }
-        return this;
     }
 
     public void suspendReads() {
@@ -796,7 +798,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
                 log.tracef("Returning data from read buffer %s", readBuffer);
                 readBuffer.flip();
                 try {
-                    return Buffers.put(dsts, offset, length, readBuffer);
+                    return Buffers.copy(dsts, offset, length, readBuffer);
                 } finally {
                     readBuffer.compact();
                 }
@@ -819,7 +821,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
                             log.tracef("Returning data from read buffer %s", readBuffer);
                             readBuffer.flip();
                             try {
-                                return Buffers.put(dsts, offset, length, readBuffer);
+                                return Buffers.copy(dsts, offset, length, readBuffer);
                             } finally {
                                 readBuffer.compact();
                             }
@@ -886,7 +888,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
                             log.tracef("Returning data from read buffer %s", readBuffer);
                             readBuffer.flip();
                             try {
-                                return Buffers.put(dsts, offset, length, readBuffer);
+                                return Buffers.copy(dsts, offset, length, readBuffer);
                             } finally {
                                 readBuffer.compact();
                             }
@@ -986,7 +988,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
         public void handleEvent(final ConnectedStreamChannel channel) {
             boolean runRead = false;
             boolean runWrite = false;
-            final Lock mainLock = WrappingSslConnectedStreamChannel.this.mainLock;
+            final Lock mainLock = ConnectedSslStreamChannelImpl.this.mainLock;
             mainLock.lock();
             try {
                 if (needsWrap) {
@@ -1016,7 +1018,7 @@ final class WrappingSslConnectedStreamChannel implements ConnectedSslStreamChann
         public void handleEvent(final ConnectedStreamChannel channel) {
             boolean runRead = false;
             boolean runWrite = false;
-            final Lock mainLock = WrappingSslConnectedStreamChannel.this.mainLock;
+            final Lock mainLock = ConnectedSslStreamChannelImpl.this.mainLock;
             mainLock.lock();
             try {
                 if (needsUnwrap) {

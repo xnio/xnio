@@ -26,25 +26,27 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import org.jboss.logging.Logger;
+import org.xnio.Buffers;
+import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
-import org.xnio.IoUtils;
 import org.xnio.Options;
+import org.xnio.ReadChannelThread;
+import org.xnio.WriteChannelThread;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.log.Logger;
-import org.xnio.channels.Configurable;
+import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
 
 /**
@@ -54,85 +56,151 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio.udp.server.channel");
 
+    private final NioXnio nioXnio;
+
+    @SuppressWarnings( { "unused" })
+    private volatile NioHandle<AbstractNioStreamChannel> readHandle;
+    @SuppressWarnings( { "unused" })
+    private volatile NioHandle<AbstractNioStreamChannel> writeHandle;
+
+    @SuppressWarnings( { "unchecked" })
+    private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> readHandleUpdater = unsafeUpdater(NioHandle.class, "readHandle");
+
+    @SuppressWarnings( { "unchecked" })
+    private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> writeHandleUpdater = unsafeUpdater(NioHandle.class, "writeHandle");
+
+    @SuppressWarnings( { "unchecked" })
+    private static <T> AtomicReferenceFieldUpdater<NioUdpChannel, T> unsafeUpdater(Class<?> clazz, String name) {
+        return (AtomicReferenceFieldUpdater) AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, clazz, name);
+    }
+
+    private final NioSetter<NioUdpChannel> readSetter = new NioSetter<NioUdpChannel>();
+    private final NioSetter<NioUdpChannel> writeSetter = new NioSetter<NioUdpChannel>();
+    private final NioSetter<NioUdpChannel> closeSetter = new NioSetter<NioUdpChannel>();
+
     private final DatagramChannel datagramChannel;
-    private final NioHandle readHandle;
-    private final NioHandle writeHandle;
-
-    private volatile ChannelListener<? super MulticastMessageChannel> readListener = null;
-    private volatile ChannelListener<? super MulticastMessageChannel> writeListener = null;
-    private volatile ChannelListener<? super MulticastMessageChannel> closeListener = null;
-
-    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "readListener");
-    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> writeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "writeListener");
-    private static final AtomicReferenceFieldUpdater<NioUdpChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, ChannelListener.class, "closeListener");
-
-    private final ChannelListener.Setter<MulticastMessageChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
-    private final ChannelListener.Setter<MulticastMessageChannel> writeSetter = IoUtils.getSetter(this, writeListenerUpdater);
-    private final ChannelListener.Setter<MulticastMessageChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
-    private final NioXnio nioXnio;
-    private final AtomicLong globalBytesRead;
-    private final AtomicLong globalBytesWritten;
-    private final AtomicLong globalMessagesRead;
-    private final AtomicLong globalMessagesWritten;
-    final AtomicLong bytesRead = new AtomicLong();
-    final AtomicLong bytesWritten = new AtomicLong();
-    final AtomicLong messagesRead = new AtomicLong();
-    final AtomicLong messagesWritten = new AtomicLong();
 
-    NioUdpChannel(final NioXnio nioXnio, final DatagramChannel datagramChannel, final Executor executor, final AtomicLong globalBytesRead, final AtomicLong globalBytesWritten, final AtomicLong globalMessagesRead, final AtomicLong globalMessagesWritten) throws IOException {
+    NioUdpChannel(final NioXnio nioXnio, final DatagramChannel datagramChannel) {
         this.nioXnio = nioXnio;
-        this.globalBytesRead = globalBytesRead;
-        this.globalBytesWritten = globalBytesWritten;
-        this.globalMessagesRead = globalMessagesRead;
-        this.globalMessagesWritten = globalMessagesWritten;
-        if (executor != null) {
-            readHandle = nioXnio.addReadHandler(datagramChannel, new ReadHandler(), executor);
-            writeHandle = nioXnio.addWriteHandler(datagramChannel, new WriteHandler(), executor);
-        } else {
-            readHandle = nioXnio.addReadHandler(datagramChannel, new ReadHandler());
-            writeHandle = nioXnio.addWriteHandler(datagramChannel, new WriteHandler());
-        }
         this.datagramChannel = datagramChannel;
     }
 
-    public InetSocketAddress getLocalAddress() {
-        return (InetSocketAddress) datagramChannel.socket().getLocalSocketAddress();
+    public SocketAddress getLocalAddress() {
+        return datagramChannel.socket().getLocalSocketAddress();
     }
 
-    public MultipointReadResult<InetSocketAddress> receive(final ByteBuffer buffer) throws IOException {
+    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+        return type.isInstance(getLocalAddress()) ? type.cast(getLocalAddress()) : null;
+    }
+
+    public int receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer buffer) throws IOException {
         final int o = buffer.remaining();
-        final InetSocketAddress sourceAddress = (InetSocketAddress) datagramChannel.receive(buffer);
+        final SocketAddress sourceAddress = datagramChannel.receive(buffer);
         if (sourceAddress == null) {
-            return null;
+            return 0;
         } else {
             final int t = o - buffer.remaining();
-            globalMessagesRead.incrementAndGet();
-            messagesRead.incrementAndGet();
-            globalBytesRead.addAndGet((long) t);
-            bytesRead.addAndGet((long) t);
-            return new MultipointReadResult<InetSocketAddress>() {
-                public InetSocketAddress getSourceAddress() {
-                    return sourceAddress;
-                }
-
-                public InetSocketAddress getDestinationAddress() {
-                    return null;
-                }
-            };
+            if (addressBuffer != null) {
+                addressBuffer.setSourceAddress(sourceAddress);
+                addressBuffer.setDestinationAddress(null);
+            }
+            return t;
         }
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getReadSetter() {
+    public long receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer[] buffers) throws IOException {
+        return receiveFrom(addressBuffer, buffers, 0, buffers.length);
+    }
+
+    public long receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
+        if (len == 0) {
+            return 0L;
+        }
+        if (len == 1) {
+            return receiveFrom(addressBuffer, buffers[offs]);
+        }
+        final int o = (int) Math.min(Buffers.remaining(buffers, offs, len), 65536L);
+        final ByteBuffer buffer = ByteBuffer.allocate((int) o);
+        final SocketAddress sourceAddress = datagramChannel.receive(buffer);
+        if (sourceAddress == null) {
+            return 0L;
+        } else {
+            final int t = o - buffer.remaining();
+            buffer.flip();
+            Buffers.copy(buffers, offs, len, buffer);
+            if (addressBuffer != null) {
+                addressBuffer.setSourceAddress(sourceAddress);
+                addressBuffer.setDestinationAddress(null);
+            }
+            return t;
+        }
+    }
+
+    public boolean sendTo(final SocketAddress target, final ByteBuffer buffer) throws IOException {
+        return datagramChannel.send(buffer, target) != 0;
+    }
+
+    public boolean sendTo(final SocketAddress target, final ByteBuffer[] buffers) throws IOException {
+        return sendTo(target, buffers, 0, buffers.length);
+    }
+
+    public boolean sendTo(final SocketAddress target, final ByteBuffer[] buffers, final int offset, final int length) throws IOException {
+        if (length == 0) {
+            return false;
+        }
+        if (length == 1) {
+            return sendTo(target, buffers[offset]);
+        }
+        final long o = Buffers.remaining(buffers, offset, length);
+        if (o > 65535L) {
+            // there will never be enough room
+            throw new IllegalArgumentException("Too may bytes written");
+        }
+        final ByteBuffer buffer = ByteBuffer.allocate((int) o);
+        Buffers.copy(buffer, buffers, offset, length);
+        buffer.flip();
+        return datagramChannel.send(buffer, target) != 0;
+    }
+
+    public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
+        try {
+            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter, false);
+            final NioHandle<NioUdpChannel> oldValue = readHandleUpdater.getAndSet(this, newHandle);
+            if (oldValue != null) {
+                oldValue.cancelKey();
+            }
+        } catch (ClosedChannelException e) {
+            // do nothing
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("Thread belongs to the wrong provider");
+        }
+    }
+
+    public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
+        try {
+            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter, false);
+            final NioHandle<NioUdpChannel> oldValue = writeHandleUpdater.getAndSet(this, newHandle);
+            if (oldValue != null) {
+                oldValue.cancelKey();
+            }
+        } catch (ClosedChannelException e) {
+            // do nothing
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("Thread belongs to the wrong provider");
+        }
+    }
+
+    public ChannelListener.Setter<NioUdpChannel> getReadSetter() {
         return readSetter;
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getWriteSetter() {
+    public ChannelListener.Setter<NioUdpChannel> getWriteSetter() {
         return writeSetter;
     }
 
-    public ChannelListener.Setter<MulticastMessageChannel> getCloseSetter() {
+    public ChannelListener.Setter<NioUdpChannel> getCloseSetter() {
         return closeSetter;
     }
 
@@ -146,48 +214,13 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public void close() throws IOException {
         if (!callFlag.getAndSet(true)) {
-            log.trace("Closing %s", this);
+            log.tracef("Closing %s", this);
             try {
                 datagramChannel.close();
             } finally {
-                nioXnio.removeManaged(this);
-                IoUtils.<MulticastMessageChannel>invokeChannelListener(this, closeListener);
+                ChannelListeners.<NioUdpChannel>invokeChannelListener(this, closeSetter.get());
             }
         }
-    }
-
-    public boolean send(final InetSocketAddress target, final ByteBuffer buffer) throws IOException {
-        int ret = datagramChannel.send(buffer, target);
-        if (ret != 0) {
-            globalMessagesWritten.incrementAndGet();
-            messagesWritten.incrementAndGet();
-            globalBytesWritten.addAndGet((long) ret);
-            bytesWritten.addAndGet((long) ret);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts) throws IOException {
-        return send(target, dsts, 0, dsts.length);
-    }
-
-    public boolean send(final InetSocketAddress target, final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        // todo - gather not supported in NIO.1 so we have to fake it...
-        long total = 0L;
-        for (int i = 0; i < length; i++) {
-            total += dsts[offset + i].remaining();
-        }
-        if (total > Integer.MAX_VALUE) {
-            throw new IOException("Source data is too large");
-        }
-        ByteBuffer buf = ByteBuffer.allocate((int)total);
-        for (int i = 0; i < length; i++) {
-            buf.put(dsts[offset + i]);
-        }
-        buf.flip();
-        return send(target, buf);
     }
 
     public void suspendReads() {
@@ -280,34 +313,29 @@ class NioUdpChannel implements MulticastMessageChannel {
         }
     }
 
-    public <T> Configurable setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         final DatagramSocket socket = datagramChannel.socket();
+        final Object old;
         if (option == Options.RECEIVE_BUFFER) {
+            old = Integer.valueOf(socket.getReceiveBufferSize());
             socket.setReceiveBufferSize(((Integer) value).intValue());
         } else if (option == Options.SEND_BUFFER) {
+            old = Integer.valueOf(socket.getSendBufferSize());
             socket.setSendBufferSize(((Integer) value).intValue());
         } else if (option == Options.IP_TRAFFIC_CLASS) {
+            old = Integer.valueOf(socket.getTrafficClass());
             socket.setTrafficClass(((Integer) value).intValue());
         } else if (option == Options.BROADCAST) {
+            old = Boolean.valueOf(socket.getBroadcast());
             socket.setBroadcast(((Boolean) value).booleanValue());
+        } else {
+            return null;
         }
-        return this;
-    }
-
-    public final class ReadHandler implements Runnable {
-        public void run() {
-            IoUtils.<MulticastMessageChannel>invokeChannelListener(NioUdpChannel.this, readListener);
-        }
-    }
-
-    public final class WriteHandler implements Runnable {
-        public void run() {
-            IoUtils.<MulticastMessageChannel>invokeChannelListener(NioUdpChannel.this, writeListener);
-        }
+        return option.cast(old);
     }
 
     @Override
     public String toString() {
-        return String.format("UDP socket channel (NIO) <%s> @ %s", Integer.toString(hashCode(), 16), getLocalAddress());
+        return String.format("UDP socket channel (NIO) <%h>", this);
     }
 }

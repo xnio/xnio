@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2009, JBoss Inc., and individual contributors as indicated
+ * Copyright 2011, JBoss Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -22,17 +22,24 @@
 
 package org.xnio.nio;
 
-import org.xnio.XnioProvider;
 import org.xnio.Xnio;
-import java.io.IOException;
+import org.xnio.XnioProvider;
 
+/**
+ * The NIO XNIO provider.
+ *
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ */
 public final class NioXnioProvider implements XnioProvider {
+    private static final Xnio INSTANCE = new NioXnio();
 
-    public String getName() {
-        return "nio";
+    /** {@inheritDoc} */
+    public Xnio getInstance() {
+        return INSTANCE;
     }
 
-    public Xnio getNewInstance() throws IOException {
-        return NioXnio.create(configuration);
+    /** {@inheritDoc} */
+    public String getName() {
+        return INSTANCE.getName();
     }
 }

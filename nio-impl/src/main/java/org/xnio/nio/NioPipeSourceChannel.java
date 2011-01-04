@@ -23,74 +23,21 @@
 package org.xnio.nio;
 
 import java.io.IOException;
-import java.io.Closeable;
-import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Pipe;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.FileChannel;
-import java.util.concurrent.TimeUnit;
+import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import org.xnio.IoUtils;
 import org.xnio.Option;
-import org.xnio.ChannelListener;
-import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
-/**
- *
- */
-final class NioPipeSourceChannel implements StreamSourceChannel {
+final class NioPipeSourceChannel extends AbstractNioStreamSourceChannel<NioPipeSourceChannel> {
 
     private final Pipe.SourceChannel channel;
-    private final NioHandle handle;
-    private final NioXnio nioXnio;
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
-    private final Closeable mbeanHandle;
 
-    private volatile ChannelListener<? super StreamSourceChannel> readListener = null;
-    private volatile ChannelListener<? super StreamSourceChannel> closeListener = null;
-
-    private static final AtomicReferenceFieldUpdater<NioPipeSourceChannel, ChannelListener> readListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSourceChannel.class, ChannelListener.class, "readListener");
-    private static final AtomicReferenceFieldUpdater<NioPipeSourceChannel, ChannelListener> closeListenerUpdater = AtomicReferenceFieldUpdater.newUpdater(NioPipeSourceChannel.class, ChannelListener.class, "closeListener");
-
-    private final ChannelListener.Setter<StreamSourceChannel> readSetter = IoUtils.getSetter(this, readListenerUpdater);
-    private final ChannelListener.Setter<StreamSourceChannel> closeSetter = IoUtils.getSetter(this, closeListenerUpdater);
-
-    NioPipeSourceChannel(final Pipe.SourceChannel channel, final NioXnio nioXnio, final Closeable mbeanHandle) throws IOException {
+    NioPipeSourceChannel(final NioXnio xnio, final Pipe.SourceChannel channel) {
+        super(xnio);
         this.channel = channel;
-        this.nioXnio = nioXnio;
-        this.mbeanHandle = mbeanHandle;
-        handle = nioXnio.addReadHandler(channel, new Handler());
-    }
-
-    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
-        return target.transferFrom(channel, position, count);
-    }
-
-    public ChannelListener.Setter<StreamSourceChannel> getReadSetter() {
-        return readSetter;
-    }
-
-    public ChannelListener.Setter<StreamSourceChannel> getCloseSetter() {
-        return closeSetter;
-    }
-
-    public int read(final ByteBuffer dst) throws IOException {
-        int ret = channel.read(dst);
-        return ret;
-    }
-
-    public long read(final ByteBuffer[] dsts) throws IOException {
-        long ret = channel.read(dsts);
-        return ret;
-    }
-
-    public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        long ret = channel.read(dsts, offset, length);
-        return ret;
     }
 
     public boolean isOpen() {
@@ -99,39 +46,17 @@ final class NioPipeSourceChannel implements StreamSourceChannel {
 
     public void close() throws IOException {
         if (! callFlag.getAndSet(true)) {
-            nioXnio.removeManaged(this);
-            IoUtils.safeClose(mbeanHandle);
-            IoUtils.<StreamSourceChannel>invokeChannelListener(this, closeListener);
+            invokeCloseHandler();
             channel.close();
         }
     }
 
-    public void suspendReads() {
-        try {
-            handle.suspend();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
-    }
-
-    public void resumeReads() {
-        try {
-            handle.resume(SelectionKey.OP_READ);
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
+    protected ScatteringByteChannel getReadChannel() {
+        return channel;
     }
 
     public void shutdownReads() throws IOException {
         close();
-    }
-
-    public void awaitReadable() throws IOException {
-        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_READ);
-    }
-
-    public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, channel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public boolean supportsOption(final Option<?> option) {
@@ -142,14 +67,8 @@ final class NioPipeSourceChannel implements StreamSourceChannel {
         return null;
     }
 
-    public <T> NioPipeSourceChannel setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return this;
-    }
-
-    private final class Handler implements Runnable {
-        public void run() {
-            IoUtils.<StreamSourceChannel>invokeChannelListener(NioPipeSourceChannel.this, readListener);
-        }
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        return null;
     }
 
     @Override

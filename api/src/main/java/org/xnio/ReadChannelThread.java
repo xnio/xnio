@@ -22,7 +22,6 @@
 
 package org.xnio;
 
-import java.io.IOException;
 import org.xnio.channels.SuspendableReadChannel;
 
 /**
@@ -30,8 +29,6 @@ import org.xnio.channels.SuspendableReadChannel;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface ReadChannelThread extends ChannelThread<SuspendableReadChannel> {
+public interface ReadChannelThread extends ChannelThread {
 
-    /** {@inheritDoc} */
-    void addChannel(SuspendableReadChannel channel) throws IOException, IllegalArgumentException, ClassCastException;
 }

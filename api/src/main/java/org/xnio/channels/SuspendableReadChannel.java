@@ -77,7 +77,8 @@ public interface SuspendableReadChannel extends CloseableChannel {
     void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
 
     /**
-     * Set the read thread.
+     * Set the read thread.  After setting the read thread, it is necessary to call {@link #resumeReads()} to begin
+     * read notifications again.
      *
      * @param thread the read thread
      * @throws IllegalArgumentException if the read thread comes from a different provider than this channel

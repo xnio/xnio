@@ -26,10 +26,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
 
 /**
  * An in-VM pipe between an input stream and an output stream, which does not suffer from the
- * bugs in {@link java.io.PipedInputStream}.
+ * bugs in {@link PipedInputStream}.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
