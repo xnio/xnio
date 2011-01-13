@@ -1594,4 +1594,34 @@ public final class Buffers {
             oneChar.clear();
         }
     }
+
+    /**
+     * Create a pooled wrapper around a buffer.  The buffer is unreferenced for garbage collection when
+     * freed or discarded.
+     *
+     * @param buffer the buffer to wrap
+     * @param <B> the buffer type
+     * @return the pooled wrapper
+     */
+    public static <B extends Buffer> Pooled<B> pooledWrapper(final B buffer) {
+        return new Pooled<B>() {
+            private volatile B buf = buffer;
+
+            public void discard() {
+                buf = null;
+            }
+
+            public void free() {
+                buf = null;
+            }
+
+            public B getResource() throws IllegalStateException {
+                final B buffer = buf;
+                if (buffer == null) {
+                    throw new IllegalStateException();
+                }
+                return buffer;
+            }
+        };
+    }
 }

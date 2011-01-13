@@ -30,27 +30,19 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
+import org.xnio.Buffers;
+import org.xnio.Pooled;
 
 /**
  * An {@code InputStream} implementation which is populated asynchronously with {@link ByteBuffer} instances.
  */
 public class BufferPipeInputStream extends InputStream {
-    private final Queue<Entry> queue;
+    private final Queue<Pooled<ByteBuffer>> queue;
     private final InputHandler inputHandler;
 
-    // protected by "queue"
+    // protected by "this"
     private boolean eof;
     private IOException failure;
-
-    private static final class Entry {
-        private final ByteBuffer buffer;
-        private final BufferReturn bufferReturn;
-
-        private Entry(final ByteBuffer buffer, final BufferReturn bufferReturn) {
-            this.buffer = buffer;
-            this.bufferReturn = bufferReturn;
-        }
-    }
 
     /**
      * Construct a new instance.  The given {@code inputHandler} will
@@ -60,7 +52,7 @@ public class BufferPipeInputStream extends InputStream {
      */
     public BufferPipeInputStream(final InputHandler inputHandler) {
         this.inputHandler = inputHandler;
-        queue = new ArrayDeque<Entry>();
+        queue = new ArrayDeque<Pooled<ByteBuffer>>();
     }
 
     /**
@@ -72,7 +64,7 @@ public class BufferPipeInputStream extends InputStream {
     public void push(final ByteBuffer buffer) {
         synchronized (this) {
             if (!eof && failure == null) {
-                queue.add(new Entry(buffer, null));
+                queue.add(Buffers.pooledWrapper(buffer));
                 notifyAll();
             }
         }
@@ -82,16 +74,15 @@ public class BufferPipeInputStream extends InputStream {
      * Push a buffer into the queue.  There is no mechanism to limit the number of pushed buffers; if such a mechanism
      * is desired, it must be implemented externally, for example maybe using a {@link Semaphore}.
      *
-     * @param buffer the buffer from which more data should be read
-     * @param bufferReturn the buffer return to send this buffer to when it is exhausted
+     * @param pooledBuffer the buffer from which more data should be read
      */
-    public void push(final ByteBuffer buffer, final BufferReturn bufferReturn) {
+    public void push(final Pooled<ByteBuffer> pooledBuffer) {
         synchronized (this) {
             if (!eof && failure == null) {
-                queue.add(new Entry(buffer, bufferReturn));
+                queue.add(pooledBuffer);
                 notifyAll();
             } else {
-                bufferReturn.returnBuffer(buffer);
+                pooledBuffer.free();
             }
         }
     }
@@ -124,7 +115,7 @@ public class BufferPipeInputStream extends InputStream {
 
     /** {@inheritDoc} */
     public int read() throws IOException {
-        final Queue<Entry> queue = this.queue;
+        final Queue<Pooled<ByteBuffer>> queue = this.queue;
         synchronized (this) {
             while (queue.isEmpty()) {
                 if (eof) {
@@ -138,14 +129,11 @@ public class BufferPipeInputStream extends InputStream {
                     throw new InterruptedIOException("Interrupted on read()");
                 }
             }
-            final Entry entry = queue.peek();
-            final ByteBuffer buf = entry.buffer;
-            final BufferReturn bufferReturn = entry.bufferReturn;
+            final Pooled<ByteBuffer> entry = queue.peek();
+            final ByteBuffer buf = entry.getResource();
             final int v = buf.get() & 0xff;
             if (buf.remaining() == 0) {
-                if (bufferReturn != null) {
-                    bufferReturn.returnBuffer(buf);
-                }
+                entry.free();
                 queue.poll();
                 try {
                     inputHandler.acknowledge();
@@ -159,13 +147,9 @@ public class BufferPipeInputStream extends InputStream {
 
     private void clearQueue() {
         synchronized (this) {
-            Entry entry;
+            Pooled<ByteBuffer> entry;
             while ((entry = queue.poll()) != null) {
-                final ByteBuffer buffer = entry.buffer;
-                final BufferReturn ret = entry.bufferReturn;
-                if (ret != null) {
-                    ret.returnBuffer(buffer);
-                }
+                entry.free();
             }
         }
     }
@@ -175,7 +159,7 @@ public class BufferPipeInputStream extends InputStream {
         if (len == 0) {
             return 0;
         }
-        final Queue<Entry> queue = this.queue;
+        final Queue<Pooled<ByteBuffer>> queue = this.queue;
         synchronized (this) {
             while (queue.isEmpty()) {
                 if (eof) {
@@ -191,21 +175,18 @@ public class BufferPipeInputStream extends InputStream {
             }
             int total = 0;
             while (len > 0) {
-                final Entry entry = queue.peek();
+                final Pooled<ByteBuffer> entry = queue.peek();
                 if (entry == null) {
                     break;
                 }
-                final ByteBuffer buffer = entry.buffer;
-                final BufferReturn bufferReturn = entry.bufferReturn;
+                final ByteBuffer buffer = entry.getResource();
                 final int byteCnt = Math.min(buffer.remaining(), len);
                 buffer.get(b, off, byteCnt);
                 off += byteCnt;
                 total += byteCnt;
                 len -= byteCnt;
                 if (buffer.remaining() == 0) {
-                    if (bufferReturn != null) {
-                        bufferReturn.returnBuffer(buffer);
-                    }
+                    entry.free();
                     queue.poll();
                     try {
                         inputHandler.acknowledge();
@@ -222,8 +203,8 @@ public class BufferPipeInputStream extends InputStream {
     public int available() throws IOException {
         synchronized (this) {
             int total = 0;
-            for (Entry entry : queue) {
-                total += entry.buffer.remaining();
+            for (Pooled<ByteBuffer> entry : queue) {
+                total += entry.getResource().remaining();
                 if (total < 0) {
                     return Integer.MAX_VALUE;
                 }
@@ -233,7 +214,7 @@ public class BufferPipeInputStream extends InputStream {
     }
 
     public long skip(long qty) throws IOException {
-        final Queue<Entry> queue = this.queue;
+        final Queue<Pooled<ByteBuffer>> queue = this.queue;
         synchronized (this) {
             while (queue.isEmpty()) {
                 if (eof) {
@@ -249,21 +230,18 @@ public class BufferPipeInputStream extends InputStream {
             }
             long skipped = 0L;
             while (qty > 0L) {
-                final Entry entry = queue.peek();
+                final Pooled<ByteBuffer> entry = queue.peek();
                 if (entry == null) {
                     break;
                 }
-                final ByteBuffer buffer = entry.buffer;
-                final BufferReturn bufferReturn = entry.bufferReturn;
+                final ByteBuffer buffer = entry.getResource();
                 final int byteCnt = Math.min(buffer.remaining(), (int) Math.max((long)Integer.MAX_VALUE, qty));
                 buffer.position(buffer.position() + byteCnt);
                 skipped += byteCnt;
                 qty -= byteCnt;
                 if (buffer.remaining() == 0) {
                     queue.poll();
-                    if (bufferReturn != null) {
-                        bufferReturn.returnBuffer(buffer);
-                    }
+                    entry.free();
                     try {
                         inputHandler.acknowledge();
                     } catch (IOException e) {
@@ -322,18 +300,5 @@ public class BufferPipeInputStream extends InputStream {
          * @throws IOException if an I/O error occurs
          */
         void close() throws IOException;
-    }
-
-    /**
-     * A handler for returning buffers which are have been exhausted.
-     */
-    public interface BufferReturn {
-
-        /**
-         * Accept a returned buffer.
-         *
-         * @param buffer the buffer
-         */
-        void returnBuffer(ByteBuffer buffer);
     }
 }
