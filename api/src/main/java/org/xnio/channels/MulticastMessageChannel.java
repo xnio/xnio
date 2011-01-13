@@ -33,7 +33,7 @@ import org.xnio.ChannelListener;
  *
  * @apiviz.landmark
  */
-public interface MulticastMessageChannel extends BoundMultipointChannel {
+public interface MulticastMessageChannel extends BoundMultipointMessageChannel {
 
     /**
      * A registration key for a multicast group.

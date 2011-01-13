@@ -51,6 +51,7 @@ public interface ReadableMultipointMessageChannel extends SuspendableReadChannel
      * and destination addresses (if available) read into the address buffer.  If there is no message immediately available,
      * this method will return 0.
      *
+     * @param addressBuffer the address buffer into which the source and destination addresses should be written ({@code null} to discard that information)
      * @param buffers the buffers that will hold the message
      * @return the size of the received message, 0 if no message is available, and -1 if the message channel has reached an end-of-file condition
      * @throws IOException if an I/O error occurs
@@ -64,6 +65,7 @@ public interface ReadableMultipointMessageChannel extends SuspendableReadChannel
      * and destination addresses (if available) read into the address buffer.  If there is no message immediately available,
      * this method will return 0.
      *
+     * @param addressBuffer the address buffer into which the source and destination addresses should be written ({@code null} to discard that information)
      * @param buffers the buffers that will hold the message
      * @param offs the offset into the array of buffers of the first buffer to read into
      * @param len the number of buffers to fill

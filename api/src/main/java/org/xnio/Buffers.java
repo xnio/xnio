@@ -693,6 +693,66 @@ public final class Buffers {
     }
 
     /**
+     * Take all of the remaining bytes from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @return the bytes
+     */
+    public static byte[] take(ByteBuffer buffer) {
+        final byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    /**
+     * Take all of the remaining chars from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @return the chars
+     */
+    public static char[] take(CharBuffer buffer) {
+        final char[] chars = new char[buffer.remaining()];
+        buffer.get(chars);
+        return chars;
+    }
+
+    /**
+     * Take all of the remaining shorts from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @return the shorts
+     */
+    public static short[] take(ShortBuffer buffer) {
+        final short[] shorts = new short[buffer.remaining()];
+        buffer.get(shorts);
+        return shorts;
+    }
+
+    /**
+     * Take all of the remaining ints from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @return the ints
+     */
+    public static int[] take(IntBuffer buffer) {
+        final int[] ints = new int[buffer.remaining()];
+        buffer.get(ints);
+        return ints;
+    }
+
+    /**
+     * Take all of the remaining longs from the buffer and return them in an array.
+     *
+     * @param buffer the buffer to read
+     * @return the longs
+     */
+    public static long[] take(LongBuffer buffer) {
+        final long[] longs = new long[buffer.remaining()];
+        buffer.get(longs);
+        return longs;
+    }
+
+    /**
      * Create an object that returns the dumped form of the given byte buffer when its {@code toString()} method is called.
      * Useful for logging byte buffers; if the {@code toString()} method is never called, the process of dumping the
      * buffer is never performed.

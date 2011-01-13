@@ -22,12 +22,53 @@
 
 package org.xnio;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+
 /**
  * A channel thread.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface ChannelThread {
+public interface ChannelThread extends Executor {
+
+    /**
+     * Execute a runnable task on this channel thread.
+     *
+     * @param command the task to execute
+     */
+    void execute(Runnable command);
+
+    /**
+     * Submit a parameterized task on this channel thread, collecting the result.
+     *
+     * @param task the task
+     * @param parameter the parameter to send to the task
+     * @param <P> the parameter type
+     * @param <R> the return type
+     * @return the future result
+     */
+    <P, R> Future<R> submit(Task<P, R> task, P parameter);
+
+    /**
+     * Execute a task on this channel thread, ignoring the result.
+     *
+     * @param task the task to run
+     * @param parameter the parameter to send to the task
+     * @param <P> the parameter type
+     */
+    <P> void execute(Task<P, ?> task, P parameter);
+
+    /**
+     * Run a task in the channel thread, waiting for the result.
+     *
+     * @param task the task
+     * @param parameter the parameter to send to the task
+     * @param <P> the parameter type
+     * @param <R> the return type
+     * @return the result
+     */
+    <P, R> R run(Task<P, R> task, P parameter);
 
     /**
      * Get the approximate load on this thread, in channels.
@@ -84,5 +125,22 @@ public interface ChannelThread {
          * @param thread the thread that was terminated
          */
         void handleTerminationComplete(ChannelThread thread);
+    }
+
+    /**
+     * A task to run on a channel thread.
+     *
+     * @param <P> the task parameter type
+     * @param <R> the task result type
+     */
+    interface Task<P, R> {
+
+        /**
+         * Run the task.
+         *
+         * @param parameter the passed-in parameter
+         * @return the result
+         */
+        R run(P parameter);
     }
 }

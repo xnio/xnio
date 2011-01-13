@@ -153,6 +153,10 @@ public final class ChannelListeners {
                     listenerLog.errorf("Failed to accept a connection on %s: %s", channel, e);
                 }
             }
+
+            public String toString() {
+                return "Accepting listener for " + openListener;
+            }
         };
     }
 
@@ -178,6 +182,10 @@ public final class ChannelListeners {
                 } catch (IOException e) {
                     listenerLog.errorf("Failed to accept a connection on %s: %s", channel, e);
                 }
+            }
+
+            public String toString() {
+                return "Accepting listener for " + openListener;
             }
         };
     }

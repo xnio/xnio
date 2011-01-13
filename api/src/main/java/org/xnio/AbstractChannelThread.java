@@ -22,8 +22,11 @@
 
 package org.xnio;
 
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import org.jboss.logging.Logger;
 
 /**
@@ -42,6 +45,47 @@ public abstract class AbstractChannelThread implements ChannelThread {
     private int state = UP;
 
     private final Set<Listener> listenerSet = new HashSet<Listener>();
+
+    private static final Task<Runnable, Void> RUNNABLE_TASK = new Task<Runnable, Void>() {
+        public Void run(final Runnable parameter) {
+            parameter.run();
+            return null;
+        }
+    };
+
+    public void execute(final Runnable command) {
+        submit(RUNNABLE_TASK, command);
+    }
+
+    public <P> void execute(final Task<P, ?> task, final P parameter) {
+        submit(task, parameter);
+    }
+
+    public <P, R> R run(final Task<P, R> task, final P parameter) {
+        final Future<R> future = submit(task, parameter);
+        boolean intr = false;
+        try {
+            for (;;) try {
+                return future.get();
+            } catch (InterruptedException e) {
+                intr = true;
+            }
+        } catch (ExecutionException e) {
+            try {
+                throw e.getCause();
+            } catch (Error er) {
+                throw er;
+            } catch (RuntimeException ex) {
+                throw ex;
+            } catch (Throwable throwable) {
+                throw new UndeclaredThrowableException(throwable);
+            }
+        } finally {
+            if (intr) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
 
     /** {@inheritDoc} */
     public final void shutdown() {

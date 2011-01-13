@@ -200,6 +200,10 @@ final class NioXnio extends Xnio {
                         futureResult.setException(e);
                     }
                 }
+
+                public String toString() {
+                    return "Connection finisher for " + channel;
+                }
             });
             futureResult.addCancelHandler(new Cancellable() {
                 public Cancellable cancel() {
@@ -208,6 +212,10 @@ final class NioXnio extends Xnio {
                         IoUtils.safeClose(channel);
                     }
                     return this;
+                }
+
+                public String toString() {
+                    return "Cancel handler for " + channel;
                 }
             });
             handle.resume(SelectionKey.OP_CONNECT);
@@ -257,6 +265,10 @@ final class NioXnio extends Xnio {
                 public void close() throws IOException {
                     channel.close();
                 }
+
+                public String toString() {
+                    return String.format("TCP acceptor bound channel (NIO) <%h>", this);
+                }
             }, bindListener);
             final SocketChannel accepted = channel.accept();
             if (accepted != null) {
@@ -287,6 +299,10 @@ final class NioXnio extends Xnio {
                         handle.cancelKey();
                         futureResult.setException(e);
                     }
+                }
+
+                public String toString() {
+                    return "Accepting finisher for " + channel;
                 }
             });
             handle.resume(SelectionKey.OP_ACCEPT);

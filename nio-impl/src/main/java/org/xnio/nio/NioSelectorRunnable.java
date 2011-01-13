@@ -149,7 +149,13 @@ final class NioSelectorRunnable implements Runnable {
             throw new ClosedChannelException();
         }
         if (Thread.currentThread() == thread) {
-            return channel.register(selector, ops);
+            final SelectionKey key = channel.register(selector, ops);
+            try {
+                selector.selectNow();
+            } catch (IOException e) {
+                log.error("Failed to notify selector of selection key registration", e);
+            }
+            return key;
         } else {
             final SynchronousHolder<SelectionKey> holder = new SynchronousHolder<SelectionKey>();
             runTask(new SelectorTask() {
@@ -158,7 +164,13 @@ final class NioSelectorRunnable implements Runnable {
                         if (shutdown != 0) {
                             throw new ClosedChannelException();
                         }
-                        holder.set(channel.register(selector, ops));
+                        final SelectionKey key = channel.register(selector, ops);
+                        try {
+                            selector.selectNow();
+                        } catch (IOException e) {
+                            log.error("Failed to notify selector of selection key registration", e);
+                        }
+                        holder.set(key);
                     } catch (IllegalBlockingModeException e) {
                         holder.setProblem(e);
                     } catch (ClosedChannelException e) {

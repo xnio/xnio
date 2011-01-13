@@ -27,14 +27,14 @@ import org.xnio.ChannelListener;
 /**
  * A multipoint datagram channel.  A multipoint datagram channel is a bound multipoint message channel.
  */
-public interface BoundMultipointChannel extends MultipointMessageChannel, BoundChannel {
+public interface BoundMultipointMessageChannel extends MultipointMessageChannel, BoundChannel {
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends BoundMultipointChannel> getReadSetter();
+    ChannelListener.Setter<? extends BoundMultipointMessageChannel> getReadSetter();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends BoundMultipointChannel> getCloseSetter();
+    ChannelListener.Setter<? extends BoundMultipointMessageChannel> getCloseSetter();
 
     /** {@inheritDoc} */
-    ChannelListener.Setter<? extends BoundMultipointChannel> getWriteSetter();
+    ChannelListener.Setter<? extends BoundMultipointMessageChannel> getWriteSetter();
 }

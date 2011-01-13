@@ -26,6 +26,7 @@ import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.concurrent.Future;
 import org.jboss.logging.Logger;
 import org.xnio.AbstractChannelThread;
 
@@ -49,6 +50,10 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
 
     void done() {
         shutdownFinished();
+    }
+
+    public <P, R> Future<R> submit(final Task<P, R> task, final P parameter) {
+        return null;
     }
 
     public int getLoad() {
