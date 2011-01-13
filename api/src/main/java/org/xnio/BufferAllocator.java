@@ -28,6 +28,8 @@ import java.nio.ByteBuffer;
 /**
  * A simple allocator for buffers.
  *
+ * @param <B> the buffer type
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface BufferAllocator<B extends Buffer> {

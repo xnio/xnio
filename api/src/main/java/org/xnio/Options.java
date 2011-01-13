@@ -22,6 +22,9 @@
 
 package org.xnio;
 
+import org.xnio.sasl.SaslQop;
+import org.xnio.sasl.SaslStrength;
+
 import javax.security.sasl.Sasl;
 
 /**

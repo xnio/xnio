@@ -83,7 +83,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
     }
 
     /**
-     * Get a byte string from the bytes of a charater string.
+     * Get a byte string from the bytes of a character string.
      *
      * @param str the character string
      * @param charset the character set to use
@@ -95,7 +95,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
     }
 
     /**
-     * Get a byte string from the bytes of a charater string.
+     * Get a byte string from the bytes of a character string.
      *
      * @param str the character string
      * @param charset the character set to use

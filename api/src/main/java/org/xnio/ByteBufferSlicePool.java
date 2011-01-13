@@ -42,71 +42,56 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<Ref>());
-
     private final Queue<Slice> sliceQueue = new ConcurrentLinkedQueue<Slice>();
+    private final BufferAllocator<ByteBuffer> allocator;
+    private final int bufferSize;
+    private final int buffersPerRegion;
 
     /**
      * Construct a new instance.
      *
      * @param allocator the buffer allocator to use
      * @param bufferSize the size of each buffer
-     * @param bufferCount the number of buffers to allocate
      * @param maxRegionSize the maximum region size for each backing buffer
      */
-    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int bufferCount, final int maxRegionSize) {
+    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize) {
         if (bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer size must be greater than zero");
-        }
-        if (bufferCount <= 0) {
-            throw new IllegalArgumentException("Buffer count must be greater than zero");
         }
         if (maxRegionSize < bufferSize) {
             throw new IllegalArgumentException("Maximum region size must be greater than or equal to the buffer size");
         }
-        final long finalSize = (long) bufferSize * (long) bufferCount;
-        final int buffersPerRegion = maxRegionSize / bufferSize;
-        final int wholeRegionCount = (int) (finalSize / (long)maxRegionSize);
-        final int lastRegionBufferCount = (int) (finalSize % (long)maxRegionSize);
-        for (int i = 0; i < wholeRegionCount; i ++) {
-            // this buffer may only ever be updated via a duplicate
-            final ByteBuffer buffer = allocator.allocate(buffersPerRegion * bufferSize);
-            for (int j = 0; j < buffersPerRegion; j ++) {
-                sliceQueue.add(new Slice(buffer, j * bufferSize, bufferSize));
-            }
-        }
-        if (lastRegionBufferCount > 0) {
-            // this buffer may only ever be updated via a duplicate
-            final ByteBuffer buffer = allocator.allocate(bufferSize * lastRegionBufferCount);
-            for (int j = 0; j < lastRegionBufferCount; j ++) {
-                sliceQueue.add(new Slice(buffer, j * bufferSize, bufferSize));
-            }
-        }
+        buffersPerRegion = maxRegionSize / bufferSize;
+        this.bufferSize = bufferSize;
+        this.allocator = allocator;
     }
 
     /**
      * Construct a new instance, using a direct buffer allocator.
      *
      * @param bufferSize the size of each buffer
-     * @param bufferCount the number of buffers to allocate
      * @param maxRegionSize the maximum region size for each backing buffer
      */
-    public ByteBufferSlicePool(final int bufferSize, final int bufferCount, final int maxRegionSize) {
-        this(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, bufferSize, bufferCount, maxRegionSize);
-    }
-
-    /**
-     * Construct a new instance, using a direct buffer allocator and a maximum region size of {@code Integer.MAX_VALUE}.
-     *
-     * @param bufferSize the size of each buffer
-     * @param bufferCount the number of buffers to allocate
-     */
-    public ByteBufferSlicePool(final int bufferSize, final int bufferCount) {
-        this(bufferSize, bufferCount, Integer.MAX_VALUE);
+    public ByteBufferSlicePool(final int bufferSize, final int maxRegionSize) {
+        this(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, bufferSize, maxRegionSize);
     }
 
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
+        final Queue<Slice> sliceQueue = this.sliceQueue;
         final Slice slice = sliceQueue.poll();
+        if (slice == null) {
+            final int bufferSize = this.bufferSize;
+            final int buffersPerRegion = this.buffersPerRegion;
+            final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
+            int idx = bufferSize;
+            for (int i = 1; i <= buffersPerRegion; i ++) {
+                sliceQueue.add(new Slice(region, idx, bufferSize));
+                idx += bufferSize;
+            }
+            final Slice newSlice = new Slice(region, 0, bufferSize);
+            return new PooledByteBuffer(newSlice, newSlice.slice());
+        }
         return slice == null ? null : new PooledByteBuffer(slice, slice.slice());
     }
 

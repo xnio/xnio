@@ -20,25 +20,25 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio;
+package org.xnio.sasl;
 
 /**
- * The SASL cipher strength value.
+ * The SASL quality-of-protection value.
  *
- * @see javax.security.sasl.Sasl#STRENGTH
+ * @see javax.security.sasl.Sasl#QOP
  */
-public enum SaslStrength {
+public enum SaslQop {
 
     /**
-     * Specify low cipher strength.
+     * A QOP value specifying authentication only.
      */
-    LOW,
+    AUTH,
     /**
-     * Specify medium cipher strength.
+     * A QOP value specifying authentication plus integrity protection.
      */
-    MEDIUM,
+    AUTH_INT,
     /**
-     * Specify high cipher strength.
+     * A QOP value specifying authentication plus integrity and confidentiality protection.
      */
-    HIGH,
+    AUTH_CONF,
 }
