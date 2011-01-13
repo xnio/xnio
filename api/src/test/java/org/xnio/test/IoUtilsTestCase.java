@@ -26,16 +26,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import junit.framework.TestCase;
 import org.xnio.IoUtils;
-import org.xnio.test.support.LoggingHelper;
 
 /**
  *
  */
 @SuppressWarnings({"unchecked"})
 public final class IoUtilsTestCase extends TestCase {
-    static {
-        LoggingHelper.init();
-    }
 
     public void testDirectExecutor() {
         final Thread t = Thread.currentThread();

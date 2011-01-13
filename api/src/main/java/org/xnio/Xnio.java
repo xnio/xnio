@@ -473,7 +473,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
         throw new UnsupportedOperationException("TCP server");
     }
@@ -490,7 +490,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected AcceptingChannel<? extends ConnectedStreamChannel> createLocalStreamServer(LocalSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
         throw new UnsupportedOperationException("UNIX stream server");
     }
@@ -582,7 +582,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedStreamChannel> connectTcp(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to TCP server");
     }
@@ -602,7 +602,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedStreamChannel> connectStreamLocal(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to local stream server");
     }
@@ -674,7 +674,7 @@ public abstract class Xnio {
      *
      * @return the future connection
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedStreamChannel> acceptStreamLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a local stream connection");
     }
@@ -692,7 +692,7 @@ public abstract class Xnio {
      *
      * @return the future connection
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedStreamChannel> acceptTcp(InetSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a TCP connection");
     }
@@ -792,7 +792,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the future result of this operation
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedMessageChannel> connectUdp(InetSocketAddress bindAddress, InetSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to UDP server");
     }
@@ -808,7 +808,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the future result of this operation
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedMessageChannel> connectDatagramLocal(LocalSocketAddress bindAddress, LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to local datagram server");
     }
@@ -868,7 +868,7 @@ public abstract class Xnio {
      *
      * @return the future connection
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     protected IoFuture<? extends ConnectedMessageChannel> acceptDatagramLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a local message connection");
     }
@@ -910,7 +910,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public MulticastMessageChannel createUdpServer(InetSocketAddress bindAddress, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super MulticastMessageChannel> bindListener, OptionMap optionMap) throws IOException {
         throw new UnsupportedOperationException("UDP Server");
     }
@@ -929,7 +929,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public MulticastMessageChannel createUdpServer(InetSocketAddress bindAddress, ReadChannelThread readThread, WriteChannelThread writeThread, OptionMap optionMap) throws IOException {
         return createUdpServer(bindAddress, readThread, writeThread, ChannelListeners.nullChannelListener(), optionMap);
     }
@@ -949,7 +949,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public MulticastMessageChannel createUdpServer(InetSocketAddress bindAddress, ReadChannelThread readThread, ChannelListener<? super MulticastMessageChannel> bindListener, OptionMap optionMap) throws IOException {
         return createUdpServer(bindAddress, readThread, null, bindListener, optionMap);
     }
@@ -967,7 +967,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public MulticastMessageChannel createUdpServer(InetSocketAddress bindAddress, ReadChannelThread readThread, OptionMap optionMap) throws IOException {
         return createUdpServer(bindAddress, readThread, null, ChannelListeners.nullChannelListener(), optionMap);
     }
@@ -990,7 +990,7 @@ public abstract class Xnio {
      *
      * @since 2.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public ChannelSource<? extends StreamChannel> createPipeServer(ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super SimpleAcceptingChannel<StreamChannel>> acceptListener) {
         throw new UnsupportedOperationException("Pipe Server");
     }
@@ -1007,7 +1007,7 @@ public abstract class Xnio {
      *
      * @since 2.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ReadChannelThread readThread, ChannelListener<? super SimpleAcceptingChannel<StreamSinkChannel>> acceptListener) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }
@@ -1024,7 +1024,7 @@ public abstract class Xnio {
      *
      * @since 2.0
      */
-    @SuppressWarnings({ "UnusedDeclaration" })
+    @SuppressWarnings({ "unused" })
     public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(WriteChannelThread writeThread, ChannelListener<? super SimpleAcceptingChannel<StreamSourceChannel>> acceptListener) {
         throw new UnsupportedOperationException("One-way Pipe Server");
     }

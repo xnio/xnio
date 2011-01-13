@@ -36,13 +36,12 @@
     <modules>
         <module>api</module>
         <module>nio-impl</module>
-        <module>test-support</module>
     </modules>
 
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
-        <version>5</version>
+        <version>6-beta-1</version>
     </parent>
 
     <build>
