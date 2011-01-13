@@ -22,11 +22,8 @@
 
 package org.xnio;
 
-import java.lang.reflect.UndeclaredThrowableException;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import org.jboss.logging.Logger;
 
 /**
@@ -42,50 +39,9 @@ public abstract class AbstractChannelThread implements ChannelThread {
     private static final int STOPPING = 1;
     private static final int DOWN = 2;
 
-    private int state = UP;
+    private volatile int state = UP;
 
     private final Set<Listener> listenerSet = new HashSet<Listener>();
-
-    private static final Task<Runnable, Void> RUNNABLE_TASK = new Task<Runnable, Void>() {
-        public Void run(final Runnable parameter) {
-            parameter.run();
-            return null;
-        }
-    };
-
-    public void execute(final Runnable command) {
-        submit(RUNNABLE_TASK, command);
-    }
-
-    public <P> void execute(final Task<P, ?> task, final P parameter) {
-        submit(task, parameter);
-    }
-
-    public <P, R> R run(final Task<P, R> task, final P parameter) {
-        final Future<R> future = submit(task, parameter);
-        boolean intr = false;
-        try {
-            for (;;) try {
-                return future.get();
-            } catch (InterruptedException e) {
-                intr = true;
-            }
-        } catch (ExecutionException e) {
-            try {
-                throw e.getCause();
-            } catch (Error er) {
-                throw er;
-            } catch (RuntimeException ex) {
-                throw ex;
-            } catch (Throwable throwable) {
-                throw new UndeclaredThrowableException(throwable);
-            }
-        } finally {
-            if (intr) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
 
     /** {@inheritDoc} */
     public final void shutdown() {
@@ -119,10 +75,8 @@ public abstract class AbstractChannelThread implements ChannelThread {
      * @throws IllegalStateException if the thread is shutting down
      */
     protected final void checkState() throws IllegalStateException {
-        synchronized (listenerSet) {
-            if (state != UP) {
-                throw new IllegalStateException(String.format("Cannot add channel to %s (stopping)", this));
-            }
+        if (state != UP) {
+            throw new IllegalStateException(String.format("Cannot add channel to %s (stopping)", this));
         }
     }
 
@@ -133,6 +87,15 @@ public abstract class AbstractChannelThread implements ChannelThread {
      */
     protected final Object getLock() {
         return listenerSet;
+    }
+
+    /**
+     * Determine if this thread is stopping or down.
+     *
+     * @return {@code true} if the thread is stopping or down
+     */
+    protected final boolean isStopping() {
+        return state >= STOPPING;
     }
 
     /**
@@ -148,14 +111,9 @@ public abstract class AbstractChannelThread implements ChannelThread {
         final Set<Listener> listenerSet = this.listenerSet;
         final Listener[] listeners;
         synchronized (listenerSet) {
-            if (state == STOPPING) {
-                state = DOWN;
-                listenerSet.notifyAll();
-                listeners = listenerSet.toArray(new Listener[listenerSet.size()]);
-                listenerSet.clear();
-            } else {
-                return;
-            }
+            listeners = listenerSet.toArray(new Listener[listenerSet.size()]);
+            listenerSet.clear();
+            listenerSet.notifyAll();
         }
         for (Listener listener : listeners) {
             doHandleTerminationComplete(listener);

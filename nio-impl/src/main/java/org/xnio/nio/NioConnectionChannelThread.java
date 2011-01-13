@@ -22,13 +22,16 @@
 
 package org.xnio.nio;
 
+import java.io.IOException;
+import java.util.concurrent.ThreadFactory;
 import org.xnio.ConnectionChannelThread;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 final class NioConnectionChannelThread extends AbstractNioChannelThread implements ConnectionChannelThread {
-    protected NioConnectionChannelThread(final NioSelectorRunnable runnable) {
-        super(runnable);
+
+    NioConnectionChannelThread(final ThreadFactory threadFactory) throws IOException {
+        super(threadFactory);
     }
 }

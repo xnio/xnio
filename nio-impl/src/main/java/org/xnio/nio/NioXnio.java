@@ -136,23 +136,23 @@ final class NioXnio extends Xnio {
 
     /** {@inheritDoc} */
     public ReadChannelThread createReadChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioSelectorRunnable runnable = new NioSelectorRunnable();
-        threadFactory.newThread(runnable).start();
-        return new NioReadChannelThread(runnable);
+        final NioReadChannelThread thread = new NioReadChannelThread(threadFactory);
+        thread.start();
+        return thread;
     }
 
     /** {@inheritDoc} */
     public WriteChannelThread createWriteChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioSelectorRunnable runnable = new NioSelectorRunnable();
-        threadFactory.newThread(runnable).start();
-        return new NioWriteChannelThread(runnable);
+        final NioWriteChannelThread thread = new NioWriteChannelThread(threadFactory);
+        thread.start();
+        return thread;
     }
 
     /** {@inheritDoc} */
     public ConnectionChannelThread createConnectionChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioSelectorRunnable runnable = new NioSelectorRunnable();
-        threadFactory.newThread(runnable).start();
-        return new NioConnectionChannelThread(runnable);
+        final NioConnectionChannelThread thread = new NioConnectionChannelThread(threadFactory);
+        thread.start();
+        return thread;
     }
 
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ConnectionChannelThread thread, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
@@ -161,6 +161,7 @@ final class NioXnio extends Xnio {
         channel.socket().bind(bindAddress);
         final NioTcpServer server = new NioTcpServer(this, channel);
         server.setAcceptThread(thread);
+        //noinspection unchecked
         server.getAcceptSetter().set((ChannelListener<? super NioTcpServer>) acceptListener);
         return server;
     }
@@ -182,7 +183,7 @@ final class NioXnio extends Xnio {
             }
             final NioSetter<SocketChannel> setter = new NioSetter<SocketChannel>();
             final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
-            final NioHandle<SocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter, false);
+            final NioHandle<SocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<SocketChannel>() {
                 public void handleEvent(final SocketChannel channel) {
                     try {
@@ -280,7 +281,7 @@ final class NioXnio extends Xnio {
             }
             final NioSetter<ServerSocketChannel> setter = new NioSetter<ServerSocketChannel>();
             final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
-            final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter, false);
+            final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<ServerSocketChannel>() {
                 public void handleEvent(final ServerSocketChannel channel) {
                     try {

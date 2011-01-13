@@ -136,6 +136,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         if (setBits(this, 0x04) < 0x04) {
             log.tracef("Closing %s", this);
             socketChannel.close();
+            cancelKeys();
             invokeCloseHandler();
         }
     }

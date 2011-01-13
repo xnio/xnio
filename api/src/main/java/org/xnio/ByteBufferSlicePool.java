@@ -103,7 +103,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private final class PooledByteBuffer implements Pooled<ByteBuffer> {
         private final Slice region;
-        private volatile ByteBuffer buffer;
+        volatile ByteBuffer buffer;
 
         PooledByteBuffer(final Slice region, final ByteBuffer buffer) {
             this.region = region;

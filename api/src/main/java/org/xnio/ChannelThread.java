@@ -23,7 +23,6 @@
 package org.xnio;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
 
 /**
  * A channel thread.
@@ -40,35 +39,14 @@ public interface ChannelThread extends Executor {
     void execute(Runnable command);
 
     /**
-     * Submit a parameterized task on this channel thread, collecting the result.
+     * Execute a task after the given interval.  More time than the given interval may elapse before
+     * the task is called.
      *
-     * @param task the task
-     * @param parameter the parameter to send to the task
-     * @param <P> the parameter type
-     * @param <R> the return type
-     * @return the future result
+     * @param command the command to execute
+     * @param time the approximate time to delay, in milliseconds
+     * @return the execution key
      */
-    <P, R> Future<R> submit(Task<P, R> task, P parameter);
-
-    /**
-     * Execute a task on this channel thread, ignoring the result.
-     *
-     * @param task the task to run
-     * @param parameter the parameter to send to the task
-     * @param <P> the parameter type
-     */
-    <P> void execute(Task<P, ?> task, P parameter);
-
-    /**
-     * Run a task in the channel thread, waiting for the result.
-     *
-     * @param task the task
-     * @param parameter the parameter to send to the task
-     * @param <P> the parameter type
-     * @param <R> the return type
-     * @return the result
-     */
-    <P, R> R run(Task<P, R> task, P parameter);
+    Key executeAfter(Runnable command, long time);
 
     /**
      * Get the approximate load on this thread, in channels.
@@ -128,19 +106,24 @@ public interface ChannelThread extends Executor {
     }
 
     /**
-     * A task to run on a channel thread.
-     *
-     * @param <P> the task parameter type
-     * @param <R> the task result type
+     * A task key for a timeout task.
      */
-    interface Task<P, R> {
+    interface Key {
 
         /**
-         * Run the task.
+         * Remove a previously-submitted task.
          *
-         * @param parameter the passed-in parameter
-         * @return the result
+         * @return {@code true} if the task was cancelled; {@code false} if it has already been accepted to run
          */
-        R run(P parameter);
+        boolean remove();
+
+        /**
+         * An immediate key.  When the time delay is <= 0, this may be returned and the task immediately run.
+         */
+        Key IMMEDIATE = new Key() {
+            public boolean remove() {
+                return false;
+            }
+        };
     }
 }

@@ -121,7 +121,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<C> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter, false);
+            final NioHandle<C> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter);
             final NioHandle<C> oldValue = getAndSetRead(newHandle);
             if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
                 oldValue.cancelKey();
@@ -135,7 +135,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<C> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter, false);
+            final NioHandle<C> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
             final NioHandle<C> oldValue = getAndSetWrite(newHandle);
             if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
                 oldValue.cancelKey();
@@ -212,5 +212,16 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     protected void invokeCloseHandler() {
         ChannelListeners.invokeChannelListener(typed(), closeSetter.get());
+    }
+
+    protected void cancelKeys() {
+        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
+        final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
+        if (readHandle != null) {
+            readHandle.cancelKey();
+        }
+        if (writeHandle != null) {
+            writeHandle.cancelKey();
+        }
     }
 }

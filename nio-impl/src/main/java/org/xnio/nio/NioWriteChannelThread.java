@@ -22,13 +22,16 @@
 
 package org.xnio.nio;
 
+import java.io.IOException;
+import java.util.concurrent.ThreadFactory;
 import org.xnio.WriteChannelThread;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 final class NioWriteChannelThread extends AbstractNioChannelThread implements WriteChannelThread {
-    protected NioWriteChannelThread(final NioSelectorRunnable runnable) {
-        super(runnable);
+
+    NioWriteChannelThread(final ThreadFactory threadFactory) throws IOException {
+        super(threadFactory);
     }
 }

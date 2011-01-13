@@ -313,7 +313,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 if (readThread == null) {
                     throw new IllegalStateException("No read thread");
                 }
-                readThread.runTask(readHandlerTask);
+                readThread.queueTask(readHandlerTask);
             }
         }
     }
@@ -326,7 +326,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 if (writeThread == null) {
                     throw new IllegalStateException("No write thread");
                 }
-                writeThread.runTask(writeHandlerTask);
+                writeThread.queueTask(writeHandlerTask);
             }
         }
     }
@@ -474,7 +474,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             readable = true;
                             if (enableRead) {
                                 final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
-                                if (readThread != null) readThread.runTask(readHandlerTask);
+                                if (readThread != null) readThread.queueTask(readHandlerTask);
                             }
                             continue;
                         }
@@ -485,7 +485,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         readable = true;
                         if (enableRead) {
                             final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
-                            if (readThread != null) readThread.runTask(readHandlerTask);
+                            if (readThread != null) readThread.queueTask(readHandlerTask);
                         }
                     }
                 }
@@ -515,7 +515,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             if (enableWrite) {
                                 enableWrite = false;
                                 final NioWriteChannelThread writeThread = BioDatagramUdpChannel.this.writeThread;
-                                if (writeThread != null) writeThread.runTask(writeHandlerTask);
+                                if (writeThread != null) writeThread.queueTask(writeHandlerTask);
                             }
                             if (writable) try {
                                 writeLock.wait();

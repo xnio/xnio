@@ -92,7 +92,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
 
     public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<C> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter, false);
+            final NioHandle<C> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
             final NioHandle<C> oldValue = getAndSetRead(newHandle);
             if (oldValue != null) {
                 oldValue.cancelKey();
