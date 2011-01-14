@@ -951,32 +951,6 @@ public final class Buffers {
     }
 
     /**
-     * Create a heap-based buffer allocator.
-     *
-     * @param size the size of the returned buffers
-     * @return the buffer allocator
-     * @since 1.1
-     */
-    public static Pool<ByteBuffer> createHeapByteBufferAllocator(final int size) {
-        return new Pool<ByteBuffer>() {
-            public Pooled<ByteBuffer> allocate() {
-                final ByteBuffer buffer = ByteBuffer.allocate(size);
-                return new Pooled<ByteBuffer>() {
-                    public void discard() {
-                    }
-
-                    public void free() {
-                    }
-
-                    public ByteBuffer getResource() {
-                        return buffer;
-                    }
-                };
-            }
-        };
-    }
-
-    /**
      * The empty byte buffer.
      */
     public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocate(0);

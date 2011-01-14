@@ -22,23 +22,68 @@
 
 package org.xnio.sasl;
 
+import javax.security.sasl.Sasl;
+
 /**
  * The SASL quality-of-protection value.
  *
- * @see javax.security.sasl.Sasl#QOP
+ * @see Sasl#QOP
  */
 public enum SaslQop {
 
     /**
      * A QOP value specifying authentication only.
      */
-    AUTH,
+    AUTH("auth"),
     /**
      * A QOP value specifying authentication plus integrity protection.
      */
-    AUTH_INT,
+    AUTH_INT("auth-int"),
     /**
      * A QOP value specifying authentication plus integrity and confidentiality protection.
      */
-    AUTH_CONF,
+    AUTH_CONF("auth-conf"),
+    ;
+
+    private final String s;
+
+    SaslQop(String s) {
+        this.s = s;
+    }
+
+    /**
+     * Get the SASL QOP level for the given string.
+     *
+     * @param name the QOP level
+     * @return the QOP value
+     */
+    public static SaslQop fromString(String name) {
+        if ("auth".equals(name)) {
+            return AUTH;
+        } else if ("auth-int".equals(name)) {
+            return AUTH_INT;
+        } else if ("auth-conf".equals(name)) {
+            return AUTH_CONF;
+        } else {
+            throw new IllegalArgumentException("Invalid QOP string given");
+        }
+    }
+
+    /**
+     * Get the string representation of this SASL QOP value.
+     *
+     * @return the string representation
+     */
+    public String getString() {
+        return s;
+    }
+
+    /**
+     * Get the human-readable string representation of this SASL QOP value.
+     *
+     * @return the string representation
+     */
+    public String toString() {
+        return s;
+    }
 }

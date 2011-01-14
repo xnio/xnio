@@ -23,8 +23,16 @@
 package org.xnio.sasl;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import org.xnio.Buffers;
+import org.xnio.Option;
+import org.xnio.OptionMap;
+import org.xnio.Options;
+import org.xnio.Sequence;
 
+import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslServer;
 import javax.security.sasl.SaslException;
@@ -38,6 +46,11 @@ public final class SaslUtils {
 
     private SaslUtils() {
     }
+
+    /**
+     * A zero-length byte array, useful for sending and receiving empty SASL messages.
+     */
+    public static final byte[] EMPTY_BYTES = new byte[0];
 
     /**
      * Evaluate a sasl challenge.  If the result is {@code false} then the negotiation is not yet complete and the data
@@ -82,7 +95,7 @@ public final class SaslUtils {
      */
     public static boolean evaluateResponse(SaslServer server, ByteBuffer destination, ByteBuffer source) throws SaslException {
         final byte[] result;
-        result = server.evaluateResponse(Buffers.take(source));
+        result = server.evaluateResponse(source.hasRemaining() ? Buffers.take(source) : EMPTY_BYTES);
         if (result != null) {
             destination.put(result);
             return false;
@@ -113,7 +126,7 @@ public final class SaslUtils {
             source.position(source.position() + len);
             result = client.wrap(array, offs, len);
         } else {
-            result = client.wrap(Buffers.take(source, len), 0, len);
+            result = client.wrap(len == 0 ? EMPTY_BYTES : Buffers.take(source, len), 0, len);
         }
         destination.put(result, 0, result.length);
     }
@@ -134,7 +147,9 @@ public final class SaslUtils {
     public static void wrap(SaslServer server, ByteBuffer destination, ByteBuffer source) throws SaslException {
         final byte[] result;
         final int len = source.remaining();
-        if (source.hasArray()) {
+        if (len == 0) {
+            result = server.unwrap(EMPTY_BYTES, 0, len);
+        } else if (source.hasArray()) {
             final byte[] array = source.array();
             final int offs = source.arrayOffset();
             source.position(source.position() + len);
@@ -161,7 +176,9 @@ public final class SaslUtils {
     public static void unwrap(SaslClient client, ByteBuffer destination, ByteBuffer source) throws SaslException {
         final byte[] result;
         final int len = source.remaining();
-        if (source.hasArray()) {
+        if (len == 0) {
+            result = client.unwrap(EMPTY_BYTES, 0, len);
+        } else if (source.hasArray()) {
             final byte[] array = source.array();
             final int offs = source.arrayOffset();
             source.position(source.position() + len);
@@ -188,7 +205,9 @@ public final class SaslUtils {
     public static void unwrap(SaslServer server, ByteBuffer destination, ByteBuffer source) throws SaslException {
         final byte[] result;
         final int len = source.remaining();
-        if (source.hasArray()) {
+        if (len == 0) {
+            result = server.unwrap(EMPTY_BYTES, 0, len);
+        } else if (source.hasArray()) {
             final byte[] array = source.array();
             final int offs = source.arrayOffset();
             source.position(source.position() + len);
@@ -197,5 +216,49 @@ public final class SaslUtils {
             result = server.unwrap(Buffers.take(source, len), 0, len);
         }
         destination.put(result, 0, result.length);
+    }
+
+    /**
+     * Create a SASL property map from an XNIO option map.
+     *
+     * @param optionMap the option map
+     * @return the property map
+     */
+    public static Map<String, Object> createPropertyMap(OptionMap optionMap) {
+        final Map<String,Object> propertyMap = new HashMap<String, Object>();
+
+        add(optionMap, Options.SASL_POLICY_FORWARD_SECRECY, propertyMap, Sasl.POLICY_FORWARD_SECRECY);
+        add(optionMap, Options.SASL_POLICY_NOACTIVE, propertyMap, Sasl.POLICY_NOACTIVE);
+        add(optionMap, Options.SASL_POLICY_NOANONYMOUS, propertyMap, Sasl.POLICY_NOANONYMOUS);
+        add(optionMap, Options.SASL_POLICY_NODICTIONARY, propertyMap, Sasl.POLICY_NODICTIONARY);
+        add(optionMap, Options.SASL_POLICY_NOPLAINTEXT, propertyMap, Sasl.POLICY_NOPLAINTEXT);
+        add(optionMap, Options.SASL_POLICY_PASS_CREDENTIALS, propertyMap, Sasl.POLICY_PASS_CREDENTIALS);
+        add(optionMap, Options.SASL_REUSE, propertyMap, Sasl.REUSE);
+        add(optionMap, Options.SASL_SERVER_AUTH, propertyMap, Sasl.SERVER_AUTH);
+        addQopList(optionMap, Options.SASL_QOP, propertyMap, Sasl.QOP);
+        add(optionMap, Options.SASL_STRENGTH, propertyMap, Sasl.STRENGTH);
+        return propertyMap;
+    }
+
+    private static void add(OptionMap optionMap, Option<?> option, Map<String, Object> map, String propName) {
+        final Object value = optionMap.get(option);
+        if (value != null) map.put(propName, value.toString().toLowerCase());
+    }
+
+    private static void addQopList(OptionMap optionMap, Option<Sequence<SaslQop>> option, Map<String, Object> map, String propName) {
+        final Sequence<SaslQop> value = optionMap.get(option);
+        if (value == null) return;
+        final Sequence<SaslQop> seq = value;
+        final StringBuilder builder = new StringBuilder();
+        final Iterator<SaslQop> iterator = seq.iterator();
+        if (!iterator.hasNext()) {
+            return;
+        } else do {
+            builder.append(iterator.next().getString());
+            if (iterator.hasNext()) {
+                builder.append(',');
+            }
+        } while (iterator.hasNext());
+        map.put(propName, builder.toString());
     }
 }
