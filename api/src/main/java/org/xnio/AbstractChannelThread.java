@@ -111,6 +111,7 @@ public abstract class AbstractChannelThread implements ChannelThread {
         final Set<Listener> listenerSet = this.listenerSet;
         final Listener[] listeners;
         synchronized (listenerSet) {
+            state = DOWN;
             listeners = listenerSet.toArray(new Listener[listenerSet.size()]);
             listenerSet.clear();
             listenerSet.notifyAll();

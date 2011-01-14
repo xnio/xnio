@@ -60,7 +60,9 @@ public final class NioTcpTestCase extends TestCase {
         Xnio xnio = Xnio.getInstance("nio", NioTcpTestCase.class.getClassLoader());
         final ConnectionChannelThread connectionChannelThread = xnio.createConnectionChannelThread(threadFactory);
         final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
+        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
         final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
+        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
         try {
             final AcceptingChannel<? extends ConnectedStreamChannel> server = xnio.createStreamServer(
                     new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
@@ -71,7 +73,7 @@ public final class NioTcpTestCase extends TestCase {
                     )), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
             server.resumeAccepts();
             try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), connectionChannelThread, readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null, OptionMap.EMPTY);
+                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null, OptionMap.EMPTY);
                 final ConnectedStreamChannel channel = ioFuture.get();
                 try {
                     body.run();
@@ -91,12 +93,16 @@ public final class NioTcpTestCase extends TestCase {
             }
         } finally {
             connectionChannelThread.shutdown();
+            clientReadChannelThread.shutdown();
+            clientWriteChannelThread.shutdown();
             readChannelThread.shutdown();
             writeChannelThread.shutdown();
         }
         connectionChannelThread.awaitTermination();
         readChannelThread.awaitTermination();
         writeChannelThread.awaitTermination();
+        clientReadChannelThread.awaitTermination();
+        clientWriteChannelThread.awaitTermination();
     }
 
     public void testTcpConnect() throws Exception {
