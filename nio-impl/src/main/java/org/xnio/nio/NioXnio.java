@@ -329,7 +329,14 @@ final class NioXnio extends Xnio {
     /** {@inheritDoc} */
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
         if (optionMap.get(Options.MULTICAST, false)) {
-            return new BioMulticastUdpChannel(optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), new MulticastSocket());
+            final MulticastSocket socket = new MulticastSocket(bindAddress);
+            final BioMulticastUdpChannel channel = new BioMulticastUdpChannel(optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), socket);
+            channel.setReadThread(readThread);
+            channel.setWriteThread(writeThread);
+            channel.open();
+            //noinspection unchecked
+            ChannelListeners.invokeChannelListener(channel, bindListener);
+            return channel;
         } else {
             final DatagramChannel channel = DatagramChannel.open();
             channel.configureBlocking(false);

@@ -513,7 +513,7 @@ public final class NioTcpTestCase extends TestCase {
                             latch.countDown();
                         }
                     });
-                    serverLatch.await(500000L, TimeUnit.MILLISECONDS);
+                    serverLatch.await(500L, TimeUnit.MILLISECONDS);
                     log.info("Closing connection...");
                     channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
                     channel.close();

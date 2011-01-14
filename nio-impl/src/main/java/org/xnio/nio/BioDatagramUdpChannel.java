@@ -29,7 +29,6 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.Selector;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -313,8 +312,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 if (readThread == null) {
                     throw new IllegalStateException("No read thread");
                 }
-                readThread.queueTask(readHandlerTask);
+                readThread.execute(readHandlerTask);
             }
+            readLock.notifyAll();
         }
     }
 
@@ -326,8 +326,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 if (writeThread == null) {
                     throw new IllegalStateException("No write thread");
                 }
-                writeThread.queueTask(writeHandlerTask);
+                writeThread.execute(writeHandlerTask);
             }
+            writeLock.notifyAll();
         }
     }
 
@@ -459,6 +460,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                     synchronized (readLock) {
                         while (readable) {
                             try {
+                                log.trace("Waiting for user to consume read data");
                                 readLock.wait();
                             } catch (InterruptedException e) {
                                 return;
@@ -467,6 +469,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                     }
                     try {
                         datagramSocket.receive(receivePacket);
+                        log.trace("Packet received");
                     } catch (IOException e) {
                         synchronized (readLock) {
                             // pass the exception on to the user
@@ -474,7 +477,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             readable = true;
                             if (enableRead) {
                                 final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
-                                if (readThread != null) readThread.queueTask(readHandlerTask);
+                                if (readThread != null) readThread.execute(readHandlerTask);
                             }
                             continue;
                         }
@@ -485,12 +488,13 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         readable = true;
                         if (enableRead) {
                             final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
-                            if (readThread != null) readThread.queueTask(readHandlerTask);
+                            if (readThread != null) readThread.execute(readHandlerTask);
                         }
                     }
                 }
             } finally {
                 thread = null;
+                log.trace("Exiting thread");
             }
         }
 
@@ -515,7 +519,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             if (enableWrite) {
                                 enableWrite = false;
                                 final NioWriteChannelThread writeThread = BioDatagramUdpChannel.this.writeThread;
-                                if (writeThread != null) writeThread.queueTask(writeHandlerTask);
+                                if (writeThread != null) writeThread.execute(writeHandlerTask);
                             }
                             if (writable) try {
                                 writeLock.wait();
@@ -527,11 +531,12 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                     try {
                         datagramSocket.send(sendPacket);
                     } catch (IOException e) {
-                        log.trace("Packet send failed: %s", e);
+                        log.tracef("Packet send failed: %s", e);
                     }
                 }
             } finally {
                 thread = null;
+                log.trace("Exiting thread");
             }
         }
 
@@ -543,14 +548,14 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
-    private final class ReadHandlerTask implements SelectorTask {
-        public void run(final Selector selector) {
+    private final class ReadHandlerTask implements Runnable {
+        public void run() {
             ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getReadSetter().get());
         }
     }
 
-    private final class WriteHandlerTask implements SelectorTask {
-        public void run(final Selector selector) {
+    private final class WriteHandlerTask implements Runnable {
+        public void run() {
             ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getWriteSetter().get());
         }
     }

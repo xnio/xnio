@@ -57,9 +57,6 @@ public final class NioUdpTestCase extends TestCase {
 
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 
-    ReadChannelThread readChannelThread;
-    WriteChannelThread writeChannelThread;
-
     static {
         try {
             SERVER_SOCKET_ADDRESS = new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), SERVER_PORT);
@@ -71,35 +68,21 @@ public final class NioUdpTestCase extends TestCase {
 
     private synchronized void doServerSideTest(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body) throws IOException {
         final Xnio xnio = Xnio.getInstance("nio");
-        readChannelThread = xnio.createReadChannelThread(threadFactory);
-        writeChannelThread = xnio.createWriteChannelThread(threadFactory);
-        try {
-            doServerSidePart(multicast, handler, body, xnio);
-        } finally {
-            readChannelThread.shutdown();
-            writeChannelThread.shutdown();
-        }
-        try {
-            readChannelThread.awaitTermination();
-            writeChannelThread.awaitTermination();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        doServerSidePart(multicast, handler, body, xnio);
     }
 
     private void doServerSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
-        final InetSocketAddress bindAddress = SERVER_SOCKET_ADDRESS;
-        doPart(multicast, handler, body, bindAddress, xnio);
+        doPart(multicast, handler, body, SERVER_SOCKET_ADDRESS, xnio);
     }
 
     private void doClientSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
-        final InetSocketAddress bindAddress = CLIENT_SOCKET_ADDRESS;
-        doPart(multicast, handler, body, bindAddress, xnio);
+        doPart(multicast, handler, body, CLIENT_SOCKET_ADDRESS, xnio);
     }
 
     private synchronized void doPart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
+        final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
+        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
         final MulticastMessageChannel server = xnio.createUdpServer(bindAddress, readChannelThread, writeChannelThread, handler, OptionMap.create(Options.MULTICAST, Boolean.valueOf(multicast)));
-
         try {
             body.run();
             server.close();
@@ -114,36 +97,31 @@ public final class NioUdpTestCase extends TestCase {
             throw e;
         } finally {
             IoUtils.safeClose(server);
+            readChannelThread.shutdown();
+            writeChannelThread.shutdown();
+            try {
+                readChannelThread.awaitTermination();
+                writeChannelThread.awaitTermination();
+            } catch (InterruptedException e) {
+            }
         }
     }
 
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<MulticastMessageChannel> serverHandler, final ChannelListener<MulticastMessageChannel> clientHandler, final Runnable body) throws IOException {
         final Xnio xnio = Xnio.getInstance("nio");
-        readChannelThread = xnio.createReadChannelThread(threadFactory);
-        writeChannelThread = xnio.createWriteChannelThread(threadFactory);
-        try {
-            doServerSidePart(serverMulticast, serverHandler, new Runnable() {
-                public void run() {
-                    try {
-                        doClientSidePart(clientMulticast, clientHandler, body, xnio);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+        doServerSidePart(serverMulticast, serverHandler, new Runnable() {
+            public void run() {
+                try {
+                    doClientSidePart(clientMulticast, clientHandler, body, xnio);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
-            }, xnio);
-        } finally {
-            readChannelThread.shutdown();
-            writeChannelThread.shutdown();
-        }
-        try {
-            readChannelThread.awaitTermination();
-            writeChannelThread.awaitTermination();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+            }
+        }, xnio);
     }
 
     private void doServerCreate(boolean multicast) throws Exception {
+        final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean openedOk = new AtomicBoolean(false);
         final AtomicBoolean closedOk = new AtomicBoolean(false);
         doServerSideTest(multicast, new ChannelListener<MulticastMessageChannel>() {
@@ -151,15 +129,18 @@ public final class NioUdpTestCase extends TestCase {
                 channel.getCloseSetter().set(new ChannelListener<MulticastMessageChannel>() {
                     public void handleEvent(final MulticastMessageChannel channel) {
                         closedOk.set(true);
+                        latch.countDown();
                     }
                 });
                 log.infof("In handleEvent for %s", channel);
                 openedOk.set(true);
+                latch.countDown();
             }
         }, new Runnable() {
             public void run() {
             }
         });
+        assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
         assertTrue(openedOk.get());
         assertTrue(closedOk.get());
     }
@@ -238,8 +219,12 @@ public final class NioUdpTestCase extends TestCase {
                                 channel.resumeWrites();
                             } else {
                                 log.infof("We sent the packet on %s", channel);
-                                assertTrue(receivedLatch.await(500L, TimeUnit.MILLISECONDS));
-                                channel.close();
+                                try {
+                                    assertTrue(receivedLatch.await(500000L, TimeUnit.MILLISECONDS));
+                                    channel.close();
+                                } finally {
+                                    IoUtils.safeClose(channel);
+                                }
                                 clientOK.set(true);
                                 doneLatch.countDown();
                             }
@@ -253,7 +238,7 @@ public final class NioUdpTestCase extends TestCase {
                 });
                 try {
                     // wait until server is ready
-                    assertTrue(startLatch.await(500L, TimeUnit.MILLISECONDS));
+                    assertTrue(startLatch.await(500000L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -262,7 +247,7 @@ public final class NioUdpTestCase extends TestCase {
         }, new Runnable() {
             public void run() {
                 try {
-                    assertTrue(doneLatch.await(500L, TimeUnit.MILLISECONDS));
+                    assertTrue(doneLatch.await(500000L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
