@@ -277,6 +277,8 @@ final class NioXnio extends Xnio {
                 final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted);
                 tcpChannel.setReadThread(readThread);
                 tcpChannel.setWriteThread(writeThread);
+                //noinspection unchecked
+                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
             final NioSetter<ServerSocketChannel> setter = new NioSetter<ServerSocketChannel>();
@@ -284,22 +286,33 @@ final class NioXnio extends Xnio {
             final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<ServerSocketChannel>() {
                 public void handleEvent(final ServerSocketChannel channel) {
+                    final SocketChannel accepted;
                     try {
-                        final SocketChannel accepted = channel.accept();
-                        if (accepted != null) {
-                            IoUtils.safeClose(channel);
-                            accepted.configureBlocking(false);
-                            handle.cancelKey();
-                            final NioTcpChannel tcpChannel = new NioTcpChannel(NioXnio.this, accepted);
-                            tcpChannel.setReadThread(readThread);
-                            tcpChannel.setWriteThread(writeThread);
-                            futureResult.setResult(tcpChannel);
+                        accepted = channel.accept();
+                        if (accepted == null) {
+                            return;
                         }
                     } catch (IOException e) {
                         IoUtils.safeClose(channel);
                         handle.cancelKey();
                         futureResult.setException(e);
+                        return;
                     }
+                    handle.cancelKey();
+                    IoUtils.safeClose(channel);
+                    try {
+                        accepted.configureBlocking(false);
+                    } catch (IOException e) {
+                        IoUtils.safeClose(accepted);
+                        futureResult.setException(e);
+                        return;
+                    }
+                    final NioTcpChannel tcpChannel = new NioTcpChannel(NioXnio.this, accepted);
+                    tcpChannel.setReadThread(readThread);
+                    tcpChannel.setWriteThread(writeThread);
+                    futureResult.setResult(tcpChannel);
+                    //noinspection unchecked
+                    ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                 }
 
                 public String toString() {

@@ -136,19 +136,21 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         if (setBits(this, 0x04) < 0x04) {
             log.tracef("Closing %s", this);
             socketChannel.close();
-            cancelKeys();
+            cancelReadKey();
+            cancelWriteKey();
             invokeCloseHandler();
         }
     }
 
     public void shutdownReads() throws IOException {
-        boolean ok = false;
         try {
             socket.shutdownInput();
-            ok = true;
+        } catch (IOException e) {
+            // ignored
         } finally {
-            if (setBits(this, 0x02) == 0x03) {
-                if (ok) close(); else IoUtils.safeClose(this);
+            cancelReadKey();
+            if (setBits(this, 0x02) == 0x01) {
+                close();
             }
         }
     }
@@ -159,7 +161,8 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             socket.shutdownOutput();
             ok = true;
         } finally {
-            if (setBits(this, 0x01) == 0x03) {
+            cancelWriteKey();
+            if (setBits(this, 0x01) == 0x02) {
                 if (ok) close(); else IoUtils.safeClose(this);
             }
         }

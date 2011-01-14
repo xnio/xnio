@@ -214,14 +214,17 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         ChannelListeners.invokeChannelListener(typed(), closeSetter.get());
     }
 
-    protected void cancelKeys() {
-        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
+    protected void cancelWriteKey() {
         final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
-        if (readHandle != null) {
-            readHandle.cancelKey();
-        }
         if (writeHandle != null) {
             writeHandle.cancelKey();
+        }
+    }
+
+    protected void cancelReadKey() {
+        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
+        if (readHandle != null) {
+            readHandle.cancelKey();
         }
     }
 }

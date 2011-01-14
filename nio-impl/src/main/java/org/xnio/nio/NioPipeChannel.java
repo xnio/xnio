@@ -59,7 +59,7 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
             sourceChannel.close();
             ok = true;
         } finally {
-            if (setBits(this, 0x02) == 0x03) {
+            if (setBits(this, 0x02) == 0x01) {
                 if (ok) close(); else IoUtils.safeClose(this);
             }
         }
@@ -71,7 +71,7 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
             sinkChannel.close();
             ok = true;
         } finally {
-            if (setBits(this, 0x01) == 0x03) {
+            if (setBits(this, 0x01) == 0x02) {
                 if (ok) close(); else IoUtils.safeClose(this);
             }
         }
@@ -79,7 +79,7 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
     }
 
     public boolean isOpen() {
-        return closeBits != 0x03;
+        return closeBits < 0x03;
     }
 
     public boolean supportsOption(final Option<?> option) {

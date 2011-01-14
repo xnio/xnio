@@ -217,9 +217,21 @@ class NioUdpChannel implements MulticastMessageChannel {
             log.tracef("Closing %s", this);
             try {
                 datagramChannel.close();
+                cancelKeys();
             } finally {
                 ChannelListeners.<NioUdpChannel>invokeChannelListener(this, closeSetter.get());
             }
+        }
+    }
+
+    private void cancelKeys() {
+        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
+        final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
+        if (readHandle != null) {
+            readHandle.cancelKey();
+        }
+        if (writeHandle != null) {
+            writeHandle.cancelKey();
         }
     }
 
