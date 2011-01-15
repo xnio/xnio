@@ -27,10 +27,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
+import java.net.SocketOption;
+import java.net.StandardSocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.MembershipKey;
 import java.nio.channels.SelectionKey;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -302,11 +305,11 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {
-        throw new UnsupportedOperationException("Multicast join");
+        return new NioKey(datagramChannel.join(group, iface));
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface, final InetAddress source) throws IOException {
-        throw new UnsupportedOperationException("Multicast join");
+        return new NioKey(datagramChannel.join(group, iface, source));
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
@@ -321,7 +324,8 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {
-        final DatagramSocket socket = datagramChannel.socket();
+        final DatagramChannel channel = datagramChannel;
+        final DatagramSocket socket = channel.socket();
         if (option == Options.RECEIVE_BUFFER) {
             return option.cast(Integer.valueOf(socket.getReceiveBufferSize()));
         } else if (option == Options.SEND_BUFFER) {
@@ -331,12 +335,21 @@ class NioUdpChannel implements MulticastMessageChannel {
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             return option.cast(Integer.valueOf(socket.getTrafficClass()));
         } else {
-            return null;
+            if (NioXnio.NIO2) {
+                if (option == Options.MULTICAST_TTL) {
+                    return option.cast(channel.getOption(StandardSocketOption.IP_MULTICAST_TTL));
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
         }
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        final DatagramSocket socket = datagramChannel.socket();
+        final DatagramChannel channel = datagramChannel;
+        final DatagramSocket socket = channel.socket();
         final Object old;
         if (option == Options.RECEIVE_BUFFER) {
             old = Integer.valueOf(socket.getReceiveBufferSize());
@@ -351,7 +364,16 @@ class NioUdpChannel implements MulticastMessageChannel {
             old = Boolean.valueOf(socket.getBroadcast());
             socket.setBroadcast(((Boolean) value).booleanValue());
         } else {
-            return null;
+            if (NioXnio.NIO2) {
+                if (option == Options.MULTICAST_TTL) {
+                    old = option.cast(channel.getOption(StandardSocketOption.IP_MULTICAST_TTL));
+                    channel.setOption(StandardSocketOption.IP_MULTICAST_TTL, (Integer) value);
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
         }
         return option.cast(old);
     }
@@ -359,5 +381,48 @@ class NioUdpChannel implements MulticastMessageChannel {
     @Override
     public String toString() {
         return String.format("UDP socket channel (NIO) <%h>", this);
+    }
+
+    private class NioKey implements Key {
+
+        private final MembershipKey key;
+
+        public NioKey(final MembershipKey key) {
+            this.key = key;
+        }
+
+        public Key block(final InetAddress source) throws IOException, UnsupportedOperationException, IllegalStateException, IllegalArgumentException {
+            key.block(source);
+            return this;
+        }
+
+        public Key unblock(final InetAddress source) throws IOException, IllegalStateException, UnsupportedOperationException {
+            key.unblock(source);
+            return this;
+        }
+
+        public MulticastMessageChannel getChannel() {
+            return NioUdpChannel.this;
+        }
+
+        public InetAddress getGroup() {
+            return key.group();
+        }
+
+        public NetworkInterface getNetworkInterface() {
+            return key.networkInterface();
+        }
+
+        public InetAddress getSourceAddress() {
+            return key.sourceAddress();
+        }
+
+        public boolean isOpen() {
+            return key.isValid();
+        }
+
+        public void close() throws IOException {
+            key.drop();
+        }
     }
 }

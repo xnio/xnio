@@ -72,8 +72,18 @@ final class NioXnio extends Xnio {
 
     private final SelectorCreator selectorCreator;
 
+    static final boolean NIO2;
+
     static {
         log.info("XNIO NIO Implementation Version " + Version.VERSION);
+        boolean nio2 = false;
+        try {
+            // try to find an NIO.2 interface on the system class path
+            Class.forName("java.nio.channels.MulticastChannel", false, null);
+            nio2 = true;
+        } catch (Throwable t) {
+        }
+        NIO2 = nio2;
     }
 
     /**
@@ -328,7 +338,7 @@ final class NioXnio extends Xnio {
 
     /** {@inheritDoc} */
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
-        if (optionMap.get(Options.MULTICAST, false)) {
+        if (!NIO2 && optionMap.get(Options.MULTICAST, false)) {
             final MulticastSocket socket = new MulticastSocket(bindAddress);
             final BioMulticastUdpChannel channel = new BioMulticastUdpChannel(optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), socket);
             channel.setReadThread(readThread);
