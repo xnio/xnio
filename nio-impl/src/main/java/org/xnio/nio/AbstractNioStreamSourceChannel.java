@@ -104,6 +104,12 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         }
     }
 
+    @SuppressWarnings( { "unchecked" })
+    public ReadChannelThread getReadThread() {
+        final NioHandle<C> handle = readHandleUpdater.get(this);
+        return (ReadChannelThread) handle.getChannelThread();
+    }
+
     // Transfer bytes
 
     public final long transferTo(final long position, final long count, final FileChannel target) throws IOException {

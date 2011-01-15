@@ -75,6 +75,13 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     void setAcceptThread(ConnectionChannelThread thread) throws IllegalArgumentException;
 
     /**
+     * Get the current accept thread.
+     *
+     * @return the accept thread
+     */
+    ConnectionChannelThread getAcceptThread();
+
+    /**
      * Get the setter which can be used to change the accept listener for this channel.  When the listener is called,
      * additional notifications are automatically suspended.
      *

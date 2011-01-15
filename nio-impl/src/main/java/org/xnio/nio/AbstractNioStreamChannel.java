@@ -133,6 +133,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         }
     }
 
+    @SuppressWarnings( { "unchecked" })
+    public ReadChannelThread getReadThread() {
+        final NioHandle<C> handle = readHandleUpdater.get(this);
+        return (ReadChannelThread) handle.getChannelThread();
+    }
+
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         try {
             final NioHandle<C> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
@@ -145,6 +151,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         } catch (ClassCastException e) {
             throw new IllegalArgumentException("Thread belongs to the wrong provider");
         }
+    }
+
+    @SuppressWarnings( { "unchecked" })
+    public WriteChannelThread getWriteThread() {
+        final NioHandle<C> handle = writeHandleUpdater.get(this);
+        return (WriteChannelThread) handle.getChannelThread();
     }
 
     // Transfer bytes

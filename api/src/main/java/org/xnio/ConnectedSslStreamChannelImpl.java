@@ -193,8 +193,16 @@ final class ConnectedSslStreamChannelImpl implements ConnectedSslStreamChannel {
         connectedStreamChannel.setReadThread(thread);
     }
 
+    public ReadChannelThread getReadThread() {
+        return connectedStreamChannel.getReadThread();
+    }
+
     public void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         connectedStreamChannel.setWriteThread(thread);
+    }
+
+    public WriteChannelThread getWriteThread() {
+        return connectedStreamChannel.getWriteThread();
     }
 
     public boolean flush() throws IOException {

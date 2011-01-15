@@ -223,4 +223,8 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
     public void setAcceptThread(final ConnectionChannelThread thread) throws IllegalArgumentException {
         tcpServer.setAcceptThread(thread);
     }
+
+    public ConnectionChannelThread getAcceptThread() {
+        return tcpServer.getAcceptThread();
+    }
 }

@@ -23,6 +23,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
@@ -285,11 +286,15 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         if (thread == Thread.currentThread()) {
             key.interestOps(ops);
         } else {
-            final SynchronousHolder<Void, RuntimeException> holder = new SynchronousHolder<Void, RuntimeException>(RuntimeException.class);
+            final SynchronousHolder<Void, CancelledKeyException> holder = new SynchronousHolder<Void, CancelledKeyException>(CancelledKeyException.class);
             queueTask(new SelectorTask() {
                 public void run(final Selector selector) {
-                    key.interestOps(ops);
-                    holder.set(null);
+                    try {
+                        key.interestOps(ops);
+                        holder.set(null);
+                    } catch (RuntimeException e) {
+                        holder.setProblem(e);
+                    }
                 }
             });
             selector.wakeup();

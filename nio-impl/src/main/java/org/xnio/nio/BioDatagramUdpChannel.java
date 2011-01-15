@@ -344,8 +344,16 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         readThread = (NioReadChannelThread) thread;
     }
 
+    public ReadChannelThread getReadThread() {
+        return readThread;
+    }
+
     public void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         writeThread = (NioWriteChannelThread) thread;
+    }
+
+    public WriteChannelThread getWriteThread() {
+        return writeThread;
     }
 
     public void awaitReadable() throws IOException {

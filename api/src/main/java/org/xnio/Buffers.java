@@ -240,8 +240,8 @@ public final class Buffers {
      * @param source the source buffer
      * @return the number of bytes put into the destination buffers
      */
-    public static long copy(final ByteBuffer[] destinations, final int offset, final int length, final ByteBuffer source) {
-        long t = 0L;
+    public static int copy(final ByteBuffer[] destinations, final int offset, final int length, final ByteBuffer source) {
+        int t = 0;
         for (int i = 0; i < length; i ++) {
             final ByteBuffer buffer = destinations[i + offset];
             final int rem = buffer.remaining();
@@ -268,8 +268,8 @@ public final class Buffers {
      * @param length the number of buffers to read from
      * @return the number of bytes put into the destination buffers
      */
-    public static long copy(final ByteBuffer destination, final ByteBuffer[] sources, final int offset, final int length) {
-        long t = 0L;
+    public static int copy(final ByteBuffer destination, final ByteBuffer[] sources, final int offset, final int length) {
+        int t = 0;
         for (int i = 0; i < length; i ++) {
             final ByteBuffer buffer = sources[i + offset];
             final int rem = buffer.remaining();
@@ -322,6 +322,112 @@ public final class Buffers {
                 source = sources[srcOffset + ++s];
                 dest = destinations[destOffset + ++d];
                 t += sr;
+            }
+        }
+        return t;
+    }
+
+    /**
+     * Copy at most {@code count} bytes from {@code source} into {@code destination}.
+     *
+     * @param count the maximum number of bytes to copy
+     * @param destination the destination buffer
+     * @param source the source buffer
+     * @return the number of bytes put into the destination buffer
+     */
+    public static int copy(int count, final ByteBuffer destination, final ByteBuffer source) {
+        final int cnt = Math.min(Math.min(count, source.remaining()), destination.remaining());
+        destination.put(slice(source, cnt));
+        return cnt;
+    }
+
+    /**
+     * Copy at most {@code count} bytes from {@code sources} into {@code destinations} in a "scatter" fashion.
+     *
+     * @param count the maximum number of bytes to copy
+     * @param destinations the destination buffers
+     * @param offset the offset into the destination buffers array
+     * @param length the number of buffers to update
+     * @param source the source buffer
+     * @return the number of bytes put into the destination buffers
+     */
+    public static int copy(int count, final ByteBuffer[] destinations, final int offset, final int length, final ByteBuffer source) {
+        if (source.remaining() > count) {
+            final int oldLimit = source.limit();
+            try {
+                source.limit(source.position() + count);
+                return copy(destinations, offset, length, source);
+            } finally {
+                source.limit(oldLimit);
+            }
+        } else {
+            return copy(destinations, offset, length, source);
+        }
+    }
+
+    /**
+     * Copy at most {@code count} bytes from {@code sources} into {@code destination} in a "gather" fashion.
+     *
+     * @param count the maximum number of bytes to copy
+     * @param destination the destination buffer
+     * @param sources the source buffers
+     * @param offset the offset into the source buffers array
+     * @param length the number of buffers to read from
+     * @return the number of bytes put into the destination buffers
+     */
+    public static int copy(int count, final ByteBuffer destination, final ByteBuffer[] sources, final int offset, final int length) {
+        if (destination.remaining() > count) {
+            final int oldLimit = destination.limit();
+            try {
+                destination.limit(destination.position() + count);
+                return copy(sources, offset, length, destination);
+            } finally {
+                destination.limit(oldLimit);
+            }
+        } else {
+            return copy(sources, offset, length, destination);
+        }
+    }
+
+    /**
+     * Copy at most {@code count} bytes from {@code sources} into {@code destinations} by a combined "scatter"/"gather" operation.
+     *
+     * @param count the maximum number of bytes to copy
+     * @param destinations the destination buffers
+     * @param destOffset the offset into the destination buffers array
+     * @param destLength the number of buffers to write to
+     * @param sources the source buffers
+     * @param srcOffset the offset into the source buffers array
+     * @param srcLength the number of buffers to read from
+     * @return the number of bytes put into the destination buffers
+     */
+    public static long copy(long count, final ByteBuffer[] destinations, final int destOffset, final int destLength, final ByteBuffer[] sources, final int srcOffset, final int srcLength) {
+        long t = 0L;
+        int s = 0, d = 0;
+        if (destLength == 0 || srcLength == 0 || count <= 0L) {
+            return 0L;
+        }
+        ByteBuffer source = sources[srcOffset];
+        ByteBuffer dest = destinations[destOffset];
+        while (s < srcLength && d < destLength) {
+            final int sr = source.remaining();
+            final int dr = (int) Math.min(count, (long) dest.remaining());
+            if (sr < dr) {
+                dest.put(source);
+                source = sources[srcOffset + ++s];
+                t += sr;
+                count -= (long)sr;
+            } else if (sr > dr) {
+                dest.put(slice(source, dr));
+                dest = destinations[destOffset + ++d];
+                t += dr;
+                count -= (long)dr;
+            } else {
+                dest.put(source);
+                source = sources[srcOffset + ++s];
+                dest = destinations[destOffset + ++d];
+                t += sr;
+                count -= (long)sr;
             }
         }
         return t;
@@ -1595,6 +1701,21 @@ public final class Buffers {
                     throw new IllegalStateException();
                 }
                 return buffer;
+            }
+        };
+    }
+
+    /**
+     * A buffer allocator which allocates slices off of the given buffer.  Once the buffer is exhausted, further
+     * attempts to allocate buffers will result in {@link BufferUnderflowException}.
+     *
+     * @param buffer the source buffer
+     * @return the slice allocator
+     */
+    public static BufferAllocator<ByteBuffer> sliceAllocator(final ByteBuffer buffer) {
+        return new BufferAllocator<ByteBuffer>() {
+            public ByteBuffer allocate(final int size) throws IllegalArgumentException {
+                return Buffers.slice(buffer, size);
             }
         };
     }

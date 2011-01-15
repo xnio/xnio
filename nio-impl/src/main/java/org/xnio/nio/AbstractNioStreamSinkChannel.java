@@ -103,6 +103,12 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         }
     }
 
+    @SuppressWarnings( { "unchecked" })
+    public WriteChannelThread getWriteThread() {
+        final NioHandle<C> handle = writeHandleUpdater.get(this);
+        return (WriteChannelThread) handle.getChannelThread();
+    }
+
     // Transfer bytes
 
     public final long transferFrom(final FileChannel src, final long position, final long count) throws IOException {

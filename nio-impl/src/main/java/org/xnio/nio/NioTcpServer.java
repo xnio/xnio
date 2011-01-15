@@ -227,4 +227,9 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             throw new IllegalArgumentException("Thread belongs to the wrong provider");
         }
     }
+
+    public ConnectionChannelThread getAcceptThread() {
+        final NioHandle<NioTcpServer> handle = acceptHandleUpdater.get(this);
+        return (ConnectionChannelThread) handle.getChannelThread();
+    }
 }

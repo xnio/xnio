@@ -59,4 +59,29 @@ public interface ChannelListener<T extends Channel> extends EventListener {
          */
         void set(ChannelListener<? super T> listener);
     }
+
+    /**
+     * A simple implementation of {@link Setter}.
+     *
+     * @param <T> the channel type
+     *
+     * @since 3.0
+     */
+    class SimpleSetter<T extends Channel> implements Setter<T> {
+        private volatile ChannelListener<? super T> channelListener;
+
+        /** {@inheritDoc} */
+        public void set(final ChannelListener<? super T> listener) {
+            channelListener = listener;
+        }
+
+        /**
+         * Get the channel listener set on this setter.
+         *
+         * @return the channel listener
+         */
+        public ChannelListener<? super T> get() {
+            return channelListener;
+        }
+    }
 }

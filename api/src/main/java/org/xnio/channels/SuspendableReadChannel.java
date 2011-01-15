@@ -86,6 +86,13 @@ public interface SuspendableReadChannel extends CloseableChannel {
     void setReadThread(ReadChannelThread thread) throws IllegalArgumentException;
 
     /**
+     * Get the current read thread.
+     *
+     * @return the read thread
+     */
+    ReadChannelThread getReadThread();
+
+    /**
      * Get the setter which can be used to change the read listener for this channel.  When the listener is called,
      * additional notifications are automatically suspended.
      *

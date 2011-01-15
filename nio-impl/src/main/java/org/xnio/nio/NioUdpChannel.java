@@ -178,6 +178,11 @@ class NioUdpChannel implements MulticastMessageChannel {
         }
     }
 
+    public ReadChannelThread getReadThread() {
+        final NioHandle<NioUdpChannel> handle = readHandleUpdater.get(this);
+        return (ReadChannelThread) handle.getChannelThread();
+    }
+
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         try {
             final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
@@ -190,6 +195,11 @@ class NioUdpChannel implements MulticastMessageChannel {
         } catch (ClassCastException e) {
             throw new IllegalArgumentException("Thread belongs to the wrong provider");
         }
+    }
+
+    public WriteChannelThread getWriteThread() {
+        final NioHandle<NioUdpChannel> handle = writeHandleUpdater.get(this);
+        return (WriteChannelThread) handle.getChannelThread();
     }
 
     public ChannelListener.Setter<NioUdpChannel> getReadSetter() {
