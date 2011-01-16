@@ -108,8 +108,8 @@ public final class SaslUtils {
      * Wrap a message.  Wrapping occurs from the source buffer to the destination idea.
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
-     * message.  The SASL message itself does not encode any length information so it is up to the protocol implementer
-     * to ensure that the message is properly framed.
+     * message (without the length field).  The SASL message itself does not encode any length information so it is up
+     * to the protocol implementer to ensure that the message is properly framed.
      *
      * @param client the SASL client to wrap with
      * @param destination the buffer into which bytes should be written
@@ -120,7 +120,9 @@ public final class SaslUtils {
     public static void wrap(SaslClient client, ByteBuffer destination, ByteBuffer source) throws SaslException {
         final byte[] result;
         final int len = source.remaining();
-        if (source.hasArray()) {
+        if (len == 0) {
+            result = client.wrap(EMPTY_BYTES, 0, len);
+        } else if (source.hasArray()) {
             final byte[] array = source.array();
             final int offs = source.arrayOffset();
             source.position(source.position() + len);
@@ -135,8 +137,8 @@ public final class SaslUtils {
      * Wrap a message.  Wrapping occurs from the source buffer to the destination idea.
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
-     * message.  The SASL message itself does not encode any length information so it is up to the protocol implementer
-     * to ensure that the message is properly framed.
+     * message (without the length field).  The SASL message itself does not encode any length information so it is up
+     * to the protocol implementer to ensure that the message is properly framed.
      *
      * @param server the SASL server to wrap with
      * @param destination the buffer into which bytes should be written
@@ -148,7 +150,7 @@ public final class SaslUtils {
         final byte[] result;
         final int len = source.remaining();
         if (len == 0) {
-            result = server.unwrap(EMPTY_BYTES, 0, len);
+            result = server.wrap(EMPTY_BYTES, 0, len);
         } else if (source.hasArray()) {
             final byte[] array = source.array();
             final int offs = source.arrayOffset();
@@ -164,8 +166,8 @@ public final class SaslUtils {
      * Unwrap a message.  Unwrapping occurs from the source buffer to the destination idea.
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
-     * message.  The SASL message itself does not encode any length information so it is up to the protocol implementer
-     * to ensure that the message is properly framed.
+     * message (without the length field).  The SASL message itself does not encode any length information so it is up
+     * to the protocol implementer to ensure that the message is properly framed.
      *
      * @param client the SASL client to unwrap with
      * @param destination the buffer into which bytes should be written
@@ -193,8 +195,8 @@ public final class SaslUtils {
      * Unwrap a message.  Unwrapping occurs from the source buffer to the destination idea.
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
-     * message.  The SASL message itself does not encode any length information so it is up to the protocol implementer
-     * to ensure that the message is properly framed.
+     * message (without the length field).  The SASL message itself does not encode any length information so it is up
+     * to the protocol implementer to ensure that the message is properly framed.
      *
      * @param server the SASL server to unwrap with
      * @param destination the buffer into which bytes should be written
