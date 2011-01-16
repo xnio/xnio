@@ -1719,4 +1719,20 @@ public final class Buffers {
             }
         };
     }
+
+    /**
+     * A buffer pool which allocates a new buffer on every allocate request, and discards buffers on free.
+     *
+     * @param allocator the buffer allocator
+     * @param size the buffer size
+     * @param <B> the buffer type
+     * @return the buffer pool
+     */
+    public static <B extends Buffer> Pool<B> allocatedBufferPool(final BufferAllocator<B> allocator, final int size) {
+        return new Pool<B>() {
+            public Pooled<B> allocate() {
+                return pooledWrapper(allocator.allocate(size));
+            }
+        };
+    }
 }
