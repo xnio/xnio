@@ -41,5 +41,5 @@ public interface Connector<T extends Channel> {
      * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
      * @return the future result of this operation
      */
-    IoFuture<? extends T> connectTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
+    IoFuture<T> connectTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
 }

@@ -560,7 +560,7 @@ public final class IoUtils {
             this.delegate = delegate;
         }
 
-        public IoFuture<? extends T> open(final ChannelListener<? super T> openListener) {
+        public IoFuture<T> open(final ChannelListener<? super T> openListener) {
             final FutureResult<T> result = new FutureResult<T>();
             final IoUtils.RetryingNotifier<T> notifier = new IoUtils.RetryingNotifier<T>(maxTries, result, delegate, openListener);
             notifier.tryOne(result);
@@ -626,7 +626,7 @@ public final class IoUtils {
      */
     public static <C extends Channel> ChannelSource<C> getChannelSource(final Connector<C> connector, final SocketAddress destination) {
         return new ChannelSource<C>() {
-            public IoFuture<? extends C> open(final ChannelListener<? super C> openListener) {
+            public IoFuture<C> open(final ChannelListener<? super C> openListener) {
                 return connector.connectTo(destination, openListener, null);
             }
         };
@@ -642,7 +642,7 @@ public final class IoUtils {
      */
     public static <C extends Channel> ChannelDestination<C> getChannelDestination(final Acceptor<C> acceptor, final SocketAddress destination) {
         return new ChannelDestination<C>() {
-            public IoFuture<? extends C> accept(final ChannelListener<? super C> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<C> accept(final ChannelListener<? super C> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return acceptor.acceptTo(destination, openListener, bindListener);
             }
         };

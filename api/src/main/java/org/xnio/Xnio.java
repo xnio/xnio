@@ -234,7 +234,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the SSL connection
      */
-    IoFuture<? extends ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
         connectStream(bindAddress, destination, thread, readThread, writeThread, new ChannelListener<ConnectedStreamChannel>() {
             public void handleEvent(final ConnectedStreamChannel tcpChannel) {
@@ -270,7 +270,7 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<? extends ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), executor, openListener, bindListener, optionMap);
     }
 
@@ -289,7 +289,7 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<? extends ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap);
     }
 
@@ -307,7 +307,7 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<? extends ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap);
     }
 
@@ -324,7 +324,7 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<? extends ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, null, optionMap);
     }
 
@@ -343,7 +343,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public AcceptingChannel<? extends ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, Executor executor, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
+    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, Executor executor, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
         final SSLContext sslContext = getSSLContext(optionMap);
         
         final AcceptingSslStreamChannel server = new AcceptingSslStreamChannel(sslContext, createStreamServer(bindAddress, thread, null, optionMap), executor, optionMap);
@@ -365,7 +365,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public AcceptingChannel<? extends ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
+    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
         return createSslTcpServer(bindAddress, thread, IoUtils.directExecutor(), acceptListener, optionMap);
     }
 
@@ -384,10 +384,10 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<? extends ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final Executor executor, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final Executor executor, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         final SSLContext sslContext = getSSLContext(optionMap);
         return new Connector<ConnectedSslStreamChannel>() {
-            public IoFuture<? extends ConnectedSslStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<ConnectedSslStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return connectSsl(src, (InetSocketAddress) destination, thread, readThread, writeThread, sslContext, executor, openListener, bindListener, optionMap);
             }
         };
@@ -407,7 +407,7 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<? extends ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return createSslTcpConnector(src, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap);
     }
 
@@ -424,7 +424,7 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<? extends ConnectedSslStreamChannel> createSslTcpConnector(final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
         return createSslTcpConnector(ANY_INET_ADDRESS, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap);
     }
 
@@ -512,7 +512,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public IoFuture<? extends ConnectedStreamChannel> connectStream(SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -544,7 +544,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public IoFuture<? extends ConnectedStreamChannel> connectStream(SocketAddress bindAddress, SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress bindAddress, SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -583,7 +583,7 @@ public abstract class Xnio {
      * @since 3.0
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedStreamChannel> connectTcp(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> connectTcp(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to TCP server");
     }
 
@@ -603,7 +603,7 @@ public abstract class Xnio {
      * @since 3.0
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedStreamChannel> connectStreamLocal(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> connectStreamLocal(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to local stream server");
     }
 
@@ -620,9 +620,9 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public Connector<? extends ConnectedStreamChannel> createStreamConnector(final SocketAddress bindAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final OptionMap optionMap) {
+    public Connector<ConnectedStreamChannel> createStreamConnector(final SocketAddress bindAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final OptionMap optionMap) {
         return new Connector<ConnectedStreamChannel>() {
-            public IoFuture<? extends ConnectedStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<ConnectedStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return connectStream(bindAddress, destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
             }
         };
@@ -645,7 +645,7 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public IoFuture<? extends ConnectedStreamChannel> acceptStream(SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedStreamChannel> acceptStream(SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -675,7 +675,7 @@ public abstract class Xnio {
      * @return the future connection
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedStreamChannel> acceptStreamLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> acceptStreamLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a local stream connection");
     }
 
@@ -693,7 +693,7 @@ public abstract class Xnio {
      * @return the future connection
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedStreamChannel> acceptTcp(InetSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> acceptTcp(InetSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a TCP connection");
     }
 
@@ -707,9 +707,9 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the new connector
      */
-    public Acceptor<? extends ConnectedStreamChannel> createStreamAcceptor(final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final OptionMap optionMap) {
+    public Acceptor<ConnectedStreamChannel> createStreamAcceptor(final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final OptionMap optionMap) {
         return new Acceptor<ConnectedStreamChannel>() {
-            public IoFuture<? extends ConnectedStreamChannel> acceptTo(final SocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<ConnectedStreamChannel> acceptTo(final SocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return acceptStream(destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
             }
         };
@@ -731,7 +731,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the future result of this operation
      */
-    public IoFuture<? extends ConnectedMessageChannel> connectDatagram(SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -759,7 +759,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the future result of this operation
      */
-    public IoFuture<? extends ConnectedMessageChannel> connectDatagram(SocketAddress bindAddress, SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress bindAddress, SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -793,7 +793,7 @@ public abstract class Xnio {
      * @return the future result of this operation
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedMessageChannel> connectUdp(InetSocketAddress bindAddress, InetSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedMessageChannel> connectUdp(InetSocketAddress bindAddress, InetSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to UDP server");
     }
 
@@ -809,7 +809,7 @@ public abstract class Xnio {
      * @return the future result of this operation
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedMessageChannel> connectDatagramLocal(LocalSocketAddress bindAddress, LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedMessageChannel> connectDatagramLocal(LocalSocketAddress bindAddress, LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to local datagram server");
     }
 
@@ -822,9 +822,9 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the new connector
      */
-    public Connector<? extends ConnectedMessageChannel> createDatagramConnector(final SocketAddress bindAddress, final ConnectionChannelThread thread, final OptionMap optionMap) {
+    public Connector<ConnectedMessageChannel> createDatagramConnector(final SocketAddress bindAddress, final ConnectionChannelThread thread, final OptionMap optionMap) {
         return new Connector<ConnectedMessageChannel>() {
-            public IoFuture<? extends ConnectedMessageChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedMessageChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<ConnectedMessageChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedMessageChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return connectDatagram(bindAddress, destination, thread, openListener, bindListener, optionMap);
             }
         };
@@ -843,7 +843,7 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the future connection
      */
-    public IoFuture<? extends ConnectedMessageChannel> acceptDatagram(SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    public IoFuture<ConnectedMessageChannel> acceptDatagram(SocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (thread == null) {
             throw new IllegalArgumentException("thread is null");
         }
@@ -869,7 +869,7 @@ public abstract class Xnio {
      * @return the future connection
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<? extends ConnectedMessageChannel> acceptDatagramLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedMessageChannel> acceptDatagramLocal(LocalSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a local message connection");
     }
 
@@ -881,9 +881,9 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the new connector
      */
-    public Acceptor<? extends ConnectedMessageChannel> createMessageAcceptor(final ConnectionChannelThread thread, final OptionMap optionMap) {
+    public Acceptor<ConnectedMessageChannel> createMessageAcceptor(final ConnectionChannelThread thread, final OptionMap optionMap) {
         return new Acceptor<ConnectedMessageChannel>() {
-            public IoFuture<? extends ConnectedMessageChannel> acceptTo(final SocketAddress destination, final ChannelListener<? super ConnectedMessageChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
+            public IoFuture<ConnectedMessageChannel> acceptTo(final SocketAddress destination, final ChannelListener<? super ConnectedMessageChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
                 return acceptDatagram(destination, thread, openListener, bindListener, optionMap);
             }
         };

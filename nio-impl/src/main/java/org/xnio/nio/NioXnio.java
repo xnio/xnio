@@ -177,7 +177,7 @@ final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    protected IoFuture<? extends ConnectedStreamChannel> connectTcp(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> connectTcp(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         try {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
@@ -192,7 +192,7 @@ final class NioXnio extends Xnio {
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
             final NioSetter<SocketChannel> setter = new NioSetter<SocketChannel>();
-            final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
+            final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
             final NioHandle<SocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<SocketChannel>() {
                 public void handleEvent(final SocketChannel channel) {
@@ -236,7 +236,7 @@ final class NioXnio extends Xnio {
         }
     }
 
-    protected IoFuture<? extends ConnectedStreamChannel> acceptTcp(final InetSocketAddress destination, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> acceptTcp(final InetSocketAddress destination, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         try {
             final ServerSocketChannel channel = ServerSocketChannel.open();
             channel.configureBlocking(false);
@@ -292,7 +292,7 @@ final class NioXnio extends Xnio {
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
             final NioSetter<ServerSocketChannel> setter = new NioSetter<ServerSocketChannel>();
-            final FutureResult<NioTcpChannel> futureResult = new FutureResult<NioTcpChannel>();
+            final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
             final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<ServerSocketChannel>() {
                 public void handleEvent(final ServerSocketChannel channel) {

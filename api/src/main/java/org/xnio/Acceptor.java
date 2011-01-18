@@ -44,5 +44,5 @@ public interface Acceptor<T extends Channel> {
      * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
      * @return the future connection
      */
-    IoFuture<? extends T> acceptTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
+    IoFuture<T> acceptTo(SocketAddress destination, ChannelListener<? super T> openListener, ChannelListener<? super BoundChannel> bindListener);
 }
