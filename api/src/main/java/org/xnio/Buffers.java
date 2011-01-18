@@ -1735,4 +1735,38 @@ public final class Buffers {
             }
         };
     }
+
+    /**
+     * Zero a buffer.  Ensures that any potentially sensitive information in the buffer is
+     * overwritten.
+     *
+     * @param buffer the buffer
+     */
+    public static void zero(ByteBuffer buffer) {
+        buffer.clear();
+        while (buffer.remaining() > 8) {
+            buffer.putLong(0L);
+        }
+        while (buffer.hasRemaining()) {
+            buffer.put((byte) 0);
+        }
+        buffer.clear();
+    }
+
+    /**
+     * Zero a buffer.  Ensures that any potentially sensitive information in the buffer is
+     * overwritten.
+     *
+     * @param buffer the buffer
+     */
+    public static void zero(CharBuffer buffer) {
+        buffer.clear();
+        while (buffer.remaining() > 32) {
+            buffer.put("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
+        }
+        while (buffer.hasRemaining()) {
+            buffer.put('\0');
+        }
+        buffer.clear();
+    }
 }
