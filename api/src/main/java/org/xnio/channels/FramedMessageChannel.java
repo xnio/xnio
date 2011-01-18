@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import org.xnio.Buffers;
+import org.xnio.Pooled;
 
 /**
  * A connected message channel providing a SASL-style framing layer over a stream channel where each message is prepended
@@ -33,10 +34,10 @@ import org.xnio.Buffers;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class FramedMessageChannel extends TranslatingSuspendableChannel<ConnectedMessageChannel, ConnectedStreamChannel> implements ConnectedMessageChannel {
+public class FramedMessageChannel extends TranslatingSuspendableChannel<ConnectedMessageChannel, ConnectedStreamChannel> implements ConnectedMessageChannel {
 
-    private final ByteBuffer receiveBuffer;
-    private final ByteBuffer transmitBuffer;
+    private final Pooled<ByteBuffer> receiveBuffer;
+    private final Pooled<ByteBuffer> transmitBuffer;
 
     /**
      * Construct a new instance.
@@ -47,13 +48,26 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
      */
     public FramedMessageChannel(final ConnectedStreamChannel channel, final ByteBuffer receiveBuffer, final ByteBuffer transmitBuffer) {
         super(channel);
+        this.receiveBuffer = Buffers.pooledWrapper(receiveBuffer);
+        this.transmitBuffer = Buffers.pooledWrapper(transmitBuffer);
+    }
+
+    /**
+     * Construct a new instance.
+     *
+     * @param channel the channel to wrap
+     * @param receiveBuffer the receive buffer (should be direct)
+     * @param transmitBuffer the send buffer (should be direct)
+     */
+    public FramedMessageChannel(final ConnectedStreamChannel channel, final Pooled<ByteBuffer> receiveBuffer, final Pooled<ByteBuffer> transmitBuffer) {
+        super(channel);
         this.receiveBuffer = receiveBuffer;
         this.transmitBuffer = transmitBuffer;
     }
 
     /** {@inheritDoc} */
     protected boolean isReadable() {
-        final ByteBuffer buffer = receiveBuffer;
+        final ByteBuffer buffer = receiveBuffer.getResource();
         final int remaining = buffer.remaining();
         return remaining >= 4 && remaining >= buffer.getInt(0);
     }
@@ -65,7 +79,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     protected boolean isWritable() {
-        return receiveBuffer.position() == 0;
+        return receiveBuffer.getResource().position() == 0;
     }
 
     /** {@inheritDoc} */
@@ -75,7 +89,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
-        final ByteBuffer receiveBuffer = this.receiveBuffer;
+        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
@@ -105,7 +119,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        final ByteBuffer receiveBuffer = this.receiveBuffer;
+        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
             int res;
             while ((res = channel.read(receiveBuffer)) > 0) {}
@@ -129,7 +143,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     public void shutdownReads() throws IOException {
-        final ByteBuffer receiveBuffer = this.receiveBuffer;
+        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
             receiveBuffer.clear();
         }
@@ -139,7 +153,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
-        final ByteBuffer transmitBuffer = this.transmitBuffer;
+        final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         synchronized (transmitBuffer) {
             final int remaining = buffer.remaining();
             if (transmitBuffer.remaining() < 4 + remaining) {
@@ -160,7 +174,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        final ByteBuffer transmitBuffer = this.transmitBuffer;
+        final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         synchronized (transmitBuffer) {
             final long remaining = Buffers.remaining(buffers);
             if (transmitBuffer.remaining() < 4 + remaining) {
@@ -189,7 +203,7 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
     }
 
     private boolean doFlush() throws IOException {
-        final ByteBuffer buffer = transmitBuffer;
+        final ByteBuffer buffer = transmitBuffer.getResource();
         while (buffer.hasRemaining()) {
             final int res = channel.write(buffer);
             if (res == 0) {
@@ -203,27 +217,42 @@ public final class FramedMessageChannel extends TranslatingSuspendableChannel<Co
     /** {@inheritDoc} */
     public void close() throws IOException {
         synchronized (transmitBuffer) {
-            transmitBuffer.clear();
+            transmitBuffer.getResource().clear();
+            transmitBuffer.free();
         }
         synchronized (receiveBuffer) {
-            receiveBuffer.clear();
+            receiveBuffer.getResource().clear();
+            receiveBuffer.free();
         }
         super.close();
     }
 
+    /** {@inheritDoc} */
     public SocketAddress getPeerAddress() {
         return channel.getPeerAddress();
     }
 
+    /** {@inheritDoc} */
     public <A extends SocketAddress> A getPeerAddress(final Class<A> type) {
         return channel.getPeerAddress(type);
     }
 
+    /** {@inheritDoc} */
     public SocketAddress getLocalAddress() {
         return channel.getLocalAddress();
     }
 
+    /** {@inheritDoc} */
     public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
         return channel.getLocalAddress(type);
+    }
+
+    /**
+     * Get the underlying channel.
+     *
+     * @return the underlying channel
+     */
+    public ConnectedStreamChannel getChannel() {
+        return channel;
     }
 }
