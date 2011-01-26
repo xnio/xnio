@@ -26,13 +26,14 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import org.xnio.Pooled;
 
 /**
  * An {@code OutputStream} implementation which writes out {@code ByteBuffer}s to a consumer.
  */
 public class BufferPipeOutputStream extends OutputStream {
     private final Object lock = new Object();
-    private ByteBuffer buffer;
+    private Pooled<ByteBuffer> buffer;
     private boolean eof;
 
     private final BufferWriter bufferWriterTask;
@@ -61,9 +62,9 @@ public class BufferPipeOutputStream extends OutputStream {
         }
     }
 
-    private ByteBuffer getBuffer() throws IOException {
-        final ByteBuffer buffer = this.buffer;
-        if (buffer != null && buffer.hasRemaining()) {
+    private Pooled<ByteBuffer> getBuffer() throws IOException {
+        final Pooled<ByteBuffer> buffer = this.buffer;
+        if (buffer != null && buffer.getResource().hasRemaining()) {
             return buffer;
         } else {
             if (buffer != null) send();
@@ -75,7 +76,7 @@ public class BufferPipeOutputStream extends OutputStream {
     public void write(final int b) throws IOException {
         synchronized (this) {
             checkClosed();
-            getBuffer().put((byte) b);
+            getBuffer().getResource().put((byte) b);
         }
     }
 
@@ -84,7 +85,7 @@ public class BufferPipeOutputStream extends OutputStream {
         synchronized (this) {
             checkClosed();
             while (len > 0) {
-                final ByteBuffer buffer = getBuffer();
+                final ByteBuffer buffer = getBuffer().getResource();
                 final int cnt = Math.min(len, buffer.remaining());
                 buffer.put(b, off, cnt);
                 len -= cnt;
@@ -95,20 +96,22 @@ public class BufferPipeOutputStream extends OutputStream {
 
     // call with lock held
     private void send() throws IOException {
-        final ByteBuffer buffer = this.buffer;
+        final Pooled<ByteBuffer> pooledBuffer = buffer;
+        final ByteBuffer buffer = pooledBuffer.getResource();
         this.buffer =  null;
         final boolean eof = this.eof;
         if (buffer != null && buffer.position() > 0) {
             buffer.flip();
-            send(buffer, eof);
+            send(pooledBuffer, eof);
         } else if (eof) {
-            final ByteBuffer buffer1 = getBuffer();
+            Pooled<ByteBuffer> pooledBuffer1 = getBuffer();
+            final ByteBuffer buffer1 = pooledBuffer1.getResource();
             buffer1.flip();
-            send(buffer1, eof);
+            send(pooledBuffer1, eof);
         }
     }
 
-    private void send(ByteBuffer buffer, boolean eof) throws IOException {
+    private void send(Pooled<ByteBuffer> buffer, boolean eof) throws IOException {
         try {
             bufferWriterTask.accept(buffer, eof);
         } catch (IOException e) {
@@ -148,25 +151,29 @@ public class BufferPipeOutputStream extends OutputStream {
     public interface BufferWriter extends Flushable {
 
         /**
-         * Get a new buffer to be filled.  The new buffer may, for example, include a prepended header.
+         * Get a new buffer to be filled.  The new buffer may, for example, include a prepended header.  This method
+         * may block until a buffer is available or until some other condition, such as flow control, is met.
          *
          * @return the new buffer
+         * @throws IOException if an I/O error occurs
          */
-        ByteBuffer getBuffer();
+        Pooled<ByteBuffer> getBuffer() throws IOException;
 
         /**
          * Accept a buffer.  If this is the last buffer that will be sent, the {@code eof} flag will be set to {@code true}.
-         * This method should block until the entire buffer is consumed, or an error occurs.
+         * This method should block until the entire buffer is consumed, or an error occurs.  This method may also block
+         * until some other condition, such as flow control, is met.
          *
-         * @param buffer the buffer to send
+         * @param pooledBuffer the buffer to send
          * @param eof {@code true} if this is the last buffer which will be sent
          * @throws IOException if an I/O error occurs
          */
-        void accept(ByteBuffer buffer, boolean eof) throws IOException;
+        void accept(Pooled<ByteBuffer> pooledBuffer, boolean eof) throws IOException;
 
         /**
          * Flushes this stream by writing any buffered output to the underlying stream.  This method should block until
-         * the data is fully flushed.
+         * the data is fully flushed.  This method may also block until some other condition, such as flow control, is
+         * met.
          *
          * @throws IOException If an I/O error occurs
          */
