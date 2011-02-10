@@ -26,7 +26,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.jboss.xnio</groupId>
+    <groupId>org.xnio</groupId>
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Aggregator POM</name>
