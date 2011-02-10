@@ -45,7 +45,7 @@ public class BufferPipeOutputStream extends OutputStream {
      *
      * @param bufferWriterTask the writer task
      */
-    public BufferPipeOutputStream(final BufferWriter bufferWriterTask) {
+    public BufferPipeOutputStream(final BufferWriter bufferWriterTask) throws IOException {
         this.bufferWriterTask = bufferWriterTask;
         synchronized (lock) {
             buffer = bufferWriterTask.getBuffer();
