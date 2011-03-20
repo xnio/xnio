@@ -136,7 +136,7 @@ public class BufferPipeInputStream extends InputStream {
                 entry.free();
                 queue.poll();
                 try {
-                    inputHandler.acknowledge();
+                    inputHandler.acknowledge(entry);
                 } catch (IOException e) {
                     // no operation!
                 }
@@ -189,7 +189,7 @@ public class BufferPipeInputStream extends InputStream {
                     entry.free();
                     queue.poll();
                     try {
-                        inputHandler.acknowledge();
+                        inputHandler.acknowledge(entry);
                     } catch (IOException e) {
                         // no operation!
                     }
@@ -243,7 +243,7 @@ public class BufferPipeInputStream extends InputStream {
                     queue.poll();
                     entry.free();
                     try {
-                        inputHandler.acknowledge();
+                        inputHandler.acknowledge(entry);
                     } catch (IOException e) {
                         // no operation!
                     }
@@ -287,11 +287,13 @@ public class BufferPipeInputStream extends InputStream {
 
         /**
          * Acknowledges the successful processing of an input buffer.  Though this method may throw an exception,
-         * it is not acted upon.
+         * it is not acted upon.  The acknowledged resource is passed in, with its position set to the number of
+         * bytes consumed.
          *
+         * @param pooled the pooled resource which was consumed
          * @throws IOException if an I/O error occurs sending the acknowledgement
          */
-        void acknowledge() throws IOException;
+        void acknowledge(Pooled<ByteBuffer> pooled) throws IOException;
 
         /**
          * Signifies that the user of the enclosing {@link BufferPipeInputStream} has called the {@code close()} method
