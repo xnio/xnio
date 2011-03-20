@@ -90,21 +90,19 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         if (time < 0L) {
             time = 0L;
         }
-        long duration = timeUnit.toMillis(time);
-        long deadline = duration + System.currentTimeMillis();
-        if (deadline < 0L) {
-            deadline = Long.MAX_VALUE;
-        }
+        long duration = timeUnit.toNanos(time);
+        long now = System.nanoTime();
+        Status status;
         synchronized (lock) {
-            Status status;
             boolean intr = Thread.interrupted();
             try {
                 while ((status = this.status) == Status.WAITING && duration > 0L) try {
-                    lock.wait(duration);
+                    lock.wait(duration / 1000000L);
                 } catch (InterruptedException e) {
                     intr = true;
                 } finally {
-                    duration = deadline - System.currentTimeMillis();
+                    // decrease duration by the elapsed time
+                    duration += now - (now = System.nanoTime());
                 }
             } finally {
                 if (intr) {
@@ -134,18 +132,14 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         if (time < 0L) {
             time = 0L;
         }
-        long duration = timeUnit.toMillis(time);
-        long deadline = duration + System.currentTimeMillis();
-        if (deadline < 0L) {
-            deadline = Long.MAX_VALUE;
-        }
+        long duration = timeUnit.toNanos(time);
+        long now = System.nanoTime();
+        Status status;
         synchronized (lock) {
-            while (status == Status.WAITING) {
-                lock.wait(duration);
-                duration = deadline - System.currentTimeMillis();
-                if (duration <= 0L) {
-                    return Status.WAITING;
-                }
+            while ((status = this.status) == Status.WAITING && duration > 0L) {
+                lock.wait(duration / 1000000L);
+                // decrease duration by the elapsed time
+                duration += now - (now = System.nanoTime());
             }
             return status;
         }
