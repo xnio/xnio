@@ -40,6 +40,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipFile;
 import org.jboss.logging.Logger;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.SuspendableReadChannel;
 
 import java.util.logging.Handler;
 
@@ -416,6 +417,19 @@ public final class IoUtils {
      */
     public static <I, O> IoFuture<? extends O> cast(final IoFuture<I> parent, final Class<O> type) {
         return new CastingIoFuture<O, I>(parent, type);
+    }
+
+    /**
+     * Safely shutdown reads on the given channel.
+     *
+     * @param channel the channel
+     */
+    public static void safeShutdownReads(final SuspendableReadChannel channel) {
+        try {
+            channel.shutdownReads();
+        } catch (IOException e) {
+            closeLog.tracef(e, "Shutdown reads failed");
+        }
     }
 
     // nested classes
