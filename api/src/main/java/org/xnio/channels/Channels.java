@@ -33,6 +33,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
+import org.xnio.ChannelListener;
 import org.xnio.ReadChannelThread;
 import org.xnio.WriteChannelThread;
 
@@ -556,4 +557,58 @@ public final class Channels {
             startPosition += res;
         }
     }
+
+    /**
+     * Set the close listener for a channel (type-safe).
+     *
+     * @param channel the channel
+     * @param listener the listener to set
+     * @param <T> the channel type
+     */
+    public static <T extends CloseableChannel> void setCloseListener(T channel, ChannelListener<? super T> listener) {
+        @SuppressWarnings("unchecked")
+        ChannelListener.Setter<? extends T> setter = (ChannelListener.Setter<? extends T>) channel.getCloseSetter();
+        setter.set(listener);
+    }
+
+    /**
+     * Set the accept listener for a channel (type-safe).
+     *
+     * @param channel the channel
+     * @param listener the listener to set
+     * @param <T> the channel type
+     */
+    public static <T extends AcceptingChannel<?>> void setAcceptListener(T channel, ChannelListener<? super T> listener) {
+        @SuppressWarnings("unchecked")
+        ChannelListener.Setter<? extends T> setter = (ChannelListener.Setter<? extends T>) channel.getAcceptSetter();
+        setter.set(listener);
+    }
+
+    /**
+     * Set the read listener for a channel (type-safe).
+     *
+     * @param channel the channel
+     * @param listener the listener to set
+     * @param <T> the channel type
+     */
+    public static <T extends SuspendableReadChannel> void setReadListener(T channel, ChannelListener<? super T> listener) {
+        @SuppressWarnings("unchecked")
+        ChannelListener.Setter<? extends T> setter = (ChannelListener.Setter<? extends T>) channel.getReadSetter();
+        setter.set(listener);
+    }
+
+    /**
+     * Set the write listener for a channel (type-safe).
+     *
+     * @param channel the channel
+     * @param listener the listener to set
+     * @param <T> the channel type
+     */
+    public static <T extends SuspendableWriteChannel> void setWriteListener(T channel, ChannelListener<? super T> listener) {
+        @SuppressWarnings("unchecked")
+        ChannelListener.Setter<? extends T> setter = (ChannelListener.Setter<? extends T>) channel.getWriteSetter();
+        setter.set(listener);
+    }
+
+
 }
