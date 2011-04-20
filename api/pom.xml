@@ -27,11 +27,11 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.xnio</groupId>
+    <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-api</artifactId>
     <packaging>jar</packaging>
     <name>XNIO API</name>
-    <version>3.0.0.Beta1-SNAPSHOT</version>
+    <version>3.0.0.Beta1</version>
     <description>The API JAR of the XNIO project</description>
     <url>http://www.jboss.org/xnio</url>
 

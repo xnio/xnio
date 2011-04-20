@@ -28,9 +28,9 @@
 
     <name>XNIO NIO Implementation</name>
     <description>The NIO implementation of the XNIO project</description>
-    <groupId>org.xnio</groupId>
+    <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
-    <version>3.0.0.Beta1-SNAPSHOT</version>
+    <version>3.0.0.Beta1</version>
     <packaging>jar</packaging>
 
     <parent>
