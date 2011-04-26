@@ -71,7 +71,6 @@ public final class ChannelThreadPools {
      */
     public static <T extends ChannelThread> ChannelThreadPool<T> createLightestLoadPool() {
         return new SimpleThreadPool<T>() {
-            private final Set<T> threadSet = new HashSet<T>();
 
             @SuppressWarnings( { "unchecked" })
             private volatile T[] pool = (T[]) NO_THREADS;
@@ -114,7 +113,7 @@ public final class ChannelThreadPools {
         };
     }
 
-    private static abstract class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
+    private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
         private final Set<T> threadSet = new HashSet<T>();
 
         private final ChannelThread.Listener listener = new ChannelThread.Listener() {

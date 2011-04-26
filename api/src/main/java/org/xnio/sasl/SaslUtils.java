@@ -81,7 +81,8 @@ public final class SaslUtils {
     /**
      * Evaluate a sasl response.  If the result is {@code false} then the negotiation is not yet complete and the data
      * written into the destination buffer needs to be sent to the server as a response.  If the result is {@code true}
-     * then negotiation was successful and no response needs to be sent to the server.
+     * then negotiation was successful and no response needs to be sent to the client (other than a successful completion
+     * message, depending on the protocol).
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
      * message.  The SASL message itself does not encode any length information so it is up to the protocol implementer
