@@ -52,7 +52,7 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.xnio</groupId>
+            <groupId>org.jboss.xnio</groupId>
             <artifactId>xnio-api</artifactId>
             <version>${project.version}</version>
         </dependency>
