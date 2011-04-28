@@ -59,6 +59,7 @@ public final class Pipe {
      */
     public void await() {
         boolean intr = false;
+        final Object lock = this.lock;
         try {
             synchronized (lock) {
                 while (! readClosed) {
@@ -168,6 +169,10 @@ public final class Pipe {
                 return;
             }
         }
+
+        public String toString() {
+            return "Pipe read half";
+        }
     };
     private final OutputStream out = new OutputStream() {
         public void write(final int b) throws IOException {
@@ -260,6 +265,10 @@ public final class Pipe {
                 lock.notifyAll();
                 return;
             }
+        }
+
+        public String toString() {
+            return "Pipe write half";
         }
     };
 
