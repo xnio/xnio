@@ -195,7 +195,12 @@ public final class Pipe {
                     }
                 }
                 final int tail = Pipe.this.tail;
-                buffer[tail] = (byte) b;
+                int startPos = tail + size;
+                if (startPos >= bufLen) {
+                    buffer[startPos - bufLen] = (byte) b;
+                } else {
+                    buffer[startPos] = (byte) b;
+                }
                 size ++;
                 lock.notifyAll();
             }
