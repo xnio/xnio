@@ -55,7 +55,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
     private final Object workLock = new Object();
     private final Queue<SelectorTask> selectorWorkQueue = new ArrayDeque<SelectorTask>();
     private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
-    private final Thread thread;
+    protected final Thread thread;
     private final Runnable task = new Runnable() {
         public void run() {
             final Selector selector = AbstractNioChannelThread.this.selector;

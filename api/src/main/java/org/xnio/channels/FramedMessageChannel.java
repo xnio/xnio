@@ -68,8 +68,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     protected boolean isReadable() {
         final ByteBuffer buffer = receiveBuffer.getResource();
-        final int remaining = buffer.remaining();
-        return remaining >= 4 && remaining >= buffer.getInt(0);
+        final int size = buffer.position();
+        return size >= 4 && size >= buffer.getInt(0) + 4;
     }
 
     /** {@inheritDoc} */
@@ -89,25 +89,36 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
+        if (buffer.remaining() == 0) {
+            return 0;
+        }
         final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
-            while ((res = channel.read(receiveBuffer)) > 0) {}
-            if (receiveBuffer.remaining() < 4) {
-                return res;
-            }
-            final int length = receiveBuffer.getInt();
-            if (receiveBuffer.remaining() < length) {
-                Buffers.unget(receiveBuffer, 4);
-                return res;
-            }
-            try {
-                return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
-            } finally {
-                if (receiveBuffer.remaining() == 0) {
+            do {
+                res = channel.read(receiveBuffer);
+            } while (res > 0);
+            if (receiveBuffer.position() < 4) {
+                if (res == -1) {
                     receiveBuffer.clear();
                 }
+                return res;
+            }
+            receiveBuffer.flip();
+            try {
+                final int length = receiveBuffer.getInt();
+                if (receiveBuffer.remaining() < length) {
+                    if (res == -1) {
+                        receiveBuffer.clear();
+                    } else {
+                        Buffers.unget(receiveBuffer, 4);
+                    }
+                    return res;
+                }
+                return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
+            } finally {
+                receiveBuffer.compact();
             }
         }
     }
@@ -122,21 +133,30 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
             int res;
-            while ((res = channel.read(receiveBuffer)) > 0) {}
+            final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
+            do {
+                res = channel.read(receiveBuffer);
+            } while (res > 0);
             if (receiveBuffer.remaining() < 4) {
+                if (res == -1) {
+                    receiveBuffer.clear();
+                }
                 return res;
             }
             final int length = receiveBuffer.getInt();
             if (receiveBuffer.remaining() < length) {
-                Buffers.unget(receiveBuffer, 4);
+                if (res == -1) {
+                    receiveBuffer.clear();
+                } else {
+                    Buffers.unget(receiveBuffer, 4);
+                }
                 return res;
             }
+            receiveBuffer.flip();
             try {
                 return Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
             } finally {
-                if (receiveBuffer.remaining() == 0) {
-                    receiveBuffer.clear();
-                }
+                receiveBuffer.compact();
             }
         }
     }
@@ -198,20 +218,24 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean flush() throws IOException {
         synchronized (transmitBuffer) {
-            return ! doFlush();
+            return doFlush();
         }
     }
 
     private boolean doFlush() throws IOException {
         final ByteBuffer buffer = transmitBuffer.getResource();
-        while (buffer.hasRemaining()) {
-            final int res = channel.write(buffer);
-            if (res == 0) {
-                return true;
+        buffer.flip();
+        try {
+            while (buffer.hasRemaining()) {
+                final int res = channel.write(buffer);
+                if (res == 0) {
+                    return false;
+                }
             }
+        } finally {
+            buffer.compact();
         }
-        buffer.clear();
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */

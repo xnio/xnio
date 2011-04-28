@@ -38,7 +38,11 @@ import org.xnio.WriteChannelThread;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel {
+public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel, WrappedChannel<W> {
+
+    /**
+     * The wrapped channel.
+     */
     protected final W channel;
 
     private final ChannelListener.SimpleSetter<C> readSetter = new ChannelListener.SimpleSetter<C>();
@@ -92,9 +96,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             //noinspection unchecked
             ChannelListeners.<C>invokeChannelListener((C) TranslatingSuspendableChannel.this, listener);
-            synchronized (getReadLock()) {
+            synchronized (getWriteLock()) {
                 if (writesRequested) {
-                    if (isReadable()) {
+                    if (isWritable()) {
                         channel.getWriteThread().execute(writeListenerCommand);
                     }
                 }
