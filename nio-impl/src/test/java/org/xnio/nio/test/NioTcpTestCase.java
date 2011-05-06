@@ -427,11 +427,7 @@ public final class NioTcpTestCase extends TestCase {
                             try {
                                 channel.read(ByteBuffer.allocate(100));
                             } catch (IOException e) {
-                                if (e.getMessage().toLowerCase().contains("reset")) {
-                                    serverOK.set(true);
-                                } else {
-                                    throw new RuntimeException(e);
-                                }
+                                serverOK.set(true);
                             } finally {
                                 IoUtils.safeClose(channel);
                             }
@@ -480,11 +476,7 @@ public final class NioTcpTestCase extends TestCase {
                                 channel.read(ByteBuffer.allocate(100));
                                 channel.close();
                             } catch (IOException e) {
-                                if (e.getMessage().toLowerCase().contains("reset")) {
-                                    clientOK.set(true);
-                                } else {
-                                    throw new RuntimeException(e);
-                                }
+                                clientOK.set(true);
                             } finally {
                                 IoUtils.safeClose(channel);
                             }
