@@ -71,6 +71,9 @@ public final class SaslUtils {
         final byte[] result;
         result = client.evaluateChallenge(Buffers.take(source));
         if (result != null) {
+            if (destination == null) {
+                throw new SaslException("Extra challenge data received");
+            }
             destination.put(result);
             return false;
         } else {
@@ -98,8 +101,11 @@ public final class SaslUtils {
         final byte[] result;
         result = server.evaluateResponse(source.hasRemaining() ? Buffers.take(source) : EMPTY_BYTES);
         if (result != null) {
+            if (destination == null) {
+                throw new SaslException("Extra response data received");
+            }
             destination.put(result);
-            return false;
+            return server.isComplete();
         } else {
             return true;
         }
