@@ -133,12 +133,13 @@ public class BufferPipeInputStream extends InputStream {
             final ByteBuffer buf = entry.getResource();
             final int v = buf.get() & 0xff;
             if (buf.remaining() == 0) {
-                entry.free();
                 queue.poll();
                 try {
                     inputHandler.acknowledge(entry);
                 } catch (IOException e) {
                     // no operation!
+                } finally {
+                    entry.free();
                 }
             }
             return v;
@@ -186,12 +187,13 @@ public class BufferPipeInputStream extends InputStream {
                 total += byteCnt;
                 len -= byteCnt;
                 if (buffer.remaining() == 0) {
-                    entry.free();
                     queue.poll();
                     try {
                         inputHandler.acknowledge(entry);
                     } catch (IOException e) {
                         // no operation!
+                    } finally {
+                        entry.free();
                     }
                 }
             }
@@ -241,11 +243,12 @@ public class BufferPipeInputStream extends InputStream {
                 qty -= byteCnt;
                 if (buffer.remaining() == 0) {
                     queue.poll();
-                    entry.free();
                     try {
                         inputHandler.acknowledge(entry);
                     } catch (IOException e) {
                         // no operation!
+                    } finally {
+                        entry.free();
                     }
                 }
             }
