@@ -89,11 +89,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
-        if (buffer.remaining() == 0) {
-            return 0;
-        }
-        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
+            final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
             do {
@@ -103,6 +100,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 if (res == -1) {
                     receiveBuffer.clear();
                 }
+                // must be <= 0
                 return res;
             }
             receiveBuffer.flip();
@@ -114,9 +112,15 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     } else {
                         Buffers.unget(receiveBuffer, 4);
                     }
+                    // must be <= 0
                     return res;
                 }
-                return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
+                if (buffer.hasRemaining()) {
+                    return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
+                } else {
+                    Buffers.skip(receiveBuffer, length);
+                    return 0;
+                }
             } finally {
                 receiveBuffer.compact();
             }
@@ -130,8 +134,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
+            final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
             do {
@@ -154,7 +158,12 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             }
             receiveBuffer.flip();
             try {
-                return Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
+                if (Buffers.hasRemaining(buffers)) {
+                    return Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
+                } else {
+                    Buffers.skip(receiveBuffer, length);
+                    return 0;
+                }
             } finally {
                 receiveBuffer.compact();
             }
@@ -163,8 +172,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public void shutdownReads() throws IOException {
-        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
         synchronized (receiveBuffer) {
+            final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             receiveBuffer.clear();
         }
         super.shutdownReads();
@@ -173,8 +182,11 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
-        final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         synchronized (transmitBuffer) {
+            final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
+            if (buffer.remaining() > transmitBuffer.capacity() - 4) {
+                throw new IOException("Transmitted message is too large");
+            }
             final int remaining = buffer.remaining();
             if (transmitBuffer.remaining() < 4 + remaining) {
                 return false;
@@ -194,8 +206,11 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         synchronized (transmitBuffer) {
+            final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
+            if (Buffers.remaining(buffers) > (long)transmitBuffer.capacity() - 4L) {
+                throw new IOException("Transmitted message is too large");
+            }
             final long remaining = Buffers.remaining(buffers);
             if (transmitBuffer.remaining() < 4 + remaining) {
                 return false;

@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
- * A buffer pooled allocator.  This pool uses a series of direct buffer regions to back the
+ * A buffer pooled allocator.  This pool uses a series of buffer regions to back the
  * returned pooled buffers.  When the buffer is no longer needed, it should be freed back into the pool; failure
  * to do so will cause the corresponding buffer area to be unavailable until the buffer is garbage-collected.
  *
