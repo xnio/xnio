@@ -63,7 +63,7 @@ public class BufferPipeInputStream extends InputStream {
      */
     public void push(final ByteBuffer buffer) {
         synchronized (this) {
-            if (!eof && failure == null) {
+            if (buffer.hasRemaining() && !eof && failure == null) {
                 queue.add(Buffers.pooledWrapper(buffer));
                 notifyAll();
             }
@@ -78,7 +78,7 @@ public class BufferPipeInputStream extends InputStream {
      */
     public void push(final Pooled<ByteBuffer> pooledBuffer) {
         synchronized (this) {
-            if (!eof && failure == null) {
+            if (pooledBuffer.getResource().hasRemaining() && !eof && failure == null) {
                 queue.add(pooledBuffer);
                 notifyAll();
             } else {
