@@ -97,7 +97,7 @@ public class BufferPipeOutputStream extends OutputStream {
     // call with lock held
     private void send() throws IOException {
         final Pooled<ByteBuffer> pooledBuffer = buffer;
-        final ByteBuffer buffer = pooledBuffer.getResource();
+        final ByteBuffer buffer = pooledBuffer == null ? null : pooledBuffer.getResource();
         this.buffer =  null;
         final boolean eof = this.eof;
         if (buffer != null && buffer.position() > 0) {
