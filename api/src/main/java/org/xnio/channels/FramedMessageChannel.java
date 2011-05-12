@@ -208,7 +208,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (transmitBuffer) {
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
-            if (Buffers.remaining(buffers) > (long)transmitBuffer.capacity() - 4L) {
+            if (Buffers.remaining(buffers) > transmitBuffer.capacity() - 4L) {
                 throw new IOException("Transmitted message is too large");
             }
             final long remaining = Buffers.remaining(buffers);

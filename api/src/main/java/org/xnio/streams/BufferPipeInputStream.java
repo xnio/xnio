@@ -63,7 +63,7 @@ public class BufferPipeInputStream extends InputStream {
      */
     public void push(final ByteBuffer buffer) {
         synchronized (this) {
-            if (buffer.hasRemaining() && !eof && failure == null) {
+            if (buffer.hasRemaining() && !this.eof && failure == null) {
                 queue.add(Buffers.pooledWrapper(buffer));
                 notifyAll();
             }
@@ -78,23 +78,12 @@ public class BufferPipeInputStream extends InputStream {
      */
     public void push(final Pooled<ByteBuffer> pooledBuffer) {
         synchronized (this) {
-            if (pooledBuffer.getResource().hasRemaining() && !eof && failure == null) {
+            if (pooledBuffer.getResource().hasRemaining() && !this.eof && failure == null) {
                 queue.add(pooledBuffer);
                 notifyAll();
             } else {
                 pooledBuffer.free();
             }
-        }
-    }
-
-    /**
-     * Push the EOF condition into the queue.  After this method is called, no further buffers may be pushed into this
-     * instance.
-     */
-    public void pushEof() {
-        synchronized (this) {
-            eof = true;
-            notifyAll();
         }
     }
 
@@ -113,6 +102,17 @@ public class BufferPipeInputStream extends InputStream {
         }
     }
 
+    /**
+     * Push the EOF condition into the queue.  After this method is called, no further buffers may be pushed into this
+     * instance.
+     */
+    public void pushEof() {
+        synchronized (this) {
+            eof = true;
+            notifyAll();
+        }
+    }
+    
     /** {@inheritDoc} */
     public int read() throws IOException {
         final Queue<Pooled<ByteBuffer>> queue = this.queue;
