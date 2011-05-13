@@ -44,6 +44,7 @@ public class BufferPipeOutputStream extends OutputStream {
      * end-of-file condition.
      *
      * @param bufferWriterTask the writer task
+     * @throws IOException if an error occurs while initializing the stream
      */
     public BufferPipeOutputStream(final BufferWriter bufferWriterTask) throws IOException {
         this.bufferWriterTask = bufferWriterTask;
@@ -154,11 +155,11 @@ public class BufferPipeOutputStream extends OutputStream {
          * Get a new buffer to be filled.  The new buffer may, for example, include a prepended header.  This method
          * may block until a buffer is available or until some other condition, such as flow control, is met.
          *
-         * @param isNew {@code true} if this is the first buffer in a message, {@code false} otherwise
+         * @param firstBuffer {@code true} if this is the first buffer in the stream, {@code false} otherwise
          * @return the new buffer
          * @throws IOException if an I/O error occurs
          */
-        Pooled<ByteBuffer> getBuffer(boolean isNew) throws IOException;
+        Pooled<ByteBuffer> getBuffer(boolean firstBuffer) throws IOException;
 
         /**
          * Accept a buffer.  If this is the last buffer that will be sent, the {@code eof} flag will be set to {@code true}.
