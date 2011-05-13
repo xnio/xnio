@@ -188,7 +188,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 throw new IOException("Transmitted message is too large");
             }
             final int remaining = buffer.remaining();
-            if (transmitBuffer.remaining() < 4 + remaining) {
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlush()) {
                 return false;
             }
             // todo check max transmit size
@@ -212,7 +212,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 throw new IOException("Transmitted message is too large");
             }
             final long remaining = Buffers.remaining(buffers);
-            if (transmitBuffer.remaining() < 4 + remaining) {
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlush()) {
                 return false;
             }
             // todo check max transmit size
