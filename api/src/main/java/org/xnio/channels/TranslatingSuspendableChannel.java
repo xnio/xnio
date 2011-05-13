@@ -54,7 +54,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     private final Runnable readListenerCommand = new Runnable() {
         public void run() {
-            ChannelListeners.invokeChannelListener(channel, readListener);
+            boolean doReads;
+            do {
+                ChannelListeners.invokeChannelListener(channel, readListener);
+                synchronized (getReadLock()) {
+                    doReads = readsRequested && isReadable();
+                }
+            } while (doReads);
         }
     };
     private final ChannelListener<W> readListener = new ChannelListener<W>() {
@@ -81,7 +87,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     private final Runnable writeListenerCommand = new Runnable() {
         public void run() {
-            ChannelListeners.invokeChannelListener(channel, writeListener);
+            boolean doWrites;
+            do {
+                ChannelListeners.invokeChannelListener(channel, writeListener);
+                synchronized (getWriteLock()) {
+                    doWrites = writesRequested && isWritable();
+                }
+            } while (doWrites);
         }
     };
     private final ChannelListener<W> writeListener = new ChannelListener<W>() {
