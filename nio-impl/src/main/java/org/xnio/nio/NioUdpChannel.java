@@ -27,7 +27,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.SocketOption;
 import java.net.StandardSocketOption;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
@@ -61,18 +60,18 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     private final NioXnio nioXnio;
 
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({"unused", "unchecked"})
     private volatile NioHandle<AbstractNioStreamChannel> readHandle;
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({"unused", "unchecked"})
     private volatile NioHandle<AbstractNioStreamChannel> writeHandle;
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> readHandleUpdater = unsafeUpdater(NioHandle.class, "readHandle");
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> writeHandleUpdater = unsafeUpdater(NioHandle.class, "writeHandle");
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private static <T> AtomicReferenceFieldUpdater<NioUdpChannel, T> unsafeUpdater(Class<?> clazz, String name) {
         return (AtomicReferenceFieldUpdater) AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, clazz, name);
     }
@@ -238,7 +237,9 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     private void cancelKeys() {
+        @SuppressWarnings("unchecked")
         final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
+        @SuppressWarnings("unchecked")
         final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
         if (readHandle != null) {
             readHandle.cancelKey();
@@ -383,11 +384,11 @@ class NioUdpChannel implements MulticastMessageChannel {
         return String.format("UDP socket channel (NIO) <%h>", this);
     }
 
-    private class NioKey implements Key {
+    class NioKey implements Key {
 
         private final MembershipKey key;
 
-        public NioKey(final MembershipKey key) {
+        NioKey(final MembershipKey key) {
             this.key = key;
         }
 

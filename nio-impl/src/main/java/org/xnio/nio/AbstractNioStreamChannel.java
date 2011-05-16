@@ -42,9 +42,9 @@ import org.xnio.channels.StreamChannel;
 abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> implements StreamChannel {
     private final NioXnio nioXnio;
 
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({ "unused", "unchecked" })
     private volatile NioHandle<AbstractNioStreamChannel> readHandle;
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({ "unused", "unchecked" })
     private volatile NioHandle<AbstractNioStreamChannel> writeHandle;
 
     @SuppressWarnings( { "unchecked" })
@@ -80,21 +80,25 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     // Suspend/resume
 
     public final void suspendReads() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.suspend();
     }
 
     public final void resumeReads() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.resume(SelectionKey.OP_READ);
     }
 
     public final void suspendWrites() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(0);
     }
 
     public final void resumeWrites() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(SelectionKey.OP_WRITE);
     }
@@ -205,17 +209,17 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     // Type-safety stuff
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private C typed() {
         return (C) this;
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private NioHandle<C> getAndSetRead(final NioHandle<C> newHandle) {
         return readHandleUpdater.getAndSet(this, newHandle);
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private NioHandle<C> getAndSetWrite(final NioHandle<C> newHandle) {
         return writeHandleUpdater.getAndSet(this, newHandle);
     }
@@ -227,6 +231,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     protected void cancelWriteKey() {
+        @SuppressWarnings("unchecked")
         final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
         if (writeHandle != null) {
             writeHandle.cancelKey();
@@ -234,6 +239,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     protected void cancelReadKey() {
+        @SuppressWarnings("unchecked")
         final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
         if (readHandle != null) {
             readHandle.cancelKey();

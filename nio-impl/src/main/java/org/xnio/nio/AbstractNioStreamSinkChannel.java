@@ -40,10 +40,10 @@ import org.xnio.channels.StreamSinkChannel;
 abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChannel<C>> implements StreamSinkChannel {
     private final NioXnio nioXnio;
 
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({"unused", "unchecked"})
     private volatile NioHandle<AbstractNioStreamSinkChannel> writeHandle;
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private static final AtomicReferenceFieldUpdater<AbstractNioStreamSinkChannel, NioHandle> writeHandleUpdater = (AtomicReferenceFieldUpdater<AbstractNioStreamSinkChannel, NioHandle>) AtomicReferenceFieldUpdater.newUpdater(AbstractNioStreamSinkChannel.class, NioHandle.class, "writeHandle");
 
     private final NioSetter<C> writeSetter = new NioSetter<C>();
@@ -68,11 +68,13 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
     // Suspend/resume
 
     public final void suspendWrites() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamSinkChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(0);
     }
 
     public final void resumeWrites() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamSinkChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(SelectionKey.OP_WRITE);
     }
@@ -137,12 +139,12 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     // Type-safety stuff
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private C typed() {
         return (C) this;
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private NioHandle<C> getAndSetWrite(final NioHandle<C> newHandle) {
         return writeHandleUpdater.getAndSet(this, newHandle);
     }

@@ -40,10 +40,10 @@ import org.xnio.channels.StreamSourceChannel;
 abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceChannel<C>> implements StreamSourceChannel {
     private final NioXnio nioXnio;
 
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings({ "unused", "unchecked" })
     private volatile NioHandle<AbstractNioStreamSourceChannel> readHandle;
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private static final AtomicReferenceFieldUpdater<AbstractNioStreamSourceChannel, NioHandle> readHandleUpdater = (AtomicReferenceFieldUpdater<AbstractNioStreamSourceChannel, NioHandle>) AtomicReferenceFieldUpdater.newUpdater(AbstractNioStreamSourceChannel.class, NioHandle.class, "readHandle");
 
     private final NioSetter<C> readSetter = new NioSetter<C>();
@@ -68,11 +68,13 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
     // Suspend/resume
 
     public final void suspendReads() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamSourceChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.suspend();
     }
 
     public final void resumeReads() {
+        @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamSourceChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.resume(SelectionKey.OP_READ);
     }
@@ -132,12 +134,12 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
 
     // Type-safety stuff
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private C typed() {
         return (C) this;
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     private NioHandle<C> getAndSetRead(final NioHandle<C> newHandle) {
         return readHandleUpdater.getAndSet(this, newHandle);
     }

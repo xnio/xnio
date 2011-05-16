@@ -89,7 +89,7 @@ final class NioXnio extends Xnio {
     /**
      * Construct a new NIO-based XNIO provider instance.  Should only be invoked by the service loader.
      */
-    public NioXnio() {
+    NioXnio() {
         super("nio");
         final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
         if ("sun.nio.ch.PollSelectorProvider".equals(providerClassName)) {
