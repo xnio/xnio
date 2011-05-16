@@ -69,6 +69,8 @@ public abstract class Xnio {
 
     private static final EnumMap<FileAccess, OptionMap> FILE_ACCESS_OPTION_MAPS;
 
+    private static final RuntimePermission ALLOW_BLOCKING_SETTING = new RuntimePermission("changeThreadBlockingSetting");
+
     static {
         Logger.getLogger("org.xnio").info("XNIO Version " + Version.VERSION);
         final EnumMap<FileAccess, OptionMap> map = new EnumMap<FileAccess, OptionMap>(FileAccess.class);
@@ -92,6 +94,42 @@ public abstract class Xnio {
             throw new IllegalArgumentException("name is null");
         }
         this.name = name;
+    }
+
+    private static final ThreadLocal<Boolean> BLOCKING = new ThreadLocal<Boolean>() {
+        protected Boolean initialValue() {
+            return Boolean.TRUE;
+        }
+    };
+
+    /**
+     * Allow (or disallow) blocking I/O on the current thread.  Requires the {@code changeThreadBlockingSetting}
+     * {@link RuntimePermission}.
+     *
+     * @param newSetting {@code true} to allow blocking I/O, {@code false} to disallow it
+     * @return the previous setting
+     * @throws SecurityException if a security manager is present and disallows changing the {@code changeThreadBlockingSetting} {@code RuntimePermission}
+     */
+    public static boolean allowBlocking(boolean newSetting) throws SecurityException {
+        final SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            sm.checkPermission(ALLOW_BLOCKING_SETTING);
+        }
+        final ThreadLocal<Boolean> threadLocal = BLOCKING;
+        try {
+            return threadLocal.get().booleanValue();
+        } finally {
+            threadLocal.set(Boolean.valueOf(newSetting));
+        }
+    }
+
+    /**
+     * Determine whether blocking I/O is allowed from the current thread.
+     *
+     * @return {@code true} if blocking I/O is allowed, {@code false} otherwise
+     */
+    public static boolean isBlockingAllowed() {
+        return BLOCKING.get().booleanValue();
     }
 
     /**

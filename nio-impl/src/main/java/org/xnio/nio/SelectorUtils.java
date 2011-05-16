@@ -28,12 +28,16 @@ import java.nio.channels.SelectionKey;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
+import org.xnio.Xnio;
 
 final class SelectorUtils {
     private SelectorUtils() {
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op) throws IOException {
+        if (! Xnio.isBlockingAllowed()) {
+            throw new SecurityException("Blocking I/O is not allowed on the current thread");
+        }
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey = channel.register(selector, op);
         selector.select();
@@ -44,6 +48,9 @@ final class SelectorUtils {
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op, long time, TimeUnit unit) throws IOException {
+        if (! Xnio.isBlockingAllowed()) {
+            throw new SecurityException("Blocking I/O is not allowed on the current thread");
+        }
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey = channel.register(selector, op);
         selector.select(unit.toMillis(time));
