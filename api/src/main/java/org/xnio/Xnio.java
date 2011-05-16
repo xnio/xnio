@@ -146,7 +146,7 @@ public abstract class Xnio {
     }
 
     /**
-     * Get an XNIO provider instance from the current thread's context class loader.  If multiple providers are
+     * Get an XNIO provider instance from XNIO's class loader.  If multiple providers are
      * available, use the first one encountered.
      *
      * @return the XNIO provider instance
@@ -154,7 +154,7 @@ public abstract class Xnio {
      * @since 3.0
      */
     public static Xnio getInstance() {
-        return doGetInstance(null, ServiceLoader.load(XnioProvider.class));
+        return doGetInstance(null, ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader()));
     }
 
     /**
@@ -171,7 +171,7 @@ public abstract class Xnio {
     }
 
     /**
-     * Get a specific XNIO provider instance from the current thread's context class loader.
+     * Get a specific XNIO provider instance from XNIO's class loader.
      *
      * @param provider the provider name, or {@code null} for the first available
      * @return the XNIO provider instance
@@ -179,7 +179,7 @@ public abstract class Xnio {
      * @since 3.0
      */
     public static Xnio getInstance(String provider) {
-        return doGetInstance(provider, ServiceLoader.load(XnioProvider.class));
+        return doGetInstance(provider, ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader()));
     }
 
     private static Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
