@@ -28,11 +28,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import org.junit.Ignore;
+
 import java.util.logging.Logger;
 
 /**
  *
  */
+@Ignore
 public final class TestThreadFactory implements ThreadFactory {
 
     private static final Logger log = Logger.getLogger("TEST");

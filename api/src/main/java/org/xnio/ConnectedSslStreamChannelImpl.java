@@ -224,7 +224,7 @@ final class ConnectedSslStreamChannelImpl implements ConnectedSslStreamChannel {
     private boolean doFlush() throws IOException {
         final ConnectedStreamChannel connectedStreamChannel = this.connectedStreamChannel;
         WRAP: for (;;) {
-            final ByteBuffer sendBuffer = this.sendBuffer;
+            ByteBuffer sendBuffer = this.sendBuffer;
             sendBuffer.flip();
             try {
                 while (sendBuffer.hasRemaining()) {
@@ -250,6 +250,33 @@ final class ConnectedSslStreamChannelImpl implements ConnectedSslStreamChannel {
             switch (wrapResult.getStatus()) {
                 case CLOSED: {
                     return true;
+                }
+                case BUFFER_OVERFLOW: {
+                    if (sendBuffer.position() == 0) {
+                        log.tracef("Send buffer is too small, growing from %s", sendBuffer);
+                        // send buffer is too small, grow it
+                        final int oldCap = sendBuffer.capacity();
+                        final int reqCap = sslEngine.getSession().getPacketBufferSize();
+                        if (reqCap <= oldCap) {
+                            // ...but the send buffer should have had plenty of room?
+                            throw new IOException("SSLEngine required a bigger send buffer but our buffer was already big enough");
+                        }
+                        log.tracef("Grew send buffer to %s", sendBuffer = this.sendBuffer = ByteBuffer.allocate(reqCap));
+                    } else {
+                        log.tracef("No room in send buffer, flushing");
+                        // there's some data in there, so send it first
+                        sendBuffer.flip();
+                        try {
+                            final int res = connectedStreamChannel.write(sendBuffer);
+                            if (res == 0) {
+                                return false;
+                            }
+                        } finally {
+                            sendBuffer.compact();
+                        }
+                    }
+                    // try again
+                    continue;
                 }
                 case BUFFER_UNDERFLOW:
                 case OK: {
