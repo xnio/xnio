@@ -216,7 +216,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
 
     public void setAcceptThread(final ConnectionChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<NioTcpServer> newHandle = thread == null ? null : ((NioConnectionChannelThread) thread).addChannel(channel, this, SelectionKey.OP_ACCEPT, acceptSetter);
+            final NioHandle<NioTcpServer> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(channel, this, SelectionKey.OP_ACCEPT, acceptSetter);
             final NioHandle<NioTcpServer> oldValue = acceptHandleUpdater.getAndSet(this, newHandle);
             if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
                 oldValue.cancelKey();

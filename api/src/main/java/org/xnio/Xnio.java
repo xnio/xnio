@@ -1156,15 +1156,6 @@ public abstract class Xnio {
     public abstract WriteChannelThread createWriteChannelThread(ThreadFactory threadFactory) throws IOException;
 
     /**
-     * Create a connection channel thread.
-     *
-     * @param threadFactory the thread factory to use for creating the thread
-     * @return the connection channel thread
-     * @throws IOException if the thread could not be created
-     */
-    public abstract ConnectionChannelThread createConnectionChannelThread(ThreadFactory threadFactory) throws IOException;
-
-    /**
      * Get the name of this XNIO provider.
      *
      * @return the name

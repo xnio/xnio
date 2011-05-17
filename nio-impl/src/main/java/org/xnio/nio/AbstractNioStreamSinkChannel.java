@@ -93,7 +93,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<C> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
+            final NioHandle<C> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
             final NioHandle<C> oldValue = getAndSetWrite(newHandle);
             if (oldValue != null) {
                 oldValue.cancelKey();

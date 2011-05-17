@@ -168,7 +168,7 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((NioReadChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
+            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
             final NioHandle<NioUdpChannel> oldValue = readHandleUpdater.getAndSet(this, newHandle);
             if (oldValue != null) {
                 oldValue.cancelKey();
@@ -187,7 +187,7 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
         try {
-            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((NioWriteChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
+            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
             final NioHandle<NioUdpChannel> oldValue = writeHandleUpdater.getAndSet(this, newHandle);
             if (oldValue != null) {
                 oldValue.cancelKey();

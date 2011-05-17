@@ -60,8 +60,8 @@ public final class NioSslTcpTestCase extends TestCase {
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
-        final ConnectionChannelThread connectionChannelThread = xnio.createConnectionChannelThread(threadFactory);
-        final ConnectionChannelThread serverChannelThread = xnio.createConnectionChannelThread(threadFactory);
+        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
+        final ConnectionChannelThread serverChannelThread = xnio.createReadChannelThread(threadFactory);
         final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
         final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
         final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);

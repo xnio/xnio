@@ -59,8 +59,8 @@ public final class NioTcpTestCase extends TestCase {
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         Xnio xnio = Xnio.getInstance("nio", NioTcpTestCase.class.getClassLoader());
-        final ConnectionChannelThread connectionChannelThread = xnio.createConnectionChannelThread(threadFactory);
-        final ConnectionChannelThread serverChannelThread = xnio.createConnectionChannelThread(threadFactory);
+        final ReadChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
+        final ReadChannelThread serverChannelThread = xnio.createReadChannelThread(threadFactory);
         final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
         final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
         final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
@@ -543,11 +543,11 @@ public final class NioTcpTestCase extends TestCase {
         final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
         final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
         final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final ConnectionChannelThread connectionChannelThread = xnio.createConnectionChannelThread(threadFactory);
+        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
         try {
             final FutureResult<InetSocketAddress> futureAddressResult = new FutureResult<InetSocketAddress>();
             final IoFuture<InetSocketAddress> futureAddress = futureAddressResult.getIoFuture();
-            final IoFuture<? extends ConnectedStreamChannel> futureConnection = xnio.acceptStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new ChannelListener<ConnectedStreamChannel>() {
+            xnio.acceptStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 0), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new ChannelListener<ConnectedStreamChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
                 private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);
@@ -610,7 +610,7 @@ public final class NioTcpTestCase extends TestCase {
                 }
             }, OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
             final InetSocketAddress localAddress = futureAddress.get();
-            final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(localAddress, connectionChannelThread, readChannelThread, writeChannelThread, new ChannelListener<ConnectedStreamChannel>() {
+            xnio.connectStream(localAddress, connectionChannelThread, readChannelThread, writeChannelThread, new ChannelListener<ConnectedStreamChannel>() {
                 private final ByteBuffer inboundBuf = ByteBuffer.allocate(512);
                 private int readCnt = 0;
                 private final ByteBuffer outboundBuf = ByteBuffer.wrap(bytes);

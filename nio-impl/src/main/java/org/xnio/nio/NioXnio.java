@@ -158,13 +158,6 @@ final class NioXnio extends Xnio {
         return thread;
     }
 
-    /** {@inheritDoc} */
-    public ConnectionChannelThread createConnectionChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioConnectionChannelThread thread = new NioConnectionChannelThread(threadFactory);
-        thread.start();
-        return thread;
-    }
-
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ConnectionChannelThread thread, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
         final ServerSocketChannel channel = ServerSocketChannel.open();
         channel.configureBlocking(false);
@@ -193,12 +186,12 @@ final class NioXnio extends Xnio {
             }
             final NioSetter<SocketChannel> setter = new NioSetter<SocketChannel>();
             final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-            final NioHandle<SocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
+            final NioHandle<SocketChannel> handle = ((AbstractNioChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<SocketChannel>() {
                 public void handleEvent(final SocketChannel channel) {
                     try {
                         if (channel.finishConnect()) {
-                            handle.cancelKey();
+                            handle.suspend();
                             tcpChannel.setReadThread(readThread);
                             tcpChannel.setWriteThread(writeThread);
                             futureResult.setResult(tcpChannel);
@@ -293,7 +286,7 @@ final class NioXnio extends Xnio {
             }
             final NioSetter<ServerSocketChannel> setter = new NioSetter<ServerSocketChannel>();
             final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-            final NioHandle<ServerSocketChannel> handle = ((NioConnectionChannelThread) thread).addChannel(channel, channel, 0, setter);
+            final NioHandle<ServerSocketChannel> handle = ((AbstractNioChannelThread) thread).addChannel(channel, channel, 0, setter);
             setter.set(new ChannelListener<ServerSocketChannel>() {
                 public void handleEvent(final ServerSocketChannel channel) {
                     final SocketChannel accepted;
