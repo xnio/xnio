@@ -252,8 +252,8 @@ public final class Buffers {
                 buffer.put(slice(source, rem));
                 t += rem;
             } else {
+                t += source.remaining();
                 buffer.put(source);
-                t += rem;
                 return t;
             }
         }
