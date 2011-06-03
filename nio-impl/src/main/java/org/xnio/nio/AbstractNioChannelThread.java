@@ -283,19 +283,14 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         if (thread == Thread.currentThread()) {
             key.interestOps(ops);
         } else {
-            final SynchronousHolder<Void, CancelledKeyException> holder = new SynchronousHolder<Void, CancelledKeyException>(CancelledKeyException.class);
             queueTask(new SelectorTask() {
                 public void run(final Selector selector) {
                     try {
                         key.interestOps(ops);
-                        holder.set(null);
-                    } catch (RuntimeException e) {
-                        holder.setProblem(e);
-                    }
+                    } catch (CancelledKeyException ignored) {}
                 }
             });
             selector.wakeup();
-            holder.get();
         }
     }
 
