@@ -116,6 +116,8 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
             if (setBits(this, 0x04) < 0x04) {
                 invokeCloseHandler();
             }
+            cancelWriteKey();
+            cancelReadKey();
         }
     }
 
