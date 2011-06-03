@@ -36,6 +36,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.util.Arrays;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 /**
  * Buffer utility methods.
@@ -1737,6 +1738,27 @@ public final class Buffers {
     }
 
     /**
+     * A byte buffer pool which zeroes the content of the buffer before re-pooling it.
+     *
+     * @param delegate the delegate pool
+     * @return the wrapper pool
+     */
+    public static Pool<ByteBuffer> secureBufferPool(final Pool<ByteBuffer> delegate) {
+        return new SecureByteBufferPool(delegate);
+    }
+
+    /**
+     * Determine whether the given pool is a secure pool.  Note that this test will fail if used on a pool
+     * which wraps a secure pool.
+     *
+     * @param pool the pool to test
+     * @return {@code true} if it is a secure pool instance
+     */
+    public static boolean isSecureBufferPool(Pool<?> pool) {
+        return pool instanceof SecureByteBufferPool;
+    }
+
+    /**
      * Zero a buffer.  Ensures that any potentially sensitive information in the buffer is
      * overwritten.
      *
@@ -1768,5 +1790,50 @@ public final class Buffers {
             buffer.put('\0');
         }
         buffer.clear();
+    }
+
+    private static class SecureByteBufferPool implements Pool<ByteBuffer> {
+
+        private final Pool<ByteBuffer> delegate;
+
+        SecureByteBufferPool(final Pool<ByteBuffer> delegate) {
+            this.delegate = delegate;
+        }
+
+        public Pooled<ByteBuffer> allocate() {
+            return new SecurePooledByteBuffer(delegate.allocate());
+        }
+    }
+
+    private static class SecurePooledByteBuffer implements Pooled<ByteBuffer> {
+
+        private static final AtomicIntegerFieldUpdater<SecurePooledByteBuffer> freedUpdater = AtomicIntegerFieldUpdater.newUpdater(SecurePooledByteBuffer.class, "freed");
+
+        private final Pooled<ByteBuffer> allocated;
+        @SuppressWarnings("unused")
+        private volatile int freed;
+
+        SecurePooledByteBuffer(final Pooled<ByteBuffer> allocated) {
+            this.allocated = allocated;
+        }
+
+        public void discard() {
+            if (freedUpdater.compareAndSet(this, 0, 1)) {
+                zero(allocated.getResource());
+                allocated.discard();
+            }
+        }
+
+        public void free() {
+            if (freedUpdater.compareAndSet(this, 0, 1)) {
+                zero(allocated.getResource());
+                allocated.free();
+            }
+        }
+
+        public ByteBuffer getResource() throws IllegalStateException {
+            // trust the delegate to handle illegal state since we can't do it securely by ourselves
+            return allocated.getResource();
+        }
     }
 }
