@@ -265,11 +265,9 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         if (thread == Thread.currentThread()) {
             key.cancel();
         } else {
-            final SynchronousHolder<Void, RuntimeException> holder = new SynchronousHolder<Void, RuntimeException>(RuntimeException.class);
             queueTask(new SelectorTask() {
                 public void run(final Selector selector) {
                     key.cancel();
-                    holder.set(null);
                     try {
                         selector.selectNow();
                     } catch (IOException e) {
@@ -278,7 +276,6 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
                 }
             });
             selector.wakeup();
-            holder.get();
         }
     }
 
