@@ -306,6 +306,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         return channel.isOpen();
     }
 
+    /** {@inheritDoc} */
+    public W getChannel() {
+        return channel;
+    }
+
     /**
      * Determine whether this channel is known to be readable.  If {@code true}, and reads are enabled,
      * the read listener will be invoked until one or the other conditions changes.  If {@code false}, the
