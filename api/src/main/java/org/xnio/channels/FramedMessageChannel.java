@@ -22,6 +22,7 @@
 
 package org.xnio.channels;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -38,6 +39,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     private final Pooled<ByteBuffer> receiveBuffer;
     private final Pooled<ByteBuffer> transmitBuffer;
+    private boolean readsDone;
+    private boolean writesDone;
 
     /**
      * Construct a new instance.
@@ -66,10 +69,11 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     /** {@inheritDoc} */
-    protected boolean isReadable() {
+    protected Readiness isReadable() {
+        if (readsDone) return Readiness.NEVER;
         final ByteBuffer buffer = receiveBuffer.getResource();
         final int size = buffer.position();
-        return size >= 4 && size >= buffer.getInt(0) + 4;
+        return size >= 4 && size >= buffer.getInt(0) + 4 ? Readiness.ALWAYS : Readiness.OKAY;
     }
 
     /** {@inheritDoc} */
@@ -78,8 +82,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     /** {@inheritDoc} */
-    protected boolean isWritable() {
-        return receiveBuffer.getResource().position() == 0;
+    protected Readiness isWritable() {
+        return writesDone ? Readiness.NEVER : Readiness.OKAY;
     }
 
     /** {@inheritDoc} */
@@ -90,6 +94,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
         synchronized (receiveBuffer) {
+            if (readsDone) {
+                return -1;
+            }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
@@ -135,6 +142,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (receiveBuffer) {
+            if (readsDone) {
+                return -1;
+            }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
@@ -173,6 +183,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public void shutdownReads() throws IOException {
         synchronized (receiveBuffer) {
+            if (readsDone) return;
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             receiveBuffer.clear();
         }
@@ -183,6 +194,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
         synchronized (transmitBuffer) {
+            if (writesDone) {
+                throw new EOFException("Writes have been shut down");
+            }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
             if (buffer.remaining() > transmitBuffer.capacity() - 4) {
                 throw new IOException("Transmitted message is too large");
@@ -207,6 +221,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (transmitBuffer) {
+            if (writesDone) {
+                throw new EOFException("Writes have been shut down");
+            }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
             if (Buffers.remaining(buffers) > transmitBuffer.capacity() - 4L) {
                 throw new IOException("Transmitted message is too large");
@@ -226,14 +243,14 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean shutdownWrites() throws IOException {
         synchronized (transmitBuffer) {
-            return doFlush() && super.shutdownWrites();
+            return writesDone || doFlush() && super.shutdownWrites() && (writesDone = true);
         }
     }
 
     /** {@inheritDoc} */
     public boolean flush() throws IOException {
         synchronized (transmitBuffer) {
-            return doFlush();
+            return writesDone || doFlush();
         }
     }
 
@@ -256,12 +273,18 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public void close() throws IOException {
         synchronized (transmitBuffer) {
-            transmitBuffer.getResource().clear();
-            transmitBuffer.free();
+            if (! writesDone) {
+                writesDone = true;
+                transmitBuffer.getResource().clear();
+                transmitBuffer.free();
+            }
         }
         synchronized (receiveBuffer) {
-            receiveBuffer.getResource().clear();
-            receiveBuffer.free();
+            if (! readsDone) {
+                readsDone = true;
+                receiveBuffer.getResource().clear();
+                receiveBuffer.free();
+            }
         }
         super.close();
     }
