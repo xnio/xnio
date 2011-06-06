@@ -191,7 +191,7 @@ final class NioXnio extends Xnio {
                 public void handleEvent(final SocketChannel channel) {
                     try {
                         if (channel.finishConnect()) {
-                            handle.suspend();
+                            handle.cancelKey();
                             tcpChannel.setReadThread(readThread);
                             tcpChannel.setWriteThread(writeThread);
                             futureResult.setResult(tcpChannel);
