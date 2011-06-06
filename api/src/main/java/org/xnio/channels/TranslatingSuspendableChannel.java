@@ -52,13 +52,35 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private boolean readsRequested;
     private boolean writesRequested;
 
+    /**
+     * The readiness of this channel implementation.
+     */
+    protected enum Readiness {
+        /**
+         * The channel is ready, regardless of the underlying channel status.
+         */
+        ALWAYS,
+        /**
+         * The channel is ready if the underlying channel is ready.
+         */
+        OKAY,
+        /**
+         * The channel is not ready even if the underlying channel is.
+         */
+        NEVER,
+    }
+
     private final Runnable readListenerCommand = new Runnable() {
         public void run() {
             boolean doReads;
             do {
                 ChannelListeners.invokeChannelListener(channel, readListener);
                 synchronized (getReadLock()) {
-                    doReads = readsRequested && isReadable();
+                    final Readiness readiness = isReadable();
+                    doReads = readsRequested && readiness == Readiness.ALWAYS;
+                    if (readiness == Readiness.NEVER) {
+                        channel.suspendReads();
+                    }
                 }
             } while (doReads);
         }
@@ -75,13 +97,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             //noinspection unchecked
             ChannelListeners.<C>invokeChannelListener((C) TranslatingSuspendableChannel.this, listener);
-            synchronized (getReadLock()) {
-                if (readsRequested) {
-                    if (isReadable()) {
-                        channel.getReadThread().execute(readListenerCommand);
-                    }
-                }
-            }
         }
     };
 
@@ -91,7 +106,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             do {
                 ChannelListeners.invokeChannelListener(channel, writeListener);
                 synchronized (getWriteLock()) {
-                    doWrites = writesRequested && isWritable();
+                    final Readiness readiness = isWritable();
+                    doWrites = writesRequested && readiness == Readiness.ALWAYS;
+                    if (readiness == Readiness.NEVER) {
+                        channel.suspendWrites();
+                    }
                 }
             } while (doWrites);
         }
@@ -108,13 +127,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             //noinspection unchecked
             ChannelListeners.<C>invokeChannelListener((C) TranslatingSuspendableChannel.this, listener);
-            synchronized (getWriteLock()) {
-                if (writesRequested) {
-                    if (isWritable()) {
-                        channel.getWriteThread().execute(writeListenerCommand);
-                    }
-                }
-            }
         }
     };
 
@@ -160,7 +172,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         synchronized (getReadLock()) {
             readsRequested = true;
             channel.resumeReads();
-            if (isReadable()) {
+            if (isReadable() == Readiness.ALWAYS) {
                 getReadThread().execute(readListenerCommand);
             }
         }
@@ -179,7 +191,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         synchronized (getWriteLock()) {
             writesRequested = true;
             channel.resumeWrites();
-            if (isWritable()) {
+            if (isWritable() == Readiness.ALWAYS) {
                 getWriteThread().execute(writeListenerCommand);
             }
         }
@@ -255,7 +267,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void awaitReadable() throws IOException {
         synchronized (getReadLock()) {
-            if (isReadable()) {
+            if (isReadable() == Readiness.ALWAYS) {
                 return;
             }
         }
@@ -265,7 +277,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
         synchronized (getReadLock()) {
-            if (isReadable()) {
+            if (isReadable() == Readiness.ALWAYS) {
                 return;
             }
         }
@@ -275,7 +287,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void awaitWritable() throws IOException {
         synchronized (getWriteLock()) {
-            if (isWritable()) {
+            if (isWritable() == Readiness.ALWAYS) {
                 return;
             }
         }
@@ -285,7 +297,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
         synchronized (getWriteLock()) {
-            if (isWritable()) {
+            if (isWritable() == Readiness.ALWAYS) {
                 return;
             }
         }
@@ -312,13 +324,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     }
 
     /**
-     * Determine whether this channel is known to be readable.  If {@code true}, and reads are enabled,
-     * the read listener will be invoked until one or the other conditions changes.  If {@code false}, the
-     * read listener will only be invoked when the underlying channel is readable.  Called under the read lock.
+     * Determine whether this channel is known to be (or to not be) readable.  Called under the read lock.
      *
-     * @return {@code true} if this channel is readable
+     * @return the readiness of this channel
      */
-    protected abstract boolean isReadable();
+    protected abstract Readiness isReadable();
 
     /**
      * Get the object to use as a read lock.  Ensures that suspend/resume reads is atomic with respect to listener
@@ -329,13 +339,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     protected abstract Object getReadLock();
 
     /**
-     * Determine whether this channel is known to be writable.  If {@code true}, and writes are enabled,
-     * the write listener will be invoked until one or the other conditions changes.  If {@code false}, the
-     * write listener will only be invoked when the underlying channel is writable.  Called under the write lock.
+     * Determine whether this channel is known to be (or to not be) writable.  Called under the write lock.
      *
-     * @return {@code true} if this channel is writable
+     * @return the readiness of this channel
      */
-    protected abstract boolean isWritable();
+    protected abstract Readiness isWritable();
 
     /**
      * Get the object to use as a write lock.  Ensures that suspend/resume writes is atomic with respect to listener
