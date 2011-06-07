@@ -30,9 +30,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import junit.framework.TestCase;
+
 import org.jboss.logging.Logger;
 import org.junit.Ignore;
+import org.xnio.BufferAllocator;
+import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.ConnectionChannelThread;
@@ -40,6 +44,7 @@ import org.xnio.IoFuture;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.Pool;
 import org.xnio.ReadChannelThread;
 import org.xnio.WriteChannelThread;
 import org.xnio.Xnio;
@@ -66,6 +71,7 @@ public final class NioSslTcpTestCase extends TestCase {
         final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
         final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
         final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
+        final Pool<ByteBuffer> bufferPool = Buffers.allocatedBufferPool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000);
         try {
             // IDEA thinks this is unchecked because of http://youtrack.jetbrains.net/issue/IDEA-59290
             @SuppressWarnings("unchecked")
@@ -75,10 +81,14 @@ public final class NioSslTcpTestCase extends TestCase {
                     ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedSslStreamChannel>(
                             serverHandler,
                             threadFactory
-                    )), OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap());
+                    )), OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap(), bufferPool);
             server.resumeAccepts();
             try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null, OptionMap.EMPTY);
+                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectSsl(new InetSocketAddress
+                        (Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
+                        connectionChannelThread, clientReadChannelThread, clientWriteChannelThread,
+                        new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null,
+                        OptionMap.EMPTY, bufferPool);
                 final ConnectedStreamChannel channel = ioFuture.get();
                 try {
                     body.run();

@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.AccessController;
 import java.security.NoSuchAlgorithmException;
@@ -41,21 +42,23 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+
 import org.jboss.logging.Logger;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SimpleAcceptingChannel;
+import org.xnio.channels.StandardConnectedSslStreamChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.UnsupportedOptionException;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 
 /**
  * The XNIO provider class.
@@ -197,7 +200,7 @@ public abstract class Xnio {
     //
     //==================================================
 
-    static ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server) {
+    static ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server, final Pool<ByteBuffer> bufferPool) {
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress(InetSocketAddress.class);
         final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
         final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, ! server);
@@ -240,7 +243,7 @@ public abstract class Xnio {
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new ConnectedSslStreamChannelImpl(tcpChannel, engine, executor);
+        return new StandardConnectedSslStreamChannel(tcpChannel, engine, false, bufferPool, bufferPool);
     }
 
     private static SSLContext getSSLContext(final OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException {
@@ -272,11 +275,11 @@ public abstract class Xnio {
      * @param optionMap the option map
      * @return the SSL connection
      */
-    IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
         connectStream(bindAddress, destination, thread, readThread, writeThread, new ChannelListener<ConnectedStreamChannel>() {
             public void handleEvent(final ConnectedStreamChannel tcpChannel) {
-                final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, executor, optionMap, false);
+                final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, executor, optionMap, false, bufferPool);
                 futureResult.setResult(channel);
                 ChannelListeners.invokeChannelListener(channel, openListener);
             }
@@ -308,8 +311,8 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), executor, openListener, bindListener, optionMap);
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), executor, openListener, bindListener, optionMap, bufferPool);
     }
 
     /**
@@ -327,8 +330,8 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap);
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap, bufferPool);
     }
 
     /**
@@ -345,8 +348,8 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap);
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap, bufferPool);
     }
 
     /**
@@ -362,8 +365,8 @@ public abstract class Xnio {
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
      */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, null, optionMap);
+    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, null, optionMap, bufferPool);
     }
 
     /**
@@ -381,10 +384,10 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, Executor executor, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
+    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, Executor executor, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap, Pool<ByteBuffer> poolBuffer) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
         final SSLContext sslContext = getSSLContext(optionMap);
         
-        final AcceptingSslStreamChannel server = new AcceptingSslStreamChannel(sslContext, createStreamServer(bindAddress, thread, null, optionMap), executor, optionMap);
+        final AcceptingSslStreamChannel server = new AcceptingSslStreamChannel(sslContext, createStreamServer(bindAddress, thread, null, optionMap), executor, optionMap, poolBuffer);
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
         return server;
     }
@@ -403,8 +406,8 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
-        return createSslTcpServer(bindAddress, thread, IoUtils.directExecutor(), acceptListener, optionMap);
+    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap, Pool<ByteBuffer> poolBuffer) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
+        return createSslTcpServer(bindAddress, thread, IoUtils.directExecutor(), acceptListener, optionMap, poolBuffer);
     }
 
     /**
@@ -422,11 +425,11 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final Executor executor, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final Executor executor, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
         final SSLContext sslContext = getSSLContext(optionMap);
         return new Connector<ConnectedSslStreamChannel>() {
             public IoFuture<ConnectedSslStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
-                return connectSsl(src, (InetSocketAddress) destination, thread, readThread, writeThread, sslContext, executor, openListener, bindListener, optionMap);
+                return connectSsl(src, (InetSocketAddress) destination, thread, readThread, writeThread, sslContext, executor, openListener, bindListener, optionMap, bufferPool);
             }
         };
     }
@@ -445,8 +448,8 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createSslTcpConnector(src, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap);
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpConnector(src, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap, bufferPool);
     }
 
     /**
@@ -462,8 +465,8 @@ public abstract class Xnio {
      *
      * @since 2.1
      */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createSslTcpConnector(ANY_INET_ADDRESS, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap);
+    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap,final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
+        return createSslTcpConnector(ANY_INET_ADDRESS, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap, bufferPool);
     }
 
     //==================================================

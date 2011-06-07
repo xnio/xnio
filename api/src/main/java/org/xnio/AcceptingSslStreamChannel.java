@@ -25,6 +25,7 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -34,17 +35,19 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import org.xnio.channels.AcceptingChannel;
-import org.xnio.channels.ConnectedSslStreamChannel;
-import org.xnio.channels.ConnectedStreamChannel;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.StandardConnectedSslStreamChannel;
+
 final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslStreamChannel> {
     private final SSLContext sslContext;
     private final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer;
-    private final Executor sslExecutor;
+    private final Pool<ByteBuffer> bufferPool;
 
     private volatile SslClientAuthMode clientAuthMode;
     private volatile int useClientMode;
@@ -61,10 +64,11 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> closeSetter;
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> acceptSetter;
 
-    AcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final Executor executor, final OptionMap optionMap) {
+    // FIXME support executor or eliminate it?
+    AcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final Executor executor, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) {
         this.tcpServer = tcpServer;
-        sslExecutor = executor;
         this.sslContext = sslContext;
+        this.bufferPool = bufferPool;
         clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
         useClientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, false) ? 1 : 0;
         enableSessionCreation = optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true) ? 1 : 0;
@@ -155,7 +159,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new ConnectedSslStreamChannelImpl(tcpChannel, engine, sslExecutor);
+        return new StandardConnectedSslStreamChannel(tcpChannel, engine, false, bufferPool, bufferPool);
     }
 
     public ChannelListener.Setter<? extends AcceptingChannel<ConnectedSslStreamChannel>> getCloseSetter() {
