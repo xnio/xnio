@@ -92,12 +92,13 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         }
         long duration = timeUnit.toNanos(time);
         long now = System.nanoTime();
+        long waitTime;
         Status status;
         synchronized (lock) {
             boolean intr = Thread.interrupted();
             try {
-                while ((status = this.status) == Status.WAITING && duration > 0L) try {
-                    lock.wait(duration / 1000000L);
+                while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) try {
+                    lock.wait(waitTime);
                 } catch (InterruptedException e) {
                     intr = true;
                 } finally {
@@ -134,10 +135,11 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         }
         long duration = timeUnit.toNanos(time);
         long now = System.nanoTime();
+        long waitTime;
         Status status;
         synchronized (lock) {
-            while ((status = this.status) == Status.WAITING && duration > 0L) {
-                lock.wait(duration / 1000000L);
+            while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
+                lock.wait(waitTime);
                 // decrease duration by the elapsed time
                 duration += now - (now = System.nanoTime());
             }
