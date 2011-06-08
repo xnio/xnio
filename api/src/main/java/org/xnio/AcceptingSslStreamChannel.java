@@ -159,7 +159,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new StandardConnectedSslStreamChannel(tcpChannel, engine, false, bufferPool, bufferPool);
+        return new StandardConnectedSslStreamChannel(tcpChannel, engine, true, bufferPool, bufferPool);
     }
 
     public ChannelListener.Setter<? extends AcceptingChannel<ConnectedSslStreamChannel>> getCloseSetter() {

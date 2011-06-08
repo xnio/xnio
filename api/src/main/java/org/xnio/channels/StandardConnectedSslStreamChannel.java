@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
-import javax.net.ssl.SSLEngineResult.Status;
+import javax.net.ssl.SSLEngineResult.HandshakeStatus;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
 import org.xnio.Buffers;
@@ -42,6 +43,7 @@ import org.xnio.Pooled;
  * An SSL stream channel implementation based on {@link SSLEngine}.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
 public final class StandardConnectedSslStreamChannel extends TranslatingSuspendableChannel<ConnectedSslStreamChannel, ConnectedStreamChannel> implements ConnectedSslStreamChannel {
 
@@ -92,6 +94,7 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         final SSLSession session = engine.getSession();
         final int packetBufferSize = session.getPacketBufferSize();
         receiveBuffer = socketBufferPool.allocate();
+        receiveBuffer.getResource().flip();
         sendBuffer = socketBufferPool.allocate();
         if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
             throw new IllegalArgumentException("Socket buffer is too small. Expected capacity is " + packetBufferSize);
@@ -123,21 +126,43 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         return getChannel().getPeerAddress();
     }
 
+    @Override
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
         return src.transferTo(position, count, this);
     }
 
+    @Override
     public int write(final ByteBuffer src) throws IOException {
-        if (!src.hasRemaining()) {
-            return 0;
+        return (int) write(new ByteBuffer[]{src}, 0, 1);
+    }
+
+
+
+    @Override
+    public long write(final ByteBuffer[] srcs) throws IOException {
+        return write(srcs, 0, srcs.length);
+    }
+
+    @Override
+    public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        return write(srcs, offset, length, false);
+    }
+
+    private int write(final ByteBuffer src, boolean isCloseExpected) throws IOException {
+        return (int) write(new ByteBuffer[]{src}, 0, 1, isCloseExpected);
+    }
+
+    private long write(final ByteBuffer[] srcs, final int offset, final int length, boolean isCloseExpected) throws IOException {
+        if (length < 1) {
+            return 0L;
         }
         final ByteBuffer buffer = sendBuffer.getResource();
         int bytesConsumed = 0;
-        boolean wrap = true;;
+        boolean wrap = true;
         while(wrap) {
             final SSLEngineResult result;
             synchronized (getWriteLock()) {
-                result = engine.wrap(src, buffer);
+                result = engine.wrap(srcs, offset, length, buffer);
                 bytesConsumed += result.bytesConsumed();
                 switch(result.getStatus()) {
                     case BUFFER_OVERFLOW: {
@@ -160,12 +185,19 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
                         continue;
                     }
                     case CLOSED: {
-                        // attempted write after shutdown
-                        throw new ClosedChannelException();
+                        if (!isCloseExpected) {
+                            // attempted write after shutdown
+                            throw new ClosedChannelException();
+                        }
+                        // fall thru!!!
                     }
                     case OK: {
                         if (result.bytesConsumed() == 0) {
                             wrap = false;
+                            // produced SSL handshaking protocol data, don't wait for user call flush
+                            if (result.bytesProduced() > 0) {
+                                flush();
+                            }
                         }
                         break;
                     }
@@ -175,43 +207,59 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
                 }
             }
             // handshake will tell us whether to keep the loop
-            wrap = wrap || handleHandshake(result, true);
+            wrap = wrap || handleHandshake(result, true);// what to do when result is ok and handshake is NOT_HANDSHAKING?
         }
         return bytesConsumed;
     }
 
+    /**
+     * Handle handshake process, after a wrap or an unwrap operation.
+     * 
+     * @param result the wrap/unwrap result
+     * @param write  if {@code true}, indicates caller executed a {@code wrap} operation; if {@code false}, indicates
+     *               caller executed an {@code unwrap} operation
+     * @return       {@code true} to indicate that caller should rerun the previous wrap or unwrap operation, hence
+     *               producing a new result; {@code false} to indicate otherwise
+     *
+     * @throws IOException if an IO error occurs during handshake handling
+     */
     private boolean handleHandshake(SSLEngineResult result, boolean write) throws IOException {
         switch (result.getHandshakeStatus()) {
             case FINISHED: {
                 readNeedsWrapUpdater.getAndSet(this, 0);
                 writeNeedsUnwrapUpdater.getAndSet(this, 0);
-                // fall thru!!
+                return true;
             }
             case NOT_HANDSHAKING:
-                // cool, no handshake, we can tell caller it can continue
-                return true;
+                // cool, no handshake, we can tell caller it can continue, if we are talking about read only
+                // for write, if the wrap status was OK, it should quit immediately
+                return !write;
             case NEED_WRAP: {
                 // clear writeNeedsUnwrap
                 writeNeedsUnwrapUpdater.getAndSet(this, 0);
+                // if write, let caller do the wrap to avoid a multi-level recursion
+                if (write) {
+                    return true;
+                }
+                // else, trigger a write call
                 boolean flushed = true;
                 if (result.bytesProduced() == 0 || (flushed = flush())) {
-                    write(Buffers.EMPTY_BYTE_BUFFER);
+                    write(Buffers.EMPTY_BYTE_BUFFER, true);
+                    flushed = flush();
                 }
-                // if flushed and write, tell caller to continue wrapping
-                // if caller is reading, tell it to continue only if read needs unwrap is 0
+                // if flushed, and given caller is reading, tell it to continue only if read needs unwrap is 0
                 if (flushed) {
-                    return write || readNeedsWrapUpdater.get(this) == 0;
+                    return readNeedsWrapUpdater.get(this) == 0;
                 } else {
                     // else... oops, there is unflushed data, and handshake status is NEED_WRAP
-                    synchronized(getReadLock()) {
-                        // update readNeedsUnwrapUpdater to 1
-                        readNeedsWrapUpdater.getAndSet(this, 1);
-                    }
-                    // tell caller to continue wrapping if it is writing; tell it to break read loop if it is reading
-                    return !write;
+                    // update readNeedsUnwrapUpdater to 1
+                    readNeedsWrapUpdater.getAndSet(this, 1);
+                    // tell read caller to break read loop
+                    return false;
                 }
             }
             case NEED_UNWRAP: {
+                // TODO if caller is writing and read is suspended, we should try to read at this point
                 // clear readNeedsWrap
                 readNeedsWrapUpdater.getAndSet(this, 0);
                 // any write operation cannot proceed if need_unwrap
@@ -233,31 +281,26 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         }
     }
 
-    public long write(final ByteBuffer[] srcs) throws IOException {
-        return write(srcs, 0, srcs.length);
-    }
-
-    public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
-        return 0;
-    }
-
+    @Override
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
         return target.transferFrom(this, position, count);
     }
 
+    @Override
     public int read(final ByteBuffer dst) throws IOException {
         return (int) read(new ByteBuffer[] {dst}, 0, 1);
     }
 
+    @Override
     public long read(final ByteBuffer[] dsts) throws IOException {
         return read(dsts, 0, dsts.length);
     }
 
+    @Override
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         if (dsts.length == 0 || length == 0) {
             return 0L;
         }
-
         final ByteBuffer buffer = receiveBuffer.getResource();
         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
         int bytesProduced = 0;
@@ -282,15 +325,6 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
                         continue;
                     }
                     case BUFFER_UNDERFLOW: {
-                        if (buffer.position() == 0 && !buffer.hasRemaining()) {
-                            // receive buffer is full but it's still not big enough, so grow it
-                            final int pktBufSize = engine.getSession().getPacketBufferSize();
-                            if (buffer.capacity() >= pktBufSize) {
-                                // it's already the required size...
-                                throw new IOException("Unexpected/inexplicable buffer underflow from the SSL engine");
-                            }
-                            continue;
-                        }
                         // fill the rest of the buffer, then retry!
                         final int rres;
                         buffer.compact();
@@ -301,19 +335,28 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
                         }
                         if (rres == -1) {
                             // TCP stream EOF... give the ssl engine the bad news
-                            engine.closeInbound();
-                            write(Buffers.EMPTY_BYTE_BUFFER);
-                            flush();
+                            try {
+                                engine.closeInbound();
+                                write(Buffers.EMPTY_BYTE_BUFFER);
+                                flush();
+                            } catch (SSLException e) {
+                                return -1;
+                            }
                             // continue
                         } else if (rres == 0) {
                             return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
                         }
-                        System.out.println("LOADED BYTES INTO RECEIVE BUFFER" + rres);
                         // else some data was received, so continue
                         continue;
                     }
                     case CLOSED: {
-                        return bytesProduced == 0? -1: bytesProduced;
+                        if (result.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
+                            if (bytesProduced == 0) {
+                                suspendReads();
+                                return -1;
+                            }
+                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
+                        }
                     }
                     case OK:
                         break;
@@ -328,10 +371,7 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         }
     }
 
-    public int copyUnwrappedData(final ByteBuffer[] dsts, final int offset, final int length, ByteBuffer unwrappedBuffer, int bytesProduced) {
-        if (bytesProduced == 0) { // TODO move this check to Buffers.copy
-            return 0;
-        }
+    private int copyUnwrappedData(final ByteBuffer[] dsts, final int offset, final int length, ByteBuffer unwrappedBuffer, int bytesProduced) {
         unwrappedBuffer.flip();
         try {
             return Buffers.copy(dsts, offset, length, unwrappedBuffer);
@@ -340,30 +380,36 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         }
     }
 
+    @Override
     public void startHandshake() throws IOException {
         engine.beginHandshake();
     }
 
+    @Override
     public SSLSession getSslSession() {
         return engine.getSession();
     }
 
+    @Override
     protected Readiness isReadable() {
         synchronized(getReadLock()) {
             return readNeedsWrapUpdater.get(this) > 0? Readiness.NEVER: Readiness.OKAY;
         }
     }
 
+    @Override
     protected Object getReadLock() {
         return receiveBuffer;
     }
 
+    @Override
     protected Readiness isWritable() {
         synchronized(getWriteLock()) {
             return writeNeedsUnwrapUpdater.get(this) > 0? Readiness.NEVER: Readiness.OKAY;
         }
     }
 
+    @Override
     protected Object getWriteLock() {
         return sendBuffer;
     }
@@ -385,11 +431,30 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         synchronized(getWriteLock()) {
             if (flush()) {
                 engine.closeOutbound();
-                write(Buffers.EMPTY_BYTE_BUFFER);
-                return flush() && engine.isOutboundDone() && (!propagateClose || super.shutdownWrites());
-            } else {
-                return false;
+                write(Buffers.EMPTY_BYTE_BUFFER, true);
+                if(flush() && engine.isOutboundDone() && (!propagateClose || super.shutdownWrites())) {
+                    suspendWrites();
+                    return true;
+                }
             }
         }
+        return false;
+    }
+
+    @Override
+    public boolean flush() throws IOException {
+        final ByteBuffer buffer = sendBuffer.getResource();
+        buffer.flip();
+        try {
+            while (buffer.hasRemaining()) {
+                final int res = channel.write(buffer);
+                if (res == 0) {
+                    return false;
+                }
+            }
+        } finally {
+            buffer.compact();
+        }
+        return true;
     }
 }

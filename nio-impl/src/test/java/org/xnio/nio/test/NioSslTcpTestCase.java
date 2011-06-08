@@ -22,19 +22,24 @@
 
 package org.xnio.nio.test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import junit.framework.TestCase;
-
 import org.jboss.logging.Logger;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
+import org.junit.Test;
 import org.xnio.BufferAllocator;
 import org.xnio.Buffers;
 import org.xnio.ChannelListener;
@@ -53,15 +58,38 @@ import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 
-@Ignore
 @SuppressWarnings( { "JavaDoc" })
-public final class NioSslTcpTestCase extends TestCase {
+public final class NioSslTcpTestCase {
+
+    private static final String KEY_STORE_PROPERTY = "javax.net.ssl.keyStore";
+    private static final String KEY_STORE_PASSWORD_PROPERTY = "javax.net.ssl.keyStorePassword";
+    private static final String TRUST_STORE_PROPERTY = "javax.net.ssl.trustStore";
+    private static final String TRUST_STORE_PASSWORD_PROPERTY = "javax.net.ssl.trustStorePassword";
+    private static final String DEFAULT_KEY_STORE = "keystore.jks";
+    private static final String DEFAULT_KEY_STORE_PASSWORD = "jboss-remoting-test";
 
     private static final Logger log = Logger.getLogger("TEST");
 
     private final TestThreadFactory threadFactory = new TestThreadFactory();
 
     private static final int SERVER_PORT = 12345;
+
+    @BeforeClass
+    public static void setKeyStoreAndTrustStore() {
+        final URL storePath = NioSslTcpTestCase.class.getClassLoader().getResource(DEFAULT_KEY_STORE);
+        if (System.getProperty(KEY_STORE_PROPERTY) == null) {
+            System.setProperty(KEY_STORE_PROPERTY, storePath.getFile());
+        }
+        if (System.getProperty(KEY_STORE_PASSWORD_PROPERTY) == null) {
+            System.setProperty(KEY_STORE_PASSWORD_PROPERTY, DEFAULT_KEY_STORE_PASSWORD);
+        }
+        if (System.getProperty(TRUST_STORE_PROPERTY) == null) {
+            System.setProperty(TRUST_STORE_PROPERTY, storePath.getFile());
+        }
+        if (System.getProperty(TRUST_STORE_PASSWORD_PROPERTY) == null) {
+            System.setProperty(TRUST_STORE_PASSWORD_PROPERTY, DEFAULT_KEY_STORE_PASSWORD);
+        }
+    }
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
@@ -122,6 +150,7 @@ public final class NioSslTcpTestCase extends TestCase {
         clientWriteChannelThread.awaitTermination();
     }
 
+    @Test
     public void testClientTcpClose() throws Exception {
         threadFactory.clear();
         log.info("Test: testClientTcpClose");
@@ -191,6 +220,7 @@ public final class NioSslTcpTestCase extends TestCase {
         threadFactory.await();
     }
 
+    @Test
     public void testServerTcpClose() throws Exception {
         threadFactory.clear();
         log.info("Test: testServerTcpClose");
@@ -260,6 +290,7 @@ public final class NioSslTcpTestCase extends TestCase {
         threadFactory.await();
     }
 
+    @Ignore @Test
     public void testTwoWayTransfer() throws Exception {
         threadFactory.clear();
         log.info("Test: testTwoWayTransfer");
@@ -311,15 +342,20 @@ public final class NioSslTcpTestCase extends TestCase {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
                             buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
-                            while ((c = channel.write(buffer)) > 0) {
-                                if (clientSent.addAndGet(c) > 1000) {
-                                    channel.shutdownWrites();
-                                    if (delayClientStop.getAndSet(true)) {
-                                        channel.close();
+                            try {
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (clientSent.addAndGet(c) > 1000) {
+                                        channel.shutdownWrites();
+                                        if (delayClientStop.getAndSet(true)) {
+                                            channel.close();
+                                        }
+                                        return;
                                     }
-                                    return;
+                                    buffer.rewind();
                                 }
-                                buffer.rewind();
+                            } catch (ClosedChannelException e) {
+                                channel.shutdownWrites();
+                                throw e;
                             }
                             channel.resumeWrites();
                         } catch (Throwable t) {
@@ -365,15 +401,21 @@ public final class NioSslTcpTestCase extends TestCase {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
                             buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8")).flip();
                             int c;
-                            while ((c = channel.write(buffer)) > 0) {
-                                if (serverSent.addAndGet(c) > 1000) {
-                                    channel.shutdownWrites();
-                                    if (delayServerStop.getAndSet(true)) {
-                                        channel.close();
+                            try {
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (serverSent.addAndGet(c) > 1000) {
+                                        channel.shutdownWrites();
+                                        if (delayServerStop.getAndSet(true)) {
+                                            channel.close();
+                                        }
+                                        return;
                                     }
-                                    return;
+                                    buffer.rewind();
                                 }
-                                buffer.rewind();
+                            }
+                            catch (ClosedChannelException e) {
+                                channel.shutdownWrites();
+                                throw e;
                             }
                             channel.resumeWrites();
                         } catch (Throwable t) {
@@ -391,6 +433,7 @@ public final class NioSslTcpTestCase extends TestCase {
         threadFactory.await();
     }
 
+    @Test
     public void testClientTcpNastyClose() throws Exception {
         threadFactory.clear();
         log.info("Test: testClientTcpNastyClose");
@@ -454,6 +497,7 @@ public final class NioSslTcpTestCase extends TestCase {
         threadFactory.await();
     }
 
+    @Test
     public void testServerTcpNastyClose() throws Exception {
         threadFactory.clear();
         log.info("Test: testServerTcpNastyClose");

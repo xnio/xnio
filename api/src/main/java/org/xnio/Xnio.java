@@ -243,7 +243,7 @@ public abstract class Xnio {
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new StandardConnectedSslStreamChannel(tcpChannel, engine, false, bufferPool, bufferPool);
+        return new StandardConnectedSslStreamChannel(tcpChannel, engine, true, bufferPool, bufferPool);
     }
 
     private static SSLContext getSSLContext(final OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException {
