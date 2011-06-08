@@ -95,8 +95,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
                 return;
             }
-            //noinspection unchecked
-            ChannelListeners.<C>invokeChannelListener((C) TranslatingSuspendableChannel.this, listener);
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
         }
     };
 
@@ -125,8 +124,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
                 return;
             }
-            //noinspection unchecked
-            ChannelListeners.<C>invokeChannelListener((C) TranslatingSuspendableChannel.this, listener);
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+        }
+    };
+
+    private final ChannelListener<W> closeListener = new ChannelListener<W>() {
+        public void handleEvent(final W channel) {
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
         }
     };
 
@@ -135,13 +139,25 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      *
      * @param channel the channel being wrapped
      */
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     protected TranslatingSuspendableChannel(final W channel) {
         this.channel = channel;
-        final ChannelListener.Setter<W> readSetter = (ChannelListener.Setter<W>) channel.getReadSetter();
+        final ChannelListener.Setter<? extends W> readSetter = (ChannelListener.Setter<? extends W>) channel.getReadSetter();
         readSetter.set(readListener);
-        final ChannelListener.Setter<W> writeSetter = (ChannelListener.Setter<W>) channel.getWriteSetter();
+        final ChannelListener.Setter<? extends W> writeSetter = (ChannelListener.Setter<? extends W>) channel.getWriteSetter();
         writeSetter.set(writeListener);
+        final ChannelListener.Setter<? extends W> setter = (ChannelListener.Setter<? extends W>) channel.getCloseSetter();
+        setter.set(closeListener);
+    }
+
+    /**
+     * Get this channel, cast to the implemented channel type.
+     *
+     * @return {@code this}
+     */
+    @SuppressWarnings("unchecked")
+    protected final C thisTyped() {
+        return (C) this;
     }
 
     /** {@inheritDoc} */
