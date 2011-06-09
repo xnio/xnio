@@ -1428,7 +1428,7 @@ public final class Buffers {
     }
 
     /**
-     * Read the remainder of a buffer as ASCII text, appending the results to the given string
+     * Read the remainder of a buffer as Latin-1 text, appending the results to the given string
      * builder.
      *
      * @param src the source buffer
