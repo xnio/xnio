@@ -32,9 +32,10 @@ package org.xnio;
 public interface Pool<T> {
 
     /**
-     * Allocate a resource from the pool, or {@code null} if none are available.
+     * Allocate a resource from the pool.
      *
-     * @return the resource, or {@code null} if none are available
+     * @return the resource
+     * @throws PoolDepletedException if no resources are available
      */
-    Pooled<T> allocate();
+    Pooled<T> allocate() throws PoolDepletedException;
 }

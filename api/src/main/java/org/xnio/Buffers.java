@@ -1766,7 +1766,7 @@ public final class Buffers {
      */
     public static void zero(ByteBuffer buffer) {
         buffer.clear();
-        while (buffer.remaining() > 8) {
+        while (buffer.remaining() >= 8) {
             buffer.putLong(0L);
         }
         while (buffer.hasRemaining()) {
@@ -1783,7 +1783,7 @@ public final class Buffers {
      */
     public static void zero(CharBuffer buffer) {
         buffer.clear();
-        while (buffer.remaining() > 32) {
+        while (buffer.remaining() >= 32) {
             buffer.put("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
         }
         while (buffer.hasRemaining()) {

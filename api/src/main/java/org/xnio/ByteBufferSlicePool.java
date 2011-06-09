@@ -92,7 +92,10 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             final Slice newSlice = new Slice(region, 0, bufferSize);
             return new PooledByteBuffer(newSlice, newSlice.slice());
         }
-        return slice == null ? null : new PooledByteBuffer(slice, slice.slice());
+        if (slice == null) {
+            throw new PoolDepletedException("Pool is empty");
+        }
+        return new PooledByteBuffer(slice, slice.slice());
     }
 
     private void doFree(Slice region) {
