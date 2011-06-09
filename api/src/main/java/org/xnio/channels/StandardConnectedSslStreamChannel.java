@@ -97,7 +97,7 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
         receiveBuffer.getResource().flip();
         sendBuffer = socketBufferPool.allocate();
         if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
-            throw new IllegalArgumentException("Socket buffer is too small. Expected capacity is " + packetBufferSize);
+            throw new IllegalArgumentException("Socket buffer is too small (" + receiveBuffer.getResource().capacity() + "). Expected capacity is " + packetBufferSize);
         }
         final int applicationBufferSize = session.getApplicationBufferSize();
         readBuffer = applicationBufferPool.allocate();
