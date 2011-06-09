@@ -264,10 +264,10 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     return false;
                 }
             }
+            return channel.flush();
         } finally {
             buffer.compact();
         }
-        return true;
     }
 
     /** {@inheritDoc} */
