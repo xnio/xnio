@@ -200,8 +200,11 @@ public abstract class Xnio {
     //
     //==================================================
 
-    static ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final Executor executor, final OptionMap optionMap, final boolean server, final Pool<ByteBuffer> bufferPool) {
-        final InetSocketAddress peerAddress = tcpChannel.getPeerAddress(InetSocketAddress.class);
+    static ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap, final boolean server, final Pool<ByteBuffer> bufferPool) {
+        return new StandardConnectedSslStreamChannel(tcpChannel, getSSLEngine(sslContext, tcpChannel.getPeerAddress(InetSocketAddress.class), optionMap, server), true, bufferPool, bufferPool);
+    }
+
+    private static SSLEngine getSSLEngine(final SSLContext sslContext, final InetSocketAddress peerAddress, final OptionMap optionMap, final boolean server) {
         final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
         final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, ! server);
         engine.setUseClientMode(clientMode);
@@ -243,7 +246,7 @@ public abstract class Xnio {
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new StandardConnectedSslStreamChannel(tcpChannel, engine, true, bufferPool, bufferPool);
+        return engine;
     }
 
     private static SSLContext getSSLContext(final OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException {
@@ -279,7 +282,7 @@ public abstract class Xnio {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
         connectStream(bindAddress, destination, thread, readThread, writeThread, new ChannelListener<ConnectedStreamChannel>() {
             public void handleEvent(final ConnectedStreamChannel tcpChannel) {
-                final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, executor, optionMap, false, bufferPool);
+                final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, optionMap, false, bufferPool);
                 futureResult.setResult(channel);
                 ChannelListeners.invokeChannelListener(channel, openListener);
             }
