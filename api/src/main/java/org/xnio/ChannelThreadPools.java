@@ -24,8 +24,8 @@ package org.xnio;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 /**
  * Utility methods for channel thread pools.
@@ -47,19 +47,7 @@ public final class ChannelThreadPools {
      * @return the thread pool
      */
     public static <T extends ChannelThread> ChannelThreadPool<T> createRandomPool() {
-        return new SimpleThreadPool<T>() {
-
-            private final Random random = new Random();
-
-            public T getThread() {
-                final T[] pool = this.pool;
-                final int len = pool.length;
-                if (len == 0) {
-                    return null;
-                }
-                return pool[random.nextInt(len)];
-            }
-        };
+        return new Random<T>();
     }
 
     /**
@@ -70,28 +58,18 @@ public final class ChannelThreadPools {
      * @return the thread pool
      */
     public static <T extends ChannelThread> ChannelThreadPool<T> createLightestLoadPool() {
-        return new SimpleThreadPool<T>() {
+        return new LightestLoad<T>();
+    }
 
-            @SuppressWarnings( { "unchecked" })
-            private volatile T[] pool = (T[]) NO_THREADS;
-
-            public T getThread() {
-                final T[] pool = this.pool;
-                final int len = pool.length;
-                if (len == 0) {
-                    return null;
-                }
-                int best = Integer.MAX_VALUE;
-                int bestIdx = -1;
-                for (int i = 0; i < len; i++) {
-                    final int load = pool[i].getLoad();
-                    if (load < best) {
-                        bestIdx = i;
-                    }
-                }
-                return pool[bestIdx];
-            }
-        };
+    /**
+     * Create a thread pool using a round-robin load-balancing strategy.  This pool access strategy has an O(1) access
+     * time, using a counter to choose the thread.
+     *
+     * @param <T> the channel thread type
+     * @return the thread pool
+     */
+    public static <T extends ChannelThread> ChannelThreadPool<T> createRoundRobinPool() {
+        return new RoundRobin<T>();
     }
 
     /**
@@ -102,27 +80,20 @@ public final class ChannelThreadPools {
      * @return the singleton thread pool
      */
     public static <T extends ChannelThread> ChannelThreadPool<T> singleton(final T thread) {
-        return new ChannelThreadPool<T>() {
-            public T getThread() {
-                return thread;
-            }
-
-            public void addToPool(final T thread) {
-                throw new IllegalArgumentException("Pool is full");
-            }
-        };
+        return new Singleton<T>(thread);
     }
 
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
         private final Set<T> threadSet = new HashSet<T>();
 
         private final ChannelThread.Listener listener = new ChannelThread.Listener() {
+            @SuppressWarnings("unchecked")
             public void handleTerminationInitiated(final ChannelThread thread) {
                 thread.removeTerminationListener(this);
                 final Set<T> threadSet = SimpleThreadPool.this.threadSet;
                 synchronized (threadSet) {
                     if (threadSet.remove(thread)) {
-                        pool = (T[]) threadSet.toArray(NO_THREADS);
+                        pool = threadSet.toArray((T[]) new ChannelThread[threadSet.size()]);
                     }
                 }
             }
@@ -131,7 +102,7 @@ public final class ChannelThreadPools {
             }
         };
 
-        @SuppressWarnings( { "unchecked" })
+        @SuppressWarnings("unchecked")
         volatile T[] pool = (T[]) NO_THREADS;
 
         public void addToPool(final T thread) {
@@ -146,6 +117,83 @@ public final class ChannelThreadPools {
                     this.pool = newPool;
                 }
             }
+        }
+    }
+
+    private static class RoundRobin<T extends ChannelThread> extends SimpleThreadPool<T> {
+
+        @SuppressWarnings("unused")
+        private volatile int idx;
+
+        @SuppressWarnings("unchecked")
+        private static final AtomicIntegerFieldUpdater<RoundRobin> idxUpdater = AtomicIntegerFieldUpdater.newUpdater(RoundRobin.class, "idx");
+
+        public T getThread() {
+            final T[] pool = this.pool;
+            final int len = pool.length;
+            if (len == 0) {
+                return null;
+            }
+            return pool[idxUpdater.getAndIncrement(this) % len];
+        }
+    }
+
+    private static class LightestLoad<T extends ChannelThread> extends SimpleThreadPool<T> {
+
+        public T getThread() {
+            final T[] pool = this.pool;
+            final int len = pool.length;
+            if (len == 0) {
+                return null;
+            }
+            int best = Integer.MAX_VALUE;
+            int bestIdx = -1;
+            for (int i = 0; i < len; i++) {
+                final int load = pool[i].getLoad();
+                if (load < best) {
+                    bestIdx = i;
+                }
+            }
+            return pool[bestIdx];
+        }
+    }
+
+    private static class Random<T extends ChannelThread> extends SimpleThreadPool<T> {
+
+        private final java.util.Random random;
+
+        Random() {
+            this(new java.util.Random());
+        }
+
+        Random(final java.util.Random random) {
+            this.random = random;
+        }
+
+        public T getThread() {
+            final T[] pool = this.pool;
+            final int len = pool.length;
+            if (len == 0) {
+                return null;
+            }
+            return pool[random.nextInt(len)];
+        }
+    }
+
+    private static class Singleton<T extends ChannelThread> implements ChannelThreadPool<T> {
+
+        private final T thread;
+
+        Singleton(final T thread) {
+            this.thread = thread;
+        }
+
+        public T getThread() {
+            return thread;
+        }
+
+        public void addToPool(final T thread) {
+            throw new IllegalArgumentException("Pool is full");
         }
     }
 }
