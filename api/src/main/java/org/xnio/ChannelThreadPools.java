@@ -22,8 +22,11 @@
 
 package org.xnio;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
@@ -81,6 +84,39 @@ public final class ChannelThreadPools {
      */
     public static <T extends ChannelThread> ChannelThreadPool<T> singleton(final T thread) {
         return new Singleton<T>(thread);
+    }
+
+    /**
+     * Create read threads and add them to a pool.  If thread creation fails, then all the added threads will be
+     * shut down before the method returns.
+     *
+     * @param xnio the XNIO provider from which the threads should be created
+     * @param pool the thread pool to add to
+     * @param threadGroup the thread group for newly created threads
+     * @param count the number of threads to create
+     * @param optionMap the option map to apply to the created threads
+     * @return the passed-in thread pool
+     * @throws IOException if creation of a thread fails
+     */
+    public static ChannelThreadPool<ReadChannelThread> addReadThreadsToPool(Xnio xnio, ChannelThreadPool<ReadChannelThread> pool, ThreadGroup threadGroup, int count, OptionMap optionMap) throws IOException {
+        boolean ok = false;
+        final List<ReadChannelThread> threads = new ArrayList<ReadChannelThread>(count);
+        try {
+            for (int i = 0; i < count; i ++) {
+                final ReadChannelThread thread = xnio.createReadChannelThread(threadGroup, optionMap);
+                threads.add(thread);
+            }
+        } finally {
+            if (! ok) {
+                for (ReadChannelThread thread : threads) {
+                    thread.shutdown();
+                }
+            }
+        }
+        for (ReadChannelThread thread : threads) {
+            pool.addToPool(thread);
+        }
+        return pool;
     }
 
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {

@@ -23,7 +23,8 @@
 package org.xnio.nio;
 
 import java.io.IOException;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.xnio.OptionMap;
 import org.xnio.WriteChannelThread;
 
 /**
@@ -31,7 +32,13 @@ import org.xnio.WriteChannelThread;
  */
 final class NioWriteChannelThread extends AbstractNioChannelThread implements WriteChannelThread {
 
-    NioWriteChannelThread(final ThreadFactory threadFactory) throws IOException {
-        super(threadFactory);
+    private static final AtomicInteger seq = new AtomicInteger(1);
+
+    NioWriteChannelThread(final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
+        super(threadGroup, optionMap);
+    }
+
+    protected String generateName() {
+        return String.format("XNIO NIO Read %d", Integer.valueOf(seq.getAndIncrement()));
     }
 }

@@ -276,6 +276,7 @@ public abstract class Xnio {
      * @param openListener the initial open-connection listener
      * @param bindListener the bind listener
      * @param optionMap the option map
+     * @param bufferPool
      * @return the SSL connection
      */
     IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) {
@@ -310,6 +311,7 @@ public abstract class Xnio {
      * @param openListener the initial open-connection listener
      * @param bindListener the bind listener
      * @param optionMap the option map
+     * @param bufferPool
      * @return the SSL connection
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
@@ -329,6 +331,7 @@ public abstract class Xnio {
      * @param openListener the initial open-connection listener
      * @param bindListener the bind listener
      * @param optionMap the option map
+     * @param bufferPool
      * @return the SSL connection
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
@@ -347,6 +350,7 @@ public abstract class Xnio {
      * @param openListener the initial open-connection listener
      * @param bindListener the bind listener
      * @param optionMap the option map
+     * @param bufferPool
      * @return the SSL connection
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
@@ -364,6 +368,7 @@ public abstract class Xnio {
      * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
      * @param openListener the initial open-connection listener
      * @param optionMap the option map
+     * @param bufferPool
      * @return the SSL connection
      * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
      * @throws NoSuchProviderException if the selected provider is unavailable
@@ -380,6 +385,7 @@ public abstract class Xnio {
      * @param executor the executor to use to execute SSL tasks
      * @param acceptListener the initial accept listener
      * @param optionMap the initial configuration for the server
+     * @param poolBuffer
      * @return the unbound TCP SSL server
      * @throws NoSuchProviderException if an SSL provider was selected which is not supported
      * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
@@ -402,6 +408,7 @@ public abstract class Xnio {
      * @param thread the connection channel thread to use for this connection
      * @param acceptListener the initial accept listener
      * @param optionMap the initial configuration for the server
+     * @param poolBuffer
      * @return the unbound TCP SSL server
      * @throws NoSuchProviderException if an SSL provider was selected which is not supported
      * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
@@ -422,6 +429,7 @@ public abstract class Xnio {
      * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
      * @param executor the executor to use to execute SSL tasks
      * @param optionMap the initial configuration for the connector
+     * @param bufferPool
      * @return the SSL TCP connector
      * @throws NoSuchProviderException if an SSL provider was selected which is not supported
      * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
@@ -445,6 +453,7 @@ public abstract class Xnio {
      * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
      * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
      * @param optionMap the initial configuration for the connector
+     * @param bufferPool
      * @return the SSL TCP connector
      * @throws NoSuchProviderException if an SSL provider was selected which is not supported
      * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
@@ -462,6 +471,7 @@ public abstract class Xnio {
      * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
      * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
      * @param optionMap the initial configuration for the connector
+     * @param bufferPool
      * @return the SSL TCP connector
      * @throws NoSuchProviderException if an SSL provider was selected which is not supported
      * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
@@ -1146,20 +1156,64 @@ public abstract class Xnio {
     /**
      * Create a read channel thread.
      *
-     * @param threadFactory the thread factory to use for creating the thread
+     * @param threadGroup the thread group to assign the new thread to, or {@code null} to choose one automatically
+     * @param optionMap thread creation options
      * @return the read channel thread
      * @throws IOException if the thread could not be created
      */
-    public abstract ReadChannelThread createReadChannelThread(ThreadFactory threadFactory) throws IOException;
+    public abstract ReadChannelThread createReadChannelThread(ThreadGroup threadGroup, OptionMap optionMap) throws IOException;
+
+    /**
+     * Create a read channel thread.
+     *
+     * @param optionMap thread creation options
+     * @return the read channel thread
+     * @throws IOException if the thread could not be created
+     */
+    public final ReadChannelThread createReadChannelThread(OptionMap optionMap) throws IOException {
+        return createReadChannelThread(null, optionMap);
+    }
+
+    /**
+     * Create a read channel thread.
+     *
+     * @return the read channel thread
+     * @throws IOException if the thread could not be created
+     */
+    public final ReadChannelThread createReadChannelThread() throws IOException {
+        return createReadChannelThread(null, OptionMap.EMPTY);
+    }
 
     /**
      * Create a write channel thread.
      *
-     * @param threadFactory the thread factory to use for creating the thread
+     * @param threadGroup the thread group to assign the new thread to, or {@code null} to choose one automatically
+     * @param optionMap thread creation options
      * @return the write channel thread
      * @throws IOException if the thread could not be created
      */
-    public abstract WriteChannelThread createWriteChannelThread(ThreadFactory threadFactory) throws IOException;
+    public abstract WriteChannelThread createWriteChannelThread(ThreadGroup threadGroup, OptionMap optionMap) throws IOException;
+
+    /**
+     * Create a write channel thread.
+     *
+     * @param optionMap thread creation options
+     * @return the write channel thread
+     * @throws IOException if the thread could not be created
+     */
+    public final WriteChannelThread createWriteChannelThread(OptionMap optionMap) throws IOException {
+        return createWriteChannelThread(null, optionMap);
+    }
+
+    /**
+     * Create a write channel thread.
+     *
+     * @return the write channel thread
+     * @throws IOException if the thread could not be created
+     */
+    public final WriteChannelThread createWriteChannelThread() throws IOException {
+        return createWriteChannelThread(null, OptionMap.EMPTY);
+    }
 
     /**
      * Get the name of this XNIO provider.

@@ -279,4 +279,24 @@ public final class Options {
      * The file access mode to use when opening a file.
      */
     public static final Option<FileAccess> FILE_ACCESS = Option.simple(Options.class, "FILE_ACCESS", FileAccess.class);
+
+    /**
+     * The stack size (in bytes) to attempt to use for a newly created channel thread.
+     */
+    public static final Option<Long> STACK_SIZE = Option.simple(Options.class, "STACK_SIZE", Long.class);
+
+    /**
+     * The thread name to use for a newly created channel thread.  If not specified, one will be generated.
+     */
+    public static final Option<String> THREAD_NAME = Option.simple(Options.class, "THREAD_NAME", String.class);
+
+    /**
+     * The thread priority for a newly created channel thread.  If not specified, the default will be accepted.
+     */
+    public static final Option<Integer> THREAD_PRIORITY = Option.simple(Options.class, "THREAD_PRIORITY", Integer.class);
+
+    /**
+     * Specify whether a channel thread should be a daemon thread.  Defaults to {@code false}.
+     */
+    public static final Option<Boolean> THREAD_DAEMON = Option.simple(Options.class, "THREAD_DAEMON", Boolean.class);
 }

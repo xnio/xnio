@@ -144,16 +144,14 @@ final class NioXnio extends Xnio {
         );
     }
 
-    /** {@inheritDoc} */
-    public ReadChannelThread createReadChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioReadChannelThread thread = new NioReadChannelThread(threadFactory);
+    public ReadChannelThread createReadChannelThread(final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
+        final NioReadChannelThread thread = new NioReadChannelThread(threadGroup, optionMap);
         thread.start();
         return thread;
     }
 
-    /** {@inheritDoc} */
-    public WriteChannelThread createWriteChannelThread(final ThreadFactory threadFactory) throws IOException {
-        final NioWriteChannelThread thread = new NioWriteChannelThread(threadFactory);
+    public WriteChannelThread createWriteChannelThread(final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
+        final NioWriteChannelThread thread = new NioWriteChannelThread(threadGroup, optionMap);
         thread.start();
         return thread;
     }

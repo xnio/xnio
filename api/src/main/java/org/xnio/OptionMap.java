@@ -168,6 +168,42 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
     }
 
     /**
+     * Create a two-valued option map.  If both options are the same key, then only the second one is added
+     * to the map.
+     *
+     * @param option1 the first option to put in the map
+     * @param value1 the first option value
+     * @param option2 the second option to put in the map
+     * @param value2 the second option value
+     * @param <T1> the first option value type
+     * @param <T2> the second option value type
+     * @return the option map
+     *
+     * @since 3.0
+     */
+    public static <T1, T2> OptionMap create(Option<T1> option1, T1 value1, Option<T2> option2, T2 value2) {
+        if (option1 == null) {
+            throw new IllegalArgumentException("option1 is null");
+        }
+        if (value1 == null) {
+            throw new IllegalArgumentException("value1 is null");
+        }
+        if (option2 == null) {
+            throw new IllegalArgumentException("option2 is null");
+        }
+        if (value2 == null) {
+            throw new IllegalArgumentException("value2 is null");
+        }
+        if (option1 == option2) {
+            return create(option2, value2);
+        }
+        final IdentityHashMap<Option<?>, Object> map = new IdentityHashMap<Option<?>, Object>(2);
+        map.put(option1, value1);
+        map.put(option2, value2);
+        return new OptionMap(map);
+    }
+
+    /**
      * A builder for immutable option maps.  Create an instance with the {@link OptionMap#builder()} method.
      */
     public static final class Builder {

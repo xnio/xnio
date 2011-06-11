@@ -36,9 +36,12 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.logging.Logger;
 import org.xnio.AbstractChannelThread;
 import org.xnio.IoUtils;
+import org.xnio.OptionMap;
+import org.xnio.Options;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -158,13 +161,25 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         }
     }
 
-    protected AbstractNioChannelThread(ThreadFactory threadFactory) throws IOException {
-        thread = threadFactory.newThread(task);
-        if (thread == null) {
-            throw new IllegalArgumentException("Thread factory did not yield a thread");
+    private static final Thread.UncaughtExceptionHandler HANDLER = new Thread.UncaughtExceptionHandler() {
+        public void uncaughtException(final Thread t, final Throwable e) {
+            log.errorf(e, "Thread named \"%s\" threw an uncaught exception", t);
         }
+    };
+
+    protected AbstractNioChannelThread(final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
+        final String threadName = optionMap.contains(Options.THREAD_NAME) ? optionMap.get(Options.THREAD_NAME) : generateName();
+        final Thread thread;
+        thread = new Thread(threadGroup, task, threadName, optionMap.get(Options.STACK_SIZE, 0L));
+        thread.setDaemon(optionMap.get(Options.THREAD_DAEMON, false));
+        thread.setPriority(optionMap.get(Options.THREAD_PRIORITY, Thread.NORM_PRIORITY));
+        thread.setContextClassLoader(null);
+        thread.setUncaughtExceptionHandler(HANDLER);
+        this.thread = thread;
         selector = Selector.open();
     }
+
+    protected abstract String generateName();
 
     protected void start() {
         thread.start();
