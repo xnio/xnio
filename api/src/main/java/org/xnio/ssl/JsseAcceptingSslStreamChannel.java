@@ -73,13 +73,14 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
 
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> closeSetter;
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> acceptSetter;
+    private final boolean startTls;
 
-    // FIXME support executor or eliminate it?
-    JsseAcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseAcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
         this.tcpServer = tcpServer;
         this.sslContext = sslContext;
         this.socketBufferPool = socketBufferPool;
         this.applicationBufferPool = applicationBufferPool;
+        this.startTls = startTls;
         clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
         useClientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, false) ? 1 : 0;
         enableSessionCreation = optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true) ? 1 : 0;
@@ -170,7 +171,7 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new JsseConnectedSslStreamChannel(tcpChannel, engine, true, socketBufferPool, applicationBufferPool);
+        return new JsseConnectedSslStreamChannel(tcpChannel, engine, true, socketBufferPool, applicationBufferPool, startTls);
     }
 
     public ChannelListener.Setter<? extends AcceptingChannel<ConnectedSslStreamChannel>> getCloseSetter() {

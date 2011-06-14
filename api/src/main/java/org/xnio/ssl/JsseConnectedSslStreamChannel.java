@@ -36,8 +36,11 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
 import org.xnio.Buffers;
+import org.xnio.Option;
+import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Pooled;
+import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.TranslatingSuspendableChannel;
@@ -65,6 +68,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     // state
 
+    private volatile boolean tls;
     /** Writes need an unwrap (read) to proceed.  Set from write lock, clear from read lock. */
     @SuppressWarnings("unused")
     private volatile int writeNeedsUnwrap;
@@ -83,8 +87,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
      * @param propagateClose {@code true} to propagate read/write shutdown and channel close to the underlying channel, {@code false} otherwise
      * @param socketBufferPool the socket buffer pool
      * @param applicationBufferPool the application buffer pool
+     * @param startTls {@code true} to run in STARTTLS mode, {@code false} to run in regular SSL mode
      */
-    JsseConnectedSslStreamChannel(final ConnectedStreamChannel channel, final SSLEngine engine, final boolean propagateClose, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseConnectedSslStreamChannel(final ConnectedStreamChannel channel, final SSLEngine engine, final boolean propagateClose, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
         super(channel);
         if (channel == null) {
             throw new IllegalArgumentException("channel is null");
@@ -92,6 +97,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         if (engine == null) {
             throw new IllegalArgumentException("engine is null");
         }
+        tls = ! startTls;
         this.engine = engine;
         this.propagateClose = propagateClose;
         final SSLSession session = engine.getSession();
@@ -143,14 +149,30 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return getChannel().getPeerAddress();
     }
 
+    public <T> T getOption(final Option<T> option) throws IOException {
+        return option == Options.SECURE ? option.cast(Boolean.valueOf(tls)) : super.getOption(option);
+    }
+
+    public boolean supportsOption(final Option<?> option) {
+        return option == Options.SECURE || super.supportsOption(option);
+    }
+
     @Override
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        return src.transferTo(position, count, this);
+        if (tls) {
+            return src.transferTo(position, count, Channels.wrapByteChannel(this));
+        } else {
+            return channel.transferFrom(src, position, count);
+        }
     }
 
     @Override
     public int write(final ByteBuffer src) throws IOException {
-        return (int) write(new ByteBuffer[]{src}, 0, 1);
+        if (tls) {
+            return (int) write(new ByteBuffer[]{src}, 0, 1);
+        } else {
+            return channel.write(src);
+        }
     }
 
     @Override
@@ -160,7 +182,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
-        return write(srcs, offset, length, false);
+        if (tls) {
+            return write(srcs, offset, length, false);
+        } else {
+            return channel.write(srcs, offset, length);
+        }
     }
 
     private int write(final ByteBuffer src, boolean isCloseExpected) throws IOException {
@@ -298,12 +324,20 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
-        return target.transferFrom(this, position, count);
+        if (tls) {
+            return target.transferFrom(Channels.wrapByteChannel(this), position, count);
+        } else {
+            return channel.transferTo(position, count, target);
+        }
     }
 
     @Override
     public int read(final ByteBuffer dst) throws IOException {
-        return (int) read(new ByteBuffer[] {dst}, 0, 1);
+        if (tls) {
+            return (int) read(new ByteBuffer[] {dst}, 0, 1);
+        } else {
+            return channel.read(dst);
+        }
     }
 
     @Override
@@ -313,6 +347,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        if (! tls) {
+            return channel.read(dsts, offset, length);
+        }
         if (dsts.length == 0 || length == 0) {
             return 0L;
         }
@@ -397,12 +434,13 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public void startHandshake() throws IOException {
+        tls = true;
         engine.beginHandshake();
     }
 
     @Override
     public SSLSession getSslSession() {
-        return engine.getSession();
+        return tls ? engine.getSession() : null;
     }
 
     @Override
@@ -431,6 +469,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public void shutdownReads() throws IOException {
+        if (! tls) {
+            channel.shutdownReads();
+            return;
+        }
         if (propagateClose) {
             super.shutdownReads();
         }
@@ -443,6 +485,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public boolean shutdownWrites() throws IOException {
+        if (! tls) {
+            return channel.shutdownWrites();
+        }
         synchronized(getWriteLock()) {
             if (flush()) {
                 engine.closeOutbound();
@@ -458,6 +503,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     public boolean flush() throws IOException {
+        if (! tls) {
+            return channel.flush();
+        }
         final ByteBuffer buffer = sendBuffer.getResource();
         buffer.flip();
         try {

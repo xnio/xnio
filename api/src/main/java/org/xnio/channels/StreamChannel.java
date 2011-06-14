@@ -29,7 +29,7 @@ import org.xnio.ChannelListener;
  *
  * @apiviz.landmark
  */
-public interface StreamChannel extends SuspendableChannel, StreamSinkChannel, StreamSourceChannel {
+public interface StreamChannel extends SuspendableChannel, StreamSinkChannel, StreamSourceChannel, ByteChannel {
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamChannel> getReadSetter();

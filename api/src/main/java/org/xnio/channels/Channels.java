@@ -610,5 +610,45 @@ public final class Channels {
         setter.set(listener);
     }
 
+    /**
+     * Create a wrapper for a byte channel which does not expose other methods.
+     *
+     * @param original the original
+     * @return the wrapped channel
+     */
+    public static ByteChannel wrapByteChannel(final ByteChannel original) {
+        return new ByteChannel() {
+            public int read(final ByteBuffer dst) throws IOException {
+                return original.read(dst);
+            }
 
+            public boolean isOpen() {
+                return original.isOpen();
+            }
+
+            public void close() throws IOException {
+                original.close();
+            }
+
+            public int write(final ByteBuffer src) throws IOException {
+                return original.write(src);
+            }
+
+            public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+                return original.write(srcs, offset, length);
+            }
+
+            public long write(final ByteBuffer[] srcs) throws IOException {
+                return original.write(srcs);
+            }
+
+            public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+                return original.read(dsts, offset, length);
+            }
+
+            public long read(final ByteBuffer[] dsts) throws IOException {
+                return original.read(dsts);
+            }
+        };
+    }
 }

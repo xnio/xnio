@@ -140,13 +140,13 @@ public final class JsseXnioSsl extends XnioSsl {
      * @since 3.0
      */
     public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        final JsseAcceptingSslStreamChannel server = new JsseAcceptingSslStreamChannel(sslContext, xnio.createStreamServer(bindAddress, thread, null, optionMap), optionMap, socketBufferPool, applicationBufferPool);
+        final JsseAcceptingSslStreamChannel server = new JsseAcceptingSslStreamChannel(sslContext, xnio.createStreamServer(bindAddress, thread, null, optionMap), optionMap, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
         return server;
     }
 
     ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap, final boolean server) {
-        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class), server), true, socketBufferPool, applicationBufferPool);
+        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class), server), true, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
     }
 
     /**

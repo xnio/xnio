@@ -1,8 +1,8 @@
 /*
- * JBoss, Home of Professional Open Source
- * Copyright 2010, JBoss Inc., and individual contributors as indicated
- * by the @authors tag. See the copyright.txt in the distribution for a
- * full listing of individual contributors.
+ * JBoss, Home of Professional Open Source.
+ * Copyright 2011, Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags. See the copyright.txt file in the
+ * distribution for a full listing of individual contributors.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -22,16 +22,13 @@
 
 package org.xnio.channels;
 
-import org.xnio.ChannelListener;
+import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.ScatteringByteChannel;
 
 /**
+ * An extension of a simple NIO {@link java.nio.channels.ByteChannel} which includes scatter/gather operations.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface SuspendableReadWriteChannel extends SuspendableReadChannel, SuspendableWriteChannel {
-
-    ChannelListener.Setter<? extends SuspendableReadWriteChannel> getReadSetter();
-
-    ChannelListener.Setter<? extends SuspendableReadWriteChannel> getCloseSetter();
-
-    ChannelListener.Setter<? extends SuspendableReadWriteChannel> getWriteSetter();
+public interface ByteChannel extends java.nio.channels.ByteChannel, GatheringByteChannel, ScatteringByteChannel {
 }
