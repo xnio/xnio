@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio;
+package org.xnio.ssl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -39,15 +38,26 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import org.xnio.ChannelListener;
+import org.xnio.ChannelListeners;
+import org.xnio.ConnectionChannelThread;
+import org.xnio.Option;
+import org.xnio.OptionMap;
+import org.xnio.Options;
+import org.xnio.Pool;
+import org.xnio.ReadChannelThread;
+import org.xnio.Sequence;
+import org.xnio.SslClientAuthMode;
+import org.xnio.WriteChannelThread;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.StandardConnectedSslStreamChannel;
 
-final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslStreamChannel> {
+final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslStreamChannel> {
     private final SSLContext sslContext;
     private final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer;
-    private final Pool<ByteBuffer> bufferPool;
+    private final Pool<ByteBuffer> socketBufferPool;
+    private final Pool<ByteBuffer> applicationBufferPool;
 
     private volatile SslClientAuthMode clientAuthMode;
     private volatile int useClientMode;
@@ -55,20 +65,21 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
     private volatile String[] cipherSuites;
     private volatile String[] protocols;
 
-    private static final AtomicReferenceFieldUpdater<AcceptingSslStreamChannel, SslClientAuthMode> clientAuthModeUpdater = AtomicReferenceFieldUpdater.newUpdater(AcceptingSslStreamChannel.class, SslClientAuthMode.class, "clientAuthMode");
-    private static final AtomicIntegerFieldUpdater<AcceptingSslStreamChannel> useClientModeUpdater = AtomicIntegerFieldUpdater.newUpdater(AcceptingSslStreamChannel.class, "useClientMode");
-    private static final AtomicIntegerFieldUpdater<AcceptingSslStreamChannel> enableSessionCreationUpdater = AtomicIntegerFieldUpdater.newUpdater(AcceptingSslStreamChannel.class, "enableSessionCreation");
-    private static final AtomicReferenceFieldUpdater<AcceptingSslStreamChannel, String[]> cipherSuitesUpdater = AtomicReferenceFieldUpdater.newUpdater(AcceptingSslStreamChannel.class, String[].class, "cipherSuites");
-    private static final AtomicReferenceFieldUpdater<AcceptingSslStreamChannel, String[]> protocolsUpdater = AtomicReferenceFieldUpdater.newUpdater(AcceptingSslStreamChannel.class, String[].class, "protocols");
+    private static final AtomicReferenceFieldUpdater<JsseAcceptingSslStreamChannel, SslClientAuthMode> clientAuthModeUpdater = AtomicReferenceFieldUpdater.newUpdater(JsseAcceptingSslStreamChannel.class, SslClientAuthMode.class, "clientAuthMode");
+    private static final AtomicIntegerFieldUpdater<JsseAcceptingSslStreamChannel> useClientModeUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseAcceptingSslStreamChannel.class, "useClientMode");
+    private static final AtomicIntegerFieldUpdater<JsseAcceptingSslStreamChannel> enableSessionCreationUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseAcceptingSslStreamChannel.class, "enableSessionCreation");
+    private static final AtomicReferenceFieldUpdater<JsseAcceptingSslStreamChannel, String[]> cipherSuitesUpdater = AtomicReferenceFieldUpdater.newUpdater(JsseAcceptingSslStreamChannel.class, String[].class, "cipherSuites");
+    private static final AtomicReferenceFieldUpdater<JsseAcceptingSslStreamChannel, String[]> protocolsUpdater = AtomicReferenceFieldUpdater.newUpdater(JsseAcceptingSslStreamChannel.class, String[].class, "protocols");
 
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> closeSetter;
     private final ChannelListener.Setter<AcceptingChannel<ConnectedSslStreamChannel>> acceptSetter;
 
     // FIXME support executor or eliminate it?
-    AcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final Executor executor, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) {
+    JsseAcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
         this.tcpServer = tcpServer;
         this.sslContext = sslContext;
-        this.bufferPool = bufferPool;
+        this.socketBufferPool = socketBufferPool;
+        this.applicationBufferPool = applicationBufferPool;
         clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
         useClientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, false) ? 1 : 0;
         enableSessionCreation = optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true) ? 1 : 0;
@@ -121,7 +132,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
         final boolean clientMode = useClientMode != 0;
         engine.setUseClientMode(clientMode);
         if (! clientMode) {
-            final SslClientAuthMode clientAuthMode = AcceptingSslStreamChannel.this.clientAuthMode;
+            final SslClientAuthMode clientAuthMode = JsseAcceptingSslStreamChannel.this.clientAuthMode;
             if (clientAuthMode != null) switch (clientAuthMode) {
                 case NOT_REQUESTED:
                     engine.setNeedClientAuth(false);
@@ -137,7 +148,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
             }
         }
         engine.setEnableSessionCreation(enableSessionCreation != 0);
-        final String[] cipherSuites = AcceptingSslStreamChannel.this.cipherSuites;
+        final String[] cipherSuites = JsseAcceptingSslStreamChannel.this.cipherSuites;
         if (cipherSuites != null) {
             final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
             final List<String> finalList = new ArrayList<String>();
@@ -148,7 +159,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
             }
             engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
         }
-        final String[] protocols = AcceptingSslStreamChannel.this.protocols;
+        final String[] protocols = JsseAcceptingSslStreamChannel.this.protocols;
         if (protocols != null) {
             final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedProtocols()));
             final List<String> finalList = new ArrayList<String>();
@@ -159,7 +170,7 @@ final class AcceptingSslStreamChannel implements AcceptingChannel<ConnectedSslSt
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new StandardConnectedSslStreamChannel(tcpChannel, engine, true, bufferPool, bufferPool);
+        return new JsseConnectedSslStreamChannel(tcpChannel, engine, true, socketBufferPool, applicationBufferPool);
     }
 
     public ChannelListener.Setter<? extends AcceptingChannel<ConnectedSslStreamChannel>> getCloseSetter() {

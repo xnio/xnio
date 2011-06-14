@@ -27,38 +27,26 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.AccessController;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
+import java.security.GeneralSecurityException;
 import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.ServiceLoader;
-import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadFactory;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 
 import org.jboss.logging.Logger;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedMessageChannel;
-import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SimpleAcceptingChannel;
-import org.xnio.channels.StandardConnectedSslStreamChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.UnsupportedOptionException;
+import org.xnio.ssl.JsseXnioSsl;
+import org.xnio.ssl.XnioSsl;
 
 /**
  * The XNIO provider class.
@@ -200,286 +188,15 @@ public abstract class Xnio {
     //
     //==================================================
 
-    static ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap, final boolean server, final Pool<ByteBuffer> bufferPool) {
-        return new StandardConnectedSslStreamChannel(tcpChannel, getSSLEngine(sslContext, tcpChannel.getPeerAddress(InetSocketAddress.class), optionMap, server), true, bufferPool, bufferPool);
-    }
-
-    private static SSLEngine getSSLEngine(final SSLContext sslContext, final InetSocketAddress peerAddress, final OptionMap optionMap, final boolean server) {
-        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
-        final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, ! server);
-        engine.setUseClientMode(clientMode);
-        if (! clientMode) {
-            final SslClientAuthMode clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
-            if (clientAuthMode != null) switch (clientAuthMode) {
-                case NOT_REQUESTED:
-                    engine.setNeedClientAuth(false);
-                    engine.setWantClientAuth(false);
-                    break;
-                case REQUESTED:
-                    engine.setWantClientAuth(true);
-                    break;
-                case REQUIRED:
-                    engine.setNeedClientAuth(true);
-                    break;
-            }
-        }
-        engine.setEnableSessionCreation(optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true));
-        final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
-        if (cipherSuites != null) {
-            final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
-            final List<String> finalList = new ArrayList<String>();
-            for (String name : cipherSuites) {
-                if (supported.contains(name)) {
-                    finalList.add(name);
-                }
-            }
-            engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
-        }
-        final Sequence<String> protocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
-        if (protocols != null) {
-            final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedProtocols()));
-            final List<String> finalList = new ArrayList<String>();
-            for (String name : protocols) {
-                if (supported.contains(name)) {
-                    finalList.add(name);
-                }
-            }
-            engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
-        }
-        return engine;
-    }
-
-    private static SSLContext getSSLContext(final OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException {
-        final String provider = optionMap.get(Options.SSL_PROVIDER);
-        final String protocol = optionMap.get(Options.SSL_PROTOCOL);
-        final SSLContext sslContext;
-        if (protocol == null) {
-            sslContext = SSLContext.getDefault();
-        } else if (provider == null) {
-            sslContext = SSLContext.getInstance(protocol);
-        } else {
-            sslContext = SSLContext.getInstance(protocol, provider);
-        }
-        return sslContext;
-    }
-
     /**
-     * Create an SSL connection to a remote host.
+     * Get an SSL provider for this XNIO provider.
      *
-     * @param bindAddress the local bind address
-     * @param destination the destination connection address
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param sslContext the SSL context
-     * @param executor the executor to use to execute SSL tasks
-     * @param openListener the initial open-connection listener
-     * @param bindListener the bind listener
-     * @param optionMap the option map
-     * @param bufferPool
-     * @return the SSL connection
+     * @param optionMap the option map to use for configuring SSL
+     * @return the SSL provider
+     * @throws GeneralSecurityException if an exception occurred configuring the SSL provider
      */
-    IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final SSLContext sslContext, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) {
-        final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
-        connectStream(bindAddress, destination, thread, readThread, writeThread, new ChannelListener<ConnectedStreamChannel>() {
-            public void handleEvent(final ConnectedStreamChannel tcpChannel) {
-                final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, optionMap, false, bufferPool);
-                futureResult.setResult(channel);
-                ChannelListeners.invokeChannelListener(channel, openListener);
-            }
-        }, bindListener, optionMap).addNotifier(new IoFuture.HandlingNotifier<ConnectedStreamChannel, FutureResult<ConnectedSslStreamChannel>>() {
-            public void handleCancelled(final FutureResult<ConnectedSslStreamChannel> result) {
-                result.setCancelled();
-            }
-
-            public void handleFailed(final IOException exception, final FutureResult<ConnectedSslStreamChannel> result) {
-                result.setException(exception);
-            }
-        }, futureResult);
-        return futureResult.getIoFuture();
-    }
-
-    /**
-     * Create an SSL connection to a remote host.
-     *
-     * @param bindAddress the local bind address
-     * @param destination the destination connection address
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param executor the executor to use to execute SSL tasks
-     * @param openListener the initial open-connection listener
-     * @param bindListener the bind listener
-     * @param optionMap the option map
-     * @param bufferPool
-     * @return the SSL connection
-     * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
-     * @throws NoSuchProviderException if the selected provider is unavailable
-     */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final Executor executor, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), executor, openListener, bindListener, optionMap, bufferPool);
-    }
-
-    /**
-     * Create an SSL connection to a remote host.
-     *
-     * @param bindAddress the local bind address
-     * @param destination the destination connection address
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param openListener the initial open-connection listener
-     * @param bindListener the bind listener
-     * @param optionMap the option map
-     * @param bufferPool
-     * @return the SSL connection
-     * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
-     * @throws NoSuchProviderException if the selected provider is unavailable
-     */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress bindAddress, final InetSocketAddress destination, final ConnectionChannelThread thread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(bindAddress, destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap, bufferPool);
-    }
-
-    /**
-     * Create an SSL connection to a remote host.
-     *
-     * @param destination the destination connection address
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param openListener the initial open-connection listener
-     * @param bindListener the bind listener
-     * @param optionMap the option map
-     * @param bufferPool
-     * @return the SSL connection
-     * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
-     * @throws NoSuchProviderException if the selected provider is unavailable
-     */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, bindListener, optionMap, bufferPool);
-    }
-
-    /**
-     * Create an SSL connection to a remote host.
-     *
-     * @param destination the destination connection address
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param openListener the initial open-connection listener
-     * @param optionMap the option map
-     * @param bufferPool
-     * @return the SSL connection
-     * @throws NoSuchAlgorithmException if the selected algorithm is unavailable
-     * @throws NoSuchProviderException if the selected provider is unavailable
-     */
-    public IoFuture<ConnectedSslStreamChannel> connectSsl(final InetSocketAddress destination, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return connectSsl(new InetSocketAddress(0), destination, thread, readThread, writeThread, getSSLContext(optionMap), IoUtils.directExecutor(), openListener, null, optionMap, bufferPool);
-    }
-
-    /**
-     * Create a bound TCP SSL server.  The given executor will be used to execute SSL tasks.
-     *
-     * @param bindAddress the address to bind to
-     * @param thread the connection channel thread to use for this connection
-     * @param executor the executor to use to execute SSL tasks
-     * @param acceptListener the initial accept listener
-     * @param optionMap the initial configuration for the server
-     * @param poolBuffer
-     * @return the unbound TCP SSL server
-     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
-     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
-     * @throws IOException if the server could not be created
-     *
-     * @since 3.0
-     */
-    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, Executor executor, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap, Pool<ByteBuffer> poolBuffer) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
-        final SSLContext sslContext = getSSLContext(optionMap);
-        
-        final AcceptingSslStreamChannel server = new AcceptingSslStreamChannel(sslContext, createStreamServer(bindAddress, thread, null, optionMap), executor, optionMap, poolBuffer);
-        if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
-        return server;
-    }
-
-    /**
-     * Create a bound TCP SSL server.  A direct executor will be used to execute SSL tasks.
-     *
-     * @param bindAddress the address to bind to
-     * @param thread the connection channel thread to use for this connection
-     * @param acceptListener the initial accept listener
-     * @param optionMap the initial configuration for the server
-     * @param poolBuffer
-     * @return the unbound TCP SSL server
-     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
-     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
-     * @throws IOException if the server could not be created
-     *
-     * @since 3.0
-     */
-    public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(InetSocketAddress bindAddress, ConnectionChannelThread thread, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap, Pool<ByteBuffer> poolBuffer) throws NoSuchProviderException, NoSuchAlgorithmException, IOException {
-        return createSslTcpServer(bindAddress, thread, IoUtils.directExecutor(), acceptListener, optionMap, poolBuffer);
-    }
-
-    /**
-     * Create an SSL TCP connector.  The given executor will be used to execute SSL tasks.
-     *
-     * @param src the source address for connections
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param executor the executor to use to execute SSL tasks
-     * @param optionMap the initial configuration for the connector
-     * @param bufferPool
-     * @return the SSL TCP connector
-     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
-     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
-     *
-     * @since 2.1
-     */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final Executor executor, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        final SSLContext sslContext = getSSLContext(optionMap);
-        return new Connector<ConnectedSslStreamChannel>() {
-            public IoFuture<ConnectedSslStreamChannel> connectTo(final SocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener) {
-                return connectSsl(src, (InetSocketAddress) destination, thread, readThread, writeThread, sslContext, executor, openListener, bindListener, optionMap, bufferPool);
-            }
-        };
-    }
-
-    /**
-     * Create an SSL TCP connector.  A direct executor will be used to execute SSL tasks.
-     *
-     * @param src the source address for connections
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param optionMap the initial configuration for the connector
-     * @param bufferPool
-     * @return the SSL TCP connector
-     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
-     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
-     *
-     * @since 2.1
-     */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final InetSocketAddress src, final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap, final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createSslTcpConnector(src, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap, bufferPool);
-    }
-
-    /**
-     * Create an SSL TCP connector.  The provider's default executor will be used to execute listener methods.
-     *
-     * @param thread the connection channel thread to use for this connection
-     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
-     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
-     * @param optionMap the initial configuration for the connector
-     * @param bufferPool
-     * @return the SSL TCP connector
-     * @throws NoSuchProviderException if an SSL provider was selected which is not supported
-     * @throws NoSuchAlgorithmException if an SSL algorithm was selected which is not supported
-     *
-     * @since 2.1
-     */
-    public Connector<ConnectedSslStreamChannel> createSslTcpConnector(final ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, final OptionMap optionMap,final Pool<ByteBuffer> bufferPool) throws NoSuchProviderException, NoSuchAlgorithmException {
-        return createSslTcpConnector(ANY_INET_ADDRESS, thread, readThread, writeThread, IoUtils.directExecutor(), optionMap, bufferPool);
+    public XnioSsl getSslProvider(final OptionMap optionMap) throws GeneralSecurityException {
+        return new JsseXnioSsl(this, optionMap);
     }
 
     //==================================================

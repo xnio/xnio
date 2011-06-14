@@ -25,24 +25,24 @@ package org.xnio;
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-final class SingleOption<T> extends Option<T> {
+final class TypeOption<T> extends Option<Class<? extends T>> {
 
     private static final long serialVersionUID = 2449094406108952764L;
 
     private final transient Class<T> type;
-    private final transient ValueParser<T> parser;
+    private final transient ValueParser<Class<? extends T>> parser;
 
-    SingleOption(final Class<?> declClass, final String name, final Class<T> type) {
+    TypeOption(final Class<?> declClass, final String name, final Class<T> type) {
         super(declClass, name);
         this.type = type;
-        parser = Option.getParser(type);
+        parser = Option.getClassParser(type);
     }
 
-    public T cast(final Object o) {
-        return type.cast(o);
+    public Class<? extends T> cast(final Object o) {
+        return ((Class<?>) o).asSubclass(type);
     }
 
-    public T parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
-        return parser.parseValue(string, classLoader);
+    public Class<? extends T> parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
+        return (Class<? extends T>) parser.parseValue(string, classLoader);
     }
 }

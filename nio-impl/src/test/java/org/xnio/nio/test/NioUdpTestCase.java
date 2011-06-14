@@ -55,8 +55,6 @@ public final class NioUdpTestCase extends TestCase {
 
     private static final Logger log = Logger.getLogger("TEST");
 
-    private final TestThreadFactory threadFactory = new TestThreadFactory();
-
     static {
         try {
             SERVER_SOCKET_ADDRESS = new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), SERVER_PORT);
@@ -80,8 +78,8 @@ public final class NioUdpTestCase extends TestCase {
     }
 
     private synchronized void doPart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
+        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
+        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
         final MulticastMessageChannel server = xnio.createUdpServer(bindAddress, readChannelThread, writeChannelThread, handler, OptionMap.create(Options.MULTICAST, Boolean.valueOf(multicast)));
         try {
             body.run();
@@ -148,13 +146,11 @@ public final class NioUdpTestCase extends TestCase {
     public void testServerCreate() throws Exception {
         log.info("Test: testServerCreate");
         doServerCreate(false);
-        threadFactory.await();
     }
 
     public void testServerCreateMulticast() throws Exception {
         log.info("Test: testServerCreateMulticast");
         doServerCreate(true);
-        threadFactory.await();
     }
 
     private void doClientToServerTransmitTest(boolean clientMulticast, boolean serverMulticast) throws Exception {
@@ -260,27 +256,20 @@ public final class NioUdpTestCase extends TestCase {
     public void testClientToServerTransmitNioToNio() throws Exception {
         log.info("Test: testClientToServerTransmitNioToNio");
         doClientToServerTransmitTest(false, false);
-        threadFactory.await();
     }
 
     public void testClientToServerTransmitBioToNio() throws Exception {
         log.info("Test: testClientToServerTransmitBioToNio");
         doClientToServerTransmitTest(true, false);
-        threadFactory.await();
     }
 
     public void testClientToServerTransmitNioToBio() throws Exception {
         log.info("Test: testClientToServerTransmitNioToBio");
         doClientToServerTransmitTest(false, true);
-        threadFactory.await();
     }
 
     public void testClientToServerTransmitBioToBio() throws Exception {
         log.info("Test: testClientToServerTransmitBioToBio");
         doClientToServerTransmitTest(true, true);
-        threadFactory.await();
     }
-    
-    //TODO public void testJmxUdpProperties() throws Exception {}
-    
 }

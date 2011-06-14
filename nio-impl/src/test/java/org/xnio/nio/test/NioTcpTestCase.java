@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,29 +55,29 @@ public final class NioTcpTestCase extends TestCase {
 
     private static final Logger log = Logger.getLogger("TEST");
 
-    private final TestThreadFactory threadFactory = new TestThreadFactory();
+    private final List<Throwable> problems = new CopyOnWriteArrayList<Throwable>();
 
     private static final int SERVER_PORT = 12345;
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         Xnio xnio = Xnio.getInstance("nio", NioTcpTestCase.class.getClassLoader());
-        final ReadChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread serverChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
+        final ReadChannelThread connectionChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread serverChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread();
+        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
+        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread();
         try {
             final AcceptingChannel<? extends ConnectedStreamChannel> server = xnio.createStreamServer(
                     new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
                     serverChannelThread,
                     ChannelListeners.<ConnectedStreamChannel>openListenerAdapter(readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(
                             serverHandler,
-                            threadFactory
+                            problems
                     )), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
             server.resumeAccepts();
             try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null, OptionMap.EMPTY);
+                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectStream(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), connectionChannelThread, clientReadChannelThread, clientWriteChannelThread, new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, problems), null, OptionMap.EMPTY);
                 final ConnectedStreamChannel channel = ioFuture.get();
                 try {
                     body.run();
@@ -109,18 +111,25 @@ public final class NioTcpTestCase extends TestCase {
         clientWriteChannelThread.awaitTermination();
     }
 
+    private void checkProblems() {
+        for (Throwable problem : problems) {
+            log.error("Test exception", problem);
+        }
+        assertTrue(problems.isEmpty());
+    }
+
     public void testTcpConnect() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testTcpConnect");
         doConnectionTest(new Runnable() {
             public void run() {
             }
         }, null, ChannelListeners.closingChannelListener());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testClientTcpClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testClientTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -180,11 +189,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testServerTcpClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testServerTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -249,11 +258,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testTwoWayTransfer() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testTwoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
@@ -380,11 +389,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertEquals(serverSent.get(), clientReceived.get());
         assertEquals(clientSent.get(), serverReceived.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testClientTcpNastyClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testClientTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -443,11 +452,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testServerTcpNastyClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testServerTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -519,11 +528,11 @@ public final class NioTcpTestCase extends TestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     public void testAcceptor() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testAcceptor");
         final CountDownLatch ioLatch = new CountDownLatch(4);
         final CountDownLatch closeLatch = new CountDownLatch(2);
@@ -539,11 +548,11 @@ public final class NioTcpTestCase extends TestCase {
         final AtomicBoolean serverWriteOK = new AtomicBoolean();
         final byte[] bytes = "Ummagumma!".getBytes("UTF-8");
         final Xnio xnio = Xnio.getInstance("nio");
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
+        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread();
+        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
+        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread();
+        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread();
         try {
             final FutureResult<InetSocketAddress> futureAddressResult = new FutureResult<InetSocketAddress>();
             final IoFuture<InetSocketAddress> futureAddress = futureAddressResult.getIoFuture();
@@ -685,6 +694,6 @@ public final class NioTcpTestCase extends TestCase {
             clientWriteChannelThread.shutdown();
             connectionChannelThread.shutdown();
         }
-        threadFactory.await();
+        checkProblems();
     }
 }

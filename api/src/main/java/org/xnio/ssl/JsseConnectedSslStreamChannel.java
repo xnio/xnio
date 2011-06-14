@@ -20,7 +20,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio.channels;
+package org.xnio.ssl;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -38,6 +38,9 @@ import javax.net.ssl.SSLSession;
 import org.xnio.Buffers;
 import org.xnio.Pool;
 import org.xnio.Pooled;
+import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.TranslatingSuspendableChannel;
 
 /**
  * An SSL stream channel implementation based on {@link SSLEngine}.
@@ -45,7 +48,7 @@ import org.xnio.Pooled;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
-public final class StandardConnectedSslStreamChannel extends TranslatingSuspendableChannel<ConnectedSslStreamChannel, ConnectedStreamChannel> implements ConnectedSslStreamChannel {
+final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<ConnectedSslStreamChannel, ConnectedStreamChannel> implements ConnectedSslStreamChannel {
 
     // final fields
 
@@ -69,8 +72,8 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
     @SuppressWarnings("unused")
     private volatile int readNeedsWrap;
 
-    private static final AtomicIntegerFieldUpdater<StandardConnectedSslStreamChannel> writeNeedsUnwrapUpdater = AtomicIntegerFieldUpdater.newUpdater(StandardConnectedSslStreamChannel.class, "writeNeedsUnwrap");
-    private static final AtomicIntegerFieldUpdater<StandardConnectedSslStreamChannel> readNeedsWrapUpdater = AtomicIntegerFieldUpdater.newUpdater(StandardConnectedSslStreamChannel.class, "readNeedsWrap");
+    private static final AtomicIntegerFieldUpdater<JsseConnectedSslStreamChannel> writeNeedsUnwrapUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseConnectedSslStreamChannel.class, "writeNeedsUnwrap");
+    private static final AtomicIntegerFieldUpdater<JsseConnectedSslStreamChannel> readNeedsWrapUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseConnectedSslStreamChannel.class, "readNeedsWrap");
 
     /**
      * Construct a new instance.
@@ -81,7 +84,7 @@ public final class StandardConnectedSslStreamChannel extends TranslatingSuspenda
      * @param socketBufferPool the socket buffer pool
      * @param applicationBufferPool the application buffer pool
      */
-    public StandardConnectedSslStreamChannel(final ConnectedStreamChannel channel, final SSLEngine engine, final boolean propagateClose, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseConnectedSslStreamChannel(final ConnectedStreamChannel channel, final SSLEngine engine, final boolean propagateClose, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
         super(channel);
         if (channel == null) {
             throw new IllegalArgumentException("channel is null");

@@ -25,6 +25,8 @@ package org.xnio;
 import org.xnio.sasl.SaslQop;
 import org.xnio.sasl.SaslStrength;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 import javax.security.sasl.Sasl;
 
 /**
@@ -188,11 +190,96 @@ public final class Options {
     public static final Option<Boolean> SSL_ENABLE_SESSION_CREATION = Option.simple(Options.class, "SSL_ENABLE_SESSION_CREATION", Boolean.class);
 
     /**
-     * Specify whether SSL conversations should be in client or server mode.  Defaults to {@code false} (use server mode).
+     * Specify whether SSL conversations should be in client or server mode.  Defaults to {@code false} (use server mode).  If
+     * set to {@code true}, the client and server side swap negotiation roles.
      *
      * @since 2.0
      */
     public static final Option<Boolean> SSL_USE_CLIENT_MODE = Option.simple(Options.class, "SSL_USE_CLIENT_MODE", Boolean.class);
+
+    /**
+     * The size of the SSL client session cache.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_CLIENT_SESSION_CACHE_SIZE = Option.simple(Options.class, "SSL_CLIENT_SESSION_CACHE_SIZE", Integer.class);
+
+    /**
+     * The SSL client session timeout (in seconds).
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_CLIENT_SESSION_TIMEOUT = Option.simple(Options.class, "SSL_CLIENT_SESSION_TIMEOUT", Integer.class);
+
+    /**
+     * The size of the SSL server session cache.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_SERVER_SESSION_CACHE_SIZE = Option.simple(Options.class, "SSL_SERVER_SESSION_CACHE_SIZE", Integer.class);
+
+    /**
+     * The SSL server session timeout (in seconds).
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_SERVER_SESSION_TIMEOUT = Option.simple(Options.class, "SSL_SERVER_SESSION_TIMEOUT", Integer.class);
+
+    /**
+     * The possible key manager classes to use for a JSSE SSL context.
+     *
+     * @since 3.0
+     */
+    public static final Option<Sequence<Class<? extends KeyManager>>> SSL_JSSE_KEY_MANAGER = Option.typeSequence(Options.class, "SSL_JSSE_KEY_MANAGER", KeyManager.class);
+
+    /**
+     * The possible trust store classes to use for a JSSE SSL context.
+     *
+     * @since 3.0
+     */
+    public static final Option<Sequence<Class<? extends TrustManager>>> SSL_JSSE_TRUST_MANAGER = Option.typeSequence(Options.class, "SSL_JSSE_TRUST_MANAGER", TrustManager.class);
+
+    /**
+     * The configuration of a secure RNG for SSL usage.
+     *
+     * @since 3.0
+     */
+    public static final Option<OptionMap> SSL_RNG_OPTIONS = Option.simple(Options.class, "SSL_RNG_OPTIONS", OptionMap.class);
+
+    /**
+     * The packet buffer size for SSL.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_PACKET_BUFFER_SIZE = Option.simple(Options.class, "SSL_PACKET_BUFFER_SIZE", Integer.class);
+
+    /**
+     * The application buffer size for SSL.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_APPLICATION_BUFFER_SIZE = Option.simple(Options.class, "SSL_APPLICATION_BUFFER_SIZE", Integer.class);
+
+    /**
+     * The size of the allocation region to use for SSL packet buffers.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_PACKET_BUFFER_REGION_SIZE = Option.simple(Options.class, "SSL_PACKET_BUFFER_REGION_SIZE", Integer.class);
+
+    /**
+     * The size of the allocation region to use for SSL application buffers.
+     *
+     * @since 3.0
+     */
+    public static final Option<Integer> SSL_APPLICATION_BUFFER_REGION_SIZE = Option.simple(Options.class, "SSL_APPLICATION_BUFFER_REGION_SIZE", Integer.class);
+
+    /**
+     * Specify whether direct buffers should be used for socket communications.
+     *
+     * @since 3.0
+     */
+    public static final Option<Boolean> USE_DIRECT_BUFFERS = Option.simple(Options.class, "USE_DIRECT_BUFFERS", Boolean.class);
 
     /**
      * Determine whether the channel is encrypted, or employs some other level of security.  The interpretation of this flag

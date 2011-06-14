@@ -234,7 +234,21 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public <T> Builder parse(Option<T> key, String stringValue) {
-            set(key, key.parseValue(stringValue));
+            set(key, key.parseValue(stringValue, key.getClass().getClassLoader()));
+            return this;
+        }
+
+        /**
+         * Set a key-value pair, parsing the value from the given string.
+         *
+         * @param key the key
+         * @param stringValue the string value
+         * @param classLoader the class loader to use for parsing the value
+         * @param <T> the option type
+         * @return this builder
+         */
+        public <T> Builder parse(Option<T> key, String stringValue, ClassLoader classLoader) {
+            set(key, key.parseValue(stringValue, classLoader));
             return this;
         }
 
@@ -248,12 +262,15 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder parseAll(Properties props, String prefix, ClassLoader optionClassLoader) {
+            if (! prefix.endsWith(".")) {
+                prefix = prefix + ".";
+            }
             for (String name : props.stringPropertyNames()) {
                 if (name.startsWith(prefix)) {
                     final String optionName = name.substring(prefix.length());
                     try {
                         final Option<?> option = Option.fromString(optionName, optionClassLoader);
-                        parse(option, props.getProperty(name));
+                        parse(option, props.getProperty(name), optionClassLoader);
                     } catch (IllegalArgumentException e) {
                         log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
                     }

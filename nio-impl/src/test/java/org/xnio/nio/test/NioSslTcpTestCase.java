@@ -31,6 +31,8 @@ import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,8 +42,6 @@ import org.jboss.logging.Logger;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.xnio.BufferAllocator;
-import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.ConnectionChannelThread;
@@ -49,7 +49,6 @@ import org.xnio.IoFuture;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.Pool;
 import org.xnio.ReadChannelThread;
 import org.xnio.WriteChannelThread;
 import org.xnio.Xnio;
@@ -57,6 +56,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.ssl.XnioSsl;
 
 @SuppressWarnings( { "JavaDoc" })
 public final class NioSslTcpTestCase {
@@ -70,7 +70,7 @@ public final class NioSslTcpTestCase {
 
     private static final Logger log = Logger.getLogger("TEST");
 
-    private final TestThreadFactory threadFactory = new TestThreadFactory();
+    private final List<Throwable> problems = new CopyOnWriteArrayList<Throwable>();
 
     private static final int SERVER_PORT = 12345;
 
@@ -91,32 +91,33 @@ public final class NioSslTcpTestCase {
         }
     }
 
+    private void checkProblems() {
+        for (Throwable problem : problems) {
+            log.error("Test exception", problem);
+        }
+        assertTrue(problems.isEmpty());
+    }
+
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
-        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ConnectionChannelThread serverChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread(threadFactory);
-        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread(threadFactory);
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread(threadFactory);
-        final Pool<ByteBuffer> bufferPool = Buffers.allocatedBufferPool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000);
+        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread();
+        final ConnectionChannelThread serverChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
+        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread();
+        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
+        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread();
+        final XnioSsl xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
         try {
             // IDEA thinks this is unchecked because of http://youtrack.jetbrains.net/issue/IDEA-59290
             @SuppressWarnings("unchecked")
-            final AcceptingChannel<? extends ConnectedStreamChannel> server = xnio.createSslTcpServer(
-                    new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
-                    serverChannelThread,
-                    ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedSslStreamChannel>(
-                            serverHandler,
-                            threadFactory
-                    )), OptionMap.builder().set(Options.REUSE_ADDRESSES, Boolean.TRUE).getMap(), bufferPool);
+            final AcceptingChannel<? extends ConnectedStreamChannel> server = xnioSsl.createSslTcpServer(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), serverChannelThread, ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedSslStreamChannel>(serverHandler, problems)), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
             server.resumeAccepts();
             try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnio.connectSsl(new InetSocketAddress
+                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnioSsl.connectSsl(new InetSocketAddress
                         (Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
                         connectionChannelThread, clientReadChannelThread, clientWriteChannelThread,
-                        new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, threadFactory), null,
-                        OptionMap.EMPTY, bufferPool);
+                        new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, problems), null,
+                        OptionMap.EMPTY);
                 final ConnectedStreamChannel channel = ioFuture.get();
                 try {
                     body.run();
@@ -152,7 +153,7 @@ public final class NioSslTcpTestCase {
 
     @Test
     public void testClientTcpClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testClientTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -217,12 +218,12 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     @Test
     public void testServerTcpClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testServerTcpClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -287,12 +288,12 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     @Ignore @Test
     public void testTwoWayTransfer() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testTwoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
@@ -430,12 +431,12 @@ public final class NioSslTcpTestCase {
         });
         assertEquals(serverSent.get(), clientReceived.get());
         assertEquals(clientSent.get(), serverReceived.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     @Test
     public void testClientTcpNastyClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testClientTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -494,12 +495,12 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 
     @Test
     public void testServerTcpNastyClose() throws Exception {
-        threadFactory.clear();
+        problems.clear();
         log.info("Test: testServerTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -571,6 +572,6 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        threadFactory.await();
+        checkProblems();
     }
 }

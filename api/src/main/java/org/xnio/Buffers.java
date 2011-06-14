@@ -702,8 +702,9 @@ public final class Buffers {
      * @param buffer the buffer to set
      * @param cnt the distance to skip
      * @return the buffer instance
+     * @throws BufferUnderflowException if there are fewer than {@code cnt} bytes remaining
      */
-    public static <T extends Buffer> T skip(T buffer, int cnt) {
+    public static <T extends Buffer> T skip(T buffer, int cnt) throws BufferUnderflowException {
         if (cnt < 0) {
             throw new IllegalArgumentException();
         }
@@ -712,6 +713,62 @@ public final class Buffers {
         }
         buffer.position(buffer.position() + cnt);
         return buffer;
+    }
+
+    /**
+     * Attempt to advance a buffer's position relative to its current position.
+     *
+     * @see Buffer#position(int)
+     * @param buffer the buffer to set
+     * @param cnt the distance to skip
+     * @return the actual number of bytes skipped
+     */
+    public static int trySkip(Buffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException();
+        }
+        final int rem = buffer.remaining();
+        if (cnt > rem) {
+            cnt = rem;
+        }
+        buffer.position(buffer.position() + cnt);
+        return cnt;
+    }
+
+    /**
+     * Attempt to advance a series of buffers' overall position relative to its current position.
+     *
+     * @see Buffer#position(int)
+     * @param buffers the buffers to set
+     * @param offs the offset into the buffers array
+     * @param len the number of buffers to consider
+     * @param cnt the distance to skip
+     * @return the actual number of bytes skipped
+     */
+    public static long trySkip(Buffer[] buffers, int offs, int len, long cnt) {
+        if (cnt < 0L) {
+            throw new IllegalArgumentException();
+        }
+        if (len < 0) {
+            throw new IllegalArgumentException();
+        }
+        if (offs < 0 || offs > buffers.length || offs + len > buffers.length) {
+            throw new IllegalArgumentException();
+        }
+        long c = 0L;
+        for (int i = 0; i < len; i ++) {
+            final Buffer buffer = buffers[offs + i];
+            final int rem = buffer.remaining();
+            if (rem < cnt) {
+                buffer.position(buffer.position() + rem);
+                cnt -= (long) rem;
+                c += (long) rem;
+            } else {
+                buffer.position(buffer.position() + (int) cnt);
+                return c - cnt;
+            }
+        }
+        return c;
     }
 
     /**
@@ -1790,6 +1847,35 @@ public final class Buffers {
             buffer.put('\0');
         }
         buffer.clear();
+    }
+
+    /**
+     * Determine whether the given buffers list is comprised solely of direct buffers or solely of heap buffers.
+     *
+     * @param buffers the buffers
+     * @return {@code true} if all the buffers are direct, {@code false} if they are all heap buffers
+     * @throws IllegalArgumentException if both direct and heap buffers were found, or if a buffer is {@code null}
+     */
+    public static boolean isDirect(Buffer... buffers) throws IllegalArgumentException {
+        boolean foundDirect = false;
+        boolean foundHeap = false;
+        if (buffers != null) for (Buffer buffer : buffers) {
+            if (buffer == null) {
+                throw new IllegalArgumentException("buffer is null");
+            }
+            if (buffer.isDirect()) {
+                if (foundHeap) {
+                    throw new IllegalArgumentException("Mixed direct and heap buffers");
+                }
+                foundDirect = true;
+            } else {
+                if (foundDirect) {
+                    throw new IllegalArgumentException("Mixed direct and heap buffers");
+                }
+                foundHeap = true;
+            }
+        }
+        return foundDirect;
     }
 
     private static class SecureByteBufferPool implements Pool<ByteBuffer> {
