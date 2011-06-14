@@ -119,6 +119,39 @@ public final class ChannelThreadPools {
         return pool;
     }
 
+    /**
+     * Create write threads and add them to a pool.  If thread creation fails, then all the added threads will be
+     * shut down before the method returns.
+     *
+     * @param xnio the XNIO provider from which the threads should be created
+     * @param pool the thread pool to add to
+     * @param threadGroup the thread group for newly created threads
+     * @param count the number of threads to create
+     * @param optionMap the option map to apply to the created threads
+     * @return the passed-in thread pool
+     * @throws IOException if creation of a thread fails
+     */
+    public static ChannelThreadPool<WriteChannelThread> addWriteThreadsToPool(Xnio xnio, ChannelThreadPool<WriteChannelThread> pool, ThreadGroup threadGroup, int count, OptionMap optionMap) throws IOException {
+        boolean ok = false;
+        final List<WriteChannelThread> threads = new ArrayList<WriteChannelThread>(count);
+        try {
+            for (int i = 0; i < count; i ++) {
+                final WriteChannelThread thread = xnio.createWriteChannelThread(threadGroup, optionMap);
+                threads.add(thread);
+            }
+        } finally {
+            if (! ok) {
+                for (WriteChannelThread thread : threads) {
+                    thread.shutdown();
+                }
+            }
+        }
+        for (WriteChannelThread thread : threads) {
+            pool.addToPool(thread);
+        }
+        return pool;
+    }
+
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
         private final Set<T> threadSet = new HashSet<T>();
 
