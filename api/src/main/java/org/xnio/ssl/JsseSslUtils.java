@@ -22,7 +22,9 @@
 
 package org.xnio.ssl;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
+import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.util.ArrayList;
@@ -35,8 +37,10 @@ import org.xnio.Options;
 import org.xnio.Sequence;
 import org.xnio.SslClientAuthMode;
 
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.TrustManager;
 
 /**
  * Utility methods for creating JSSE constructs and configuring them via XNIO option maps.
@@ -55,19 +59,58 @@ public final class JsseSslUtils {
      * @return a new context
      * @throws NoSuchProviderException if there is no matching provider
      * @throws NoSuchAlgorithmException if there is no matching algorithm
+     * @throws KeyManagementException if the context initialization fails
      */
-    public static SSLContext createSSLContext(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public static SSLContext createSSLContext(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, KeyManagementException {
         final String provider = optionMap.get(Options.SSL_PROVIDER);
         final String protocol = optionMap.get(Options.SSL_PROTOCOL);
         final SSLContext sslContext;
         if (protocol == null) {
-            sslContext = SSLContext.getDefault();
+            // Default context is initialized automatically
+            return SSLContext.getDefault();
         } else if (provider == null) {
             sslContext = SSLContext.getInstance(protocol);
         } else {
             sslContext = SSLContext.getInstance(protocol, provider);
         }
+        final Sequence<Class<? extends KeyManager>> keyManagerClasses = optionMap.get(Options.SSL_JSSE_KEY_MANAGER_CLASSES);
+        final Sequence<Class<? extends TrustManager>> trustManagerClasses = optionMap.get(Options.SSL_JSSE_TRUST_MANAGER_CLASSES);
+        final KeyManager[] keyManagers;
+        final TrustManager[] trustManagers;
+        if (keyManagerClasses == null) {
+            keyManagers = null;
+        } else {
+            final int size = keyManagerClasses.size();
+            keyManagers = new KeyManager[size];
+            for (int i = 0; i < size; i ++) {
+                keyManagers[i] = instantiate(keyManagerClasses.get(i));
+            }
+        }
+        if (trustManagerClasses == null) {
+            trustManagers = null;
+        } else {
+            final int size = trustManagerClasses.size();
+            trustManagers = new TrustManager[size];
+            for (int i = 0; i < size; i ++) {
+                trustManagers[i] = instantiate(trustManagerClasses.get(i));
+            }
+        }
+        sslContext.init(keyManagers, trustManagers, null);
         return sslContext;
+    }
+
+    private static <T> T instantiate(Class<T> clazz) {
+        try {
+            return clazz.getConstructor().newInstance();
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
+        } catch (InvocationTargetException e) {
+            throw new IllegalArgumentException("Cannot instantiate " + clazz, e.getCause());
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
+        }
     }
 
     /**

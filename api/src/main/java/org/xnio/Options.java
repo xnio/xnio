@@ -230,14 +230,14 @@ public final class Options {
      *
      * @since 3.0
      */
-    public static final Option<Sequence<Class<? extends KeyManager>>> SSL_JSSE_KEY_MANAGER = Option.typeSequence(Options.class, "SSL_JSSE_KEY_MANAGER", KeyManager.class);
+    public static final Option<Sequence<Class<? extends KeyManager>>> SSL_JSSE_KEY_MANAGER_CLASSES = Option.typeSequence(Options.class, "SSL_JSSE_KEY_MANAGER_CLASSES", KeyManager.class);
 
     /**
      * The possible trust store classes to use for a JSSE SSL context.
      *
      * @since 3.0
      */
-    public static final Option<Sequence<Class<? extends TrustManager>>> SSL_JSSE_TRUST_MANAGER = Option.typeSequence(Options.class, "SSL_JSSE_TRUST_MANAGER", TrustManager.class);
+    public static final Option<Sequence<Class<? extends TrustManager>>> SSL_JSSE_TRUST_MANAGER_CLASSES = Option.typeSequence(Options.class, "SSL_JSSE_TRUST_MANAGER_CLASSES", TrustManager.class);
 
     /**
      * The configuration of a secure RNG for SSL usage.
@@ -273,6 +273,13 @@ public final class Options {
      * @since 3.0
      */
     public static final Option<Integer> SSL_APPLICATION_BUFFER_REGION_SIZE = Option.simple(Options.class, "SSL_APPLICATION_BUFFER_REGION_SIZE", Integer.class);
+
+    /**
+     * Specify whether to use STARTTLS mode (in which a connection starts clear and switches to TLS on demand).
+     *
+     * @since 3.0
+     */
+    public static final Option<Boolean> SSL_STARTTLS = Option.simple(Options.class, "SSL_STARTTLS", Boolean.class);
 
     /**
      * Specify whether direct buffers should be used for socket communications.

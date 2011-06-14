@@ -54,7 +54,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
         }
     }
 
-    private static final Sequence EMPTY = new Sequence(empty);
+    private static final Sequence<?> EMPTY = new Sequence(empty);
 
     /**
      * Return a sequence of the given members.

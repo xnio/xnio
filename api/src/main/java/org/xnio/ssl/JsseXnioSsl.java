@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import org.xnio.BufferAllocator;
@@ -68,8 +69,9 @@ public final class JsseXnioSsl extends XnioSsl {
      * @param optionMap the options for this provider
      * @throws NoSuchProviderException if the given SSL provider is not found
      * @throws NoSuchAlgorithmException if the given SSL algorithm is not supported
+     * @throws KeyManagementException if the SSL context could not be initialized
      */
-    public JsseXnioSsl(final Xnio xnio, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public JsseXnioSsl(final Xnio xnio, final OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, KeyManagementException {
         super(xnio, optionMap);
         sslContext = JsseSslUtils.createSSLContext(optionMap);
         sslContext.getClientSessionContext().setSessionCacheSize(optionMap.get(Options.SSL_CLIENT_SESSION_CACHE_SIZE, 0));

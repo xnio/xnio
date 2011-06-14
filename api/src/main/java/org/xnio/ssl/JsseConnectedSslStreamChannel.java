@@ -96,16 +96,30 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         this.propagateClose = propagateClose;
         final SSLSession session = engine.getSession();
         final int packetBufferSize = session.getPacketBufferSize();
+        boolean ok = false;
         receiveBuffer = socketBufferPool.allocate();
-        receiveBuffer.getResource().flip();
-        sendBuffer = socketBufferPool.allocate();
-        if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
-            throw new IllegalArgumentException("Socket buffer is too small (" + receiveBuffer.getResource().capacity() + "). Expected capacity is " + packetBufferSize);
-        }
-        final int applicationBufferSize = session.getApplicationBufferSize();
-        readBuffer = applicationBufferPool.allocate();
-        if (readBuffer.getResource().capacity() < applicationBufferSize) {
-            throw new IllegalArgumentException("Application buffer is too small");
+        try {
+            receiveBuffer.getResource().flip();
+            sendBuffer = socketBufferPool.allocate();
+            try {
+                if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
+                    throw new IllegalArgumentException("Socket buffer is too small (" + receiveBuffer.getResource().capacity() + "). Expected capacity is " + packetBufferSize);
+                }
+                final int applicationBufferSize = session.getApplicationBufferSize();
+                readBuffer = applicationBufferPool.allocate();
+                try {
+                    if (readBuffer.getResource().capacity() < applicationBufferSize) {
+                        throw new IllegalArgumentException("Application buffer is too small");
+                    }
+                    ok = true;
+                } finally {
+                    if (! ok) readBuffer.free();
+                }
+            } finally {
+                if (! ok) sendBuffer.free();
+            }
+        } finally {
+            if (! ok) receiveBuffer.free();
         }
     }
 
@@ -138,8 +152,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     public int write(final ByteBuffer src) throws IOException {
         return (int) write(new ByteBuffer[]{src}, 0, 1);
     }
-
-
 
     @Override
     public long write(final ByteBuffer[] srcs) throws IOException {
@@ -205,7 +217,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                         break;
                     }
                     default: {
-                            throw new IllegalStateException("Unexpected wrap result status: " + result.getStatus()); 
+                        throw new IllegalStateException("Unexpected wrap result status: " + result.getStatus());
                     }
                 }
             }
@@ -316,7 +328,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 switch (result.getStatus()) {
                     case BUFFER_OVERFLOW: {
                         if (unwrappedBuffer.position() > 0) {
-                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
+                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
                         }
                         // read buffer too small!  dynamically resize & repeat...
                         final int appBufSize = engine.getSession().getApplicationBufferSize();
@@ -347,7 +359,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                             }
                             // continue
                         } else if (rres == 0) {
-                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
+                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
                         }
                         // else some data was received, so continue
                         continue;
@@ -358,7 +370,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                                 suspendReads();
                                 return -1;
                             }
-                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
+                            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
                         }
                     }
                     case OK:
@@ -370,11 +382,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             unwrap = handleHandshake(result, false);
         }
         synchronized (getReadLock()) {
-            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer, bytesProduced);
+            return copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
         }
     }
 
-    private int copyUnwrappedData(final ByteBuffer[] dsts, final int offset, final int length, ByteBuffer unwrappedBuffer, int bytesProduced) {
+    private int copyUnwrappedData(final ByteBuffer[] dsts, final int offset, final int length, ByteBuffer unwrappedBuffer) {
         unwrappedBuffer.flip();
         try {
             return Buffers.copy(dsts, offset, length, unwrappedBuffer);

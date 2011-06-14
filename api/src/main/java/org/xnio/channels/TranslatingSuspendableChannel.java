@@ -141,6 +141,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      */
     @SuppressWarnings("unchecked")
     protected TranslatingSuspendableChannel(final W channel) {
+        if (channel == null) {
+            throw new IllegalArgumentException("channel is null");
+        }
         this.channel = channel;
         final ChannelListener.Setter<? extends W> readSetter = (ChannelListener.Setter<? extends W>) channel.getReadSetter();
         readSetter.set(readListener);
