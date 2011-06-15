@@ -152,6 +152,19 @@ public final class ChannelThreadPools {
         return pool;
     }
 
+    /**
+     * Shut down a whole thread pool.
+     *
+     * @param pool the thread pool
+     * @see ChannelThread#shutdown()
+     */
+    public static void shutdown(final ChannelThreadPool<?> pool) {
+        ChannelThread thread;
+        while ((thread = pool.getThread()) != null) {
+            thread.shutdown();
+        }
+    }
+
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
         private final Set<T> threadSet = new HashSet<T>();
 
