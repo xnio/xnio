@@ -39,6 +39,6 @@ final class NioWriteChannelThread extends AbstractNioChannelThread implements Wr
     }
 
     protected String generateName() {
-        return String.format("XNIO NIO Read %d", Integer.valueOf(seq.getAndIncrement()));
+        return String.format("XNIO NIO Write %d", Integer.valueOf(seq.getAndIncrement()));
     }
 }
