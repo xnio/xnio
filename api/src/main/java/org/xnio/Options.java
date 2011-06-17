@@ -118,6 +118,14 @@ public final class Options {
     public static final Option<Integer> MAX_OUTBOUND_MESSAGE_SIZE = Option.simple(Options.class, "MAX_OUTBOUND_MESSAGE_SIZE", Integer.class);
 
     /**
+     * Specify whether SSL should be enabled.  If specified in conjunction with {@link #SSL_STARTTLS} then SSL will not
+     * be negotiated until {@link org.xnio.channels.SslChannel#startHandshake()} is called.
+     *
+     * @since 3.0
+     */
+    public static final Option<Boolean> SSL_ENABLED = Option.simple(Options.class, "SSL_ENABLED", Boolean.class);
+
+    /**
      * Specify the SSL client authentication mode.
      *
      * @since 2.0
