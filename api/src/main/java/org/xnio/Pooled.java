@@ -25,6 +25,7 @@ package org.xnio;
 /**
  * A resource which is pooled.
  *
+ * @param <T> the pooled resource type
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface Pooled<T> {

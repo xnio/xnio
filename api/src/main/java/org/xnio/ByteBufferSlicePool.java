@@ -140,6 +140,10 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             discard();
             super.finalize();
         }
+
+        public String toString() {
+            return "Pooled buffer " + buffer;
+        }
     }
 
     private final class Slice {

@@ -26,6 +26,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import org.jboss.logging.Logger;
 import org.xnio.Buffers;
 import org.xnio.Pooled;
 
@@ -36,6 +37,8 @@ import org.xnio.Pooled;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public class FramedMessageChannel extends TranslatingSuspendableChannel<ConnectedMessageChannel, ConnectedStreamChannel> implements ConnectedMessageChannel {
+
+    private static final Logger log = Logger.getLogger("org.xnio.channels.framed");
 
     private final Pooled<ByteBuffer> receiveBuffer;
     private final Pooled<ByteBuffer> transmitBuffer;
@@ -53,6 +56,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         super(channel);
         this.receiveBuffer = Buffers.pooledWrapper(receiveBuffer);
         this.transmitBuffer = Buffers.pooledWrapper(transmitBuffer);
+        log.tracef("Created new framed message channel around %s, receive buffer %s, transmit buffer %s", channel, receiveBuffer, transmitBuffer);
     }
 
     /**
@@ -66,6 +70,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         super(channel);
         this.receiveBuffer = receiveBuffer;
         this.transmitBuffer = transmitBuffer;
+        log.tracef("Created new framed message channel around %s, receive buffer %s, transmit buffer %s", channel, receiveBuffer, transmitBuffer);
     }
 
     /** {@inheritDoc} */

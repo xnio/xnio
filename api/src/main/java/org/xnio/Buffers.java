@@ -1760,6 +1760,10 @@ public final class Buffers {
                 }
                 return buffer;
             }
+
+            public String toString() {
+                return "Pooled wrapper around " + buffer;
+            }
         };
     }
 
@@ -1920,6 +1924,10 @@ public final class Buffers {
         public ByteBuffer getResource() throws IllegalStateException {
             // trust the delegate to handle illegal state since we can't do it securely by ourselves
             return allocated.getResource();
+        }
+
+        public String toString() {
+            return "Secure wrapper around " + allocated;
         }
     }
 }
