@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import org.jboss.logging.Logger;
 
 /**
  * Utility methods for channel thread pools.
@@ -121,6 +122,7 @@ public final class ChannelThreadPools {
                 final ReadChannelThread thread = xnio.createReadChannelThread(threadGroup, optionMap);
                 threads.add(thread);
             }
+            ok = true;
         } finally {
             if (! ok) {
                 for (ReadChannelThread thread : threads) {
@@ -169,6 +171,7 @@ public final class ChannelThreadPools {
                 final WriteChannelThread thread = xnio.createWriteChannelThread(threadGroup, optionMap);
                 threads.add(thread);
             }
+            ok = true;
         } finally {
             if (! ok) {
                 for (WriteChannelThread thread : threads) {
@@ -195,6 +198,8 @@ public final class ChannelThreadPools {
         }
     }
 
+    private static final Logger poolLog = Logger.getLogger("org.xnio.thread-pools");
+
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
         private final Set<T> threadSet = new HashSet<T>();
 
@@ -218,6 +223,7 @@ public final class ChannelThreadPools {
         volatile T[] pool = (T[]) NO_THREADS;
 
         public void addToPool(final T thread) {
+            poolLog.tracef("Adding thread %s to pool %s", thread, this);
             final Set<T> threadSet = this.threadSet;
             synchronized (threadSet) {
                 if (threadSet.add(thread)) {
@@ -266,7 +272,9 @@ public final class ChannelThreadPools {
                     bestIdx = i;
                 }
             }
-            return pool[bestIdx];
+            final T thread = pool[bestIdx];
+            poolLog.tracef("Returning thread %s from pool %s", thread, this);
+            return thread;
         }
     }
 
@@ -288,7 +296,9 @@ public final class ChannelThreadPools {
             if (len == 0) {
                 return null;
             }
-            return pool[random.nextInt(len)];
+            final T thread = pool[random.nextInt(len)];
+            poolLog.tracef("Returning thread %s from pool %s", thread, this);
+            return thread;
         }
     }
 
@@ -301,6 +311,7 @@ public final class ChannelThreadPools {
         }
 
         public T getThread() {
+            poolLog.tracef("Returning thread %s from pool %s", thread, this);
             return thread;
         }
 

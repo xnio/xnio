@@ -80,24 +80,28 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     // Suspend/resume
 
     public final void suspendReads() {
+        Log.log.tracef("Suspend reads on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.suspend();
     }
 
     public final void resumeReads() {
+        Log.log.tracef("Resume reads on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
         if (readHandle != null) readHandle.resume(SelectionKey.OP_READ);
     }
 
     public final void suspendWrites() {
+        Log.log.tracef("Suspend writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(0);
     }
 
     public final void resumeWrites() {
+        Log.log.tracef("Resume writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(SelectionKey.OP_WRITE);

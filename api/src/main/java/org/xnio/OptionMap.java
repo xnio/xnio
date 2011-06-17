@@ -203,6 +203,21 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         return new OptionMap(map);
     }
 
+    public String toString() {
+        final StringBuilder builder = new StringBuilder();
+        builder.append('{');
+        final Iterator<Map.Entry<Option<?>, Object>> iterator = value.entrySet().iterator();
+        while (iterator.hasNext()) {
+            final Map.Entry<Option<?>, Object> entry = iterator.next();
+            builder.append(entry.getKey()).append("=>").append(entry.getValue());
+            if (iterator.hasNext()) {
+                builder.append(',');
+            }
+        }
+        builder.append('}');
+        return builder.toString();
+    }
+
     /**
      * A builder for immutable option maps.  Create an instance with the {@link OptionMap#builder()} method.
      */

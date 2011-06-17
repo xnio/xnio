@@ -85,7 +85,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             final int buffersPerRegion = this.buffersPerRegion;
             final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
             int idx = bufferSize;
-            for (int i = 1; i <= buffersPerRegion; i ++) {
+            for (int i = 1; i < buffersPerRegion; i ++) {
                 sliceQueue.add(new Slice(region, idx, bufferSize));
                 idx += bufferSize;
             }

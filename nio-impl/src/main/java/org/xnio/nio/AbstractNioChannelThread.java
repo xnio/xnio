@@ -30,13 +30,12 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.logging.Logger;
 import org.xnio.AbstractChannelThread;
 import org.xnio.IoUtils;
@@ -113,6 +112,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
                         synchronized (lock) {
                             if ((keyLoad = selector.keys().size()) == 0 && workQueue.isEmpty() && delayQueue.isEmpty()) {
                                 // no keys or tasks left, shut down
+                                Log.log.tracef("Shutting down channel thread \"%s\"", AbstractNioChannelThread.this);
                                 return;
                             }
                         }
@@ -120,21 +120,27 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
                     // perform select
                     try {
                         if (delayTime == Long.MAX_VALUE) {
+                            Log.log.tracef("Beginning select on %s", selector);
                             selector.select();
                         } else {
                             final long millis = 1L + delayTime / 1000000L;
+                            Log.log.tracef("Beginning select on %s (with timeout)", selector);
                             selector.select(millis);
                         }
                     } catch (IOException e) {
                         log.warnf("Received an I/O error on selection: %s", e);
                         // hopefully transient; should never happen
                     }
+                    Log.log.tracef("Selected on %s", selector);
                     // iterate the ready key set
                     selectedKeys = selector.selectedKeys();
-                    keyIterator = selectedKeys.iterator();
+                    // copy so that handlers can safely cancel keys
+                    keyIterator = new ArrayList<SelectionKey>(selectedKeys).iterator();
                     while (keyIterator.hasNext()) {
-                        ((NioHandle<?>) keyIterator.next().attachment()).invoke();
-                        keyIterator.remove();
+                        final SelectionKey key = keyIterator.next();
+                        Log.log.tracef("Selected key %s", key);
+                        ((NioHandle<?>) key.attachment()).invoke();
+                        selectedKeys.remove(key);
                     }
                     // all selected keys invoked; loop back to run tasks
                 }
@@ -147,6 +153,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
 
     private static void safeRun(final Selector selector, final SelectorTask task) {
         try {
+            log.tracef("Running selector task %s on %s", task, selector);
             task.run(selector);
         } catch (Throwable t) {
             log.error("Task failed on channel thread", t);
@@ -155,6 +162,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
 
     private static void safeRun(final Runnable command) {
         try {
+            log.tracef("Running task %s", command);
             command.run();
         } catch (Throwable t) {
             log.error("Task failed on channel thread", t);
@@ -177,6 +185,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         thread.setUncaughtExceptionHandler(HANDLER);
         this.thread = thread;
         selector = Selector.open();
+        log.tracef("Creating channel thread '%s', selector %s", this, selector);
     }
 
     protected abstract String generateName();
@@ -278,10 +287,17 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
 
     void cancelKey(final SelectionKey key) {
         if (thread == Thread.currentThread()) {
+            log.tracef("Cancelling key %s of %s from same thread", key, key.channel());
             key.cancel();
+            try {
+                selector.selectNow();
+            } catch (IOException e) {
+                log.warnf("Received an I/O error on selection: %s", e);
+            }
         } else {
             queueTask(new SelectorTask() {
                 public void run(final Selector selector) {
+                    log.tracef("Cancelling key %s of %s from queue", key, key.channel());
                     key.cancel();
                     try {
                         selector.selectNow();
@@ -290,6 +306,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
                     }
                 }
             });
+            log.tracef("Enqueued cancellation of key '%s'", key);
             selector.wakeup();
         }
     }
@@ -307,6 +324,10 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
             });
             selector.wakeup();
         }
+    }
+
+    public String toString() {
+        return String.format("Channel thread \"%s\"", thread.getName());
     }
 
     final class TimeKey implements Key {

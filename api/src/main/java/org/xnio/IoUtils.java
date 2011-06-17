@@ -130,6 +130,7 @@ public final class IoUtils {
     public static void safeClose(final Closeable resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -145,6 +146,7 @@ public final class IoUtils {
     public static void safeClose(final Socket resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -160,6 +162,7 @@ public final class IoUtils {
     public static void safeClose(final DatagramSocket resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -175,6 +178,7 @@ public final class IoUtils {
     public static void safeClose(final Selector resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -190,6 +194,7 @@ public final class IoUtils {
     public static void safeClose(final ServerSocket resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -205,6 +210,7 @@ public final class IoUtils {
     public static void safeClose(final ZipFile resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
@@ -220,6 +226,7 @@ public final class IoUtils {
     public static void safeClose(final Handler resource) {
         try {
             if (resource != null) {
+                closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
         } catch (Throwable t) {
