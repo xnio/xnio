@@ -113,6 +113,10 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             receiveBuffer.flip();
             try {
                 final int length = receiveBuffer.getInt();
+                if (length < 0 || length > receiveBuffer.capacity() - 4) {
+                    Buffers.unget(receiveBuffer, 4);
+                    throw new IOException("Received an invalid message length of " + length);
+                }
                 if (receiveBuffer.remaining() < length) {
                     if (res == -1) {
                         receiveBuffer.clear();
