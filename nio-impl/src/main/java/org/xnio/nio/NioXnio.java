@@ -168,7 +168,7 @@ final class NioXnio extends Xnio {
     }
 
     /** {@inheritDoc} */
-    protected IoFuture<ConnectedStreamChannel> connectTcp(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> connectStreamTcp(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         try {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
@@ -227,7 +227,7 @@ final class NioXnio extends Xnio {
         }
     }
 
-    protected IoFuture<ConnectedStreamChannel> acceptTcp(final InetSocketAddress destination, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> acceptStreamTcp(final InetSocketAddress destination, final ConnectionChannelThread thread, final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         try {
             final ServerSocketChannel channel = ServerSocketChannel.open();
             channel.configureBlocking(false);

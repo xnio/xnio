@@ -25,6 +25,7 @@ package org.xnio.sasl;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import org.xnio.Buffers;
 import org.xnio.Option;
@@ -231,27 +232,27 @@ public final class SaslUtils {
      * Create a SASL property map from an XNIO option map.
      *
      * @param optionMap the option map
+     * @param secure {@code true} if the channel is secure, {@code false} otherwise
      * @return the property map
      */
-    public static Map<String, Object> createPropertyMap(OptionMap optionMap) {
+    public static Map<String, Object> createPropertyMap(final OptionMap optionMap, final boolean secure) {
         final Map<String,Object> propertyMap = new HashMap<String, Object>();
-
-        add(optionMap, Options.SASL_POLICY_FORWARD_SECRECY, propertyMap, Sasl.POLICY_FORWARD_SECRECY);
-        add(optionMap, Options.SASL_POLICY_NOACTIVE, propertyMap, Sasl.POLICY_NOACTIVE);
-        add(optionMap, Options.SASL_POLICY_NOANONYMOUS, propertyMap, Sasl.POLICY_NOANONYMOUS);
-        add(optionMap, Options.SASL_POLICY_NODICTIONARY, propertyMap, Sasl.POLICY_NODICTIONARY);
-        add(optionMap, Options.SASL_POLICY_NOPLAINTEXT, propertyMap, Sasl.POLICY_NOPLAINTEXT);
-        add(optionMap, Options.SASL_POLICY_PASS_CREDENTIALS, propertyMap, Sasl.POLICY_PASS_CREDENTIALS);
-        add(optionMap, Options.SASL_REUSE, propertyMap, Sasl.REUSE);
-        add(optionMap, Options.SASL_SERVER_AUTH, propertyMap, Sasl.SERVER_AUTH);
+        add(optionMap, Options.SASL_POLICY_FORWARD_SECRECY, propertyMap, Sasl.POLICY_FORWARD_SECRECY, null);
+        add(optionMap, Options.SASL_POLICY_NOACTIVE, propertyMap, Sasl.POLICY_NOACTIVE, null);
+        add(optionMap, Options.SASL_POLICY_NOANONYMOUS, propertyMap, Sasl.POLICY_NOANONYMOUS, Boolean.TRUE);
+        add(optionMap, Options.SASL_POLICY_NODICTIONARY, propertyMap, Sasl.POLICY_NODICTIONARY, Boolean.valueOf(!secure));
+        add(optionMap, Options.SASL_POLICY_NOPLAINTEXT, propertyMap, Sasl.POLICY_NOPLAINTEXT, Boolean.valueOf(! secure));
+        add(optionMap, Options.SASL_POLICY_PASS_CREDENTIALS, propertyMap, Sasl.POLICY_PASS_CREDENTIALS, null);
+        add(optionMap, Options.SASL_REUSE, propertyMap, Sasl.REUSE, null);
+        add(optionMap, Options.SASL_SERVER_AUTH, propertyMap, Sasl.SERVER_AUTH, null);
         addQopList(optionMap, Options.SASL_QOP, propertyMap, Sasl.QOP);
-        add(optionMap, Options.SASL_STRENGTH, propertyMap, Sasl.STRENGTH);
+        add(optionMap, Options.SASL_STRENGTH, propertyMap, Sasl.STRENGTH, null);
         return propertyMap;
     }
 
-    private static void add(OptionMap optionMap, Option<?> option, Map<String, Object> map, String propName) {
-        final Object value = optionMap.get(option);
-        if (value != null) map.put(propName, value.toString().toLowerCase());
+    private static <T> void add(OptionMap optionMap, Option<T> option, Map<String, Object> map, String propName, T defaultVal) {
+        final Object value = optionMap.get(option, defaultVal);
+        if (value != null) map.put(propName, value.toString().toLowerCase(Locale.US));
     }
 
     private static void addQopList(OptionMap optionMap, Option<Sequence<SaslQop>> option, Map<String, Object> map, String propName) {

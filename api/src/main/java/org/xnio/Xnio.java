@@ -271,6 +271,34 @@ public abstract class Xnio {
     /**
      * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
      *
+     * @param destination the destination address
+     * @param thread the connection channel thread to use for this connection
+     * @param readThread the initial read channel thread to use for this connection, or {@code null} for none
+     * @param writeThread the initial write channel thread to use for this connection, or {@code null} for none
+     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
+     * @param optionMap the option map    @return the future result of this operation
+     * @return the future result of this operation
+     *
+     * @since 3.0
+     */
+    public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, OptionMap optionMap) {
+        if (thread == null) {
+            throw new IllegalArgumentException("thread is null");
+        }
+        if (destination == null) {
+            throw new IllegalArgumentException("destination is null");
+        }
+        if (destination instanceof InetSocketAddress) {
+            return connectStreamTcp(ANY_INET_ADDRESS, (InetSocketAddress) destination, thread, readThread, writeThread, openListener, null, optionMap);
+        } else if (destination instanceof LocalSocketAddress) {
+            return connectStreamLocal(ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, thread, readThread, writeThread, openListener, null, optionMap);
+        } else {
+            throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
+        }
+    }
+
+    /**
+     * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
      *
      * @param destination the destination address
      * @param thread the connection channel thread to use for this connection
@@ -291,7 +319,7 @@ public abstract class Xnio {
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return connectTcp(ANY_INET_ADDRESS, (InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
+            return connectStreamTcp(ANY_INET_ADDRESS, (InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectStreamLocal(ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else {
@@ -329,7 +357,7 @@ public abstract class Xnio {
             throw new IllegalArgumentException("Bind address " + bindAddress.getClass() + " is not the same type as destination address " + destination.getClass());
         }
         if (destination instanceof InetSocketAddress) {
-            return connectTcp((InetSocketAddress) bindAddress, (InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
+            return connectStreamTcp((InetSocketAddress) bindAddress, (InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectStreamLocal((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else {
@@ -339,7 +367,6 @@ public abstract class Xnio {
 
     /**
      * Implementation helper method to connect to a TCP server.
-     *
      *
      * @param bindAddress the bind address
      * @param destinationAddress the destination address
@@ -354,7 +381,7 @@ public abstract class Xnio {
      * @since 3.0
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<ConnectedStreamChannel> connectTcp(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> connectStreamTcp(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to TCP server");
     }
 
@@ -424,7 +451,7 @@ public abstract class Xnio {
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return acceptTcp((InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
+            return acceptStreamTcp((InetSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return acceptStreamLocal((LocalSocketAddress) destination, thread, readThread, writeThread, openListener, bindListener, optionMap);
         } else {
@@ -464,7 +491,7 @@ public abstract class Xnio {
      * @return the future connection
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<ConnectedStreamChannel> acceptTcp(InetSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedStreamChannel> acceptStreamTcp(InetSocketAddress destination, ConnectionChannelThread thread, ReadChannelThread readThread, WriteChannelThread writeThread, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOptionException("Accept a TCP connection");
     }
 
@@ -510,7 +537,7 @@ public abstract class Xnio {
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return connectUdp(ANY_INET_ADDRESS, (InetSocketAddress) destination, thread, openListener, bindListener, optionMap);
+            return connectDatagramUdp(ANY_INET_ADDRESS, (InetSocketAddress) destination, thread, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectDatagramLocal(ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, thread, openListener, bindListener, optionMap);
         } else {
@@ -544,7 +571,7 @@ public abstract class Xnio {
             throw new IllegalArgumentException("Bind address " + bindAddress.getClass() + " is not the same type as destination address " + destination.getClass());
         }
         if (destination instanceof InetSocketAddress) {
-            return connectUdp((InetSocketAddress) bindAddress, (InetSocketAddress) destination, thread, openListener, bindListener, optionMap);
+            return connectDatagramUdp((InetSocketAddress) bindAddress, (InetSocketAddress) destination, thread, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectDatagramLocal((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, thread, openListener, bindListener, optionMap);
         } else {
@@ -564,7 +591,7 @@ public abstract class Xnio {
      * @return the future result of this operation
      */
     @SuppressWarnings({ "unused" })
-    protected IoFuture<ConnectedMessageChannel> connectUdp(InetSocketAddress bindAddress, InetSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+    protected IoFuture<ConnectedMessageChannel> connectDatagramUdp(InetSocketAddress bindAddress, InetSocketAddress destination, ConnectionChannelThread thread, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Connect to UDP server");
     }
 

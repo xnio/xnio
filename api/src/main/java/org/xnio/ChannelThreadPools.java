@@ -92,6 +92,21 @@ public final class ChannelThreadPools {
      *
      * @param xnio the XNIO provider from which the threads should be created
      * @param pool the thread pool to add to
+     * @param count the number of threads to create
+     * @param optionMap the option map to apply to the created threads
+     * @return the passed-in thread pool
+     * @throws IOException if creation of a thread fails
+     */
+    public static ChannelThreadPool<ReadChannelThread> addReadThreadsToPool(Xnio xnio, ChannelThreadPool<ReadChannelThread> pool, int count, OptionMap optionMap) throws IOException {
+        return addReadThreadsToPool(xnio, pool, null, count, optionMap);
+    }
+
+    /**
+     * Create read threads and add them to a pool.  If thread creation fails, then all the added threads will be
+     * shut down before the method returns.
+     *
+     * @param xnio the XNIO provider from which the threads should be created
+     * @param pool the thread pool to add to
      * @param threadGroup the thread group for newly created threads
      * @param count the number of threads to create
      * @param optionMap the option map to apply to the created threads
@@ -117,6 +132,21 @@ public final class ChannelThreadPools {
             pool.addToPool(thread);
         }
         return pool;
+    }
+
+    /**
+     * Create write threads and add them to a pool.  If thread creation fails, then all the added threads will be
+     * shut down before the method returns.
+     *
+     * @param xnio the XNIO provider from which the threads should be created
+     * @param pool the thread pool to add to
+     * @param count the number of threads to create
+     * @param optionMap the option map to apply to the created threads
+     * @return the passed-in thread pool
+     * @throws IOException if creation of a thread fails
+     */
+    public static ChannelThreadPool<WriteChannelThread> addWriteThreadsToPool(Xnio xnio, ChannelThreadPool<WriteChannelThread> pool, int count, OptionMap optionMap) throws IOException {
+        return addWriteThreadsToPool(xnio, pool, null, count, optionMap);
     }
 
     /**

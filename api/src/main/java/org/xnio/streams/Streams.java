@@ -31,9 +31,14 @@ import java.nio.charset.UnsupportedCharsetException;
 import org.xnio.IoUtils;
 
 /**
+ * Stream utility class.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class Streams {
+
+    private Streams() {
+    }
 
     /**
      * Copy from one stream to another.

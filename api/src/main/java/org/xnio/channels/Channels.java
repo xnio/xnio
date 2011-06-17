@@ -34,6 +34,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
+import org.xnio.Option;
 import org.xnio.ReadChannelThread;
 import org.xnio.WriteChannelThread;
 
@@ -650,5 +651,78 @@ public final class Channels {
                 return original.read(dsts);
             }
         };
+    }
+
+    /**
+     * Get an option value from a configurable target.  If the method throws an exception then the default value
+     * is returned.
+     *
+     * @param configurable the configurable target
+     * @param option the option
+     * @param defaultValue the default value
+     * @param <T> the option value type
+     * @return the value
+     */
+    public static <T> T getOption(Configurable configurable, Option<T> option, T defaultValue) {
+        try {
+            final T value = configurable.getOption(option);
+            return value == null ? defaultValue : value;
+        } catch (IOException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Get an option value from a configurable target.  If the method throws an exception then the default value
+     * is returned.
+     *
+     * @param configurable the configurable target
+     * @param option the option
+     * @param defaultValue the default value
+     * @return the value
+     */
+    public static boolean getOption(Configurable configurable, Option<Boolean> option, boolean defaultValue) {
+        try {
+            final Boolean value = configurable.getOption(option);
+            return value == null ? defaultValue : value.booleanValue();
+        } catch (IOException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Get an option value from a configurable target.  If the method throws an exception then the default value
+     * is returned.
+     *
+     * @param configurable the configurable target
+     * @param option the option
+     * @param defaultValue the default value
+     * @return the value
+     */
+    public static int getOption(Configurable configurable, Option<Integer> option, int defaultValue) {
+        try {
+            final Integer value = configurable.getOption(option);
+            return value == null ? defaultValue : value.intValue();
+        } catch (IOException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Get an option value from a configurable target.  If the method throws an exception then the default value
+     * is returned.
+     *
+     * @param configurable the configurable target
+     * @param option the option
+     * @param defaultValue the default value
+     * @return the value
+     */
+    public static long getOption(Configurable configurable, Option<Long> option, long defaultValue) {
+        try {
+            final Long value = configurable.getOption(option);
+            return value == null ? defaultValue : value.longValue();
+        } catch (IOException e) {
+            return defaultValue;
+        }
     }
 }
