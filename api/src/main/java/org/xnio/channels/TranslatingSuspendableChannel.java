@@ -84,6 +84,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             } while (doReads);
         }
+
+        public String toString() {
+            return "Read listener command for " + this;
+        }
     };
     private final ChannelListener<W> readListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
@@ -96,6 +100,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 return;
             }
             ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+        }
+
+        public String toString() {
+            return "Read listener for " + TranslatingSuspendableChannel.this;
         }
     };
 
@@ -113,6 +121,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             } while (doWrites);
         }
+
+        public String toString() {
+            return "Write listener command for " + TranslatingSuspendableChannel.this;
+        }
     };
     private final ChannelListener<W> writeListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
@@ -126,11 +138,19 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
         }
+
+        public String toString() {
+            return "Write listener for " + TranslatingSuspendableChannel.this;
+        }
     };
 
     private final ChannelListener<W> closeListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
             ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        }
+
+        public String toString() {
+            return "Close listener for " + TranslatingSuspendableChannel.this;
         }
     };
 
@@ -371,4 +391,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * @return the write lock
      */
     protected abstract Object getWriteLock();
+
+    /** {@inheritDoc} */
+    public String toString() {
+        return getClass().getName() + " around " + channel;
+    }
 }

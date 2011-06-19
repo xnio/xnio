@@ -76,7 +76,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     @SuppressWarnings("unused")
     private volatile int readNeedsWrap;
 
+    /** @see #writeNeedsUnwrap */
     private static final AtomicIntegerFieldUpdater<JsseConnectedSslStreamChannel> writeNeedsUnwrapUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseConnectedSslStreamChannel.class, "writeNeedsUnwrap");
+    /** @see #readNeedsWrap */
     private static final AtomicIntegerFieldUpdater<JsseConnectedSslStreamChannel> readNeedsWrapUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseConnectedSslStreamChannel.class, "readNeedsWrap");
 
     /**
