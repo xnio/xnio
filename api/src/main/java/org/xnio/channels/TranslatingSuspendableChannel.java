@@ -91,15 +91,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     };
     private final ChannelListener<W> readListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
-            final ChannelListener<? super C> listener = readSetter.get();
-            if (listener == null) {
-                synchronized (getReadLock()) {
-                    channel.suspendReads();
-                    readsRequested = false;
-                }
-                return;
-            }
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+            handleReadable(channel);
         }
 
         public String toString() {
@@ -128,22 +120,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     };
     private final ChannelListener<W> writeListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
-            final ChannelListener<? super C> listener = writeSetter.get();
-            if (listener == null) {
-                synchronized (getWriteLock()) {
-                    channel.suspendWrites();
-                    writesRequested = false;
-                }
-                return;
-            }
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+            handleWritable(channel);
         }
 
         public String toString() {
             return "Write listener for " + TranslatingSuspendableChannel.this;
         }
     };
-
     private final ChannelListener<W> closeListener = new ChannelListener<W>() {
         public void handleEvent(final W channel) {
             ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
@@ -171,6 +154,40 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         writeSetter.set(writeListener);
         final ChannelListener.Setter<? extends W> setter = (ChannelListener.Setter<? extends W>) channel.getCloseSetter();
         setter.set(closeListener);
+    }
+
+    /**
+     * Called when the underlying channel is readable.
+     *
+     * @param channel the underlying channel
+     */
+    protected void handleReadable(final W channel) {
+        final ChannelListener<? super C> listener = readSetter.get();
+        if (listener == null) {
+            synchronized (getReadLock()) {
+                channel.suspendReads();
+                readsRequested = false;
+            }
+            return;
+        }
+        ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+    }
+
+    /**
+     * Called when the underlying channel is writable.
+     *
+     * @param channel the underlying channel
+     */
+    protected void handleWritable(final W channel) {
+        final ChannelListener<? super C> listener = writeSetter.get();
+        if (listener == null) {
+            synchronized (getWriteLock()) {
+                channel.suspendWrites();
+                writesRequested = false;
+            }
+            return;
+        }
+        ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
     }
 
     /**
@@ -212,9 +229,16 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             readsRequested = true;
             channel.resumeReads();
             if (isReadable() == Readiness.ALWAYS) {
-                getReadThread().execute(readListenerCommand);
+                scheduleReadTask();
             }
         }
+    }
+
+    /**
+     * Schedule the read listener to run even if the underlying channel isn't currently readable.
+     */
+    protected void scheduleReadTask() {
+        getReadThread().execute(readListenerCommand);
     }
 
     /** {@inheritDoc} */
@@ -231,9 +255,16 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             writesRequested = true;
             channel.resumeWrites();
             if (isWritable() == Readiness.ALWAYS) {
-                getWriteThread().execute(writeListenerCommand);
+                scheduleWriteTask();
             }
         }
+    }
+
+    /**
+     * Schedule the write listener to run even if the underlying channel isn't currently writable.
+     */
+    protected void scheduleWriteTask() {
+        getWriteThread().execute(writeListenerCommand);
     }
 
     /** {@inheritDoc} */

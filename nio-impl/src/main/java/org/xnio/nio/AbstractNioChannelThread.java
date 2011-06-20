@@ -313,7 +313,9 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
 
     void setOps(final SelectionKey key, final int ops) {
         if (thread == Thread.currentThread()) {
-            key.interestOps(ops);
+            try {
+                key.interestOps(ops);
+            } catch (CancelledKeyException ignored) {}
         } else {
             queueTask(new SelectorTask() {
                 public void run(final Selector selector) {
