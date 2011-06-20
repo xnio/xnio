@@ -32,7 +32,7 @@ import org.xnio.Pooled;
  * An {@code OutputStream} implementation which writes out {@code ByteBuffer}s to a consumer.
  */
 public class BufferPipeOutputStream extends OutputStream {
-    private final Object lock = new Object();
+
     private Pooled<ByteBuffer> buffer;
     private boolean eof;
 
@@ -48,7 +48,7 @@ public class BufferPipeOutputStream extends OutputStream {
      */
     public BufferPipeOutputStream(final BufferWriter bufferWriterTask) throws IOException {
         this.bufferWriterTask = bufferWriterTask;
-        synchronized (lock) {
+        synchronized (this) {
             buffer = bufferWriterTask.getBuffer(true);
         }
     }
@@ -58,12 +58,14 @@ public class BufferPipeOutputStream extends OutputStream {
     }
 
     private void checkClosed() throws IOException {
+        assert Thread.holdsLock(this);
         if (eof) {
             throw closed();
         }
     }
 
     private Pooled<ByteBuffer> getBuffer() throws IOException {
+        assert Thread.holdsLock(this);
         final Pooled<ByteBuffer> buffer = this.buffer;
         if (buffer != null && buffer.getResource().hasRemaining()) {
             return buffer;
@@ -97,6 +99,7 @@ public class BufferPipeOutputStream extends OutputStream {
 
     // call with lock held
     private void send() throws IOException {
+        assert Thread.holdsLock(this);
         final Pooled<ByteBuffer> pooledBuffer = buffer;
         final ByteBuffer buffer = pooledBuffer == null ? null : pooledBuffer.getResource();
         this.buffer =  null;
@@ -113,6 +116,7 @@ public class BufferPipeOutputStream extends OutputStream {
     }
 
     private void send(Pooled<ByteBuffer> buffer, boolean eof) throws IOException {
+        assert Thread.holdsLock(this);
         try {
             bufferWriterTask.accept(buffer, eof);
         } catch (IOException e) {
