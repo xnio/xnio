@@ -59,6 +59,7 @@ import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.ssl.XnioSsl;
 
 @SuppressWarnings( { "JavaDoc" })
+@Ignore
 public final class NioSslTcpTestCase {
 
     private static final String KEY_STORE_PROPERTY = "javax.net.ssl.keyStore";
