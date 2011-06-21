@@ -117,7 +117,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             final ByteBuffer buffer = bufferUpdater.getAndSet(this, null);
             if (buffer != null) {
                 // free when GC'd, no sooner
-                refSet.add(new Ref(buffer, null));
+                refSet.add(new Ref(buffer, region));
             }
         }
 
