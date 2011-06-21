@@ -86,7 +86,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
 
         public String toString() {
-            return "Read listener command for " + this;
+            return "Read listener command for " + TranslatingSuspendableChannel.this;
         }
     };
     private final ChannelListener<W> readListener = new ChannelListener<W>() {
@@ -227,9 +227,21 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     public void resumeReads() {
         synchronized (getReadLock()) {
             readsRequested = true;
-            channel.resumeReads();
-            if (isReadable() == Readiness.ALWAYS) {
-                scheduleReadTask();
+            switch (isReadable()) {
+                case NEVER: channel.suspendReads(); break;
+                case OKAY: channel.resumeReads(); // fall thru
+                case ALWAYS: scheduleReadTask(); break;
+            }
+        }
+    }
+
+    /**
+     * Resume reads if the user has requested so.
+     */
+    protected void resumeReadsIfRequested() {
+        synchronized (getReadLock()) {
+            if (readsRequested) {
+                channel.resumeReads();
             }
         }
     }
@@ -253,9 +265,21 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     public void resumeWrites() {
         synchronized (getWriteLock()) {
             writesRequested = true;
-            channel.resumeWrites();
-            if (isWritable() == Readiness.ALWAYS) {
-                scheduleWriteTask();
+            switch (isWritable()) {
+                case NEVER: channel.suspendWrites(); break;
+                case OKAY: channel.resumeWrites(); // fall thru
+                case ALWAYS: scheduleWriteTask(); break;
+            }
+        }
+    }
+
+    /**
+     * Resume writes if the user has requested so.
+     */
+    protected void resumeWritesIfRequested() {
+        synchronized (getWriteLock()) {
+            if (writesRequested) {
+                channel.resumeWrites();
             }
         }
     }
