@@ -182,7 +182,7 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public ReadChannelThread getReadThread() {
         final NioHandle<NioUdpChannel> handle = readHandleUpdater.get(this);
-        return (ReadChannelThread) handle.getChannelThread();
+        return handle == null ? null : (ReadChannelThread) handle.getChannelThread();
     }
 
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
@@ -201,7 +201,7 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public WriteChannelThread getWriteThread() {
         final NioHandle<NioUdpChannel> handle = writeHandleUpdater.get(this);
-        return (WriteChannelThread) handle.getChannelThread();
+        return handle == null ? null : (WriteChannelThread) handle.getChannelThread();
     }
 
     public ChannelListener.Setter<NioUdpChannel> getReadSetter() {

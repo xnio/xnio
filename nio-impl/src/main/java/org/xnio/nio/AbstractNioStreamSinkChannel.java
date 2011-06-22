@@ -105,10 +105,10 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         }
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     public WriteChannelThread getWriteThread() {
         final NioHandle<C> handle = writeHandleUpdater.get(this);
-        return (WriteChannelThread) handle.getChannelThread();
+        return handle == null ? null : (WriteChannelThread) handle.getChannelThread();
     }
 
     // Transfer bytes

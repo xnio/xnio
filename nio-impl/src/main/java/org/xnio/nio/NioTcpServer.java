@@ -230,6 +230,6 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
 
     public ConnectionChannelThread getAcceptThread() {
         final NioHandle<NioTcpServer> handle = acceptHandleUpdater.get(this);
-        return (ConnectionChannelThread) handle.getChannelThread();
+        return handle == null ? null : (ConnectionChannelThread) handle.getChannelThread();
     }
 }

@@ -106,10 +106,10 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         }
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     public ReadChannelThread getReadThread() {
         final NioHandle<C> handle = readHandleUpdater.get(this);
-        return (ReadChannelThread) handle.getChannelThread();
+        return handle == null ? null : (ReadChannelThread) handle.getChannelThread();
     }
 
     // Transfer bytes

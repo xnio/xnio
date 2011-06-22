@@ -141,10 +141,10 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         }
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     public ReadChannelThread getReadThread() {
         final NioHandle<C> handle = readHandleUpdater.get(this);
-        return (ReadChannelThread) handle.getChannelThread();
+        return handle == null ? null : (ReadChannelThread) handle.getChannelThread();
     }
 
     public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
@@ -161,10 +161,10 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         }
     }
 
-    @SuppressWarnings( { "unchecked" })
+    @SuppressWarnings("unchecked")
     public WriteChannelThread getWriteThread() {
         final NioHandle<C> handle = writeHandleUpdater.get(this);
-        return (WriteChannelThread) handle.getChannelThread();
+        return handle == null ? null : (WriteChannelThread) handle.getChannelThread();
     }
 
     // Transfer bytes
