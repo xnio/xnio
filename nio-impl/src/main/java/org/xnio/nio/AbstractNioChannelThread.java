@@ -261,7 +261,7 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
                 public void run(final Selector selector) {
                     try {
                         if (shutdown) {
-                            holder.setProblem(new IllegalStateException(String.format("Cannot add channel %s to %s (stopping)", xnioChannel, this)));
+                            holder.setProblem(new IllegalStateException(String.format("Cannot add channel %s to %s (stopping)", xnioChannel, AbstractNioChannelThread.this)));
                             return;
                         }
                         final SelectionKey key = channel.register(selector, ops);
