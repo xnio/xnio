@@ -27,7 +27,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.StandardSocketOption;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
@@ -338,7 +338,7 @@ class NioUdpChannel implements MulticastMessageChannel {
         } else {
             if (NioXnio.NIO2) {
                 if (option == Options.MULTICAST_TTL) {
-                    return option.cast(channel.getOption(StandardSocketOption.IP_MULTICAST_TTL));
+                    return option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
                 } else {
                     return null;
                 }
@@ -367,8 +367,8 @@ class NioUdpChannel implements MulticastMessageChannel {
         } else {
             if (NioXnio.NIO2) {
                 if (option == Options.MULTICAST_TTL) {
-                    old = option.cast(channel.getOption(StandardSocketOption.IP_MULTICAST_TTL));
-                    channel.setOption(StandardSocketOption.IP_MULTICAST_TTL, (Integer) value);
+                    old = option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
+                    channel.setOption(StandardSocketOptions.IP_MULTICAST_TTL, (Integer) value);
                 } else {
                     return null;
                 }
