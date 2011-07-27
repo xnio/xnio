@@ -198,12 +198,25 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     public void shutdownReads() throws IOException {
         synchronized (receiveBuffer) {
             if (readsDone) return;
-            final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
-            receiveBuffer.clear();
+            doShutdownReads();
         }
         super.shutdownReads();
     }
 
+    private void doShutdownReads() {
+        assert Thread.holdsLock(receiveBuffer);
+        if (! readsDone) {
+            readsDone = true;
+            try {
+                receiveBuffer.getResource().clear();
+            } catch (Throwable t) {
+            }
+            try {
+                receiveBuffer.free();
+            } catch (Throwable t) {
+            }
+        }
+    }
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
@@ -212,14 +225,13 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 throw new EOFException("Writes have been shut down");
             }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
-            if (buffer.remaining() > transmitBuffer.capacity() - 4) {
+            final int remaining = buffer.remaining();
+            if (remaining > transmitBuffer.capacity() - 4) {
                 throw new IOException("Transmitted message is too large");
             }
-            final int remaining = buffer.remaining();
-            if (transmitBuffer.remaining() < 4 + remaining && ! doFlush()) {
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
                 return false;
             }
-            // todo check max transmit size
             transmitBuffer.putInt(remaining);
             transmitBuffer.put(buffer);
             doFlush();
@@ -239,14 +251,13 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 throw new EOFException("Writes have been shut down");
             }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
-            if (Buffers.remaining(buffers) > transmitBuffer.capacity() - 4L) {
+            final long remaining = Buffers.remaining(buffers, offs, len);
+            if (remaining > transmitBuffer.capacity() - 4L) {
                 throw new IOException("Transmitted message is too large");
             }
-            final long remaining = Buffers.remaining(buffers);
-            if (transmitBuffer.remaining() < 4 + remaining && ! doFlush()) {
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
                 return false;
             }
-            // todo check max transmit size
             transmitBuffer.putInt((int) remaining);
             Buffers.copy(transmitBuffer, buffers, offs, len);
             doFlush();
@@ -257,8 +268,22 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean shutdownWrites() throws IOException {
         synchronized (transmitBuffer) {
-            return writesDone || doFlush() && super.shutdownWrites() && (writesDone = true);
+            return writesDone || doFlush() && super.shutdownWrites() && doShutdownWrites();
         }
+    }
+
+    private boolean doShutdownWrites() {
+        assert Thread.holdsLock(transmitBuffer);
+        if (! writesDone) {
+            writesDone = true;
+            try {
+                transmitBuffer.getResource().clear();
+            } catch (Throwable t) {}
+            try {
+                transmitBuffer.free();
+            } catch (Throwable t) {}
+        }
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -268,7 +293,8 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
-    private boolean doFlush() throws IOException {
+    private boolean doFlushBuffer() throws IOException {
+        assert Thread.holdsLock(transmitBuffer);
         final ByteBuffer buffer = transmitBuffer.getResource();
         buffer.flip();
         try {
@@ -278,29 +304,34 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     return false;
                 }
             }
-            return channel.flush();
+            return true;
         } finally {
             buffer.compact();
         }
     }
 
+    private boolean doFlush() throws IOException {
+        return doFlushBuffer() && channel.flush();
+    }
+
     /** {@inheritDoc} */
     public void close() throws IOException {
+        boolean error = false;
         synchronized (transmitBuffer) {
             if (! writesDone) {
-                writesDone = true;
-                transmitBuffer.getResource().clear();
-                transmitBuffer.free();
+                try {
+                    if (! doFlush()) error = true;
+                } catch (Throwable t) {
+                    error = true;
+                }
+                doShutdownWrites();
             }
         }
         synchronized (receiveBuffer) {
-            if (! readsDone) {
-                readsDone = true;
-                receiveBuffer.getResource().clear();
-                receiveBuffer.free();
-            }
+            doShutdownReads();
         }
         super.close();
+        if (error) throw new IOException("Unflushed data truncated");
     }
 
     /** {@inheritDoc} */
