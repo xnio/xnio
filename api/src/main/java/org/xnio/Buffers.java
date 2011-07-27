@@ -223,7 +223,7 @@ public final class Buffers {
     public static int copy(final ByteBuffer destination, final ByteBuffer source) {
         final int sr = source.remaining();
         final int dr = destination.remaining();
-        if (dr > sr) {
+        if (dr >= sr) {
             destination.put(source);
             return sr;
         } else {
