@@ -148,7 +148,8 @@ public final class Buffers {
      * @return the buffer slice
      */
     public static ByteBuffer slice(ByteBuffer buffer, int sliceSize) {
-        if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
+        final int oldRem = buffer.remaining();
+        if (sliceSize > oldRem || sliceSize < -oldRem) {
             throw new BufferUnderflowException();
         }
         final int oldPos = buffer.position();
@@ -183,7 +184,8 @@ public final class Buffers {
      * @return the buffer slice
      */
     public static ByteBuffer copy(ByteBuffer buffer, int sliceSize, BufferAllocator<ByteBuffer> allocator) {
-        if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
+        final int oldRem = buffer.remaining();
+        if (sliceSize > oldRem || sliceSize < -oldRem) {
             throw new BufferUnderflowException();
         }
         final int oldPos = buffer.position();
