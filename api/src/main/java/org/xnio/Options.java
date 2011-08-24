@@ -383,6 +383,11 @@ public final class Options {
     public static final Option<Sequence<String>> SASL_DISALLOWED_MECHANISMS = Option.sequence(Options.class, "SASL_DISALLOWED_MECHANISMS", String.class);
 
     /**
+     * A list of provider specific SASL properties.
+     */
+    public static final Option<Sequence<Property>> SASL_PROPERTIES = Option.sequence(Options.class, "SASL_PROPERTIES", Property.class);
+
+    /**
      * The file access mode to use when opening a file.
      */
     public static final Option<FileAccess> FILE_ACCESS = Option.simple(Options.class, "FILE_ACCESS", FileAccess.class);

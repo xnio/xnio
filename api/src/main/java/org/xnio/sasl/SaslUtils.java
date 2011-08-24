@@ -31,6 +31,7 @@ import org.xnio.Buffers;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.Property;
 import org.xnio.Sequence;
 
 import javax.security.sasl.Sasl;
@@ -247,6 +248,7 @@ public final class SaslUtils {
         add(optionMap, Options.SASL_SERVER_AUTH, propertyMap, Sasl.SERVER_AUTH, null);
         addQopList(optionMap, Options.SASL_QOP, propertyMap, Sasl.QOP);
         add(optionMap, Options.SASL_STRENGTH, propertyMap, Sasl.STRENGTH, null);
+        addSaslProperties(optionMap, Options.SASL_PROPERTIES, propertyMap);
         return propertyMap;
     }
 
@@ -270,5 +272,15 @@ public final class SaslUtils {
             }
         } while (iterator.hasNext());
         map.put(propName, builder.toString());
+    }
+
+    private static void addSaslProperties(OptionMap optionMap, Option<Sequence<Property>> option, Map<String, Object> map) {
+        final Sequence<Property> value = optionMap.get(option);
+        if (value == null) return;
+        final Iterator<Property> iterator = value.iterator();
+        while (iterator.hasNext()) {
+            Property current = iterator.next();
+            map.put(current.getKey(), current.getValue());
+        }
     }
 }
