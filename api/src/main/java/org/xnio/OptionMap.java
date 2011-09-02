@@ -219,6 +219,35 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
     }
 
     /**
+     * Determine whether this option map is equal to another.
+     *
+     * @param other the other option map
+     * @return {@code true} if they are equal, {@code false} otherwise
+     */
+    public boolean equals(Object other) {
+        return other instanceof OptionMap && equals((OptionMap)other);
+    }
+
+    /**
+     * Determine whether this option map is equal to another.
+     *
+     * @param other the other option map
+     * @return {@code true} if they are equal, {@code false} otherwise
+     */
+    public boolean equals(OptionMap other) {
+        return this == other || other != null && value.equals(other.value);
+    }
+
+    /**
+     * Get the hash code for this option map.
+     *
+     * @return the hash code
+     */
+    public int hashCode() {
+        return value.hashCode();
+    }
+
+    /**
      * A builder for immutable option maps.  Create an instance with the {@link OptionMap#builder()} method.
      */
     public static final class Builder {

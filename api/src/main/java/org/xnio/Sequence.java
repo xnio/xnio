@@ -97,7 +97,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      * @return the typecast sequence
      * @throws ClassCastException if any elements could not be cast
      */
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings("unchecked")
     public <N> Sequence<N> cast(Class<N> newType) throws ClassCastException {
         for (Object value : values) {
             newType.cast(value);
@@ -111,7 +111,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      * @param <T> the element type
      * @return the empty sequence
      */
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings("unchecked")
     public static <T> Sequence<T> empty() {
         return (Sequence<T>) EMPTY;
     }
@@ -121,7 +121,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      *
      * @return an iterator over the elements of this sequence
      */
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings("unchecked")
     public Iterator<T> iterator() {
         return Arrays.<T>asList((T[]) values).iterator();
     }
@@ -159,8 +159,37 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      * @param index the index
      * @return the value
      */
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings("unchecked")
     public T get(final int index) {
         return (T) values[index];
+    }
+
+    /**
+     * Determine whether this sequence is equal to another.
+     *
+     * @param other the other sequence
+     * @return {@code true} if they are equal, {@code false} otherwise
+     */
+    public boolean equals(Object other) {
+        return other instanceof Sequence && equals((Sequence<?>)other);
+    }
+
+    /**
+     * Determine whether this sequence is equal to another.
+     *
+     * @param other the other sequence
+     * @return {@code true} if they are equal, {@code false} otherwise
+     */
+    public boolean equals(Sequence<?> other) {
+        return this == other || other != null && Arrays.equals(values, other.values);
+    }
+
+    /**
+     * Get the hash code for this sequence.
+     *
+     * @return the hash code
+     */
+    public int hashCode() {
+        return Arrays.hashCode(values);
     }
 }
