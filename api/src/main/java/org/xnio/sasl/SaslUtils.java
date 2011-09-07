@@ -277,9 +277,7 @@ public final class SaslUtils {
     private static void addSaslProperties(OptionMap optionMap, Option<Sequence<Property>> option, Map<String, Object> map) {
         final Sequence<Property> value = optionMap.get(option);
         if (value == null) return;
-        final Iterator<Property> iterator = value.iterator();
-        while (iterator.hasNext()) {
-            Property current = iterator.next();
+        for (Property current : value) {
             map.put(current.getKey(), current.getValue());
         }
     }
