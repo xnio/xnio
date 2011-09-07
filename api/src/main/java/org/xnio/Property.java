@@ -35,7 +35,6 @@ public final class Property implements Serializable {
 
     private final String key;
     private final String value;
-    private final int hashCode;
 
     private Property(final String key, final String value) {
         if (key == null)
@@ -46,7 +45,6 @@ public final class Property implements Serializable {
 
         this.key = key;
         this.value = value;
-        hashCode = key.hashCode() * 7 + value.hashCode();
     }
 
     /**
@@ -74,7 +72,7 @@ public final class Property implements Serializable {
      */
     @Override
     public int hashCode() {
-        return hashCode;
+        return key.hashCode() * 7 + value.hashCode();
     }
 
     /**
