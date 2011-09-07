@@ -22,6 +22,11 @@
 
 package org.xnio;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.io.UnsupportedEncodingException;
 import java.io.Serializable;
@@ -39,7 +44,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
     private final byte[] bytes;
     private final int offs;
     private final int len;
-    private final int hashCode;
+    private final transient int hashCode;
 
     private ByteString(final byte[] bytes, final int offs, final int len) {
         this.bytes = bytes;
@@ -48,12 +53,16 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
         if (offs + len > bytes.length || offs < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
         }
+        hashCode = calcHashCode(bytes, offs, len);
+    }
+
+    private static int calcHashCode(final byte[] bytes, final int offs, final int len) {
         int hashCode = 1;
         final int end = offs + len;
         for (int i = offs; i < end; i ++) {
             hashCode = 31 * hashCode + bytes[i];
         }
-        this.hashCode = hashCode;
+        return hashCode;
     }
 
     private ByteString(final byte[] bytes) {
@@ -228,7 +237,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
         final int olen = o.len;
         final int offs = this.offs;
         final int ooffs = o.offs;
-        final byte[] b = this.bytes;
+        final byte[] b = bytes;
         final byte[] ob = o.bytes;
         int clen = Math.min(len, olen);
         for (int i = 0; i < clen; i ++) {
@@ -247,6 +256,36 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
      */
     public int hashCode() {
         return hashCode;
+    }
+
+    private static final Field hashCodeField;
+
+    static {
+        hashCodeField = AccessController.doPrivileged(new PrivilegedAction<Field>() {
+            public Field run() {
+                Field f = null;
+                for (Field field : ByteString.class.getDeclaredFields()) {
+                    if (field.getName().equals("hashCode")) {
+                        f = field;
+                        break;
+                    }
+                }
+                if (f == null) {
+                    throw new NoSuchFieldError("No hashCode field");
+                }
+                f.setAccessible(true);
+                return f;
+            }
+        });
+    }
+
+    private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
+        ois.defaultReadObject();
+        try {
+            hashCodeField.set(this, Integer.valueOf(calcHashCode(bytes, offs, len)));
+        } catch (IllegalAccessException e) {
+            throw new IllegalAccessError(e.getMessage());
+        }
     }
 
     private static boolean equals(byte[] a, int aoff, byte[] b, int boff, int len) {
