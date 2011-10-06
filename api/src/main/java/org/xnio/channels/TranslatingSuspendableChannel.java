@@ -74,6 +74,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         public void run() {
             boolean doReads;
             do {
+                synchronized (getReadLock()) {
+                    if (isReadable() == Readiness.NEVER) {
+                        return;
+                    }
+                }
                 ChannelListeners.invokeChannelListener(channel, readListener);
                 synchronized (getReadLock()) {
                     final Readiness readiness = isReadable();

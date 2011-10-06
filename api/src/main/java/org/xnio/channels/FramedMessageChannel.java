@@ -76,7 +76,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     protected Readiness isReadable() {
-        if (readsDone) return Readiness.NEVER;
+        if (readsDone || !channel.isOpen()) return Readiness.NEVER;
         final ByteBuffer buffer = receiveBuffer.getResource();
         final int size = buffer.position();
         return size >= 4 && size >= buffer.getInt(0) + 4 ? Readiness.ALWAYS : Readiness.OKAY;
