@@ -219,16 +219,12 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
             execute(command);
             return Key.IMMEDIATE;
         }
+        final long deadline = System.nanoTime() + Math.min(time, LONGEST_DELAY) * 1000000L;
+        final TimeKey key = new TimeKey(deadline, command);
         synchronized (workLock) {
-            final long deadline;
-            if (time > LONGEST_DELAY) {
-                deadline = System.nanoTime() + LONGEST_DELAY;
-            } else {
-                deadline = System.nanoTime() + (time * 1000000L);
-            }
-            final TimeKey key = new TimeKey(deadline, command);
-            delayWorkQueue.add(key);
-            if (delayWorkQueue.iterator().next() == key) {
+            final Set<TimeKey> queue = delayWorkQueue;
+            queue.add(key);
+            if (queue.iterator().next() == key) {
                 // we're the next one up; poke the selector to update its delay time
                 selector.wakeup();
             }
