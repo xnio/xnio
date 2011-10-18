@@ -22,6 +22,9 @@
 
 package org.xnio;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+
 /**
  * A channel thread pool.  This is simply a collection of channel threads.
  *
@@ -29,7 +32,7 @@ package org.xnio;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface ChannelThreadPool<T extends ChannelThread> {
+public interface ChannelThreadPool<T extends ChannelThread> extends Executor {
 
     /**
      * Get a thread from this pool.  The thread returned is based upon the load-balancing policy
@@ -46,4 +49,22 @@ public interface ChannelThreadPool<T extends ChannelThread> {
      * @param thread the thread to add to the pool
      */
     void addToPool(T thread);
+
+    /**
+     * Execute a task on one of the channel threads.
+     *
+     * @param task the task to execute
+     * @throws RejectedExecutionException if a task cannot be accepted by the thread pool due to shutdown
+     */
+    void execute(Runnable task) throws RejectedExecutionException;
+
+    /**
+     * Execute a task after the given interval.  More time than the given interval may elapse before
+     * the task is called.
+     *
+     * @param command the command to execute
+     * @param time the approximate time to delay, in milliseconds
+     * @return the execution key
+     */
+    ChannelThread.Key executeAfter(Runnable command, long time);
 }

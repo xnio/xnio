@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
 
@@ -236,6 +237,14 @@ public final class ChannelThreadPools {
                 }
             }
         }
+
+        public void execute(final Runnable task) {
+            getThread().execute(task);
+        }
+
+        public ChannelThread.Key executeAfter(final Runnable command, final long time) {
+            return getThread().executeAfter(command, time);
+        }
     }
 
     private static class RoundRobin<T extends ChannelThread> extends SimpleThreadPool<T> {
@@ -317,6 +326,14 @@ public final class ChannelThreadPools {
 
         public void addToPool(final T thread) {
             throw new IllegalArgumentException("Pool is full");
+        }
+
+        public void execute(final Runnable task) throws RejectedExecutionException {
+            thread.execute(task);
+        }
+
+        public ChannelThread.Key executeAfter(final Runnable command, final long time) {
+            return thread.executeAfter(command, time);
         }
     }
 }
