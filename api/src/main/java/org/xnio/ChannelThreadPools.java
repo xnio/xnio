@@ -103,6 +103,12 @@ public final class ChannelThreadPools {
         return addReadThreadsToPool(xnio, pool, null, count, optionMap);
     }
 
+    private static final Runnable blockingDisabler = new Runnable() {
+        public void run() {
+            Xnio.allowBlocking(false);
+        }
+    };
+
     /**
      * Create read threads and add them to a pool.  If thread creation fails, then all the added threads will be
      * shut down before the method returns.
@@ -121,6 +127,7 @@ public final class ChannelThreadPools {
         try {
             for (int i = 0; i < count; i ++) {
                 final ReadChannelThread thread = xnio.createReadChannelThread(threadGroup, optionMap);
+                if (! optionMap.get(Options.ALLOW_BLOCKING, true)) { thread.execute(blockingDisabler); }
                 threads.add(thread);
             }
             ok = true;
@@ -170,6 +177,7 @@ public final class ChannelThreadPools {
         try {
             for (int i = 0; i < count; i ++) {
                 final WriteChannelThread thread = xnio.createWriteChannelThread(threadGroup, optionMap);
+                if (! optionMap.get(Options.ALLOW_BLOCKING, true)) { thread.execute(blockingDisabler); }
                 threads.add(thread);
             }
             ok = true;

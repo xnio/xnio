@@ -39,6 +39,11 @@ public final class Options {
     private Options() {}
 
     /**
+     * Enable or disable blocking I/O for a newly created channel thread.
+     */
+    public static final Option<Boolean> ALLOW_BLOCKING = Option.simple(Options.class, "ALLOW_BLOCKING", Boolean.class);
+
+    /**
      * Enable multicast support for a socket.  The value type for this option is {@code boolean}.  Note that some
      * implementations may add overhead when multicast sockets are in use.
      */
