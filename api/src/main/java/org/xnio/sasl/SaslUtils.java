@@ -23,10 +23,17 @@
 package org.xnio.sasl;
 
 import java.nio.ByteBuffer;
+import java.security.Provider;
+import java.security.Security;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+
 import org.xnio.Buffers;
 import org.xnio.Option;
 import org.xnio.OptionMap;
@@ -38,6 +45,7 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslServer;
 import javax.security.sasl.SaslException;
+import javax.security.sasl.SaslServerFactory;
 
 /**
  * Utility methods for handling SASL authentication using NIO-style programming methods.
@@ -53,6 +61,41 @@ public final class SaslUtils {
      * A zero-length byte array, useful for sending and receiving empty SASL messages.
      */
     public static final byte[] EMPTY_BYTES = new byte[0];
+
+    /**
+     * Returns an iterator of all of the registered SaslServerFactories where the order is based on the
+     * order of the Provider registration.
+     *
+     * @return the Iterator of registered SalServerFactories
+     */
+    public static Iterator<SaslServerFactory> getSaslServerFactories() {
+        final String filter = "SaslServerFactory.";
+        Set<SaslServerFactory> factories = new LinkedHashSet<SaslServerFactory>();
+        Set<String> loadedClasses = new HashSet<String>();
+
+        Provider[] providers = Security.getProviders();
+        for (Provider currentProvider : providers) {
+            final ClassLoader cl = currentProvider.getClass().getClassLoader();
+            for (Object currentKey : currentProvider.keySet()) {
+                if (currentKey instanceof String &&
+                        ((String) currentKey).startsWith(filter) &&
+                        ((String) currentKey).indexOf(" ") < 0) {
+                    String className = currentProvider.getProperty((String) currentKey);
+                    if (loadedClasses.add(className)) {
+                        try {
+                            Class factoryClass = Class.forName(className, true, cl);
+                            factories.add((SaslServerFactory) factoryClass.newInstance());
+                        } catch (ClassNotFoundException e) {
+                        } catch (InstantiationException e) {
+                        } catch (IllegalAccessException e) {
+                        }
+                    }
+                }
+            }
+        }
+
+        return Collections.unmodifiableSet(factories).iterator();
+    }
 
     /**
      * Evaluate a sasl challenge.  If the result is {@code false} then the negotiation is not yet complete and the data
