@@ -32,6 +32,7 @@ import java.util.Queue;
 import java.util.concurrent.Semaphore;
 import org.xnio.Buffers;
 import org.xnio.Pooled;
+import org.xnio.Xnio;
 
 /**
  * An {@code InputStream} implementation which is populated asynchronously with {@link ByteBuffer} instances.
@@ -122,6 +123,7 @@ public class BufferPipeInputStream extends InputStream {
                     return -1;
                 }
                 checkFailure();
+                Xnio.checkBlockingAllowed();
                 try {
                     wait();
                 } catch (InterruptedException e) {
@@ -167,6 +169,7 @@ public class BufferPipeInputStream extends InputStream {
                     return -1;
                 }
                 checkFailure();
+                Xnio.checkBlockingAllowed();
                 try {
                     wait();
                 } catch (InterruptedException e) {
@@ -223,6 +226,7 @@ public class BufferPipeInputStream extends InputStream {
                     return 0L;
                 }
                 checkFailure();
+                Xnio.checkBlockingAllowed();
                 try {
                     wait();
                 } catch (InterruptedException e) {

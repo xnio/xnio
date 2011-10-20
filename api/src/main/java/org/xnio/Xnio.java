@@ -124,6 +124,17 @@ public abstract class Xnio {
     }
 
     /**
+     * Perform a check for whether blocking is allowed on the current thread.
+     *
+     * @throws IllegalStateException if blocking is not allowed on the current thread
+     */
+    public static void checkBlockingAllowed() throws IllegalStateException {
+        if (! BLOCKING.get().booleanValue()) {
+            throw new IllegalStateException("Blocking I/O is not allowed on the current thread");
+        }
+    }
+
+    /**
      * Get an XNIO provider instance.  If multiple providers are
      * available, use the first one encountered.
      *
