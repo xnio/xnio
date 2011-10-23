@@ -41,6 +41,7 @@ import org.xnio.AbstractChannelThread;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.Xnio;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -185,8 +186,17 @@ abstract class AbstractNioChannelThread extends AbstractChannelThread {
         thread.setUncaughtExceptionHandler(HANDLER);
         this.thread = thread;
         selector = Selector.open();
+        if (! optionMap.get(Options.ALLOW_BLOCKING, true)) {
+            execute(blockingDisabler);
+        }
         log.tracef("Creating channel thread '%s', selector %s", this, selector);
     }
+
+    private static final Runnable blockingDisabler = new Runnable() {
+        public void run() {
+            Xnio.allowBlocking(false);
+        }
+    };
 
     protected abstract String generateName();
 
