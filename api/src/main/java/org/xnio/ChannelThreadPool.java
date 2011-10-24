@@ -22,6 +22,7 @@
 
 package org.xnio;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -67,4 +68,11 @@ public interface ChannelThreadPool<T extends ChannelThread> extends Executor {
      * @return the execution key
      */
     ChannelThread.Key executeAfter(Runnable command, long time);
+
+    /**
+     * Get a snapshot list of all the threads currently in this pool.
+     *
+     * @return a read-only copy of the list of threads in this pool
+     */
+    List<T> getCurrentPool();
 }

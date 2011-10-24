@@ -25,11 +25,11 @@ package org.xnio;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.logging.Logger;
 
 /**
@@ -192,27 +192,23 @@ public final class ChannelThreadPools {
      * @see ChannelThread#shutdown()
      */
     public static void shutdown(final ChannelThreadPool<?> pool) {
-        ChannelThread thread;
-        while ((thread = pool.getThread()) != null) {
+        for (ChannelThread thread : pool.getCurrentPool()) {
             thread.shutdown();
         }
     }
 
     private static final Logger poolLog = Logger.getLogger("org.xnio.thread-pools");
 
+    @SuppressWarnings("unchecked")
+    static final ArraySetUpdater<SimpleThreadPool, ChannelThread> poolUpdater = ArraySetUpdater.create(AtomicReferenceFieldUpdater.newUpdater(SimpleThreadPool.class, ChannelThread[].class, "pool"), ChannelThread.class);
+
     private abstract static class SimpleThreadPool<T extends ChannelThread> implements ChannelThreadPool<T> {
-        private final Set<T> threadSet = new HashSet<T>();
 
         private final ChannelThread.Listener listener = new ChannelThread.Listener() {
             @SuppressWarnings("unchecked")
             public void handleTerminationInitiated(final ChannelThread thread) {
                 thread.removeTerminationListener(this);
-                final Set<T> threadSet = SimpleThreadPool.this.threadSet;
-                synchronized (threadSet) {
-                    if (threadSet.remove(thread)) {
-                        pool = threadSet.toArray((T[]) new ChannelThread[threadSet.size()]);
-                    }
-                }
+                poolUpdater.remove(SimpleThreadPool.this, thread);
             }
 
             public void handleTerminationComplete(final ChannelThread thread) {
@@ -224,25 +220,32 @@ public final class ChannelThreadPools {
 
         public void addToPool(final T thread) {
             poolLog.tracef("Adding thread %s to pool %s", thread, this);
-            final Set<T> threadSet = this.threadSet;
-            synchronized (threadSet) {
-                if (threadSet.add(thread)) {
-                    final T[] pool = this.pool;
-                    final int oldLen = pool.length;
-                    final T[] newPool = Arrays.copyOf(pool, oldLen + 1);
-                    newPool[oldLen] = thread;
-                    thread.addTerminationListener(listener);
-                    this.pool = newPool;
-                }
+            if (poolUpdater.addAndCheckNull(this, thread)) {
+                thread.addTerminationListener(listener);
+            } else {
+                throw new IllegalStateException("Pool is shutting down");
             }
         }
 
         public void execute(final Runnable task) {
-            getThread().execute(task);
+            final T thread = getThread();
+            if (thread == null) {
+                throw new RejectedExecutionException("No threads available");
+            }
+            thread.execute(task);
         }
 
         public ChannelThread.Key executeAfter(final Runnable command, final long time) {
-            return getThread().executeAfter(command, time);
+            final T thread = getThread();
+            if (thread == null) {
+                throw new RejectedExecutionException("No threads available");
+            }
+            return thread.executeAfter(command, time);
+        }
+
+        @SuppressWarnings("unchecked")
+        public List<T> getCurrentPool() {
+            return Collections.<T>unmodifiableList(Arrays.<T>asList(pool));
         }
     }
 
@@ -333,6 +336,10 @@ public final class ChannelThreadPools {
 
         public ChannelThread.Key executeAfter(final Runnable command, final long time) {
             return thread.executeAfter(command, time);
+        }
+
+        public List<T> getCurrentPool() {
+            return Collections.singletonList(thread);
         }
     }
 }
