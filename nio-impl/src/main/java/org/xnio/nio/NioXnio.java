@@ -161,9 +161,9 @@ final class NioXnio extends Xnio {
         channel.configureBlocking(false);
         channel.socket().bind(bindAddress);
         final NioTcpServer server = new NioTcpServer(this, channel);
-        server.setAcceptThread(thread);
         //noinspection unchecked
         server.getAcceptSetter().set((ChannelListener<? super NioTcpServer>) acceptListener);
+        server.setAcceptThread(thread);
         return server;
     }
 
