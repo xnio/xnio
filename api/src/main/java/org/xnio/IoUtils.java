@@ -28,8 +28,10 @@ import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.Selector;
 import java.nio.channels.Channel;
+import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -133,6 +135,7 @@ public final class IoUtils {
                 closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
+        } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
             closeLog.tracef(t, "Closing resource failed");
         }
@@ -149,6 +152,7 @@ public final class IoUtils {
                 closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
+        } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
             closeLog.tracef(t, "Closing resource failed");
         }
@@ -181,6 +185,7 @@ public final class IoUtils {
                 closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
+        } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
             closeLog.tracef(t, "Closing resource failed");
         }
@@ -197,6 +202,7 @@ public final class IoUtils {
                 closeLog.tracef("Closing resource %s", resource);
                 resource.close();
             }
+        } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
             closeLog.tracef(t, "Closing resource failed");
         }
@@ -668,4 +674,20 @@ public final class IoUtils {
             }
         };
     }
+
+    /**
+     * Get a thread-local RNG.  Do not share this instance with other threads.
+     *
+     * @return the thread-local RNG
+     */
+    public static Random getThreadLocalRandom() {
+        Random random = tlsRandom.get();
+        if (random == null) {
+            random = new Random();
+            tlsRandom.set(random);
+        }
+        return random;
+    }
+
+    private static final ThreadLocal<Random> tlsRandom = new ThreadLocal<Random>();
 }

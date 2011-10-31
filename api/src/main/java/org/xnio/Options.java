@@ -398,22 +398,47 @@ public final class Options {
     public static final Option<FileAccess> FILE_ACCESS = Option.simple(Options.class, "FILE_ACCESS", FileAccess.class);
 
     /**
-     * The stack size (in bytes) to attempt to use for a newly created channel thread.
+     * The stack size (in bytes) to attempt to use for worker threads.
      */
     public static final Option<Long> STACK_SIZE = Option.simple(Options.class, "STACK_SIZE", Long.class);
 
     /**
-     * The thread name to use for a newly created channel thread.  If not specified, one will be generated.
+     * The name to use for a newly created worker.  If not specified, the string "XNIO" will be used.  The worker name
+     * is used as a part of the thread name for created threads, and for any management constructs.
      */
-    public static final Option<String> THREAD_NAME = Option.simple(Options.class, "THREAD_NAME", String.class);
+    public static final Option<String> WORKER_NAME = Option.simple(Options.class, "WORKER_NAME", String.class);
 
     /**
-     * The thread priority for a newly created channel thread.  If not specified, the default will be accepted.
+     * The thread priority for newly created worker threads.  If not specified, the platform default value will be used.
      */
     public static final Option<Integer> THREAD_PRIORITY = Option.simple(Options.class, "THREAD_PRIORITY", Integer.class);
 
     /**
-     * Specify whether a channel thread should be a daemon thread.  Defaults to {@code false}.
+     * Specify whether worker threads should be daemon threads.  Defaults to {@code false}.
      */
     public static final Option<Boolean> THREAD_DAEMON = Option.simple(Options.class, "THREAD_DAEMON", Boolean.class);
+
+    /**
+     * Specify the number of read threads to create for the worker.  If not specified, a default will be chosen.
+     */
+    public static final Option<Integer> WORKER_READ_THREADS = Option.simple(Options.class, "WORKER_READ_THREADS", Integer.class);
+
+    /**
+     * Specify the number of write threads to create for the worker.  If not specified, a default will be chosen.
+     */
+    public static final Option<Integer> WORKER_WRITE_THREADS = Option.simple(Options.class, "WORKER_WRITE_THREADS", Integer.class);
+
+    /**
+     * Specify whether a server, acceptor, or connector should be attached to write threads.  By default, the establishing
+     * phase of connections are attached to read threads.  Use this option if the client or server writes a message
+     * directly upon connect.
+     */
+    public static final Option<Boolean> WORKER_ESTABLISH_WRITING = Option.simple(Options.class, "WORKER_ESTABLISH_WRITING", Boolean.class);
+
+    /**
+     * Specify the number of accept threads a single socket server should have.  Specifying more than one can result in spurious wakeups
+     * for a socket server under low connection volume, but higher throughput at high connection volume.  The minimum value
+     * is 1, and the maximum value is equal to the number of available worker threads.
+     */
+    public static final Option<Integer> WORKER_ACCEPT_THREADS = Option.simple(Options.class, "WORKER_ACCEPT_THREADS", Integer.class);
 }

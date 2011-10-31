@@ -37,7 +37,6 @@ import java.nio.channels.SelectionKey;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
@@ -45,12 +44,12 @@ import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
 
+import static org.xnio.ChannelListener.SimpleSetter;
 /**
  *
  */
@@ -58,34 +57,25 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio.udp.server.channel");
 
-    private final NioXnio nioXnio;
+    private final NioXnioWorker worker;
 
-    @SuppressWarnings({"unused", "unchecked"})
-    private volatile NioHandle<AbstractNioStreamChannel> readHandle;
-    @SuppressWarnings({"unused", "unchecked"})
-    private volatile NioHandle<AbstractNioStreamChannel> writeHandle;
+    private final NioHandle<NioUdpChannel> readHandle;
+    private final NioHandle<NioUdpChannel> writeHandle;
 
-    @SuppressWarnings("unchecked")
-    private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> readHandleUpdater = unsafeUpdater(NioHandle.class, "readHandle");
-
-    @SuppressWarnings("unchecked")
-    private static final AtomicReferenceFieldUpdater<NioUdpChannel, NioHandle<NioUdpChannel>> writeHandleUpdater = unsafeUpdater(NioHandle.class, "writeHandle");
-
-    @SuppressWarnings("unchecked")
-    private static <T> AtomicReferenceFieldUpdater<NioUdpChannel, T> unsafeUpdater(Class<?> clazz, String name) {
-        return (AtomicReferenceFieldUpdater) AtomicReferenceFieldUpdater.newUpdater(NioUdpChannel.class, clazz, name);
-    }
-
-    private final NioSetter<NioUdpChannel> readSetter = new NioSetter<NioUdpChannel>();
-    private final NioSetter<NioUdpChannel> writeSetter = new NioSetter<NioUdpChannel>();
-    private final NioSetter<NioUdpChannel> closeSetter = new NioSetter<NioUdpChannel>();
+    private final SimpleSetter<NioUdpChannel> readSetter = new SimpleSetter<NioUdpChannel>();
+    private final SimpleSetter<NioUdpChannel> writeSetter = new SimpleSetter<NioUdpChannel>();
+    private final SimpleSetter<NioUdpChannel> closeSetter = new SimpleSetter<NioUdpChannel>();
 
     private final DatagramChannel datagramChannel;
 
     private final AtomicBoolean callFlag = new AtomicBoolean(false);
 
-    NioUdpChannel(final NioXnio nioXnio, final DatagramChannel datagramChannel) {
-        this.nioXnio = nioXnio;
+    NioUdpChannel(final NioXnioWorker worker, final DatagramChannel datagramChannel) throws ClosedChannelException {
+        this.worker = worker;
+        final WorkerThread readThread = worker.chooseOptional(false);
+        final WorkerThread writeThread = worker.chooseOptional(true);
+        readHandle = readThread == null ? null : readThread.addChannel(datagramChannel, this, 0, readSetter);
+        writeHandle = writeThread == null ? null : writeThread.addChannel(datagramChannel, this, 0, writeSetter);
         this.datagramChannel = datagramChannel;
     }
 
@@ -166,44 +156,6 @@ class NioUdpChannel implements MulticastMessageChannel {
         return datagramChannel.send(buffer, target) != 0;
     }
 
-    public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
-        try {
-            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
-            final NioHandle<NioUdpChannel> oldValue = readHandleUpdater.getAndSet(this, newHandle);
-            if (oldValue != null) {
-                oldValue.cancelKey();
-            }
-        } catch (ClosedChannelException e) {
-            // do nothing
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Thread belongs to the wrong provider");
-        }
-    }
-
-    public ReadChannelThread getReadThread() {
-        final NioHandle<NioUdpChannel> handle = readHandleUpdater.get(this);
-        return handle == null ? null : (ReadChannelThread) handle.getChannelThread();
-    }
-
-    public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
-        try {
-            final NioHandle<NioUdpChannel> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
-            final NioHandle<NioUdpChannel> oldValue = writeHandleUpdater.getAndSet(this, newHandle);
-            if (oldValue != null) {
-                oldValue.cancelKey();
-            }
-        } catch (ClosedChannelException e) {
-            // do nothing
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Thread belongs to the wrong provider");
-        }
-    }
-
-    public WriteChannelThread getWriteThread() {
-        final NioHandle<NioUdpChannel> handle = writeHandleUpdater.get(this);
-        return handle == null ? null : (WriteChannelThread) handle.getChannelThread();
-    }
-
     public ChannelListener.Setter<NioUdpChannel> getReadSetter() {
         return readSetter;
     }
@@ -237,10 +189,6 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     private void cancelKeys() {
-        @SuppressWarnings("unchecked")
-        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
-        @SuppressWarnings("unchecked")
-        final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
         if (readHandle != null) {
             readHandle.cancelKey();
         }
@@ -250,32 +198,42 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public void suspendReads() {
-        try {
-            readHandle.suspend();
+        final NioHandle<NioUdpChannel> handle = readHandle;
+        if (handle != null) try {
+            handle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void suspendWrites() {
-        try {
-            writeHandle.suspend();
+        final NioHandle<NioUdpChannel> handle = writeHandle;
+        if (handle != null) try {
+            handle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void resumeReads() {
+        final NioHandle<NioUdpChannel> handle = readHandle;
+        if (handle == null) {
+            throw new IllegalArgumentException("No read thread configured");
+        }
         try {
-            readHandle.resume(SelectionKey.OP_READ);
+            handle.resume(SelectionKey.OP_READ);
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void resumeWrites() {
+        final NioHandle<NioUdpChannel> handle = writeHandle;
+        if (handle == null) {
+            throw new IllegalArgumentException("No read thread configured");
+        }
         try {
-            writeHandle.resume(SelectionKey.OP_WRITE);
+            handle.resume(SelectionKey.OP_WRITE);
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -290,19 +248,19 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public void awaitReadable() throws IOException {
-        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_READ);
+        SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_READ, time, timeUnit);
+        SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public void awaitWritable() throws IOException {
-        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_WRITE);
+        SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, datagramChannel, SelectionKey.OP_WRITE, time, timeUnit);
+        SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {
@@ -425,5 +383,9 @@ class NioUdpChannel implements MulticastMessageChannel {
         public void close() throws IOException {
             key.drop();
         }
+    }
+
+    public XnioWorker getWorker() {
+        return worker;
     }
 }

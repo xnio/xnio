@@ -44,14 +44,12 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
-import org.xnio.ConnectionChannelThread;
 import org.xnio.IoFuture;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
 import org.xnio.Xnio;
+import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
@@ -100,23 +98,17 @@ public final class NioSslTcpTestCase {
     }
 
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
-        Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
-        final ConnectionChannelThread connectionChannelThread = xnio.createReadChannelThread();
-        final ConnectionChannelThread serverChannelThread = xnio.createReadChannelThread();
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
-        final ReadChannelThread clientReadChannelThread = xnio.createReadChannelThread();
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
-        final WriteChannelThread clientWriteChannelThread = xnio.createWriteChannelThread();
+        final Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
+        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
         final XnioSsl xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
         try {
             // IDEA thinks this is unchecked because of http://youtrack.jetbrains.net/issue/IDEA-59290
             @SuppressWarnings("unchecked")
-            final AcceptingChannel<? extends ConnectedStreamChannel> server = xnioSsl.createSslTcpServer(new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), serverChannelThread, ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(readChannelThread, writeChannelThread, new CatchingChannelListener<ConnectedSslStreamChannel>(serverHandler, problems)), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
+            final AcceptingChannel<? extends ConnectedStreamChannel> server = xnioSsl.createSslTcpServer(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(new CatchingChannelListener<ConnectedSslStreamChannel>(serverHandler, problems)), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
             server.resumeAccepts();
             try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnioSsl.connectSsl(new InetSocketAddress
+                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnioSsl.connectSsl(worker, new InetSocketAddress
                         (Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
-                        connectionChannelThread, clientReadChannelThread, clientWriteChannelThread,
                         new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, problems), null,
                         OptionMap.EMPTY);
                 final ConnectedStreamChannel channel = ioFuture.get();
@@ -137,19 +129,8 @@ public final class NioSslTcpTestCase {
                 IoUtils.safeClose(server);
             }
         } finally {
-            connectionChannelThread.shutdown();
-            serverChannelThread.shutdown();
-            clientReadChannelThread.shutdown();
-            clientWriteChannelThread.shutdown();
-            readChannelThread.shutdown();
-            writeChannelThread.shutdown();
+            IoUtils.safeClose(worker);
         }
-        connectionChannelThread.awaitTermination();
-        serverChannelThread.awaitTermination();
-        readChannelThread.awaitTermination();
-        writeChannelThread.awaitTermination();
-        clientReadChannelThread.awaitTermination();
-        clientWriteChannelThread.awaitTermination();
     }
 
     @Test

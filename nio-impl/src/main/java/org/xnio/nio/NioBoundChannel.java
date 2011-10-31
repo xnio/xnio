@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
+import org.xnio.XnioWorker;
 import org.xnio.channels.BoundChannel;
 
 final class NioBoundChannel implements BoundChannel {
@@ -65,5 +66,9 @@ final class NioBoundChannel implements BoundChannel {
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return realBoundChannel.setOption(option, value);
+    }
+
+    public XnioWorker getWorker() {
+        return realBoundChannel.getWorker();
     }
 }

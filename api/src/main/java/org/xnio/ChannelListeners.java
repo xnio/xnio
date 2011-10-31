@@ -37,6 +37,7 @@ import org.xnio.channels.ConnectedChannel;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
+@SuppressWarnings("unused")
 public final class ChannelListeners {
 
     private static final ChannelListener<Channel> NULL_LISTENER = new ChannelListener<Channel>() {
@@ -129,53 +130,18 @@ public final class ChannelListeners {
     /**
      * Create an open listener adapter which automatically accepts connections and invokes an open listener.
      *
-     * @param readThread the initial read channel thread, or {@code null} for none
-     * @param writeThread the initial write channel thread, or {@code null} for none
      * @param openListener the channel open listener
      * @param <C> the connected channel type
      * @return a channel accept listener
      */
-    public static <C extends ConnectedChannel> ChannelListener<AcceptingChannel<C>> openListenerAdapter(final ReadChannelThread readThread, final WriteChannelThread writeThread, final ChannelListener<? super C> openListener) {
-        return new ChannelListener<AcceptingChannel<C>>() {
-            public void handleEvent(final AcceptingChannel<C> channel) {
-                final ChannelListener<? super C> openListener1 = openListener;
-                try {
-                    final C accepted = channel.accept(readThread, writeThread);
-                    if (accepted != null) {
-                        if (openListener1 == null) {
-                            // no listener, close the channel
-                            IoUtils.safeClose(accepted);
-                        } else {
-                            invokeChannelListener(accepted, openListener1);
-                        }
-                    }
-                } catch (IOException e) {
-                    listenerLog.errorf("Failed to accept a connection on %s: %s", channel, e);
-                }
-            }
-
-            public String toString() {
-                return "Accepting listener for " + openListener;
-            }
-        };
-    }
-
-    /**
-     * Create an open listener adapter which automatically accepts connections and invokes an open listener.
-     *
-     * @param readThreadPool the read channel thread pool, or {@code null} for none
-     * @param writeThreadPool the write channel thread pool, or {@code null} for none
-     * @param openListener the channel open listener
-     * @param <C> the connected channel type
-     * @return a channel accept listener
-     */
-    public static <C extends ConnectedChannel> ChannelListener<AcceptingChannel<C>> openListenerAdapter(final ChannelThreadPool<ReadChannelThread> readThreadPool, final ChannelThreadPool<WriteChannelThread> writeThreadPool, final ChannelListener<? super C> openListener) {
+    public static <C extends ConnectedChannel> ChannelListener<AcceptingChannel<C>> openListenerAdapter(final ChannelListener<? super C> openListener) {
+        if (openListener == null) {
+            throw new IllegalArgumentException("openListener is null");
+        }
         return new ChannelListener<AcceptingChannel<C>>() {
             public void handleEvent(final AcceptingChannel<C> channel) {
                 try {
-                    final ChannelThreadPool<ReadChannelThread> readPool = readThreadPool;
-                    final ChannelThreadPool<WriteChannelThread> writePool = writeThreadPool;
-                    final C accepted = channel.accept(readPool == null ? null : readPool.getThread(), writePool == null ? null : writePool.getThread());
+                    final C accepted = channel.accept();
                     if (accepted != null) {
                         invokeChannelListener(accepted, openListener);
                     }

@@ -25,6 +25,7 @@ package org.xnio.nio;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SocketChannel;
@@ -36,6 +37,7 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
+import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.UnsupportedOptionException;
 import org.xnio.channels.BoundChannel;
@@ -64,10 +66,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             .add(Options.IP_TRAFFIC_CLASS)
             .create();
 
-    NioTcpChannel(final NioXnio xnio, final SocketChannel socketChannel) {
-        super(xnio);
+    NioTcpChannel(final NioXnioWorker worker, final SocketChannel socketChannel) throws ClosedChannelException {
+        super(worker);
         this.socketChannel = socketChannel;
         socket = socketChannel.socket();
+        start();
     }
 
     BoundChannel getBoundChannel() {
@@ -104,6 +107,10 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
                 return NioTcpChannel.this.setOption(option, value);
             }
+
+            public XnioWorker getWorker() {
+                return NioTcpChannel.this.getWorker();
+            }
         };
     }
 
@@ -135,22 +142,26 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     public void close() throws IOException {
         if (setBits(this, 0x04) < 0x04) {
             log.tracef("Closing %s", this);
-            socketChannel.close();
-            cancelReadKey();
-            cancelWriteKey();
-            invokeCloseHandler();
+            try {
+                socketChannel.close();
+            } finally {
+                cancelReadKey();
+                cancelWriteKey();
+                invokeCloseHandler();
+            }
         }
     }
 
     public void shutdownReads() throws IOException {
+        boolean ok = false;
         try {
+            log.tracef("Shutting down reads on %s", this);
             socket.shutdownInput();
-        } catch (IOException e) {
-            // ignored
+            ok = true;
         } finally {
             cancelReadKey();
             if (setBits(this, 0x02) == 0x01) {
-                close();
+                if (ok) close(); else IoUtils.safeClose(this);
             }
         }
     }
@@ -158,6 +169,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     public boolean shutdownWrites() throws IOException {
         boolean ok = false;
         try {
+            log.tracef("Shutting down writes on %s", this);
             socket.shutdownOutput();
             ok = true;
         } finally {

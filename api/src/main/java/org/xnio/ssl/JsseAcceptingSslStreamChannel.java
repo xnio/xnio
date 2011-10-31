@@ -40,15 +40,13 @@ import javax.net.ssl.SSLEngine;
 
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
-import org.xnio.ConnectionChannelThread;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.Pool;
-import org.xnio.ReadChannelThread;
 import org.xnio.Sequence;
 import org.xnio.SslClientAuthMode;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -123,8 +121,12 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
         throw new IllegalArgumentException("value is null");
     }
 
-    public ConnectedSslStreamChannel accept(final ReadChannelThread readThread, final WriteChannelThread writeThread) throws IOException {
-        final ConnectedStreamChannel tcpChannel = tcpServer.accept(readThread, writeThread);
+    public XnioWorker getWorker() {
+        return tcpServer.getWorker();
+    }
+
+    public ConnectedSslStreamChannel accept() throws IOException {
+        final ConnectedStreamChannel tcpChannel = tcpServer.accept();
         if (tcpChannel == null) {
             return null;
         }
@@ -234,13 +236,5 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
 
     public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
         tcpServer.awaitAcceptable(time, timeUnit);
-    }
-
-    public void setAcceptThread(final ConnectionChannelThread thread) throws IllegalArgumentException {
-        tcpServer.setAcceptThread(thread);
-    }
-
-    public ConnectionChannelThread getAcceptThread() {
-        return tcpServer.getAcceptThread();
     }
 }

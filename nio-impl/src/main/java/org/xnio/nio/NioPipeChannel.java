@@ -23,6 +23,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.Pipe;
 import java.nio.channels.ScatteringByteChannel;
@@ -39,10 +40,11 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
 
     private static final AtomicIntegerFieldUpdater<NioPipeChannel> closeBitsUpdater = AtomicIntegerFieldUpdater.newUpdater(NioPipeChannel.class, "closeBits");
 
-    NioPipeChannel(final NioXnio xnio, final Pipe.SinkChannel sinkChannel, final Pipe.SourceChannel sourceChannel) {
-        super(xnio);
+    NioPipeChannel(final NioXnioWorker worker, final Pipe.SinkChannel sinkChannel, final Pipe.SourceChannel sourceChannel) throws ClosedChannelException {
+        super(worker);
         this.sinkChannel = sinkChannel;
         this.sourceChannel = sourceChannel;
+        start();
     }
 
     protected ScatteringByteChannel getReadChannel() {

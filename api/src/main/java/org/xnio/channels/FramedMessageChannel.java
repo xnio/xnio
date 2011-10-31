@@ -36,6 +36,7 @@ import org.xnio.Pooled;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
+@SuppressWarnings("unused")
 public class FramedMessageChannel extends TranslatingSuspendableChannel<ConnectedMessageChannel, ConnectedStreamChannel> implements ConnectedMessageChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.channels.framed");

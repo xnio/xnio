@@ -35,12 +35,11 @@ import junit.framework.TestCase;
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
 import org.xnio.IoUtils;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
+import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
 
@@ -66,21 +65,19 @@ public final class NioUdpTestCase extends TestCase {
 
     private synchronized void doServerSideTest(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body) throws IOException {
         final Xnio xnio = Xnio.getInstance("nio");
-        doServerSidePart(multicast, handler, body, xnio);
+        doServerSidePart(multicast, handler, body, xnio.createWorker(OptionMap.EMPTY));
     }
 
-    private void doServerSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
-        doPart(multicast, handler, body, SERVER_SOCKET_ADDRESS, xnio);
+    private void doServerSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final XnioWorker worker) throws IOException {
+        doPart(multicast, handler, body, SERVER_SOCKET_ADDRESS, worker);
     }
 
-    private void doClientSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final Xnio xnio) throws IOException {
-        doPart(multicast, handler, body, CLIENT_SOCKET_ADDRESS, xnio);
+    private void doClientSidePart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final XnioWorker worker) throws IOException {
+        doPart(multicast, handler, body, CLIENT_SOCKET_ADDRESS, worker);
     }
 
-    private synchronized void doPart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final Xnio xnio) throws IOException {
-        final ReadChannelThread readChannelThread = xnio.createReadChannelThread();
-        final WriteChannelThread writeChannelThread = xnio.createWriteChannelThread();
-        final MulticastMessageChannel server = xnio.createUdpServer(bindAddress, readChannelThread, writeChannelThread, handler, OptionMap.create(Options.MULTICAST, Boolean.valueOf(multicast)));
+    private synchronized void doPart(final boolean multicast, final ChannelListener<MulticastMessageChannel> handler, final Runnable body, final InetSocketAddress bindAddress, final XnioWorker worker) throws IOException {
+        final MulticastMessageChannel server = worker.createUdpServer(bindAddress, handler, OptionMap.create(Options.MULTICAST, Boolean.valueOf(multicast)));
         try {
             body.run();
             server.close();
@@ -95,27 +92,21 @@ public final class NioUdpTestCase extends TestCase {
             throw e;
         } finally {
             IoUtils.safeClose(server);
-            readChannelThread.shutdown();
-            writeChannelThread.shutdown();
-            try {
-                readChannelThread.awaitTermination();
-                writeChannelThread.awaitTermination();
-            } catch (InterruptedException e) {
-            }
         }
     }
 
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<MulticastMessageChannel> serverHandler, final ChannelListener<MulticastMessageChannel> clientHandler, final Runnable body) throws IOException {
         final Xnio xnio = Xnio.getInstance("nio");
+        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
         doServerSidePart(serverMulticast, serverHandler, new Runnable() {
             public void run() {
                 try {
-                    doClientSidePart(clientMulticast, clientHandler, body, xnio);
+                    doClientSidePart(clientMulticast, clientHandler, body, worker);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
-        }, xnio);
+        }, worker);
     }
 
     private void doServerCreate(boolean multicast) throws Exception {

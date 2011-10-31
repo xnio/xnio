@@ -24,8 +24,6 @@ package org.xnio.channels;
 
 import java.io.IOException;
 import org.xnio.ChannelListener;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
 
 /**
  * A channel which can accept inbound connections from remote endpoints.
@@ -36,7 +34,7 @@ import org.xnio.WriteChannelThread;
 public interface AcceptingChannel<C extends ConnectedChannel> extends BoundChannel, SimpleAcceptingChannel<C> {
 
     /** {@inheritDoc} */
-    C accept(ReadChannelThread readThread, WriteChannelThread writeThread) throws IOException;
+    C accept() throws IOException;
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends AcceptingChannel<C>> getAcceptSetter();

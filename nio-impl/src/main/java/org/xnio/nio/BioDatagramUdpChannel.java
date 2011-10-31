@@ -40,8 +40,7 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Options;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
@@ -66,8 +65,8 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     private final NioSetter<BioDatagramUdpChannel> writeSetter = new NioSetter<BioDatagramUdpChannel>();
     private final NioSetter<BioDatagramUdpChannel> closeSetter = new NioSetter<BioDatagramUdpChannel>();
 
-    private volatile NioReadChannelThread readThread;
-    private volatile NioWriteChannelThread writeThread;
+    private final WorkerThread readThread;
+    private final WorkerThread writeThread;
 
     private final Object readLock = new Object();
     private final Object writeLock = new Object();
@@ -84,8 +83,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     private IOException readException;
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
+    private final XnioWorker worker;
 
-    BioDatagramUdpChannel(int sendBufSize, int recvBufSize, final DatagramSocket datagramSocket) {
+    BioDatagramUdpChannel(final XnioWorker worker, int sendBufSize, int recvBufSize, final DatagramSocket datagramSocket, final WorkerThread readThread, final WorkerThread writeThread) {
         this.datagramSocket = datagramSocket;
         if (sendBufSize == -1) {
             sendBufSize = 4096;
@@ -103,6 +103,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         receiveBuffer = ByteBuffer.wrap(recvBufferBytes);
         sendPacket = new DatagramPacket(sendBufferBytes, sendBufSize);
         receivePacket = new DatagramPacket(recvBufferBytes, recvBufSize);
+        this.readThread = readThread;
+        this.writeThread = writeThread;
+        this.worker = worker;
         log.tracef("Constructed a new channel (%s); send buffer size %d, receive buffer size %d", this, Integer.valueOf(sendBufSize), Integer.valueOf(recvBufSize));
     }
 
@@ -308,7 +311,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         synchronized (readLock) {
             enableRead = true;
             if (readable) {
-                final NioReadChannelThread readThread = this.readThread;
+                final WorkerThread readThread = this.readThread;
                 if (readThread == null) {
                     throw new IllegalStateException("No read thread");
                 }
@@ -322,7 +325,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         synchronized (writeLock) {
             enableWrite = true;
             if (writable) {
-                final NioWriteChannelThread writeThread = this.writeThread;
+                final WorkerThread writeThread = this.writeThread;
                 if (writeThread == null) {
                     throw new IllegalStateException("No write thread");
                 }
@@ -338,22 +341,6 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     public boolean shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
-    }
-
-    public void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
-        readThread = (NioReadChannelThread) thread;
-    }
-
-    public ReadChannelThread getReadThread() {
-        return readThread;
-    }
-
-    public void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
-        writeThread = (NioWriteChannelThread) thread;
-    }
-
-    public WriteChannelThread getWriteThread() {
-        return writeThread;
     }
 
     public void awaitReadable() throws IOException {
@@ -458,6 +445,10 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         throw new UnsupportedOptionException("Multicast not supported");
     }
 
+    public XnioWorker getWorker() {
+        return worker;
+    }
+
     private final class ReaderTask implements Runnable {
         private volatile Thread thread;
 
@@ -484,7 +475,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             readException = e;
                             readable = true;
                             if (enableRead) {
-                                final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
+                                final WorkerThread readThread = BioDatagramUdpChannel.this.readThread;
                                 if (readThread != null) readThread.execute(readHandlerTask);
                             }
                             continue;
@@ -495,7 +486,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         receiveBuffer.position(0);
                         readable = true;
                         if (enableRead) {
-                            final NioReadChannelThread readThread = BioDatagramUdpChannel.this.readThread;
+                            final WorkerThread readThread = BioDatagramUdpChannel.this.readThread;
                             if (readThread != null) readThread.execute(readHandlerTask);
                         }
                     }
@@ -526,7 +517,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         while (writable) {
                             if (enableWrite) {
                                 enableWrite = false;
-                                final NioWriteChannelThread writeThread = BioDatagramUdpChannel.this.writeThread;
+                                final WorkerThread writeThread = BioDatagramUdpChannel.this.writeThread;
                                 if (writeThread != null) writeThread.execute(writeHandlerTask);
                             }
                             if (writable) try {

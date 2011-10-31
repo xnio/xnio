@@ -32,36 +32,42 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 import org.xnio.channels.StreamChannel;
 
+import static org.xnio.ChannelListener.SimpleSetter;
+
 abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> implements StreamChannel {
-    private final NioXnio nioXnio;
+    private final NioXnioWorker worker;
 
-    @SuppressWarnings({ "unused", "unchecked" })
-    private volatile NioHandle<AbstractNioStreamChannel> readHandle;
-    @SuppressWarnings({ "unused", "unchecked" })
-    private volatile NioHandle<AbstractNioStreamChannel> writeHandle;
+    private volatile NioHandle<C> readHandle;
+    private volatile NioHandle<C> writeHandle;
 
-    @SuppressWarnings( { "unchecked" })
-    private static final AtomicReferenceFieldUpdater<AbstractNioStreamChannel, NioHandle> readHandleUpdater = (AtomicReferenceFieldUpdater<AbstractNioStreamChannel, NioHandle>) AtomicReferenceFieldUpdater.newUpdater(AbstractNioStreamChannel.class, NioHandle.class, "readHandle");
-    @SuppressWarnings( { "unchecked" })
-    private static final AtomicReferenceFieldUpdater<AbstractNioStreamChannel, NioHandle> writeHandleUpdater = (AtomicReferenceFieldUpdater<AbstractNioStreamChannel, NioHandle>) AtomicReferenceFieldUpdater.newUpdater(AbstractNioStreamChannel.class, NioHandle.class, "writeHandle");
+    private final SimpleSetter<C> readSetter = new SimpleSetter<C>();
+    private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
+    private final SimpleSetter<C> closeSetter = new SimpleSetter<C>();
 
-    private final NioSetter<C> readSetter = new NioSetter<C>();
-    private final NioSetter<C> writeSetter = new NioSetter<C>();
-    private final NioSetter<C> closeSetter = new NioSetter<C>();
+    AbstractNioStreamChannel(final NioXnioWorker worker) throws ClosedChannelException {
+        this.worker = worker;
+    }
 
-    AbstractNioStreamChannel(final NioXnio xnio) {
-        nioXnio = xnio;
+    void start() throws ClosedChannelException {
+        final WorkerThread readThread = worker.chooseOptional(false);
+        final WorkerThread writeThread = worker.chooseOptional(true);
+        readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter);
+        writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
     }
 
     protected abstract ScatteringByteChannel getReadChannel();
     protected abstract GatheringByteChannel getWriteChannel();
+
+    // Basic
+
+    public XnioWorker getWorker() {
+        return worker;
+    }
 
     // Setters
 
@@ -82,89 +88,53 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     public final void suspendReads() {
         Log.log.tracef("Suspend reads on %s", this);
         @SuppressWarnings("unchecked")
-        final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
+        final NioHandle<C> readHandle = this.readHandle;
         if (readHandle != null) readHandle.suspend();
     }
 
     public final void resumeReads() {
         Log.log.tracef("Resume reads on %s", this);
         @SuppressWarnings("unchecked")
-        final NioHandle<AbstractNioStreamChannel> readHandle = this.readHandle;
-        if (readHandle != null) readHandle.resume(SelectionKey.OP_READ);
+        final NioHandle<C> readHandle = this.readHandle;
+        if (readHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        readHandle.resume(SelectionKey.OP_READ);
     }
 
     public final void suspendWrites() {
         Log.log.tracef("Suspend writes on %s", this);
         @SuppressWarnings("unchecked")
-        final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
+        final NioHandle<C> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(0);
     }
 
     public final void resumeWrites() {
         Log.log.tracef("Resume writes on %s", this);
         @SuppressWarnings("unchecked")
-        final NioHandle<AbstractNioStreamChannel> writeHandle = this.writeHandle;
-        if (writeHandle != null) writeHandle.resume(SelectionKey.OP_WRITE);
+        final NioHandle<C> writeHandle = this.writeHandle;
+        if (writeHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        writeHandle.resume(SelectionKey.OP_WRITE);
     }
 
     // Await...
 
     public final void awaitReadable() throws IOException {
-        SelectorUtils.await(nioXnio, (SelectableChannel) getReadChannel(), SelectionKey.OP_READ);
+        SelectorUtils.await(worker.getXnio(), (SelectableChannel) getReadChannel(), SelectionKey.OP_READ);
     }
 
     public final void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, (SelectableChannel) getReadChannel(), SelectionKey.OP_READ, time, timeUnit);
+        SelectorUtils.await(worker.getXnio(), (SelectableChannel) getReadChannel(), SelectionKey.OP_READ, time, timeUnit);
     }
 
     public final void awaitWritable() throws IOException {
-        SelectorUtils.await(nioXnio, (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE);
+        SelectorUtils.await(worker.getXnio(), (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE);
     }
 
     public final void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(nioXnio, (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE, time, timeUnit);
-    }
-
-    // Change thread
-
-    public final void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
-        try {
-            final NioHandle<C> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter);
-            final NioHandle<C> oldValue = getAndSetRead(newHandle);
-            if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
-                oldValue.cancelKey();
-            }
-        } catch (ClosedChannelException e) {
-            // do nothing
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Thread belongs to the wrong provider");
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public ReadChannelThread getReadThread() {
-        final NioHandle<C> handle = readHandleUpdater.get(this);
-        return handle == null ? null : (ReadChannelThread) handle.getChannelThread();
-    }
-
-    public final void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
-        try {
-            final NioHandle<C> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
-            final NioHandle<C> oldValue = getAndSetWrite(newHandle);
-            if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
-                oldValue.cancelKey();
-            }
-        } catch (ClosedChannelException e) {
-            // do nothing
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Thread belongs to the wrong provider");
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public WriteChannelThread getWriteThread() {
-        final NioHandle<C> handle = writeHandleUpdater.get(this);
-        return handle == null ? null : (WriteChannelThread) handle.getChannelThread();
+        SelectorUtils.await(worker.getXnio(), (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     // Transfer bytes
@@ -218,16 +188,6 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         return (C) this;
     }
 
-    @SuppressWarnings("unchecked")
-    private NioHandle<C> getAndSetRead(final NioHandle<C> newHandle) {
-        return readHandleUpdater.getAndSet(this, newHandle);
-    }
-
-    @SuppressWarnings("unchecked")
-    private NioHandle<C> getAndSetWrite(final NioHandle<C> newHandle) {
-        return writeHandleUpdater.getAndSet(this, newHandle);
-    }
-
     // Utils for subclasses
 
     protected void invokeCloseHandler() {
@@ -235,18 +195,22 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     protected void cancelWriteKey() {
-        @SuppressWarnings("unchecked")
-        final NioHandle writeHandle = writeHandleUpdater.getAndSet(this, null);
         if (writeHandle != null) {
             writeHandle.cancelKey();
         }
     }
 
     protected void cancelReadKey() {
-        @SuppressWarnings("unchecked")
-        final NioHandle readHandle = readHandleUpdater.getAndSet(this, null);
         if (readHandle != null) {
             readHandle.cancelKey();
         }
+    }
+
+    NioHandle<C> getReadHandle() {
+        return readHandle;
+    }
+
+    NioHandle<C> getWriteHandle() {
+        return writeHandle;
     }
 }

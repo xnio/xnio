@@ -24,6 +24,7 @@ package org.xnio.channels;
 
 import java.nio.channels.InterruptibleChannel;
 import org.xnio.ChannelListener;
+import org.xnio.XnioWorker;
 
 /**
  * A channel which is closeable.  A listener may be registered which is triggered (only once) on channel close.
@@ -38,4 +39,11 @@ public interface CloseableChannel extends InterruptibleChannel, Configurable {
      * @return the setter
      */
     ChannelListener.Setter<? extends CloseableChannel> getCloseSetter();
+
+    /**
+     * Get the worker for this channel.
+     *
+     * @return the worker
+     */
+    XnioWorker getWorker();
 }

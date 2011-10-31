@@ -29,13 +29,13 @@ import org.xnio.ChannelListeners;
 
 final class NioHandle<C extends Channel> {
     private final SelectionKey selectionKey;
-    private final AbstractNioChannelThread channelThread;
-    private final NioSetter<C> handlerSetter;
+    private final WorkerThread workerThread;
+    private final ChannelListener.SimpleSetter<C> handlerSetter;
     private final C channel;
 
-    NioHandle(final SelectionKey selectionKey, final AbstractNioChannelThread channelThread, final NioSetter<C> handlerSetter, final C channel) {
+    NioHandle(final SelectionKey selectionKey, final WorkerThread workerThread, final ChannelListener.SimpleSetter<C> handlerSetter, final C channel) {
         this.selectionKey = selectionKey;
-        this.channelThread = channelThread;
+        this.workerThread = workerThread;
         this.handlerSetter = handlerSetter;
         this.channel = channel;
     }
@@ -44,24 +44,24 @@ final class NioHandle<C extends Channel> {
         return selectionKey;
     }
 
-    AbstractNioChannelThread getChannelThread() {
-        return channelThread;
+    WorkerThread getWorkerThread() {
+        return workerThread;
     }
 
-    NioSetter<C> getHandlerSetter() {
+    ChannelListener.SimpleSetter<C> getHandlerSetter() {
         return handlerSetter;
     }
 
     void cancelKey() {
-        channelThread.cancelKey(selectionKey);
+        workerThread.cancelKey(selectionKey);
     }
 
     void resume(final int op) {
-        channelThread.setOps(selectionKey, op);
+        workerThread.setOps(selectionKey, op);
     }
 
     void suspend() {
-        channelThread.setOps(selectionKey, 0);
+        workerThread.setOps(selectionKey, 0);
     }
 
     C getChannel() {

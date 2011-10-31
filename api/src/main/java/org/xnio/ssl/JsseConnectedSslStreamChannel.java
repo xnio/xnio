@@ -40,6 +40,7 @@ import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Pooled;
+import org.xnio.XnioWorker;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -590,6 +591,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         synchronized (getWriteLock()) {
             return doFlush();
         }
+    }
+
+    public XnioWorker getWorker() {
+        return channel.getWorker();
     }
 
     private boolean doFlush() throws IOException {

@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
-import org.xnio.WriteChannelThread;
 
 /**
  * A suspendable writable channel.  This type of channel is associated with a listener which can suspend and resume
@@ -79,21 +78,6 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * @since 1.2
      */
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
-
-    /**
-     * Set the write thread.
-     *
-     * @param thread the write thread
-     * @throws IllegalArgumentException if the write thread comes from a different provider than this channel
-     */
-    void setWriteThread(WriteChannelThread thread) throws IllegalArgumentException;
-
-    /**
-     * Get the current write thread.
-     *
-     * @return the write thread
-     */
-    WriteChannelThread getWriteThread();
 
     /**
      * Get the setter which can be used to change the write listener for this channel.  When the listener is called,

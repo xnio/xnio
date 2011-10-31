@@ -30,37 +30,30 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.logging.Logger;
-import org.xnio.ConnectionChannelThread;
+import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
+import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
 final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
 
-    private final NioSetter<NioTcpServer> acceptSetter = new NioSetter<NioTcpServer>();
-    private final NioSetter<NioTcpServer> closeSetter = new NioSetter<NioTcpServer>();
+    private final NioXnioWorker worker;
 
-    @SuppressWarnings( { "unused" })
-    private volatile NioHandle<NioTcpServer> acceptHandle;
+    private final ChannelListener.SimpleSetter<NioTcpServer> acceptSetter = new ChannelListener.SimpleSetter<NioTcpServer>();
+    private final ChannelListener.SimpleSetter<NioTcpServer> closeSetter = new ChannelListener.SimpleSetter<NioTcpServer>();
 
-    @SuppressWarnings( { "unchecked" })
-    private static final AtomicReferenceFieldUpdater<NioTcpServer, NioHandle<NioTcpServer>> acceptHandleUpdater = unsafeUpdater(NioHandle.class, "acceptHandle");
-
-    @SuppressWarnings( { "unchecked" })
-    private static <T> AtomicReferenceFieldUpdater<NioTcpServer, T> unsafeUpdater(Class<?> clazz, String name) {
-        return (AtomicReferenceFieldUpdater) AtomicReferenceFieldUpdater.newUpdater(NioTcpServer.class, clazz, name);
-    }
-    private final NioXnio xnio;
+    private final List<NioHandle<NioTcpServer>> acceptHandles;
 
     private final ServerSocketChannel channel;
     private final ServerSocket socket;
@@ -88,17 +81,28 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final AtomicIntegerFieldUpdater<NioTcpServer> tcpNoDelayUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "tcpNoDelay");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> sendBufferUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "sendBuffer");
 
-    NioTcpServer(final NioXnio xnio, final ServerSocketChannel channel) {
-        this.xnio = xnio;
+    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws ClosedChannelException {
+        this.worker = worker;
         this.channel = channel;
+        final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
+        final int count = optionMap.get(Options.WORKER_ACCEPT_THREADS, 1);
+        final WorkerThread[] threads = worker.choose(count, write);
+        @SuppressWarnings("unchecked")
+        final NioHandle<NioTcpServer>[] handles = new NioHandle[threads.length];
+        for (int i = 0, length = threads.length; i < length; i++) {
+            handles[i] = threads[i].addChannel(channel, this, 0, acceptSetter);
+        }
+        acceptHandles = Arrays.asList(handles);
         socket = channel.socket();
     }
 
     public void close() throws IOException {
-        channel.close();
-        final NioHandle<NioTcpServer> handle = acceptHandle;
-        if (handle != null) {
-            handle.cancelKey();
+        try {
+            channel.close();
+        } finally {
+            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+                handle.cancelKey();
+            }
         }
     }
 
@@ -152,7 +156,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         return option.cast(old);
     }
 
-    public NioTcpChannel accept(final ReadChannelThread readThread, final WriteChannelThread writeThread) throws IOException {
+    public NioTcpChannel accept() throws IOException {
         final SocketChannel accepted = channel.accept();
         if (accepted == null) {
             return null;
@@ -164,9 +168,16 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         socket.setTcpNoDelay(tcpNoDelay != 0);
         final int sendBuffer = this.sendBuffer;
         if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
-        final NioTcpChannel newChannel = new NioTcpChannel(xnio, accepted);
-        newChannel.setReadThread(readThread);
-        newChannel.setWriteThread(writeThread);
+        final NioTcpChannel newChannel;
+        boolean ok = false;
+        try {
+            newChannel = new NioTcpChannel(worker, accepted);
+            ok = true;
+        } finally {
+            if (! ok) {
+                IoUtils.safeClose(accepted);
+            }
+        }
         log.trace("TCP server accepted connection");
         return newChannel;
     }
@@ -175,11 +186,11 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         return String.format("TCP server (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    public ChannelListener.Setter<NioTcpServer> getAcceptSetter() {
+    public ChannelListener.SimpleSetter<NioTcpServer> getAcceptSetter() {
         return acceptSetter;
     }
 
-    public ChannelListener.Setter<NioTcpServer> getCloseSetter() {
+    public ChannelListener.SimpleSetter<NioTcpServer> getCloseSetter() {
         return closeSetter;
     }
 
@@ -197,39 +208,26 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     }
 
     public void suspendAccepts() {
-        final NioHandle<NioTcpServer> writeHandle = acceptHandle;
-        if (writeHandle != null) writeHandle.resume(0);
-    }
-
-    public void resumeAccepts() {
-        final NioHandle<NioTcpServer> writeHandle = acceptHandle;
-        if (writeHandle != null) writeHandle.resume(SelectionKey.OP_ACCEPT);
-    }
-
-    public void awaitAcceptable() throws IOException {
-        SelectorUtils.await(xnio, channel, SelectionKey.OP_ACCEPT);
-    }
-
-    public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(xnio, channel, SelectionKey.OP_ACCEPT, time, timeUnit);
-    }
-
-    public void setAcceptThread(final ConnectionChannelThread thread) throws IllegalArgumentException {
-        try {
-            final NioHandle<NioTcpServer> newHandle = thread == null ? null : ((AbstractNioChannelThread) thread).addChannel(channel, this, SelectionKey.OP_ACCEPT, acceptSetter);
-            final NioHandle<NioTcpServer> oldValue = acceptHandleUpdater.getAndSet(this, newHandle);
-            if (oldValue != null && (newHandle == null || oldValue.getSelectionKey() != newHandle.getSelectionKey())) {
-                oldValue.cancelKey();
-            }
-        } catch (ClosedChannelException e) {
-            // do nothing
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Thread belongs to the wrong provider");
+        for (NioHandle<NioTcpServer> handle : acceptHandles) {
+            handle.resume(0);
         }
     }
 
-    public ConnectionChannelThread getAcceptThread() {
-        final NioHandle<NioTcpServer> handle = acceptHandleUpdater.get(this);
-        return handle == null ? null : (ConnectionChannelThread) handle.getChannelThread();
+    public void resumeAccepts() {
+        for (NioHandle<NioTcpServer> handle : acceptHandles) {
+            handle.resume(SelectionKey.OP_ACCEPT);
+        }
+    }
+
+    public void awaitAcceptable() throws IOException {
+        SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT);
+    }
+
+    public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
+        SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT, time, timeUnit);
+    }
+
+    public XnioWorker getWorker() {
+        return worker;
     }
 }

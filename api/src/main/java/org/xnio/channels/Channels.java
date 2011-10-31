@@ -35,8 +35,6 @@ import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
 
 /**
  * A utility class containing static methods to support channel usage.
@@ -466,9 +464,9 @@ public final class Channels {
      * @throws IOException if an I/O error occurs
      * @since 3.0
      */
-    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, ReadChannelThread readThread, WriteChannelThread writeThread) throws IOException {
+    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel) throws IOException {
         C accepted;
-        while ((accepted = channel.accept(readThread, writeThread)) == null) {
+        while ((accepted = channel.accept()) == null) {
             channel.awaitAcceptable();
         }
         return accepted;
@@ -489,11 +487,11 @@ public final class Channels {
      * @throws IOException if an I/O error occurs
      * @since 3.0
      */
-    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, ReadChannelThread readThread, WriteChannelThread writeThread, long time, TimeUnit unit) throws IOException {
-        final C accepted = channel.accept(readThread, writeThread);
+    public static <C extends ConnectedChannel, A extends AcceptingChannel<C>> C acceptBlocking(A channel, long time, TimeUnit unit) throws IOException {
+        final C accepted = channel.accept();
         if (accepted == null) {
             channel.awaitAcceptable(time, unit);
-            return channel.accept(readThread, writeThread);
+            return channel.accept();
         } else {
             return accepted;
         }

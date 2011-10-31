@@ -27,8 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
-import org.xnio.ReadChannelThread;
-import org.xnio.WriteChannelThread;
+import org.xnio.XnioWorker;
 
 /**
  * An abstract wrapped channel.
@@ -38,6 +37,7 @@ import org.xnio.WriteChannelThread;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
+@SuppressWarnings("unused")
 public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel, WrappedChannel<W> {
 
     /**
@@ -250,7 +250,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * Schedule the read listener to run even if the underlying channel isn't currently readable.
      */
     protected void scheduleReadTask() {
-        getReadThread().execute(readListenerCommand);
+        getWorker().execute(readListenerCommand);
     }
 
     /** {@inheritDoc} */
@@ -288,7 +288,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * Schedule the write listener to run even if the underlying channel isn't currently writable.
      */
     protected void scheduleWriteTask() {
-        getWriteThread().execute(writeListenerCommand);
+        getWorker().execute(writeListenerCommand);
     }
 
     /** {@inheritDoc} */
@@ -304,26 +304,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         return channel.setOption(option, value);
-    }
-
-    /** {@inheritDoc} */
-    public void setReadThread(final ReadChannelThread thread) throws IllegalArgumentException {
-        channel.setReadThread(thread);
-    }
-
-    /** {@inheritDoc} */
-    public ReadChannelThread getReadThread() {
-        return channel.getReadThread();
-    }
-
-    /** {@inheritDoc} */
-    public void setWriteThread(final WriteChannelThread thread) throws IllegalArgumentException {
-        channel.setWriteThread(thread);
-    }
-
-    /** {@inheritDoc} */
-    public WriteChannelThread getWriteThread() {
-        return channel.getWriteThread();
     }
 
     /**
@@ -446,6 +426,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * @return the write lock
      */
     protected abstract Object getWriteLock();
+
+    /** {@inheritDoc} */
+    public XnioWorker getWorker() {
+        return channel.getWorker();
+    }
 
     /** {@inheritDoc} */
     public String toString() {
