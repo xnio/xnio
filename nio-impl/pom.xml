@@ -30,7 +30,7 @@
     <description>The NIO implementation of the XNIO project</description>
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
-    <version>3.0.0.Beta8</version>
+    <version>3.0.0.Beta9-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <parent>
