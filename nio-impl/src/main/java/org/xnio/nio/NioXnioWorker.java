@@ -240,7 +240,6 @@ final class NioXnioWorker extends XnioWorker {
             channel.configureBlocking(false);
             channel.socket().bind(bindAddress);
             final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
-            //noinspection unchecked
             final ChannelListener.SimpleSetter<NioTcpServer> setter = server.getAcceptSetter();
             setter.set((ChannelListener<? super NioTcpServer>) acceptListener);
             ok = true;
@@ -261,8 +260,7 @@ final class NioXnioWorker extends XnioWorker {
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
-                //noinspection unchecked
-                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
+                connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
             final SimpleSetter<NioTcpChannel> setter = connectHandle.getHandlerSetter();
