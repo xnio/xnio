@@ -556,13 +556,21 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     private final class ReadHandlerTask implements Runnable {
         public void run() {
-            ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getReadSetter().get());
+            final boolean readable;
+            synchronized (readLock) {
+                readable = BioDatagramUdpChannel.this.readable;
+            }
+            if (readable) ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getReadSetter().get());
         }
     }
 
     private final class WriteHandlerTask implements Runnable {
         public void run() {
-            ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getWriteSetter().get());
+            final boolean writable;
+            synchronized (writeLock) {
+                writable = BioDatagramUdpChannel.this.writable;
+            }
+            if (writable) ChannelListeners.invokeChannelListener(BioDatagramUdpChannel.this, getWriteSetter().get());
         }
     }
 }

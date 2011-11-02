@@ -110,7 +110,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(typed(), readSetter.get()));
+        readHandle.execute();
     }
 
     public final void suspendWrites() {
@@ -136,7 +136,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(typed(), writeSetter.get()));
+        writeHandle.execute();
     }
 
     // Await...

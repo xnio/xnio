@@ -100,8 +100,8 @@ public final class NioSslTcpTestCase {
     private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
         final Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
         final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
-        final XnioSsl xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
         try {
+            final XnioSsl xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
             // IDEA thinks this is unchecked because of http://youtrack.jetbrains.net/issue/IDEA-59290
             @SuppressWarnings("unchecked")
             final AcceptingChannel<? extends ConnectedStreamChannel> server = xnioSsl.createSslTcpServer(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(new CatchingChannelListener<ConnectedSslStreamChannel>(serverHandler, problems)), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
@@ -517,8 +517,20 @@ public final class NioSslTcpTestCase {
                             }
                         }
                     });
-                    serverLatch.countDown();
+                    channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                        public void handleEvent(final ConnectedStreamChannel channel) {
+                            try {
+                                if (channel.write(ByteBuffer.wrap(new byte[] { 1 })) > 0) {
+                                    channel.suspendWrites();
+                                }
+                            } catch (IOException e) {
+                                IoUtils.safeClose(channel);
+                            }
+                        }
+                    });
                     channel.resumeReads();
+                    channel.resumeWrites();
+                    serverLatch.countDown();
                 } catch (Throwable t) {
                     log.error("Error occurred on client", t);
                     try {
@@ -540,11 +552,21 @@ public final class NioSslTcpTestCase {
                             latch.countDown();
                         }
                     });
-                    serverLatch.await(500L, TimeUnit.MILLISECONDS);
-                    log.info("Closing connection...");
-                    channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
-                    channel.close();
-                    serverOK.set(true);
+                    channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                        public void handleEvent(final ConnectedStreamChannel channel) {
+                            try {
+                                if (channel.read(ByteBuffer.allocate(1)) > 0) {
+                                    log.info("Closing connection...");
+                                    channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
+                                    channel.close();
+                                    serverOK.set(true);
+                                }
+                            } catch (IOException e) {
+                                IoUtils.safeClose(channel);
+                            }
+                        }
+                    });
+                    channel.resumeReads();
                 } catch (Throwable t) {
                     log.error("Error occurred on server", t);
                     latch.countDown();

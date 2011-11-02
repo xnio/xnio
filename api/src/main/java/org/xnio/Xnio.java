@@ -197,9 +197,6 @@ public abstract class Xnio {
      * @throws GeneralSecurityException if an exception occurred configuring the SSL provider
      */
     public XnioSsl getSslProvider(final OptionMap optionMap) throws GeneralSecurityException {
-        if (true) {
-            throw new GeneralSecurityException("SSL is not enabled in this release");
-        }
         return new JsseXnioSsl(this, optionMap);
     }
 

@@ -246,7 +246,7 @@ class NioUdpChannel implements MulticastMessageChannel {
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(this, readSetter.get()));
+        readHandle.execute();
     }
 
     public void wakeupWrites() {
@@ -254,7 +254,7 @@ class NioUdpChannel implements MulticastMessageChannel {
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(this, writeSetter.get()));
+        writeHandle.execute();
     }
 
     public void shutdownReads() throws IOException {

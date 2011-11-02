@@ -31,7 +31,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
@@ -44,7 +43,6 @@ import org.xnio.XnioExecutor;
 
 import static java.lang.System.identityHashCode;
 import static java.lang.System.nanoTime;
-import static java.lang.Thread.currentThread;
 import static java.util.concurrent.locks.LockSupport.park;
 import static java.util.concurrent.locks.LockSupport.unpark;
 import static org.xnio.IoUtils.safeClose;
@@ -181,7 +179,7 @@ final class WorkerThread extends Thread {
                             if (handle == null) {
                                 cancelKey(key);
                             } else {
-                                handle.invoke();
+                                handle.run();
                             }
                         }
                     } catch (CancelledKeyException ignored) {
@@ -329,6 +327,15 @@ final class WorkerThread extends Thread {
                 selector.wakeup();
             } catch (CancelledKeyException ignored) {
             }
+        }
+    }
+
+    int getOps(final SelectionKey key) {
+        assert key.selector() == selector;
+        try {
+            return key.interestOps();
+        } catch (CancelledKeyException ignored) {
+            return 0;
         }
     }
 
