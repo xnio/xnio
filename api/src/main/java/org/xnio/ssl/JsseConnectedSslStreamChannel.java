@@ -183,7 +183,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     protected void handleReadable(final ConnectedStreamChannel channel) {
         if (writeNeedsUnwrapUpdater.compareAndSet(this, 1, 0)) {
             resumeWrites();
-            scheduleWriteTask();
+            wakeupWrites();
         }
         super.handleReadable(channel);
     }
@@ -191,7 +191,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     protected void handleWritable(final ConnectedStreamChannel channel) {
         if (readNeedsWrapUpdater.compareAndSet(this, 1, 0)) {
             resumeReads();
-            scheduleReadTask();
+            wakeupReads();
         }
         super.handleWritable(channel);
     }

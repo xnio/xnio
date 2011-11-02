@@ -267,7 +267,7 @@ final class NioXnioWorker extends XnioWorker {
             final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
             setter.set(new ChannelListener<NioTcpChannel>() {
                 public void handleEvent(final NioTcpChannel channel) {
-                    final SocketChannel socketChannel = (SocketChannel) channel.getReadChannel();
+                    final SocketChannel socketChannel = channel.getReadChannel();
                     try {
                         if (socketChannel.finishConnect()) {
                             connectHandle.suspend();

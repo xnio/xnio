@@ -229,10 +229,15 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             readsRequested = true;
             switch (isReadable()) {
                 case NEVER: channel.suspendReads(); break;
-                case OKAY: channel.resumeReads(); // fall thru
-                case ALWAYS: scheduleReadTask(); break;
+                case OKAY: channel.resumeReads(); break;
+                case ALWAYS: channel.wakeupReads(); break;
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    public void wakeupReads() {
+        channel.wakeupReads();
     }
 
     /**
@@ -244,13 +249,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 channel.resumeReads();
             }
         }
-    }
-
-    /**
-     * Schedule the read listener to run even if the underlying channel isn't currently readable.
-     */
-    protected void scheduleReadTask() {
-        getWorker().execute(readListenerCommand);
     }
 
     /** {@inheritDoc} */
@@ -267,10 +265,15 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             writesRequested = true;
             switch (isWritable()) {
                 case NEVER: channel.suspendWrites(); break;
-                case OKAY: channel.resumeWrites(); // fall thru
-                case ALWAYS: scheduleWriteTask(); break;
+                case OKAY: channel.resumeWrites(); break;
+                case ALWAYS: channel.wakeupWrites(); break;
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    public void wakeupWrites() {
+        channel.wakeupWrites();
     }
 
     /**
@@ -282,13 +285,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 channel.resumeWrites();
             }
         }
-    }
-
-    /**
-     * Schedule the write listener to run even if the underlying channel isn't currently writable.
-     */
-    protected void scheduleWriteTask() {
-        getWorker().execute(writeListenerCommand);
     }
 
     /** {@inheritDoc} */

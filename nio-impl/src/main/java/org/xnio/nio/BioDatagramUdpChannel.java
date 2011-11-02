@@ -335,6 +335,16 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
+    public void wakeupReads() {
+        final WorkerThread readThread = this.readThread;
+        if (readThread != null) readThread.execute(readHandlerTask);
+    }
+
+    public void wakeupWrites() {
+        final WorkerThread writeThread = this.writeThread;
+        if (writeThread != null) writeThread.execute(writeHandlerTask);
+    }
+
     public void shutdownReads() throws IOException {
         throw new UnsupportedOperationException("Shutdown reads");
     }
@@ -475,8 +485,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                             readException = e;
                             readable = true;
                             if (enableRead) {
-                                final WorkerThread readThread = BioDatagramUdpChannel.this.readThread;
-                                if (readThread != null) readThread.execute(readHandlerTask);
+                                wakeupReads();
                             }
                             continue;
                         }
@@ -486,8 +495,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         receiveBuffer.position(0);
                         readable = true;
                         if (enableRead) {
-                            final WorkerThread readThread = BioDatagramUdpChannel.this.readThread;
-                            if (readThread != null) readThread.execute(readHandlerTask);
+                            wakeupReads();
                         }
                     }
                 }
@@ -517,8 +525,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                         while (writable) {
                             if (enableWrite) {
                                 enableWrite = false;
-                                final WorkerThread writeThread = BioDatagramUdpChannel.this.writeThread;
-                                if (writeThread != null) writeThread.execute(writeHandlerTask);
+                                wakeupWrites();
                             }
                             if (writable) try {
                                 writeLock.wait();

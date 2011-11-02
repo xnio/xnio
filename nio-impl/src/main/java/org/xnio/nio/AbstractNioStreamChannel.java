@@ -32,14 +32,18 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.concurrent.TimeUnit;
+import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamChannel;
 
 import static org.xnio.ChannelListener.SimpleSetter;
+import static org.xnio.nio.Log.log;
 
 abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> implements StreamChannel {
+
+    private static final String FQCN = AbstractNioStreamChannel.class.getName();
     private final NioXnioWorker worker;
 
     private volatile NioHandle<C> readHandle;
@@ -86,15 +90,13 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     // Suspend/resume
 
     public final void suspendReads() {
-        Log.log.tracef("Suspend reads on %s", this);
-        @SuppressWarnings("unchecked")
+        log.logf(FQCN, Logger.Level.TRACE, null, "Suspend reads on %s", this);
         final NioHandle<C> readHandle = this.readHandle;
         if (readHandle != null) readHandle.suspend();
     }
 
     public final void resumeReads() {
-        Log.log.tracef("Resume reads on %s", this);
-        @SuppressWarnings("unchecked")
+        log.logf(FQCN, Logger.Level.TRACE, null, "Resume reads on %s", this);
         final NioHandle<C> readHandle = this.readHandle;
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
@@ -102,21 +104,39 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         readHandle.resume(SelectionKey.OP_READ);
     }
 
+    public void wakeupReads() {
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wake up reads on %s", this);
+        final NioHandle<C> readHandle = this.readHandle;
+        if (readHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        readHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(typed(), readSetter.get()));
+    }
+
     public final void suspendWrites() {
-        Log.log.tracef("Suspend writes on %s", this);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Suspend writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<C> writeHandle = this.writeHandle;
         if (writeHandle != null) writeHandle.resume(0);
     }
 
     public final void resumeWrites() {
-        Log.log.tracef("Resume writes on %s", this);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Resume writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<C> writeHandle = this.writeHandle;
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
         writeHandle.resume(SelectionKey.OP_WRITE);
+    }
+
+    public void wakeupWrites() {
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wake up writes on %s", this);
+        final NioHandle<C> writeHandle = this.writeHandle;
+        if (writeHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        writeHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(typed(), writeSetter.get()));
     }
 
     // Await...

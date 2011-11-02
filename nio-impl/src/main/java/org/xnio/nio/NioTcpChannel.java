@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -118,11 +116,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         return socketChannel.isOpen();
     }
 
-    protected ScatteringByteChannel getReadChannel() {
+    protected SocketChannel getReadChannel() {
         return socketChannel;
     }
 
-    protected GatheringByteChannel getWriteChannel() {
+    protected SocketChannel getWriteChannel() {
         return socketChannel;
     }
 

@@ -27,6 +27,8 @@ import java.nio.channels.SelectionKey;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 
+import static org.xnio.nio.Log.log;
+
 final class NioHandle<C extends Channel> {
     private final SelectionKey selectionKey;
     private final WorkerThread workerThread;
@@ -71,6 +73,7 @@ final class NioHandle<C extends Channel> {
     void invoke() {
         final ChannelListener<? super C> listener = handlerSetter.get();
         if (listener == null) {
+            log.tracef("Null listener; suspending %s to prevent runaway", this);
             // prevent runaway
             suspend();
         } else {

@@ -44,6 +44,11 @@ public interface SuspendableReadChannel extends CloseableChannel {
     void resumeReads();
 
     /**
+     * Force the read listener to be triggered even if the channel isn't actually readable.
+     */
+    void wakeupReads();
+
+    /**
      * Places this readable channel at "end of stream".  Further reads will result in EOF.
      * Shutting down all directions of a channel will cause {@link #close()} to be called automatically.
      *

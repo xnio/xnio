@@ -90,6 +90,7 @@
                             <value>${test.level}</value>
                         </property>
                     </systemProperties>
+                    <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
                 </configuration>
             </plugin>

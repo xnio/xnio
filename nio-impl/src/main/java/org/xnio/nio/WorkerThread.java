@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
@@ -37,11 +38,15 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.XnioExecutor;
 
+import static java.lang.System.identityHashCode;
 import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
+import static java.util.concurrent.locks.LockSupport.park;
+import static java.util.concurrent.locks.LockSupport.unpark;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.nio.Log.log;
 import static org.xnio.nio.Log.selectorLog;
@@ -51,13 +56,14 @@ import static org.xnio.nio.Log.selectorLog;
  */
 final class WorkerThread extends Thread {
     private static final long LONGEST_DELAY = 9223372036853L;
+    private static final String FQCN = WorkerThread.class.getName();
 
     private final NioXnioWorker worker;
 
     private final Selector selector;
     private final Object workLock = new Object();
 
-    private final Queue<SelectorTask> selectorWorkQueue = new ArrayDeque<SelectorTask>();
+    private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
     private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
 
     private volatile int state;
@@ -77,21 +83,19 @@ final class WorkerThread extends Thread {
         try {
             log.tracef("Starting worker thread %s", this);
             final Object lock = workLock;
-            final Queue<SelectorTask> workQueue = selectorWorkQueue;
+            final Queue<Runnable> workQueue = selectorWorkQueue;
             final Set<TimeKey> delayQueue = delayWorkQueue;
             log.debugf("Started channel thread '%s', selector %s", currentThread().getName(), selector);
-            SelectorTask task;
-            Runnable command;
-            Queue<Runnable> runQueue = new ArrayDeque<Runnable>();
+            Runnable task;
             Iterator<TimeKey> iterator;
-            long delayTime;
+            long delayTime = Long.MAX_VALUE;
             Set<SelectionKey> selectedKeys;
-            Iterator<SelectionKey> keyIterator;
+            Object[] keys;
             int oldState;
             int keyCount;
             for (;;) {
                 // Run all tasks
-                for (;;) {
+                do {
                     synchronized (lock) {
                         task = workQueue.poll();
                         if (task == null) {
@@ -102,7 +106,7 @@ final class WorkerThread extends Thread {
                                 do {
                                     final TimeKey key = iterator.next();
                                     if (key.deadline <= now) {
-                                        runQueue.add(key.command);
+                                        workQueue.add(key.command);
                                         iterator.remove();
                                     } else {
                                         delayTime = key.deadline - now;
@@ -111,14 +115,11 @@ final class WorkerThread extends Thread {
                                     }
                                 } while (iterator.hasNext());
                             }
-                            break;
+                            task = workQueue.poll();
                         }
                     }
-                    safeRun(selector, task);
-                }
-                while ((command = runQueue.poll()) != null) {
-                    safeRun(command);
-                }
+                    safeRun(task);
+                } while (task != null);
                 // all tasks have been run
                 oldState = state;
                 if ((oldState & SHUTDOWN) != 0) {
@@ -130,9 +131,16 @@ final class WorkerThread extends Thread {
                             return;
                         }
                     }
+                    synchronized (selector) {
+                        final Set<SelectionKey> keySet = selector.keys();
+                        synchronized (keySet) {
+                            keys = keySet.toArray();
+                        }
+                    }
                     // shut em down
-                    for (SelectionKey key : selector.keys()) {
-                        safeClose(((NioHandle<?>) key.attachment()).getChannel());
+                    for (Object key : keys) {
+                        final NioHandle<?> attachment = (NioHandle<?>) ((SelectionKey) key).attachment();
+                        if (attachment != null) safeClose(attachment.getChannel());
                     }
                 }
                 // perform select
@@ -154,14 +162,33 @@ final class WorkerThread extends Thread {
                 }
                 selectorLog.tracef("Selected on %s", selector);
                 // iterate the ready key set
-                selectedKeys = selector.selectedKeys();
-                // copy so that handlers can safely cancel keys
-                keyIterator = new ArrayList<SelectionKey>(selectedKeys).iterator();
-                while (keyIterator.hasNext()) {
-                    final SelectionKey key = keyIterator.next();
-                    selectorLog.tracef("Selected key %s", key);
-                    ((NioHandle<?>) key.attachment()).invoke();
-                    selectedKeys.remove(key);
+                synchronized (selector) {
+                    selectedKeys = selector.selectedKeys();
+                    synchronized (selectedKeys) {
+                        // copy so that handlers can safely cancel keys
+                        keys = selectedKeys.toArray();
+                        selectedKeys.clear();
+                    }
+                }
+                for (Object keyObject : keys) {
+                    final SelectionKey key = (SelectionKey) keyObject;
+                    final int ops;
+                    try {
+                        ops = key.interestOps();
+                        if (ops != 0) {
+                            selectorLog.tracef("Selected key %s for %s", key, key.channel());
+                            final NioHandle<?> handle = (NioHandle<?>) key.attachment();
+                            if (handle == null) {
+                                cancelKey(key);
+                            } else {
+                                handle.invoke();
+                            }
+                        }
+                    } catch (CancelledKeyException ignored) {
+                        selectorLog.tracef("Skipping selection of cancelled key %s", key);
+                    } catch (Throwable t) {
+                        selectorLog.tracef(t, "Unexpected failure of selection of key %s", key);
+                    }
                 }
                 // all selected keys invoked; loop back to run tasks
             }
@@ -172,17 +199,8 @@ final class WorkerThread extends Thread {
         }
     }
 
-    private static void safeRun(final Selector selector, final SelectorTask task) {
-        try {
-            log.tracef("Running selector task %s on %s", task, selector);
-            task.run(selector);
-        } catch (Throwable t) {
-            log.error("Task failed on channel thread", t);
-        }
-    }
-
     private static void safeRun(final Runnable command) {
-        try {
+        if (command != null) try {
             log.tracef("Running task %s", command);
             command.run();
         } catch (Throwable t) {
@@ -195,13 +213,9 @@ final class WorkerThread extends Thread {
             throw new RejectedExecutionException("Thread is terminating");
         }
         synchronized (workLock) {
-            selectorWorkQueue.add(new SelectorTask() {
-                public void run(final Selector selector) {
-                    safeRun(command);
-                }
-            });
-            selector.wakeup();
+            selectorWorkQueue.add(command);
         }
+        selector.wakeup();
     }
 
     void shutdown() {
@@ -238,14 +252,15 @@ final class WorkerThread extends Thread {
     }
 
     <C extends Channel> NioHandle<C> addChannel(final AbstractSelectableChannel channel, final C xnioChannel, final int ops, final ChannelListener.SimpleSetter<C> setter) throws ClosedChannelException {
-        log.tracef("Adding channel %s to %s for XNIO channel %s", channel, this, xnioChannel);
         if (currentThread() == this) {
+            log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (same thread)", channel, this, xnioChannel);
             final SelectionKey key = channel.register(selector, 0);
             final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel);
             key.attach(handle);
             if (ops != 0) key.interestOps(ops);
             return handle;
         } else {
+            log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (other thread)", channel, this, xnioChannel);
             final SynchTask task = new SynchTask();
             queueTask(task);
             final SelectionKey key;
@@ -263,52 +278,57 @@ final class WorkerThread extends Thread {
         }
     }
 
-    void queueTask(final SelectorTask task) {
+    void queueTask(final Runnable task) {
         synchronized (workLock) {
             selectorWorkQueue.add(task);
         }
     }
 
     void cancelKey(final SelectionKey key) {
+        assert key.selector() == selector;
+        final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
-            log.tracef("Cancelling key %s of %s from same thread", key, key.channel());
-            key.cancel();
+            log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (same thread)", key, channel);
             try {
-                selector.selectNow();
-            } catch (IOException e) {
-                log.warnf("Received an I/O error on selection: %s", e);
+                key.cancel();
+                try {
+                    selector.selectNow();
+                } catch (IOException e) {
+                    log.warnf("Received an I/O error on selection: %s", e);
+                }
+            } catch (Throwable t) {
+                log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (same thread)", key, channel);
             }
         } else {
-            queueTask(new SelectorTask() {
-                public void run(final Selector selector) {
-                    log.tracef("Cancelling key %s of %s from queue", key, key.channel());
-                    key.cancel();
-                    try {
-                        selector.selectNow();
-                    } catch (IOException e) {
-                        log.warnf("Received an I/O error on selection: %s", e);
-                    }
-                }
-            });
-            log.tracef("Enqueued cancellation of key '%s'", key);
-            selector.wakeup();
+            log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
+            try {
+                key.cancel();
+                selector.wakeup();
+            } catch (Throwable t) {
+                log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (other thread)", key, channel);
+            }
         }
     }
 
     void setOps(final SelectionKey key, final int ops) {
+        assert key.selector() == selector;
+        final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
+            if (log.isTraceEnabled()) {
+                log.logf(FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (same thread)", key, channel, ops);
+            }
             try {
                 key.interestOps(ops);
             } catch (CancelledKeyException ignored) {}
         } else {
-            queueTask(new SelectorTask() {
-                public void run(final Selector selector) {
-                    try {
-                        key.interestOps(ops);
-                    } catch (CancelledKeyException ignored) {}
-                }
-            });
-            selector.wakeup();
+            if (log.isTraceEnabled()) {
+                log.logf(FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, ops);
+            }
+            try {
+                key.interestOps(ops);
+                selector.wakeup();
+            } catch (CancelledKeyException ignored) {
+            }
         }
     }
 
@@ -321,7 +341,7 @@ final class WorkerThread extends Thread {
     }
 
     public int hashCode() {
-        return System.identityHashCode(this);
+        return identityHashCode(this);
     }
 
     final class TimeKey implements XnioExecutor.Key {
@@ -340,31 +360,18 @@ final class WorkerThread extends Thread {
         }
     }
 
-    static final class SynchTask implements SelectorTask {
-        boolean done = false;
+    final class SynchTask implements Runnable {
+        volatile boolean done = false;
 
-        public void run(final Selector selector) {
-            boolean intr = false;
-            try {
-                synchronized (this) {
-                    while (! done) {
-                        try {
-                            wait();
-                        } catch (InterruptedException e) {
-                            intr = true;
-                        }
-                    }
-                }
-            } finally {
-                if (intr) {
-                    Thread.currentThread().interrupt();
-                }
+        public void run() {
+            while (! done) {
+                park();
             }
         }
 
-        synchronized void done() {
+        void done() {
             done = true;
-            notify();
+            unpark(WorkerThread.this);
         }
     }
 }

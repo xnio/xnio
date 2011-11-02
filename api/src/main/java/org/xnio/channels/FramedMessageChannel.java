@@ -113,6 +113,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 if (res == -1) {
                     receiveBuffer.clear();
                 }
+                log.tracef("Did not read a length");
                 // must be <= 0
                 return res;
             }
@@ -129,12 +130,15 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     } else {
                         Buffers.unget(receiveBuffer, 4);
                     }
+                    log.tracef("Did not read enough bytes for a full message");
                     // must be <= 0
                     return res;
                 }
                 if (buffer.hasRemaining()) {
+                    log.tracef("Copying message from %s into %s", receiveBuffer, buffer);
                     return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
                 } else {
+                    log.tracef("Not copying message from %s into full buffer %s", receiveBuffer, buffer);
                     Buffers.skip(receiveBuffer, length);
                     return 0;
                 }
@@ -165,6 +169,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 if (res == -1) {
                     receiveBuffer.clear();
                 }
+                log.tracef("Did not read a length");
                 return res;
             }
             receiveBuffer.flip();
@@ -180,12 +185,15 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     } else {
                         Buffers.unget(receiveBuffer, 4);
                     }
+                    log.tracef("Did not read enough bytes for a full message");
                     // must be <= 0
                     return res;
                 }
                 if (Buffers.hasRemaining(buffers)) {
+                    log.tracef("Copying message from %s into multiple buffers", receiveBuffer);
                     return Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
                 } else {
+                    log.tracef("Not copying message from %s into multiple full buffers", receiveBuffer);
                     Buffers.skip(receiveBuffer, length);
                     return 0;
                 }
@@ -206,6 +214,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     private void doShutdownReads() {
         assert Thread.holdsLock(receiveBuffer);
+        log.tracef("Shutting down reads on %s", this);
         if (! readsDone) {
             readsDone = true;
             try {
@@ -230,11 +239,14 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             if (remaining > transmitBuffer.capacity() - 4) {
                 throw new IOException("Transmitted message is too large");
             }
-            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
+            log.tracef("Accepting %s into %s", buffer, transmitBuffer);
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer() && transmitBuffer.remaining() < 4 + remaining) {
+                log.tracef("Insufficient room to accept %s into %s", buffer, transmitBuffer);
                 return false;
             }
             transmitBuffer.putInt(remaining);
             transmitBuffer.put(buffer);
+            log.tracef("Accepted a message into %s", transmitBuffer);
             doFlush();
             return true;
         }
@@ -256,11 +268,14 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             if (remaining > transmitBuffer.capacity() - 4L) {
                 throw new IOException("Transmitted message is too large");
             }
-            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
+            log.tracef("Accepting multiple buffers into %s", transmitBuffer);
+            if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer() && transmitBuffer.remaining() < 4 + remaining) {
+                log.tracef("Insufficient room to accept multiple buffers into %s", transmitBuffer);
                 return false;
             }
             transmitBuffer.putInt((int) remaining);
             Buffers.copy(transmitBuffer, buffers, offs, len);
+            log.tracef("Accepted a message into %s", transmitBuffer);
             doFlush();
             return true;
         }
@@ -275,6 +290,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     private boolean doShutdownWrites() {
         assert Thread.holdsLock(transmitBuffer);
+        log.tracef("Shutting down writes on %s", this);
         if (! writesDone) {
             writesDone = true;
             try {
@@ -302,9 +318,11 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             while (buffer.hasRemaining()) {
                 final int res = channel.write(buffer);
                 if (res == 0) {
+                    log.tracef("Did not fully flush %s", this);
                     return false;
                 }
             }
+            log.tracef("Fully flushed %s", this);
             return true;
         } finally {
             buffer.compact();

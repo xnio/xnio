@@ -44,6 +44,11 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void resumeWrites();
 
     /**
+     * Force the write listener to be triggered even if the channel isn't actually writable.
+     */
+    void wakeupWrites();
+
+    /**
      * Indicate that writing is complete for this channel.  Further attempts to write after this method is invoked will
      * result in an exception; however, this method may have to be invoked multiple times in order to complete the
      * shutdown operation.  If writes were already shut down successfully, calling this method again will have no

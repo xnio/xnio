@@ -50,6 +50,8 @@ import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static org.xnio.ChannelListener.SimpleSetter;
+import static org.xnio.nio.Log.log;
+
 /**
  *
  */
@@ -237,6 +239,22 @@ class NioUdpChannel implements MulticastMessageChannel {
         } catch (CancelledKeyException ex) {
             // ignore
         }
+    }
+
+    public void wakeupReads() {
+        final NioHandle<NioUdpChannel> readHandle = this.readHandle;
+        if (readHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        readHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(this, readSetter.get()));
+    }
+
+    public void wakeupWrites() {
+        final NioHandle<NioUdpChannel> writeHandle = this.writeHandle;
+        if (writeHandle == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        writeHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(this, writeSetter.get()));
     }
 
     public void shutdownReads() throws IOException {
