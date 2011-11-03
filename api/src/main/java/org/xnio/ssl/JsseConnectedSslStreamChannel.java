@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
@@ -73,10 +74,8 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     private volatile boolean tls;
     /** Writes need an unwrap (read) to proceed.  Set from write thread, clear from read thread. */
-    @SuppressWarnings("unused")
     private volatile int writeNeedsUnwrap;
     /** Reads need a wrap (write) to proceed.  Set from read thread, clear from write thread. */
-    @SuppressWarnings("unused")
     private volatile int readNeedsWrap;
 
     /** @see #writeNeedsUnwrap */
@@ -237,7 +236,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 bytesConsumed += (long) result.bytesConsumed();
             }
             // handshake will tell us whether to keep the loop
-            run = run & handleHandshake(result, true);
+            run = run && (handleHandshake(result, true) || writeNeedsUnwrap == 0);
         } while (run);
         return bytesConsumed;
     }
@@ -253,7 +252,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 bytesConsumed += result.bytesConsumed();
             }
             // handshake will tell us whether to keep the loop
-            run = run & handleHandshake(result, true);
+            run = run && (handleHandshake(result, true) || (writeNeedsUnwrap == 0 && src.hasRemaining()));
         }
         while (run);
         return bytesConsumed;
@@ -311,9 +310,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 // fall thru!!!
             }
             case OK: {
-                if (result.bytesProduced() > 0) {
-                    if (! doFlush()) {
-                        return false;
+                if (result.bytesConsumed() == 0) {
+                    if (result.bytesProduced() > 0) {
+                        if (! doFlush()) {
+                            return false;
+                        }
                     }
                 }
                 break;
@@ -323,6 +324,20 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             }
         }
         return true;
+    }
+    
+    private final void clearWriteNeedsUnwrap() {
+        if (writeNeedsUnwrap > 0) {
+            writeNeedsUnwrap = 0;
+            resumeWritesIfRequested();
+        }
+    }
+    
+    private final void clearReadNeedsWrap() {
+        if (readNeedsWrap > 0) {
+            readNeedsWrap = 0;
+            resumeReadsIfRequested();
+        }
     }
 
     /**
@@ -338,40 +353,54 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
      */
     private boolean handleHandshake(SSLEngineResult result, boolean write) throws IOException {
         assert ! Thread.holdsLock(getReadLock());
-        assert ! Thread.holdsLock(getWriteLock());
+        // FIXME when called by shutdown Writes, current thread already holds the lock
+        //assert ! Thread.holdsLock(getWriteLock());
         for (;;) {
             switch (result.getHandshakeStatus()) {
                 case FINISHED: {
+                    clearReadNeedsWrap();
+                    clearWriteNeedsUnwrap();
                     // Operation can continue immediately
                     return true;
                 }
                 case NOT_HANDSHAKING: {
                     // Operation can continue immediately
-                    return true;
+                    clearReadNeedsWrap();
+                    clearWriteNeedsUnwrap();
+                    return !write;
                 }
                 case NEED_WRAP: {
                     // clear writeNeedsUnwrap
-                    writeNeedsUnwrap = 0;
+                    clearWriteNeedsUnwrap();
                     // if write, let caller do the wrap
                     if (write) {
                         return true;
                     }
                     final ByteBuffer buffer = sendBuffer.getResource();
+                    // else, trigger a write call
+                    boolean flushed = true;
                     // Needs wrap, so we wrap (if possible)...
                     synchronized (getWriteLock()) {
-                        if (! handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), false)) {
-                            // cannot proceed.  We have to wait for writes on the underlying channel.
-                            readNeedsWrap = 1;
-                            channel.suspendReads();
-                            channel.resumeWrites();
-                            return false;
+                        if (flushed = doFlush()) {
+                            handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                            continue;
                         }
                     }
-                    break;
+                    // if flushed, and given caller is reading, tell it to continue only if read needs wrap is 0
+                    if (flushed) {
+                        return readNeedsWrap == 0;
+                    } else {
+                        // else... oops, there is unflushed data, and handshake status is NEED_WRAP
+                        // update readNeedsUnwrapUpdater to 1
+                        readNeedsWrap = 1;
+                        // tell read caller to break read loop
+                        return false;
+                    }
                 }
                 case NEED_UNWRAP: {
                     // clear readNeedsWrap
-                    readNeedsWrap = 0;
+                    clearReadNeedsWrap();
+                    writeNeedsUnwrap = 1;
                     // if read, let caller do the unwrap
                     if (! write) {
                         return true;
@@ -379,14 +408,19 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     final ByteBuffer buffer = receiveBuffer.getResource();
                     synchronized (getReadLock()) {
                         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
-                        if (handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer)) == 0) {
+                        if (handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer)) >= 0) { // FIXME what if the unwrap return buffer overflow???
+                            // have we made some progress?
+                            if(result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || result.bytesConsumed() > 0) {
+                                writeNeedsUnwrap = 0;
+                                continue;
+                            }
                             // no point in proceeding, we're stuck until the user reads anyway
-                            writeNeedsUnwrap = 0;
+                            writeNeedsUnwrap = 1;
                             resumeReadsIfRequested();
                             return false;
                         }
                     }
-                    break;
+                    continue;
                 }
                 case NEED_TASK: {
                     Runnable task;
@@ -402,7 +436,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private SSLEngineResult unwrap(final ByteBuffer buffer, final ByteBuffer unwrappedBuffer) throws SSLException {
+    private SSLEngineResult unwrap(final ByteBuffer buffer, final ByteBuffer unwrappedBuffer) throws IOException, SSLException {
+        if (!buffer.hasRemaining()) {
+            buffer.compact();
+            channel.read(buffer);
+            buffer.flip();
+        }
         log.tracef("Unwrapping %s into %s", buffer, unwrappedBuffer);
         return engine.unwrap(buffer, unwrappedBuffer);
     }
@@ -439,21 +478,28 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             return 0L;
         }
         final ByteBuffer buffer = receiveBuffer.getResource();
+        // TODO what do we do when we are out of space at unwrappedBuffer?
         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
         long total = 0;
         SSLEngineResult result;
+        synchronized(getReadLock()) {
+            if (unwrappedBuffer.hasRemaining()) {
+                total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
+            }
+        }
+        int res = 0;
         do {
             synchronized (getReadLock()) {
                 if (! Buffers.hasRemaining(dsts, offset, length)) {
                     return total;
                 }
-                int res = handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer));
-                if (res == -1) {
-                    return total == 0L ? -1L : total;
-                }
+                res = handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer));
                 total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
             }
-        } while (handleHandshake(result, false));
+        } while (handleHandshake(result, false) && res != -1);
+        if (res == -1) {
+            return total == 0L ? -1L : total;
+        }
         return total;
     }
 
@@ -468,7 +514,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     private int handleUnwrapResult(final SSLEngineResult result) throws IOException {
-        assert ! Thread.holdsLock(getWriteLock());
+        // FIXME assert ! Thread.holdsLock(getWriteLock());
         assert Thread.holdsLock(getReadLock());
         log.tracef(new Throwable(), "Unwrap result is %s", result);
         switch (result.getStatus()) {
@@ -499,8 +545,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 return 0;
             }
             case CLOSED: {
-                assert result.bytesConsumed() == 0;
-                assert result.bytesProduced() == 0;
+                // if unwrap processed any data, it should return bytes produced instead of -1
+                if (result.bytesProduced() > 0) {
+                    return result.bytesProduced();
+                }
                 return -1;
             }
             case OK: {
@@ -560,7 +608,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         synchronized(getReadLock()) {
             engine.closeInbound();
         }
-        write(Buffers.EMPTY_BYTE_BUFFER);
+        write(Buffers.EMPTY_BYTE_BUFFER, true);
         flush();
     }
 
@@ -573,7 +621,14 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             if (doFlush()) {
                 engine.closeOutbound();
                 final ByteBuffer buffer = sendBuffer.getResource();
-                handleWrapResult(wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                SSLEngineResult result;
+                do {
+                    handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                } while (handleHandshake(result, true));
+                handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                if (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING) {
+                    return false;
+                }
                 if (doFlush() && engine.isOutboundDone() && (!propagateClose || super.shutdownWrites())) {
                     suspendWrites();
                     return true;
