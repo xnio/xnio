@@ -46,6 +46,11 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     void resumeAccepts();
 
     /**
+     * Force the accept listener to be triggered even if the channel isn't actually ready.
+     */
+    void wakeupAccepts();
+
+    /**
      * Block until this channel becomes acceptable again.  This method may return spuriously
      * before the channel becomes acceptable.
      *

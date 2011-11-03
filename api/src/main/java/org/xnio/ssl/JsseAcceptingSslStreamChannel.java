@@ -230,6 +230,10 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
         tcpServer.resumeAccepts();
     }
 
+    public void wakeupAccepts() {
+        tcpServer.wakeupAccepts();
+    }
+
     public void awaitAcceptable() throws IOException {
         tcpServer.awaitAcceptable();
     }

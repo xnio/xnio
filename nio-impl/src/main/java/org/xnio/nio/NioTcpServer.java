@@ -45,8 +45,11 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
+import static org.xnio.nio.Log.log;
+
 final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
+    private static final String FQCN = NioTcpServer.class.getName();
 
     private final NioXnioWorker worker;
 
@@ -217,6 +220,17 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         for (NioHandle<NioTcpServer> handle : acceptHandles) {
             handle.resume(SelectionKey.OP_ACCEPT);
         }
+    }
+
+    public void wakeupAccepts() {
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
+        final List<NioHandle<NioTcpServer>> handles = this.acceptHandles;
+        final int len = handles.size();
+        if (len == 0) {
+            throw new IllegalArgumentException("No thread configured");
+        }
+        final int idx = IoUtils.getThreadLocalRandom().nextInt(len);
+        acceptHandles.get(idx).execute();
     }
 
     public void awaitAcceptable() throws IOException {
