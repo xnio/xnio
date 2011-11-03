@@ -145,6 +145,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     }
 
     @Override
+    public boolean isReadResumed() {
+        return false;
+    }
+
+    @Override
     public void shutdownReads() throws IOException {
         // do nothing for now...
     }
@@ -167,6 +172,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     @Override
     public void resumeWrites() {
         // do nothing for now...
+    }
+
+    @Override
+    public boolean isWriteResumed() {
+        return false;
     }
 
     @Override

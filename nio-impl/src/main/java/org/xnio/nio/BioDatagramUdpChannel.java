@@ -321,6 +321,12 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
+    public boolean isReadResumed() {
+        synchronized (readLock) {
+            return enableRead;
+        }
+    }
+
     public void resumeWrites() {
         synchronized (writeLock) {
             enableWrite = true;
@@ -332,6 +338,12 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 writeThread.execute(writeHandlerTask);
             }
             writeLock.notifyAll();
+        }
+    }
+
+    public boolean isWriteResumed() {
+        synchronized (writeLock) {
+            return enableWrite;
         }
     }
 

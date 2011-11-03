@@ -44,6 +44,13 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void resumeWrites();
 
     /**
+     * Determine whether writes are resumed.
+     *
+     * @return {@code true} if writes are resumed, {@code false} if writes are suspended
+     */
+    boolean isWriteResumed();
+
+    /**
      * Force the write listener to be triggered even if the channel isn't actually writable.
      */
     void wakeupWrites();

@@ -240,6 +240,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     }
 
+    public boolean isReadResumed() {
+        synchronized (getReadLock()) {
+            return readsRequested;
+        }
+    }
+
     /** {@inheritDoc} */
     public void wakeupReads() {
         channel.wakeupReads();
@@ -273,6 +279,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 case OKAY: channel.resumeWrites(); break;
                 case ALWAYS: channel.wakeupWrites(); break;
             }
+        }
+    }
+
+    public boolean isWriteResumed() {
+        synchronized (getWriteLock()) {
+            return writesRequested;
         }
     }
 

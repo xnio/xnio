@@ -104,6 +104,11 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         readHandle.resume(SelectionKey.OP_READ);
     }
 
+    public boolean isReadResumed() {
+        final NioHandle<C> readHandle = this.readHandle;
+        return readHandle != null && readHandle.isResumed(SelectionKey.OP_READ);
+    }
+
     public void wakeupReads() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up reads on %s", this);
         final NioHandle<C> readHandle = this.readHandle;
@@ -128,6 +133,11 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             throw new IllegalArgumentException("No thread configured");
         }
         writeHandle.resume(SelectionKey.OP_WRITE);
+    }
+
+    public boolean isWriteResumed() {
+        final NioHandle<C> writeHandle = this.writeHandle;
+        return writeHandle != null && writeHandle.isResumed(SelectionKey.OP_WRITE);
     }
 
     public void wakeupWrites() {

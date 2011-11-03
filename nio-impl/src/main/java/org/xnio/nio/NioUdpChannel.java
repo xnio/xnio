@@ -241,6 +241,16 @@ class NioUdpChannel implements MulticastMessageChannel {
         }
     }
 
+    public boolean isReadResumed() {
+        final NioHandle<NioUdpChannel> handle = readHandle;
+        return handle != null && handle.isResumed(SelectionKey.OP_READ);
+    }
+
+    public boolean isWriteResumed() {
+        final NioHandle<NioUdpChannel> handle = writeHandle;
+        return handle != null && handle.isResumed(SelectionKey.OP_WRITE);
+    }
+
     public void wakeupReads() {
         final NioHandle<NioUdpChannel> readHandle = this.readHandle;
         if (readHandle == null) {
