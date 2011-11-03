@@ -37,6 +37,50 @@ import javax.security.sasl.SaslServer;
 public abstract class SaslWrapper {
 
     /**
+     * Wrap a message.
+     *
+     * @param bytes the incoming message
+     * @param off the offset into the byte array
+     * @param len the length of the byte array to wrap
+     * @return the wrap result
+     * @throws SaslException if a problem occurs
+     */
+    public abstract byte[] wrap(byte[] bytes, int off, int len) throws SaslException;
+
+    /**
+     * Wrap a message.
+     *
+     * @param bytes the incoming message
+     * @return the wrap result
+     * @throws SaslException if a problem occurs
+     */
+    public final byte[] wrap(byte[] bytes) throws SaslException {
+        return wrap(bytes, 0, bytes.length);
+    }
+
+    /**
+     * Unwrap a message.
+     *
+     * @param bytes the incoming message
+     * @param off the offset into the byte array
+     * @param len the length of the byte array to wrap
+     * @return the unwrap result
+     * @throws SaslException if a problem occurs
+     */
+    public abstract byte[] unwrap(byte[] bytes, int off, int len) throws SaslException;
+
+    /**
+     * Unwrap a message.
+     *
+     * @param bytes the incoming message
+     * @return the unwrap result
+     * @throws SaslException if a problem occurs
+     */
+    public final byte[] unwrap(byte[] bytes) throws SaslException {
+        return unwrap(bytes, 0, bytes.length);
+    }
+
+    /**
      * Wrap a message.  Wrapping occurs from the source buffer to the destination idea.
      * <p>
      * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
@@ -93,6 +137,14 @@ final class SaslClientWrapper extends SaslWrapper {
         this.saslClient = saslClient;
     }
 
+    public byte[] wrap(final byte[] bytes, final int off, final int len) throws SaslException {
+        return saslClient.wrap(bytes, off, len);
+    }
+
+    public byte[] unwrap(final byte[] bytes, final int off, final int len) throws SaslException {
+        return saslClient.unwrap(bytes, off, len);
+    }
+
     public void wrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
         SaslUtils.wrap(saslClient, destination, source);
     }
@@ -107,6 +159,14 @@ final class SaslServerWrapper extends SaslWrapper {
 
     SaslServerWrapper(final SaslServer saslServer) {
         this.saslServer = saslServer;
+    }
+
+    public byte[] wrap(final byte[] bytes, final int off, final int len) throws SaslException {
+        return saslServer.wrap(bytes, off, len);
+    }
+
+    public byte[] unwrap(final byte[] bytes, final int off, final int len) throws SaslException {
+        return saslServer.unwrap(bytes, off, len);
     }
 
     public void wrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
