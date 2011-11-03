@@ -122,8 +122,8 @@ final class NioXnio extends Xnio {
         );
     }
 
-    public XnioWorker createWorker(final OptionMap optionMap) throws IOException, IllegalArgumentException {
-        final NioXnioWorker worker = new NioXnioWorker(this, optionMap);
+    public XnioWorker createWorker(final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException, IllegalArgumentException {
+        final NioXnioWorker worker = new NioXnioWorker(this, threadGroup, optionMap);
         worker.start();
         return worker;
     }

@@ -79,7 +79,7 @@ final class NioXnioWorker extends XnioWorker {
 
     private final SimpleSetter<NioXnioWorker> closeSetter = new SimpleSetter<NioXnioWorker>();
 
-    NioXnioWorker(final NioXnio xnio, final OptionMap optionMap) throws IOException {
+    NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
         super(xnio);
         final int readCount = optionMap.get(Options.WORKER_READ_THREADS, 1);
         if (readCount < 0) {
@@ -103,10 +103,10 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         try {
             for (int i = 0; i < readCount; i++) {
-                readWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, i+1), null, workerStackSize);
+                readWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, i+1), threadGroup, workerStackSize);
             }
             for (int i = 0; i < writeCount; i++) {
-                writeWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, i+1), null, workerStackSize);
+                writeWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, i+1), threadGroup, workerStackSize);
             }
             ok = true;
         } finally {

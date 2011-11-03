@@ -278,7 +278,20 @@ public abstract class Xnio {
      * @throws IOException if the worker failed to be opened
      * @throws IllegalArgumentException if an option value is invalid for this worker
      */
-    public abstract XnioWorker createWorker(OptionMap optionMap) throws IOException, IllegalArgumentException;
+    public XnioWorker createWorker(OptionMap optionMap) throws IOException, IllegalArgumentException {
+        return createWorker(null, optionMap);
+    }
+
+    /**
+     * Construct a new XNIO worker.
+     *
+     * @param threadGroup the thread group for worker threads
+     * @param optionMap the options to use to configure the worker
+     * @return the new worker
+     * @throws IOException if the worker failed to be opened
+     * @throws IllegalArgumentException if an option value is invalid for this worker
+     */
+    public abstract XnioWorker createWorker(ThreadGroup threadGroup, OptionMap optionMap) throws IOException, IllegalArgumentException;
 
     //==================================================
     //
