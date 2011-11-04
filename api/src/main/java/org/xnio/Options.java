@@ -22,6 +22,8 @@
 
 package org.xnio;
 
+import org.xnio.channels.ReadTimeoutException;
+import org.xnio.channels.WriteTimeoutException;
 import org.xnio.sasl.SaslQop;
 import org.xnio.sasl.SaslStrength;
 
@@ -107,6 +109,18 @@ public final class Options {
      * Configure a server with the specified backlog.  The value type for this option is {@code int}.
      */
     public static final Option<Integer> BACKLOG = Option.simple(Options.class, "BACKLOG", Integer.class);
+
+    /**
+     * Configure a read timeout for a socket, in milliseconds.  If the given amount of time elapses without
+     * a successful read taking place, the socket's next read will throw a {@link ReadTimeoutException}.
+     */
+    public static final Option<Integer> READ_TIMEOUT = Option.simple(Options.class, "READ_TIMEOUT", Integer.class);
+
+    /**
+     * Configure a write timeout for a socket, in milliseconds.  If the given amount of time elapses without
+     * a successful write taking place, the socket's next write will throw a {@link WriteTimeoutException}.
+     */
+    public static final Option<Integer> WRITE_TIMEOUT = Option.simple(Options.class, "WRITE_TIMEOUT", Integer.class);
 
     /**
      * The maximum inbound message size.

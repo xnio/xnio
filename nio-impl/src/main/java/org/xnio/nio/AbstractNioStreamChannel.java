@@ -31,10 +31,14 @@ import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.Option;
+import org.xnio.Options;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamChannel;
@@ -50,9 +54,15 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     private volatile NioHandle<C> readHandle;
     private volatile NioHandle<C> writeHandle;
 
+    private volatile int readTimeout = 0;
+    private volatile int writeTimeout = 0;
+
     private final SimpleSetter<C> readSetter = new SimpleSetter<C>();
     private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
     private final SimpleSetter<C> closeSetter = new SimpleSetter<C>();
+
+    private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> readTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "readTimeout");
+    private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "writeTimeout");
 
     AbstractNioStreamChannel(final NioXnioWorker worker) throws ClosedChannelException {
         this.worker = worker;
@@ -220,6 +230,39 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
         return getWriteChannel().write(srcs, offset, length);
+    }
+
+    // Options
+
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(Options.READ_TIMEOUT)
+            .add(Options.WRITE_TIMEOUT)
+            .create();
+
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (option == Options.READ_TIMEOUT) {
+            int newValue = Options.READ_TIMEOUT.cast(value).intValue();
+            return option.cast(Integer.valueOf(readTimeoutUpdater.getAndSet(this, newValue)));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            int newValue = Options.WRITE_TIMEOUT.cast(value).intValue();
+            return option.cast(Integer.valueOf(writeTimeoutUpdater.getAndSet(this, newValue)));
+        } else {
+            return null;
+        }
+    }
+
+    public <T> T getOption(final Option<T> option) throws IOException {
+        if (option == Options.READ_TIMEOUT) {
+            return option.cast(Integer.valueOf(readTimeout));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            return option.cast(Integer.valueOf(writeTimeout));
+        } else {
+            return null;
+        }
+    }
+
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
     }
 
     // Type-safety stuff

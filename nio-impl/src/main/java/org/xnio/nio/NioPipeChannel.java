@@ -84,18 +84,6 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
         return closeBits < 0x03;
     }
 
-    public boolean supportsOption(final Option<?> option) {
-        return false;
-    }
-
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
-    }
-
-    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
-    }
-
     private static int setBits(NioPipeChannel instance, int bits) {
         int old;
         int updated;

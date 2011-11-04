@@ -216,7 +216,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             return option.cast(Integer.valueOf(socket.getTrafficClass()));
         } else {
-            return null;
+            return super.getOption(option);
         }
     }
 
@@ -244,7 +244,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             old = Integer.valueOf(socket.getTrafficClass());
             socket.setTrafficClass(((Integer) value).intValue());
         } else {
-            return null;
+            return super.setOption(option, value);
         }
         return option.cast(old);
     }
