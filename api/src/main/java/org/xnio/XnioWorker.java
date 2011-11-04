@@ -22,13 +22,14 @@
 
 package org.xnio;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -56,11 +57,12 @@ import org.xnio.channels.UnsupportedOptionException;
  * @since 3.0
  */
 @SuppressWarnings("unused")
-public abstract class XnioWorker implements Closeable, Configurable, Executor {
+public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService {
 
     private final Xnio xnio;
     private final TaskPool taskPool;
     private final String name;
+    private final Runnable terminationTask;
 
     private final AtomicInteger taskSeq = new AtomicInteger(1);
     private static final AtomicInteger seq = new AtomicInteger(1);
@@ -72,9 +74,11 @@ public abstract class XnioWorker implements Closeable, Configurable, Executor {
      * @param xnio the XNIO provider which produced this worker instance
      * @param threadGroup the thread group for worker threads
      * @param optionMap the option map to use to configure this worker
+     * @param terminationTask
      */
-    protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap) {
+    protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) {
         this.xnio = xnio;
+        this.terminationTask = terminationTask;
         String workerName = optionMap.get(Options.WORKER_NAME);
         if (workerName == null) {
             workerName = "XNIO-" + seq.getAndIncrement();
@@ -532,25 +536,30 @@ public abstract class XnioWorker implements Closeable, Configurable, Executor {
     //
     //==================================================
 
-    /**
-     * Determine whether this worker is open.
-     *
-     * @return true if the worker is open
-     */
-    public abstract boolean isOpen();
+    public abstract void shutdown();
 
-    /**
-     * Close this worker and all of the I/O channels associated with it.
-     *
-     * @throws IOException
-     */
-    public abstract void close() throws IOException;
+    public abstract List<Runnable> shutdownNow();
+
+    public abstract boolean isShutdown();
+
+    public abstract boolean isTerminated();
+
+    public abstract boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException;
 
     //==================================================
     //
     // Thread pool methods
     //
     //==================================================
+
+    /**
+     * Get the user task to run once termination is complete.
+     *
+     * @return the termination task
+     */
+    protected Runnable getTerminationTask() {
+        return terminationTask;
+    }
 
     /**
      * Callback to indicate that the task thread pool has terminated.
@@ -563,6 +572,15 @@ public abstract class XnioWorker implements Closeable, Configurable, Executor {
      */
     protected void shutDownTaskPool() {
         taskPool.shutdown();
+    }
+
+    /**
+     * Shut down the task thread pool immediately and return its pending tasks.
+     *
+     * @return the pending task list
+     */
+    protected List<Runnable> shutDownTaskPoolNow() {
+        return taskPool.shutdownNow();
     }
 
     /**

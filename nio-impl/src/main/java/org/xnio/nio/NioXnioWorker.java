@@ -33,7 +33,9 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
@@ -73,8 +75,8 @@ final class NioXnioWorker extends XnioWorker {
 
     private static final AtomicIntegerFieldUpdater<NioXnioWorker> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnioWorker.class, "state");
 
-    NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
-        super(xnio, threadGroup, optionMap);
+    NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException {
+        super(xnio, threadGroup, optionMap, terminationTask);
         final int readCount = optionMap.get(Options.WORKER_READ_THREADS, 1);
         if (readCount < 0) {
             throw new IllegalArgumentException("Worker read thread count must be >= 0");
@@ -94,10 +96,10 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         try {
             for (int i = 0; i < readCount; i++) {
-                readWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, i+1), threadGroup, workerStackSize);
+                readWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
             }
             for (int i = 0; i < writeCount; i++) {
-                writeWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, i+1), threadGroup, workerStackSize);
+                writeWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
             }
             ok = true;
         } finally {
@@ -425,8 +427,12 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    public boolean isOpen() {
-        return (state & CLOSE_REQ) == 0;
+    public boolean isShutdown() {
+        return (state & CLOSE_REQ) != 0;
+    }
+
+    public boolean isTerminated() {
+        return (state & CLOSE_COMP) != 0;
     }
 
     /**
@@ -468,58 +474,67 @@ final class NioXnioWorker extends XnioWorker {
                 synchronized (this) {
                     notifyAll();
                 }
+                final Runnable task = getTerminationTask();
+                if (task != null) try {
+                    task.run();
+                } catch (Throwable ignored) {}
+                return;
             }
             oldState = state;
         }
     }
 
-    public void close() throws IOException {
+    public void shutdown() {
         int oldState = state;
         if ((oldState & CLOSE_COMP) != 0) {
-            log.tracef("Idempotent close of %s", this);
+            log.tracef("Idempotent shutdown of %s", this);
             return;
         }
-        shutDownTaskPool();
-        boolean intr = false;
-        try {
-            synchronized (this) {
-                oldState = state;
-                while ((oldState & CLOSE_COMP) == 0) {
-                    if ((oldState & CLOSE_REQ) == 0) {
-                        // need to do the close ourselves...
-                        if (! stateUpdater.compareAndSet(this, oldState, oldState | CLOSE_REQ)) {
-                            // changed in the meantime
-                            oldState = state;
-                            continue;
-                        }
-                        log.tracef("Initiating close of %s", this);
-                        for (WorkerThread worker : readWorkers) {
-                            worker.shutdown();
-                        }
-                        for (WorkerThread worker : writeWorkers) {
-                            worker.shutdown();
-                        }
-                        while ((state & ~(CLOSE_COMP|CLOSE_REQ)) > 0) try {
-                            log.tracef("Waiting for resources to close in %s", this);
-                            wait();
-                        } catch (InterruptedException e) {
-                            intr = true;
-                        }
-                        log.tracef("Completed close of %s", this);
-                        return;
-                    }
-                    try {
-                        wait();
-                    } catch (InterruptedException e) {
-                        intr = true;
-                    }
+        synchronized (this) {
+            oldState = state;
+            while ((oldState & CLOSE_REQ) == 0) {
+                // need to do the close ourselves...
+                if (! stateUpdater.compareAndSet(this, oldState, oldState | CLOSE_REQ)) {
+                    // changed in the meantime
                     oldState = state;
+                    continue;
                 }
-                log.tracef("Idempotent close of %s", this);
+                log.tracef("Initiating shutdown of %s", this);
+                for (WorkerThread worker : readWorkers) {
+                    worker.shutdown();
+                }
+                for (WorkerThread worker : writeWorkers) {
+                    worker.shutdown();
+                }
+                shutDownTaskPool();
                 return;
             }
-        } finally {
-            if (intr) Thread.currentThread().interrupt();
+            log.tracef("Idempotent shutdown of %s", this);
+            return;
+        }
+    }
+
+    public List<Runnable> shutdownNow() {
+        shutdown();
+        return shutDownTaskPoolNow();
+    }
+
+    public boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException {
+        int oldState = state;
+        if ((oldState & CLOSE_COMP) != 0) {
+            return true;
+        }
+        long start = System.nanoTime();
+        long elapsed = 0L;
+        synchronized (this) {
+            while ((oldState & CLOSE_COMP) == 0) {
+                wait(timeout - elapsed);
+                elapsed = (System.nanoTime() - start) / 1000000L;
+                if (elapsed > unit.toNanos(timeout)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

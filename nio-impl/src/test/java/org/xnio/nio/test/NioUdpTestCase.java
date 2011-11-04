@@ -98,15 +98,19 @@ public final class NioUdpTestCase extends TestCase {
     private synchronized void doClientServerSide(final boolean clientMulticast, final boolean serverMulticast, final ChannelListener<MulticastMessageChannel> serverHandler, final ChannelListener<MulticastMessageChannel> clientHandler, final Runnable body) throws IOException {
         final Xnio xnio = Xnio.getInstance("nio");
         final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
-        doServerSidePart(serverMulticast, serverHandler, new Runnable() {
-            public void run() {
-                try {
-                    doClientSidePart(clientMulticast, clientHandler, body, worker);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+        try {
+            doServerSidePart(serverMulticast, serverHandler, new Runnable() {
+                public void run() {
+                    try {
+                        doClientSidePart(clientMulticast, clientHandler, body, worker);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-            }
-        }, worker);
+            }, worker);
+        } finally {
+            worker.shutdown();
+        }
     }
 
     private void doServerCreate(boolean multicast) throws Exception {

@@ -129,7 +129,7 @@ public final class NioSslTcpTestCase {
                 IoUtils.safeClose(server);
             }
         } finally {
-            IoUtils.safeClose(worker);
+            worker.shutdown();
         }
     }
 

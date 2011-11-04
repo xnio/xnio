@@ -27,7 +27,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -90,7 +89,7 @@ public final class NioTcpTestCase extends TestCase {
                 IoUtils.safeClose(server);
             }
         } finally {
-            IoUtils.safeClose(worker);
+            worker.shutdown();
         }
     }
 
@@ -703,7 +702,7 @@ public final class NioTcpTestCase extends TestCase {
             assertTrue("Server read done", serverReadDoneOK.get());
             assertTrue("Server write OK", serverWriteOK.get());
         } finally {
-            IoUtils.safeClose(worker);
+            worker.shutdown();
         }
         checkProblems();
     }
