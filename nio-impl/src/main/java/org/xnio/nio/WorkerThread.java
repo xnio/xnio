@@ -230,7 +230,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
     }
 
     public Key executeAfter(final Runnable command, final long time, final TimeUnit unit) {
-        return executeAfter(command, time, TimeUnit.MILLISECONDS);
+        return executeAfter(command, unit.toMillis(time));
     }
 
     XnioExecutor.Key executeAfter(final Runnable command, final long time) {
