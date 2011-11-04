@@ -41,7 +41,6 @@ import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Pooled;
-import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
@@ -180,20 +179,16 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
+    @Override
     protected void handleReadable(final ConnectedStreamChannel channel) {
-        if (writeNeedsUnwrapUpdater.compareAndSet(this, 1, 0)) {
-            resumeWrites();
-            wakeupWrites();
-        }
-        super.handleReadable(channel);
-    }
-
-    protected void handleWritable(final ConnectedStreamChannel channel) {
-        if (readNeedsWrapUpdater.compareAndSet(this, 1, 0)) {
-            resumeReads();
-            wakeupReads();
-        }
-        super.handleWritable(channel);
+        boolean read;
+        do {
+            super.handleReadable(channel);
+            // if there is data in readBuffer, call read listener again
+            synchronized(getReadLock()) {
+                read = readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
+            }
+        } while (read);
     }
 
     @Override
@@ -384,7 +379,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     // Needs wrap, so we wrap (if possible)...
                     synchronized (getWriteLock()) {
                         if (flushed = doFlush()) {
-                            handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                            if (!handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
+                                readNeedsWrap = 1;
+                                resumeWritesIfRequestedAndSuspendReads();
+                                return false;
+                            }
                             newResult = true;
                             continue;
                         }
@@ -414,12 +413,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                         if (handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer)) >= 0) { // FIXME what if the unwrap return buffer overflow???
                             // have we made some progress?
                             if(result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || result.bytesConsumed() > 0) {
-                                writeNeedsUnwrap = 0;
+                                clearWriteNeedsUnwrap();
                                 continue;
                             }
                             // no point in proceeding, we're stuck until the user reads anyway
                             writeNeedsUnwrap = 1;
-                            resumeReadsIfRequested();
+                            resumeReadsIfRequestedAndSuspendWrites();
                             return false;
                         }
                     }
@@ -486,7 +485,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         long total = 0;
         SSLEngineResult result;
         synchronized(getReadLock()) {
-            if (unwrappedBuffer.hasRemaining()) {
+            if (unwrappedBuffer.position() > 0 && unwrappedBuffer.hasRemaining()) {
                 total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
             }
         }

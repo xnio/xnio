@@ -252,6 +252,14 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         channel.wakeupReads();
     }
 
+    public void wakeupReadsIfRequested() {
+        synchronized (getReadLock()) {
+            if (readsRequested) {
+                channel.wakeupReads();
+            }
+        }
+    }
+
     /**
      * Resume reads if the user has requested so.
      */
@@ -259,6 +267,18 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         synchronized (getReadLock()) {
             if (readsRequested) {
                 channel.resumeReads();
+            }
+        }
+    }
+
+    /**
+     * Resume reads if the user has requested so.
+     */
+    protected void resumeReadsIfRequestedAndSuspendWrites() {
+        synchronized (getReadLock()) {
+            if (readsRequested) {
+                channel.resumeReads();
+                channel.suspendWrites();
             }
         }
     }
@@ -294,6 +314,14 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         channel.wakeupWrites();
     }
 
+    public void wakeupWritesIfRequested() {
+        synchronized (getWriteLock()) {
+            if (writesRequested) {
+                channel.wakeupWrites();
+            }
+        }
+    }
+
     /**
      * Resume writes if the user has requested so.
      */
@@ -301,6 +329,15 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         synchronized (getWriteLock()) {
             if (writesRequested) {
                 channel.resumeWrites();
+            }
+        }
+    }
+
+    protected void resumeWritesIfRequestedAndSuspendReads() {
+        synchronized (getWriteLock()) {
+            if (writesRequested) {
+                channel.resumeWrites();
+                channel.suspendReads();
             }
         }
     }

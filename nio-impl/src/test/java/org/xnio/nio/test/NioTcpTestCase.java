@@ -113,7 +113,7 @@ public final class NioTcpTestCase extends TestCase {
     public void testClientTcpClose() throws Exception {
         problems.clear();
         log.info("Test: testClientTcpClose");
-        final CountDownLatch latch = new CountDownLatch(2);
+        final CountDownLatch latch = new CountDownLatch(4);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
@@ -136,6 +136,7 @@ public final class NioTcpTestCase extends TestCase {
                     });
                     channel.close();
                     clientOK.set(true);
+                    latch.countDown();
                 } catch (Throwable t) {
                     log.error("In client", t);
                     latch.countDown();

@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -57,7 +56,6 @@ import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.ssl.XnioSsl;
 
 @SuppressWarnings( { "JavaDoc" })
-@Ignore
 public final class NioSslTcpTestCase {
 
     private static final String KEY_STORE_PROPERTY = "javax.net.ssl.keyStore";
@@ -137,7 +135,7 @@ public final class NioSslTcpTestCase {
     public void testClientTcpClose() throws Exception {
         problems.clear();
         log.info("Test: testClientTcpClose");
-        final CountDownLatch latch = new CountDownLatch(2);
+        final CountDownLatch latch = new CountDownLatch(4);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
@@ -164,6 +162,7 @@ public final class NioSslTcpTestCase {
                     if (c == -1) {
                         clientOK.set(true);
                     }
+                    latch.countDown();
                 } catch (Throwable t) {
                     log.error("In client", t);
                     latch.countDown();
@@ -557,10 +556,8 @@ public final class NioSslTcpTestCase {
                         public void handleEvent(final ConnectedStreamChannel channel) {
                             try {
                                 channel.read(ByteBuffer.allocate(100));
-                                channel.close();
                             } catch (IOException e) {
                                 clientOK.set(true);
-                            } finally {
                                 IoUtils.safeClose(channel);
                             }
                         }
@@ -569,9 +566,8 @@ public final class NioSslTcpTestCase {
                         public void handleEvent(final ConnectedStreamChannel channel) {
                             try {
                                 if (channel.write(ByteBuffer.wrap(new byte[] { 1 })) > 0) {
+                                    channel.flush();
                                     channel.suspendWrites();
-                                } else {
-                                    channel.resumeWrites();
                                 }
                             } catch (IOException e) {
                                 IoUtils.safeClose(channel);
@@ -610,8 +606,6 @@ public final class NioSslTcpTestCase {
                                     channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
                                     channel.close();
                                     serverOK.set(true);
-                                } else {
-                                    channel.resumeReads();
                                 }
                             } catch (IOException e) {
                                 IoUtils.safeClose(channel);
