@@ -29,13 +29,20 @@ import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.PrivilegedAction;
 import java.util.EnumMap;
 import java.util.ServiceLoader;
 
 import org.jboss.logging.Logger;
+import org.xnio.ssl.JsseSslUtils;
 import org.xnio.ssl.JsseXnioSsl;
 import org.xnio.ssl.XnioSsl;
+
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
 
 /**
  * The XNIO provider class.
@@ -200,6 +207,19 @@ public abstract class Xnio {
      */
     public XnioSsl getSslProvider(final OptionMap optionMap) throws GeneralSecurityException {
         return new JsseXnioSsl(this, optionMap);
+    }
+
+    /**
+     * Get an SSL provider for this XNIO provider.
+     *
+     * @param optionMap the option map to use for configuring SSL
+     * @param keyManagers the key managers to use, or {@code null} to configure from the option map
+     * @param trustManagers the trust managers to use, or {@code null} to configure from the option map
+     * @return the SSL provider
+     * @throws GeneralSecurityException if an exception occurred configuring the SSL provider
+     */
+    public XnioSsl getSslProvider(final KeyManager[] keyManagers, final TrustManager[] trustManagers, final OptionMap optionMap) throws GeneralSecurityException {
+        return new JsseXnioSsl(this, optionMap, JsseSslUtils.createSSLContext(keyManagers, trustManagers, null, optionMap));
     }
 
     //==================================================

@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -62,6 +63,22 @@ public final class JsseSslUtils {
      * @throws KeyManagementException if the context initialization fails
      */
     public static SSLContext createSSLContext(OptionMap optionMap) throws NoSuchProviderException, NoSuchAlgorithmException, KeyManagementException {
+        return createSSLContext(null, null, null, optionMap);
+    }
+
+    /**
+     * Create a new SSL context, configured from an option map and the given parameters.
+     *
+     * @param keyManagers the key managers to use, or {@code null} to configure from the option map
+     * @param trustManagers the trust managers to use, or {@code null} to configure from the option map
+     * @param secureRandom the secure RNG to use, or {@code null} to choose a system default
+     * @param optionMap the SSL context options
+     * @return a new context
+     * @throws NoSuchProviderException if there is no matching provider
+     * @throws NoSuchAlgorithmException if there is no matching algorithm
+     * @throws KeyManagementException if the context initialization fails
+     */
+    public static SSLContext createSSLContext(KeyManager[] keyManagers, TrustManager[] trustManagers, SecureRandom secureRandom, OptionMap optionMap) throws NoSuchAlgorithmException, NoSuchProviderException, KeyManagementException {
         final String provider = optionMap.get(Options.SSL_PROVIDER);
         final String protocol = optionMap.get(Options.SSL_PROTOCOL);
         final SSLContext sslContext;
@@ -73,29 +90,27 @@ public final class JsseSslUtils {
         } else {
             sslContext = SSLContext.getInstance(protocol, provider);
         }
-        final Sequence<Class<? extends KeyManager>> keyManagerClasses = optionMap.get(Options.SSL_JSSE_KEY_MANAGER_CLASSES);
-        final Sequence<Class<? extends TrustManager>> trustManagerClasses = optionMap.get(Options.SSL_JSSE_TRUST_MANAGER_CLASSES);
-        final KeyManager[] keyManagers;
-        final TrustManager[] trustManagers;
-        if (keyManagerClasses == null) {
-            keyManagers = null;
-        } else {
-            final int size = keyManagerClasses.size();
-            keyManagers = new KeyManager[size];
-            for (int i = 0; i < size; i ++) {
-                keyManagers[i] = instantiate(keyManagerClasses.get(i));
+        if (keyManagers == null) {
+            final Sequence<Class<? extends KeyManager>> keyManagerClasses = optionMap.get(Options.SSL_JSSE_KEY_MANAGER_CLASSES);
+            if (keyManagerClasses != null) {
+                final int size = keyManagerClasses.size();
+                keyManagers = new KeyManager[size];
+                for (int i = 0; i < size; i ++) {
+                    keyManagers[i] = instantiate(keyManagerClasses.get(i));
+                }
             }
         }
-        if (trustManagerClasses == null) {
-            trustManagers = null;
-        } else {
-            final int size = trustManagerClasses.size();
-            trustManagers = new TrustManager[size];
-            for (int i = 0; i < size; i ++) {
-                trustManagers[i] = instantiate(trustManagerClasses.get(i));
+        if (trustManagers == null) {
+            final Sequence<Class<? extends TrustManager>> trustManagerClasses = optionMap.get(Options.SSL_JSSE_TRUST_MANAGER_CLASSES);
+            if (trustManagerClasses != null) {
+                final int size = trustManagerClasses.size();
+                trustManagers = new TrustManager[size];
+                for (int i = 0; i < size; i ++) {
+                    trustManagers[i] = instantiate(trustManagerClasses.get(i));
+                }
             }
         }
-        sslContext.init(keyManagers, trustManagers, null);
+        sslContext.init(keyManagers, trustManagers, secureRandom);
         sslContext.getClientSessionContext().setSessionCacheSize(optionMap.get(Options.SSL_CLIENT_SESSION_CACHE_SIZE, 0));
         sslContext.getClientSessionContext().setSessionTimeout(optionMap.get(Options.SSL_CLIENT_SESSION_TIMEOUT, 0));
         sslContext.getServerSessionContext().setSessionCacheSize(optionMap.get(Options.SSL_SERVER_SESSION_CACHE_SIZE, 0));
