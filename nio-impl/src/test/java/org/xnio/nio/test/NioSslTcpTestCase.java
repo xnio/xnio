@@ -287,7 +287,7 @@ public final class NioSslTcpTestCase {
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(500000L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -570,6 +570,8 @@ public final class NioSslTcpTestCase {
                             try {
                                 if (channel.write(ByteBuffer.wrap(new byte[] { 1 })) > 0) {
                                     channel.suspendWrites();
+                                } else {
+                                    channel.resumeWrites();
                                 }
                             } catch (IOException e) {
                                 IoUtils.safeClose(channel);
@@ -608,6 +610,8 @@ public final class NioSslTcpTestCase {
                                     channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
                                     channel.close();
                                     serverOK.set(true);
+                                } else {
+                                    channel.resumeReads();
                                 }
                             } catch (IOException e) {
                                 IoUtils.safeClose(channel);
