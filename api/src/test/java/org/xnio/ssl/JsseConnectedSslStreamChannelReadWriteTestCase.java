@@ -444,7 +444,7 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
             try {
                 int totalLength = 0;
                 int length = 0;
-                while ((length  = sslChannel.read(buffer)) > 0) {
+                while ((length  = sslChannel.read(buffer)) >= 0) {
                     totalLength += length;
                 }
                 assertEquals(-1, sslChannel.read(buffer));
