@@ -44,6 +44,7 @@ import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
@@ -283,12 +284,22 @@ class NioUdpChannel implements MulticastMessageChannel {
         SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
+    public XnioExecutor getReadThread() {
+        final NioHandle<NioUdpChannel> handle = readHandle;
+        return handle == null ? null : handle.getWorkerThread();
+    }
+
     public void awaitWritable() throws IOException {
         SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
         SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_WRITE, time, timeUnit);
+    }
+
+    public XnioExecutor getWriteThread() {
+        final NioHandle<NioUdpChannel> handle = writeHandle;
+        return handle == null ? null : handle.getWorkerThread();
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {

@@ -40,6 +40,7 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Options;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
@@ -395,6 +396,10 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         }
     }
 
+    public XnioExecutor getReadThread() {
+        return readThread;
+    }
+
     public void awaitWritable() throws IOException {
         try {
             synchronized (writeLock) {
@@ -423,6 +428,10 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    public XnioExecutor getWriteThread() {
+        return writeThread;
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()

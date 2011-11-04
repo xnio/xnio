@@ -34,8 +34,6 @@ import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
@@ -52,7 +50,6 @@ import org.xnio.Options;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 
@@ -68,19 +65,16 @@ final class NioXnioWorker extends XnioWorker {
     private static final int CLOSE_REQ = (1 << 31);
     private static final int CLOSE_COMP = (1 << 30);
 
-    private volatile int state = 0;
+    // start at 1 for the provided thread pool
+    private volatile int state = 1;
 
     private final WorkerThread[] readWorkers;
     private final WorkerThread[] writeWorkers;
 
     private static final AtomicIntegerFieldUpdater<NioXnioWorker> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnioWorker.class, "state");
 
-    private static final AtomicInteger seq = new AtomicInteger(1);
-
-    private final SimpleSetter<NioXnioWorker> closeSetter = new SimpleSetter<NioXnioWorker>();
-
     NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap) throws IOException {
-        super(xnio);
+        super(xnio, threadGroup, optionMap);
         final int readCount = optionMap.get(Options.WORKER_READ_THREADS, 1);
         if (readCount < 0) {
             throw new IllegalArgumentException("Worker read thread count must be >= 0");
@@ -93,10 +87,7 @@ final class NioXnioWorker extends XnioWorker {
         if (workerStackSize < 0L) {
             throw new IllegalArgumentException("Worker stack size must be >= 0");
         }
-        String workerName = optionMap.get(Options.WORKER_NAME);
-        if (workerName == null) {
-            workerName = "XNIO-" + seq.getAndIncrement();
-        }
+        String workerName = getName();
         WorkerThread[] readWorkers, writeWorkers;
         readWorkers = new WorkerThread[readCount];
         writeWorkers = new WorkerThread[writeCount];
@@ -488,6 +479,7 @@ final class NioXnioWorker extends XnioWorker {
             log.tracef("Idempotent close of %s", this);
             return;
         }
+        shutDownTaskPool();
         boolean intr = false;
         try {
             synchronized (this) {
@@ -507,7 +499,6 @@ final class NioXnioWorker extends XnioWorker {
                         for (WorkerThread worker : writeWorkers) {
                             worker.shutdown();
                         }
-                        final ChannelListener<? super NioXnioWorker> listener = closeSetter.get();
                         while ((state & ~(CLOSE_COMP|CLOSE_REQ)) > 0) try {
                             log.tracef("Waiting for resources to close in %s", this);
                             wait();
@@ -515,7 +506,6 @@ final class NioXnioWorker extends XnioWorker {
                             intr = true;
                         }
                         log.tracef("Completed close of %s", this);
-                        ChannelListeners.invokeChannelListener(this, listener);
                         return;
                     }
                     try {
@@ -533,28 +523,8 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    public void execute(final Runnable command) {
-        choose().execute(command);
-    }
-
-    public ChannelListener.Setter<? extends CloseableChannel> getCloseSetter() {
-        return closeSetter;
-    }
-
-    public boolean supportsOption(final Option<?> option) {
-        return false;
-    }
-
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
-    }
-
-    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
-    }
-
-    public Key executeAfter(final Runnable command, final long time, final TimeUnit unit) {
-        return choose().executeAfter(command, unit.toMillis(time));
+    protected void taskPoolTerminated() {
+        closeResource();
     }
 
     public NioXnio getXnio() {

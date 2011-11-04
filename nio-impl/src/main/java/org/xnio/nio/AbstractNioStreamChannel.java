@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamChannel;
 
@@ -159,12 +160,22 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         SelectorUtils.await(worker.getXnio(), (SelectableChannel) getReadChannel(), SelectionKey.OP_READ, time, timeUnit);
     }
 
+    public XnioExecutor getReadThread() {
+        final NioHandle<C> handle = readHandle;
+        return handle == null ? null : handle.getWorkerThread();
+    }
+
     public final void awaitWritable() throws IOException {
         SelectorUtils.await(worker.getXnio(), (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE);
     }
 
     public final void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
         SelectorUtils.await(worker.getXnio(), (SelectableChannel) getWriteChannel(), SelectionKey.OP_WRITE, time, timeUnit);
+    }
+
+    public XnioExecutor getWriteThread() {
+        final NioHandle<C> handle = writeHandle;
+        return handle == null ? null : handle.getWorkerThread();
     }
 
     // Transfer bytes

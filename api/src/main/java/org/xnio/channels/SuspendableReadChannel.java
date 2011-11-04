@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
+import org.xnio.XnioExecutor;
 
 /**
  * A suspendable readable channel.  This type of channel is associated with a listener which can suspend and resume
@@ -86,6 +87,13 @@ public interface SuspendableReadChannel extends CloseableChannel {
      * @since 1.2
      */
     void awaitReadable(long time, TimeUnit timeUnit) throws IOException;
+
+    /**
+     * Get the read thread for this channel.
+     *
+     * @return the thread, or {@code null} if none is configured or available
+     */
+    XnioExecutor getReadThread();
 
     /**
      * Get the setter which can be used to change the read listener for this channel.  When the listener is called,

@@ -441,4 +441,24 @@ public final class Options {
      * is 1, and the maximum value is equal to the number of available worker threads.
      */
     public static final Option<Integer> WORKER_ACCEPT_THREADS = Option.simple(Options.class, "WORKER_ACCEPT_THREADS", Integer.class);
+
+    /**
+     * Specify the number of "core" threads for the worker task thread pool.
+     */
+    public static final Option<Integer> WORKER_TASK_CORE_THREADS = Option.simple(Options.class, "WORKER_TASK_CORE_THREADS", Integer.class);
+
+    /**
+     * Specify the maximum number of threads for the worker task thread pool.
+     */
+    public static final Option<Integer> WORKER_TASK_MAX_THREADS = Option.simple(Options.class, "WORKER_TASK_MAX_THREADS", Integer.class);
+
+    /**
+     * Specify the number of milliseconds to keep non-core task threads alive.
+     */
+    public static final Option<Integer> WORKER_TASK_KEEPALIVE = Option.simple(Options.class, "WORKER_TASK_KEEPALIVE", Integer.class);
+
+    /**
+     * Specify the maximum number of worker tasks to allow before rejecting.
+     */
+    public static final Option<Integer> WORKER_TASK_LIMIT = Option.simple(Options.class, "WORKER_TASK_LIMIT", Integer.class);
 }

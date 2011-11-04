@@ -41,6 +41,7 @@ import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Pooled;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;

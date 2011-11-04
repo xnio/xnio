@@ -22,12 +22,23 @@
 
 package org.xnio;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.CloseableChannel;
+import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
@@ -45,18 +56,49 @@ import org.xnio.channels.UnsupportedOptionException;
  * @since 3.0
  */
 @SuppressWarnings("unused")
-public abstract class XnioWorker implements CloseableChannel, XnioExecutor {
+public abstract class XnioWorker implements Closeable, Configurable, Executor {
 
     private final Xnio xnio;
+    private final TaskPool taskPool;
+    private final String name;
+
+    private final AtomicInteger taskSeq = new AtomicInteger(1);
+    private static final AtomicInteger seq = new AtomicInteger(1);
 
     /**
      * Construct a new instance.  Intended to be called only from implementations.  To construct an XNIO worker,
      * use the {@link Xnio#createWorker(OptionMap)} method.
      *
      * @param xnio the XNIO provider which produced this worker instance
+     * @param threadGroup the thread group for worker threads
+     * @param optionMap the option map to use to configure this worker
      */
-    protected XnioWorker(final Xnio xnio) {
+    protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap) {
         this.xnio = xnio;
+        String workerName = optionMap.get(Options.WORKER_NAME);
+        if (workerName == null) {
+            workerName = "XNIO-" + seq.getAndIncrement();
+        }
+        name = workerName;
+        final int taskLimit = optionMap.get(Options.WORKER_TASK_LIMIT, 0x4000);
+        final LimitedBlockingQueue<Runnable> taskQueue = new LimitedBlockingQueue<Runnable>(new LinkedBlockingQueue<Runnable>(taskLimit), taskLimit >> 2);
+        taskPool = new TaskPool(
+            optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4),
+            optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
+            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60), TimeUnit.MILLISECONDS,
+            taskQueue,
+            new ThreadFactory() {
+                public Thread newThread(final Runnable r) {
+                    return new Thread(threadGroup, r, name + " task-" + taskSeq.getAndIncrement(), optionMap.get(Options.STACK_SIZE, 0L));
+                }
+            }, new RejectedExecutionHandler() {
+                public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor) {
+                    if (! taskQueue.offerUnchecked(r)) {
+                        throw new RejectedExecutionException("Task limit exceeded (server may be too busy to handle request)");
+                    }
+                }
+            }
+        );
     }
 
     //==================================================
@@ -504,9 +546,85 @@ public abstract class XnioWorker implements CloseableChannel, XnioExecutor {
      */
     public abstract void close() throws IOException;
 
-    public XnioWorker getWorker() {
-        return this;
+    //==================================================
+    //
+    // Thread pool methods
+    //
+    //==================================================
+
+    /**
+     * Callback to indicate that the task thread pool has terminated.
+     */
+    protected void taskPoolTerminated() {}
+
+    /**
+     * Initiate shutdown of the task thread pool.  When all the tasks and threads have completed,
+     * the {@link #taskPoolTerminated()} method is called.
+     */
+    protected void shutDownTaskPool() {
+        taskPool.shutdown();
     }
+
+    /**
+     * Execute a command in the task pool.
+     *
+     * @param command the command to run
+     */
+    public void execute(final Runnable command) {
+        taskPool.execute(command);
+    }
+
+    //==================================================
+    //
+    // Configuration methods
+    //
+    //==================================================
+
+    private static Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(Options.WORKER_TASK_CORE_THREADS)
+            .add(Options.WORKER_TASK_MAX_THREADS)
+            .add(Options.WORKER_TASK_KEEPALIVE)
+            .create();
+
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
+    }
+
+    public <T> T getOption(final Option<T> option) throws IOException {
+        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+            return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
+        } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
+            return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
+        } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
+            return option.cast(Long.valueOf(taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS)));
+        } else {
+            return null;
+        }
+    }
+
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+            final int old = taskPool.getCorePoolSize();
+            taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
+            return option.cast(Integer.valueOf(old));
+        } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
+            final int old = taskPool.getMaximumPoolSize();
+            taskPool.setMaximumPoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
+            return option.cast(Integer.valueOf(old));
+        } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
+            final long old = taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS);
+            taskPool.setKeepAliveTime(Options.WORKER_TASK_KEEPALIVE.cast(value).intValue(), TimeUnit.MILLISECONDS);
+            return option.cast(Long.valueOf(old));
+        } else {
+            return null;
+        }
+    }
+
+    //==================================================
+    //
+    // Accessor methods
+    //
+    //==================================================
 
     /**
      * Get the XNIO provider which produced this worker.
@@ -516,4 +634,25 @@ public abstract class XnioWorker implements CloseableChannel, XnioExecutor {
     public Xnio getXnio() {
         return xnio;
     }
+
+    /**
+     * Get the name of this worker.
+     *
+     * @return the name of the worker
+     */
+    public String getName() {
+        return name;
+    }
+
+    final class TaskPool extends ThreadPoolExecutor {
+
+        TaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final RejectedExecutionHandler handler) {
+            super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+        }
+
+        protected void terminated() {
+            taskPoolTerminated();
+        }
+    }
+
 }

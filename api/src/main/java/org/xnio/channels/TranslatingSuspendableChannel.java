@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 
 /**
@@ -371,6 +372,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         channel.awaitReadable(time, timeUnit);
     }
 
+    public XnioExecutor getReadThread() {
+        return channel.getReadThread();
+    }
+
     /** {@inheritDoc} */
     public void awaitWritable() throws IOException {
         synchronized (getWriteLock()) {
@@ -389,6 +394,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
         }
         channel.awaitWritable(time, timeUnit);
+    }
+
+    public XnioExecutor getWriteThread() {
+        return channel.getWriteThread();
     }
 
     /**

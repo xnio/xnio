@@ -32,6 +32,7 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListener.Setter;
 import org.xnio.Option;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
 
@@ -165,6 +166,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     }
 
     @Override
+    public XnioExecutor getReadThread() {
+        return null;
+    }
+
+    @Override
     public void suspendWrites() {
         // do nothing for now...
     }
@@ -192,6 +198,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     @Override
     public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {
         // do nothing for now...
+    }
+
+    @Override
+    public XnioExecutor getWriteThread() {
+        return null;
     }
 
     @Override

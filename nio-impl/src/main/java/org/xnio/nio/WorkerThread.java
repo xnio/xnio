@@ -36,6 +36,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
@@ -52,7 +53,7 @@ import static org.xnio.nio.Log.selectorLog;
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-final class WorkerThread extends Thread {
+final class WorkerThread extends Thread implements XnioExecutor {
     private static final long LONGEST_DELAY = 9223372036853L;
     private static final String FQCN = WorkerThread.class.getName();
 
@@ -206,7 +207,7 @@ final class WorkerThread extends Thread {
         }
     }
 
-    void execute(final Runnable command) {
+    public void execute(final Runnable command) {
         if ((state & SHUTDOWN) != 0) {
             throw new RejectedExecutionException("Thread is terminating");
         }
@@ -226,6 +227,10 @@ final class WorkerThread extends Thread {
             }
         } while (! stateUpdater.compareAndSet(this, oldState, oldState | SHUTDOWN));
         selector.wakeup();
+    }
+
+    public Key executeAfter(final Runnable command, final long time, final TimeUnit unit) {
+        return executeAfter(command, time, TimeUnit.MILLISECONDS);
     }
 
     XnioExecutor.Key executeAfter(final Runnable command, final long time) {

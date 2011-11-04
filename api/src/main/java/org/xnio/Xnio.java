@@ -55,8 +55,9 @@ public abstract class Xnio {
     static {
         Logger.getLogger("org.xnio").info("XNIO Version " + Version.VERSION);
         final EnumMap<FileAccess, OptionMap> map = new EnumMap<FileAccess, OptionMap>(FileAccess.class);
-        map.put(FileAccess.READ_ONLY, OptionMap.create(Options.FILE_ACCESS, FileAccess.READ_ONLY));
-        map.put(FileAccess.READ_WRITE, OptionMap.create(Options.FILE_ACCESS, FileAccess.READ_WRITE));
+        for (FileAccess access : FileAccess.values()) {
+            map.put(access, OptionMap.create(Options.FILE_ACCESS, access));
+        }
         FILE_ACCESS_OPTION_MAPS = map;
     }
 
@@ -66,7 +67,8 @@ public abstract class Xnio {
     private final String name;
 
     /**
-     * Construct an XNIO provider instance.
+     * Construct an XNIO provider instance.  Used by implementors only.  To get an XNIO instance,
+     * use one of the {@link org.xnio.Xnio#getInstance()} methods.
      *
      * @param name the provider name
      */
