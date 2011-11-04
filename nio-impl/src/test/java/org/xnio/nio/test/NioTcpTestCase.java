@@ -478,13 +478,11 @@ public final class NioTcpTestCase extends TestCase {
                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
                         public void handleEvent(final ConnectedStreamChannel channel) {
                             try {
-                                channel.read(ByteBuffer.allocate(100));
-                                channel.close();
+                                if (channel.read(ByteBuffer.allocate(100)) == 0) return;
                             } catch (IOException e) {
                                 clientOK.set(true);
-                            } finally {
-                                IoUtils.safeClose(channel);
                             }
+                            IoUtils.safeClose(channel);
                         }
                     });
                     channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
