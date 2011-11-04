@@ -29,7 +29,6 @@ import java.nio.channels.Pipe;
 import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.IoUtils;
-import org.xnio.Option;
 
 final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
 

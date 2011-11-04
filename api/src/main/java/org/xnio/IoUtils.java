@@ -644,38 +644,6 @@ public final class IoUtils {
     }
 
     /**
-     * Create a channel source from a connector.
-     *
-     * @param connector the connector to use
-     * @param destination the destination to connect to
-     * @param <C> the channel type
-     * @return the channel source
-     */
-    public static <C extends Channel> ChannelSource<C> getChannelSource(final Connector<C> connector, final SocketAddress destination) {
-        return new ChannelSource<C>() {
-            public IoFuture<C> open(final ChannelListener<? super C> openListener) {
-                return connector.connectTo(destination, openListener, null);
-            }
-        };
-    }
-
-    /**
-     * Create a channel destination from a acceptor.
-     *
-     * @param acceptor the acceptor to use
-     * @param destination the destination to accept on
-     * @param <C> the channel type
-     * @return the channel destination
-     */
-    public static <C extends Channel> ChannelDestination<C> getChannelDestination(final Acceptor<C> acceptor, final SocketAddress destination) {
-        return new ChannelDestination<C>() {
-            public IoFuture<C> accept(final ChannelListener<? super C> openListener, final ChannelListener<? super BoundChannel> bindListener) {
-                return acceptor.acceptTo(destination, openListener, bindListener);
-            }
-        };
-    }
-
-    /**
      * Get a thread-local RNG.  Do not share this instance with other threads.
      *
      * @return the thread-local RNG

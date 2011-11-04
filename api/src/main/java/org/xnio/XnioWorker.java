@@ -487,47 +487,27 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //==================================================
 
     /**
-     * Create a pipe "server".  The provided open listener acts upon the server "end" of the
-     * pipe. The returned channel source is used to establish connections to the server.
+     * Open a bidirectional stream pipe.
      *
-     * @param acceptListener the channel accept listener
-     *
-     * @return the client channel source
-     *
-     * @since 2.0
+     * @param leftOpenListener the left-hand open listener
+     * @param rightOpenListener the right-hand open listener
+     * @param optionMap the pipe channel configuration
+     * @throws IOException if the pipe could not be created
      */
-    public ChannelSource<? extends StreamChannel> createPipeServer(ChannelListener<? super SimpleAcceptingChannel<StreamChannel>> acceptListener) {
-        throw new UnsupportedOperationException("Pipe Server");
+    public void createPipe(ChannelListener<? super StreamChannel> leftOpenListener, ChannelListener<? super StreamChannel> rightOpenListener, final OptionMap optionMap) throws IOException {
+        throw new UnsupportedOperationException("Bi-directional Pipe");
     }
 
     /**
-     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
-     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
-     * server to the client.
+     * Open a unidirectional stream pipe.
      *
-     * @param acceptListener the channel accept listener
-     *
-     * @return the client channel source
-     *
-     * @since 2.0
+     * @param sourceListener the source open listener
+     * @param sinkListener the sink open listener
+     * @param optionMap the pipe channel configuration
+     * @throws IOException if the pipe could not be created
      */
-    public ChannelSource<? extends StreamSourceChannel> createPipeSourceServer(ChannelListener<? super SimpleAcceptingChannel<StreamSinkChannel>> acceptListener) {
-        throw new UnsupportedOperationException("One-way Pipe Server");
-    }
-
-    /**
-     * Create a one-way pipe "server".  The provided open listener acts upon the server "end" of the
-     * the pipe. The returned channel source is used to establish connections to the server.  The data flows from the
-     * client to the server.
-     *
-     * @param acceptListener the channel accept listener
-     *
-     * @return the client channel source
-     *
-     * @since 2.0
-     */
-    public ChannelSource<? extends StreamSinkChannel> createPipeSinkServer(ChannelListener<? super SimpleAcceptingChannel<StreamSourceChannel>> acceptListener) {
-        throw new UnsupportedOperationException("One-way Pipe Server");
+    public void createOneWayPipe(ChannelListener<? super StreamSourceChannel> sourceListener, ChannelListener<? super StreamSinkChannel> sinkListener, final OptionMap optionMap) throws IOException {
+        throw new UnsupportedOperationException("Unidirectional Pipe");
     }
 
     //==================================================
