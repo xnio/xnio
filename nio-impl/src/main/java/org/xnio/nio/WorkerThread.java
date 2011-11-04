@@ -356,7 +356,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
         return identityHashCode(this);
     }
 
-    final class TimeKey implements XnioExecutor.Key {
+    final class TimeKey implements XnioExecutor.Key, Comparable<TimeKey> {
         private final long deadline;
         private final Runnable command;
 
@@ -369,6 +369,10 @@ final class WorkerThread extends Thread implements XnioExecutor {
             synchronized (workLock) {
                 return delayWorkQueue.remove(this);
             }
+        }
+
+        public int compareTo(final TimeKey o) {
+            return (int) Math.signum(deadline - o.deadline);
         }
     }
 
