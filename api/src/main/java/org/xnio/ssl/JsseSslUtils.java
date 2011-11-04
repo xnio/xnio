@@ -142,7 +142,10 @@ public final class JsseSslUtils {
      * @return the configured SSL engine
      */
     public static SSLEngine createSSLEngine(SSLContext sslContext, OptionMap optionMap, InetSocketAddress peerAddress, boolean server) {
-        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
+        final SSLEngine engine = sslContext.createSSLEngine(
+                optionMap.get(Options.SSL_PEER_HOST_NAME, peerAddress.getHostName()),
+                optionMap.get(Options.SSL_PEER_PORT, peerAddress.getPort())
+        );
         final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, false) ^ ! server;
         engine.setUseClientMode(clientMode);
         if (! clientMode) {

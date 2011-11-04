@@ -295,6 +295,19 @@ public final class Options {
     public static final Option<Boolean> SSL_STARTTLS = Option.simple(Options.class, "SSL_STARTTLS", Boolean.class);
 
     /**
+     * Specify the (non-authoritative) name of the peer host to use for the purposes of session reuse, as well as
+     * for the use of certain cipher suites (such as Kerberos).  If not given, defaults to the host name of the
+     * socket address of the peer.
+     */
+    public static final Option<String> SSL_PEER_HOST_NAME = Option.simple(Options.class, "SSL_PEER_HOST_NAME", String.class);
+
+    /**
+     * Specify the (non-authoritative) port number of the peer port number to use for the purposes of session reuse, as well as
+     * for the use of certain cipher suites.  If not given, defaults to the port number of the socket address of the peer.
+     */
+    public static final Option<Integer> SSL_PEER_PORT = Option.simple(Options.class, "SSL_PEER_PORT", Integer.class);
+
+    /**
      * Specify whether direct buffers should be used for socket communications.
      *
      * @since 3.0
