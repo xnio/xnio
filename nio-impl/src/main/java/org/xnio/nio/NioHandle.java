@@ -24,6 +24,7 @@ package org.xnio.nio;
 
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 
@@ -34,6 +35,10 @@ final class NioHandle<C extends Channel> implements Runnable {
     private final WorkerThread workerThread;
     private final ChannelListener.SimpleSetter<C> handlerSetter;
     private final C channel;
+    @SuppressWarnings("unused")
+    private volatile int scheduled;
+
+    private static final AtomicIntegerFieldUpdater<NioHandle> scheduledUpdater = AtomicIntegerFieldUpdater.newUpdater(NioHandle.class, "scheduled");
 
     NioHandle(final SelectionKey selectionKey, final WorkerThread workerThread, final ChannelListener.SimpleSetter<C> handlerSetter, final C channel) {
         this.selectionKey = selectionKey;
@@ -75,6 +80,7 @@ final class NioHandle<C extends Channel> implements Runnable {
     }
 
     public void run() {
+        scheduled = 0;
         final ChannelListener<? super C> listener = handlerSetter.get();
         if (listener == null) {
             log.tracef("Null listener; suspending %s to prevent runaway", this);
@@ -86,6 +92,8 @@ final class NioHandle<C extends Channel> implements Runnable {
     }
 
     void execute() {
-        workerThread.execute(this);
+        if (scheduledUpdater.compareAndSet(this, 0, 1)) {
+            workerThread.execute(this);
+        }
     }
 }
