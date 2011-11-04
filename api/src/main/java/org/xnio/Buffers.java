@@ -36,6 +36,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.util.Arrays;
 import java.io.IOException;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 /**
@@ -1882,6 +1883,48 @@ public final class Buffers {
             }
         }
         return foundDirect;
+    }
+
+    /**
+     * Add {@code count} bytes of random data to the target buffer.
+     *
+     * @param target the target buffer
+     * @param random the RNG
+     * @param count the number of bytes to add
+     */
+    public static void addRandom(ByteBuffer target, Random random, int count) {
+        final byte[] bytes = new byte[count];
+        random.nextBytes(bytes);
+        target.put(bytes);
+    }
+
+    /**
+     * Add {@code count} bytes of random data to the target buffer using the thread-local RNG.
+     *
+     * @param target the target buffer
+     * @param count the number of bytes to add
+     */
+    public static void addRandom(ByteBuffer target, int count) {
+        addRandom(target, IoUtils.getThreadLocalRandom(), count);
+    }
+
+    /**
+     * Add a random amount of random data to the target buffer.
+     *
+     * @param target the target buffer
+     * @param random the RNG
+     */
+    public static void addRandom(ByteBuffer target, Random random) {
+        addRandom(target, random, random.nextInt(target.remaining()));
+    }
+
+    /**
+     * Add a random amount of random data to the target buffer using the thread-local RNG.
+     *
+     * @param target the target buffer
+     */
+    public static void addRandom(ByteBuffer target) {
+        addRandom(target, IoUtils.getThreadLocalRandom());
     }
 
     private static class SecureByteBufferPool implements Pool<ByteBuffer> {

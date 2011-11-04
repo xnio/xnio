@@ -683,11 +683,32 @@ public final class IoUtils {
     public static Random getThreadLocalRandom() {
         Random random = tlsRandom.get();
         if (random == null) {
-            random = new Random();
+            random = new ThreadRandom(Thread.currentThread());
             tlsRandom.set(random);
         }
         return random;
     }
 
     private static final ThreadLocal<Random> tlsRandom = new ThreadLocal<Random>();
+
+    private static final class ThreadRandom extends Random {
+        private static final long serialVersionUID = -1765763476763499665L;
+
+        private final Thread thread;
+
+        private ThreadRandom(final Thread thread) {
+            this.thread = thread;
+        }
+
+        protected int next(final int bits) {
+            if (Thread.currentThread() != thread) {
+                throw new IllegalStateException("Access from wrong thread");
+            }
+            return super.next(bits);
+        }
+
+        protected Object writeReplace() {
+            return new Random(nextLong());
+        }
+    }
 }
