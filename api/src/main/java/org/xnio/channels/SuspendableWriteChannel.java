@@ -52,7 +52,8 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     boolean isWriteResumed();
 
     /**
-     * Force the write listener to be triggered even if the channel isn't actually writable.
+     * {@link #resumeWrites() Resume writes} on this channel, and force the write listener to be triggered even if the
+     * channel isn't actually writable.
      */
     void wakeupWrites();
 

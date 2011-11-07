@@ -349,11 +349,13 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     }
 
     public void wakeupReads() {
+        resumeReads();
         final WorkerThread readThread = this.readThread;
         if (readThread != null) readThread.execute(readHandlerTask);
     }
 
     public void wakeupWrites() {
+        resumeWrites();
         final WorkerThread writeThread = this.writeThread;
         if (writeThread != null) writeThread.execute(writeHandlerTask);
     }

@@ -52,7 +52,8 @@ public interface SuspendableReadChannel extends CloseableChannel {
     boolean isReadResumed();
 
     /**
-     * Force the read listener to be triggered even if the channel isn't actually readable.
+     * {@link #resumeReads() Resume reads} on this channel, and force the read listener to be triggered even if the
+     * channel isn't actually readable.
      */
     void wakeupReads();
 

@@ -129,6 +129,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         } finally {
             if (! ok) receiveBuffer.free();
         }
+        // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
+        // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
+        // listeners to run. See isReadable/isWritable for further information.
+        readNeedsWrap = writeNeedsUnwrap = true;
     }
 
     /** {@inheritDoc} */
@@ -418,6 +422,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
      */
     private boolean handleHandshake(SSLEngineResult result, boolean write) throws IOException {
         assert ! Thread.holdsLock(getReadLock());
+        // reset the flag for "first attempt to handle handshake"
+        if (readNeedsWrap && writeNeedsUnwrap) {
+            readNeedsWrap = writeNeedsUnwrap = false;
+        }
         // FIXME when called by shutdown Writes, current thread already holds the lock
         //assert ! Thread.holdsLock(getWriteLock());
         boolean newResult = false;
@@ -640,7 +648,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     @Override
     protected Readiness isReadable() {
         synchronized(getReadLock()) {
-            return readNeedsWrap? Readiness.NEVER: Readiness.OKAY;
+            // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
+            // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
+            // listeners to run
+            return readNeedsWrap? (writeNeedsUnwrap? Readiness.ALWAYS: Readiness.NEVER): Readiness.OKAY;
         }
     }
 
@@ -652,7 +663,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     @Override
     protected Readiness isWritable() {
         synchronized(getWriteLock()) {
-            return writeNeedsUnwrap? Readiness.NEVER: Readiness.OKAY;
+            // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
+            // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
+            // listeners to run
+            return writeNeedsUnwrap? (readNeedsWrap? Readiness.ALWAYS: Readiness.NEVER): Readiness.OKAY;
         }
     }
 

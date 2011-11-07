@@ -253,6 +253,7 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public void wakeupReads() {
+        resumeReads();
         final NioHandle<NioUdpChannel> readHandle = this.readHandle;
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
@@ -261,6 +262,7 @@ class NioUdpChannel implements MulticastMessageChannel {
     }
 
     public void wakeupWrites() {
+        resumeWrites();
         final NioHandle<NioUdpChannel> writeHandle = this.writeHandle;
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");

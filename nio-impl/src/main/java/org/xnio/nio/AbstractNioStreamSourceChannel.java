@@ -110,6 +110,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
 
     public void wakeupReads() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up reads on %s", this);
+        resumeReads();
         final NioHandle<C> readHandle = this.readHandle;
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");

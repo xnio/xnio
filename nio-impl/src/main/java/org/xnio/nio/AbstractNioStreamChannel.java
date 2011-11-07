@@ -128,6 +128,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     public void wakeupReads() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up reads on %s", this);
+        resumeReads();
         final NioHandle<C> readHandle = this.readHandle;
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
@@ -159,6 +160,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     public void wakeupWrites() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up writes on %s", this);
+        resumeWrites();
         final NioHandle<C> writeHandle = this.writeHandle;
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");

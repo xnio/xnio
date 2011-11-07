@@ -249,6 +249,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     /** {@inheritDoc} */
     public void wakeupReads() {
+        resumeReads();
         channel.wakeupReads();
     }
 
@@ -311,6 +312,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     /** {@inheritDoc} */
     public void wakeupWrites() {
+        resumeWrites();
         channel.wakeupWrites();
     }
 
