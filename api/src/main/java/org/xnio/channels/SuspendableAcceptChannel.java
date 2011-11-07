@@ -46,7 +46,8 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     void resumeAccepts();
 
     /**
-     * Force the accept listener to be triggered even if the channel isn't actually ready.
+     * {@link #resumeAccepts()} Resume accepts} on this channel, and force the accept listener to be triggered even if the
+     * channel isn't actually ready.
      */
     void wakeupAccepts();
 

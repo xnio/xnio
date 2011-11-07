@@ -224,7 +224,8 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
 
     public void wakeupAccepts() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
-        final List<NioHandle<NioTcpServer>> handles = this.acceptHandles;
+        resumeAccepts();
+        final List<NioHandle<NioTcpServer>> handles = acceptHandles;
         final int len = handles.size();
         if (len == 0) {
             throw new IllegalArgumentException("No thread configured");
