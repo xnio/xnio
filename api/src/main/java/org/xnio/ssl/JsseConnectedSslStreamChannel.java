@@ -55,6 +55,7 @@ import org.xnio.channels.TranslatingSuspendableChannel;
 final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<ConnectedSslStreamChannel, ConnectedStreamChannel> implements ConnectedSslStreamChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.ssl");
+    private static final String FQCN = JsseConnectedSslStreamChannel.class.getName();
 
     // final fields
 
@@ -264,19 +265,19 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     private SSLEngineResult wrap(final ByteBuffer[] srcs, final int offset, final int length, final ByteBuffer dest) throws SSLException {
-        log.tracef("Wrapping %s into %s", srcs, dest);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wrapping %s into %s", srcs, dest);
         return engine.wrap(srcs, offset, length, dest);
     }
 
     private SSLEngineResult wrap(final ByteBuffer src, final ByteBuffer dest) throws SSLException {
-        log.tracef("Wrapping %s into %s", src, dest);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wrapping %s into %s", src, dest);
         return engine.wrap(src, dest);
     }
 
     private boolean handleWrapResult(SSLEngineResult result, boolean closeExpected) throws IOException {
         assert Thread.holdsLock(getWriteLock());
         assert ! Thread.holdsLock(getReadLock());
-        log.tracef(new Throwable(), "Wrap result is %s", result);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Wrap result is %s", result);
         switch (result.getStatus()) {
             case BUFFER_UNDERFLOW: {
                 assert result.bytesConsumed() == 0;
@@ -331,14 +332,14 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return true;
     }
 
-    private final void markWriteNeedsUnwrap() {
+    private void markWriteNeedsUnwrap() {
         if (!writeNeedsUnwrap) {
             writeNeedsUnwrap = true;
             forceResumeReads();
         }
     }
 
-    private final void clearWriteNeedsUnwrap() {
+    private void clearWriteNeedsUnwrap() {
         if (writeNeedsUnwrap) {
             writeNeedsUnwrap = false;
             resumeWritesIfRequested();
@@ -348,7 +349,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private final void forceResumeReads() {
+    private void forceResumeReads() {
         // if is not read resumed, resume it
         synchronized (getReadLock()) {
             if (!isReadResumed()) {
@@ -361,7 +362,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private final void revertForcedResumeReads() {
+    private void revertForcedResumeReads() {
         // if is not read resumed, resume it
         forcedResumeReads = false;
         suspendReads();
@@ -370,7 +371,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private final void clearReadNeedsWrap() {
+    private void clearReadNeedsWrap() {
         if (readNeedsWrap) {
             readNeedsWrap = false;
             resumeReadsIfRequested();
@@ -380,14 +381,14 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private final void markReadNeedsWrap() {
+    private void markReadNeedsWrap() {
         if (!readNeedsWrap) {
             readNeedsWrap = true;
             forceResumeWrites();
         }
     }
 
-    private final void forceResumeWrites() {
+    private void forceResumeWrites() {
         // if is not write resumed, resume it
         synchronized (getWriteLock()) {
             if (!isWriteResumed()) {
@@ -400,7 +401,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
     }
 
-    private final void revertForcedResumeWrites() {
+    private void revertForcedResumeWrites() {
         // if is not write resumed, resume it
         forcedResumeWrites = false;
         suspendWrites();
@@ -521,7 +522,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             channel.read(buffer);
             buffer.flip();
         }
-        log.tracef("Unwrapping %s into %s", buffer, unwrappedBuffer);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Unwrapping %s into %s", buffer, unwrappedBuffer);
         return engine.unwrap(buffer, unwrappedBuffer);
     }
 
@@ -595,7 +596,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     private int handleUnwrapResult(final SSLEngineResult result) throws IOException {
         // FIXME assert ! Thread.holdsLock(getWriteLock());
         assert Thread.holdsLock(getReadLock());
-        log.tracef(new Throwable(), "Unwrap result is %s", result);
+        log.logf(FQCN, Logger.Level.TRACE, null, "Unwrap result is %s", result);
         switch (result.getStatus()) {
             case BUFFER_OVERFLOW: {
                 assert result.bytesConsumed() == 0;
