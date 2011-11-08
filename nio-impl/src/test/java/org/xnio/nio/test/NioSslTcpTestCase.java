@@ -328,7 +328,7 @@ public final class NioSslTcpTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (serverReceived.get() < clientSent.get()) {
+                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < serverSent.get()) {
                                                                     channel.getWriteThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();
@@ -413,7 +413,7 @@ public final class NioSslTcpTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() < serverSent.get()) {
+                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < serverSent.get()) {
                                                                     channel.getWriteThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();
