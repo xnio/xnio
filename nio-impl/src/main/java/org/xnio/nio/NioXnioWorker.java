@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
-import org.xnio.ChannelSource;
 import org.xnio.ClosedWorkerException;
 import org.xnio.FailedIoFuture;
 import org.xnio.FinishedIoFuture;
@@ -58,10 +57,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.channels.SimpleAcceptingChannel;
 import org.xnio.channels.StreamChannel;
-import org.xnio.channels.StreamSinkChannel;
-import org.xnio.channels.StreamSourceChannel;
 
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.ChannelListener.SimpleSetter;
