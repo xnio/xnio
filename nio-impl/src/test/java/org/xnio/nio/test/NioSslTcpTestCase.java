@@ -128,6 +128,7 @@ public final class NioSslTcpTestCase {
             }
         } finally {
             worker.shutdown();
+            worker.awaitTermination(1L, TimeUnit.MINUTES);
         }
     }
 

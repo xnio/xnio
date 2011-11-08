@@ -573,7 +573,7 @@ final class NioXnioWorker extends XnioWorker {
         long start = System.nanoTime();
         long elapsed = 0L;
         synchronized (this) {
-            while ((oldState & CLOSE_COMP) == 0) {
+            while (((oldState = state) & CLOSE_COMP) == 0) {
                 wait(timeout - elapsed);
                 elapsed = (System.nanoTime() - start) / 1000000L;
                 if (elapsed > unit.toNanos(timeout)) {

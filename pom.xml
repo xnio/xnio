@@ -38,6 +38,10 @@
         <module>nio-impl</module>
     </modules>
 
+    <properties>
+        <version.surefire.plugin>2.8</version.surefire.plugin>
+    </properties>
+
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>

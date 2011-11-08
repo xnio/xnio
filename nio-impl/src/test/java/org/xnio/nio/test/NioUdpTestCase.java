@@ -110,6 +110,10 @@ public final class NioUdpTestCase extends TestCase {
             }, worker);
         } finally {
             worker.shutdown();
+            try {
+                worker.awaitTermination(1L, TimeUnit.MINUTES);
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 

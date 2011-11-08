@@ -90,6 +90,7 @@ public final class NioTcpTestCase extends TestCase {
             }
         } finally {
             worker.shutdown();
+            worker.awaitTermination(1L, TimeUnit.MINUTES);
         }
     }
 

@@ -43,7 +43,6 @@ import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.channels.SimpleAcceptingChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
