@@ -196,20 +196,6 @@ public final class Options {
     public static final Option<String> SSL_PROTOCOL = Option.simple(Options.class, "SSL_PROTOCOL", String.class);
 
     /**
-     * Specify the SSL send buffer size.
-     *
-     * @since 2.0
-     */
-    public static final Option<Integer> SSL_SEND_BUFFER = Option.simple(Options.class, "SSL_SEND_BUFFER", Integer.class);
-
-    /**
-     * Specify the SSL receive buffer size.
-     *
-     * @since 2.0
-     */
-    public static final Option<Integer> SSL_RECEIVE_BUFFER = Option.simple(Options.class, "SSL_RECEIVE_BUFFER", Integer.class);
-
-    /**
      * Enable or disable session creation for an SSL connection.  Defaults to {@code true} to enable session creation.
      *
      * @since 2.0
