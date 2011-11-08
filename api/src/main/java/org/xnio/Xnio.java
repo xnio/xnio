@@ -184,11 +184,11 @@ public abstract class Xnio {
     }
 
     private static Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
-        for (XnioProvider xnioProvider : serviceLoader) {
-            if (provider == null || provider.equals(xnioProvider.getName())) try {
+        for (XnioProvider xnioProvider : serviceLoader) try {
+            if (provider == null || provider.equals(xnioProvider.getName())) {
                 return xnioProvider.getInstance();
-            } catch (Throwable ignored) {}
-        }
+            }
+        } catch (Throwable ignored) {}
         throw new IllegalArgumentException("No matching XNIO provider found");
     }
 
