@@ -30,7 +30,6 @@ import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,7 +53,6 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.WrappedChannel;
 import org.xnio.ssl.XnioSsl;
 
 @SuppressWarnings( { "JavaDoc" })
@@ -283,8 +281,6 @@ public final class NioSslTcpTestCase {
         final AtomicInteger clientReceived = new AtomicInteger(0);
         final AtomicInteger serverSent = new AtomicInteger(0);
         final AtomicInteger serverReceived = new AtomicInteger(0);
-        final AtomicBoolean delayClientStop = new AtomicBoolean();
-        final AtomicBoolean delayServerStop = new AtomicBoolean();
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
@@ -301,25 +297,14 @@ public final class NioSslTcpTestCase {
                     }
                 });
                 channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                    boolean done = false;
                     public void handleEvent(final ConnectedStreamChannel channel) {
                         try {
-                            if (done) {
-                                System.out.println("CLIENT READER RUNNING AFTER DONE!");
-                                return;
-                            }
                             int c;
                             while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
                                 clientReceived.addAndGet(c);
                             }
                             if (c == -1) {
-                                if (delayClientStop.getAndSet(true)) {
-                                    channel.close();
-                                }
-                                done = true;
                                 channel.shutdownReads();
-                            } else {
-                                channel.resumeReads();
                             }
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -328,44 +313,56 @@ public final class NioSslTcpTestCase {
                     }
                 });
                 channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                    boolean done = false;
                     public void handleEvent(final ConnectedStreamChannel channel) {
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
                             buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
                             try {
-                                if (done) {
-                                    System.out.println("CLIENT WRITER RUNNING AFTER DONE!");
-                                    return;
-                                }
-                                if (clientSent.get() <= 1000) {
-                                    while ((c = channel.write(buffer)) > 0) {
-                                        if (clientSent.addAndGet(c) > 1000) {
-                                            if (channel.shutdownWrites()) { 
-                                                if (delayClientStop.getAndSet(true)) {
-                                                    channel.close();
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (clientSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                try {
+                                                    if (channel.flush()) {
+                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (serverReceived.get() < clientSent.get()) {
+                                                                    channel.getWriteThread().executeAfter(new Runnable() {
+                                                                        public void run() {
+                                                                            channel.wakeupWrites();
+                                                                        }
+                                                                    }, 1L, TimeUnit.MILLISECONDS);
+                                                                    channel.suspendWrites();
+                                                                } else try {
+                                                                    channel.shutdownWrites();
+                                                                } catch (Throwable t) {
+                                                                    t.printStackTrace();
+                                                                    throw new RuntimeException(t);
+                                                                }
+                                                            }
+                                                        };
+                                                        channel.getWriteSetter().set(listener);
+                                                        listener.handleEvent(channel);
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
                                                 }
-                                            } else {
-                                                channel.resumeWrites();
                                             }
-                                            return;
-                                        }
-                                        buffer.rewind();
+                                        };
+                                        channel.getWriteSetter().set(listener);
+                                        listener.handleEvent(channel);
+                                        return;
                                     }
-                                }
-                                else if (channel.shutdownWrites()) {
-                                    if (delayClientStop.getAndSet(true)) {
-                                        channel.close();
-                                    }
-                                    done = true;
-                                    return;
+                                    buffer.rewind();
                                 }
                             } catch (ClosedChannelException e) {
                                 channel.shutdownWrites();
                                 throw e;
                             }
-                            channel.resumeWrites();
                         } catch (Throwable t) {
                             t.printStackTrace();
                             throw new RuntimeException(t);
@@ -384,25 +381,14 @@ public final class NioSslTcpTestCase {
                     }
                 });
                 channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                    boolean done = false;
                     public void handleEvent(final ConnectedStreamChannel channel) {
                         try {
-                            if (done) {
-                                System.out.println("SERVER READER RUNNING AFTER DONE!");
-                                return;
-                            }
                             int c;
                             while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
                                 serverReceived.addAndGet(c);
                             }
                             if (c == -1) {
-                                if (delayServerStop.getAndSet(true)) {
-                                    channel.close();
-                                }
                                 channel.shutdownReads();
-                                done = true;
-                            } else {
-                                channel.resumeReads();
                             }
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -415,41 +401,53 @@ public final class NioSslTcpTestCase {
                     public void handleEvent(final ConnectedStreamChannel channel) {
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
-                            buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8")).flip();
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
-                            if (done) {
-                                System.out.println("SERVER WRITER RUNNING AFTER DONE!");
-                                return;
-                            }
                             try {
-                                if (serverSent.get() <= 1000) {
-                                    while ((c = channel.write(buffer)) > 0) {
-                                        if (serverSent.addAndGet(c) > 1000) {
-                                            if (channel.shutdownWrites()) {
-                                                if (delayServerStop.getAndSet(true)) {
-                                                    channel.close();
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (serverSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                try {
+                                                    if (channel.flush()) {
+                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (clientReceived.get() < serverSent.get()) {
+                                                                    channel.getWriteThread().executeAfter(new Runnable() {
+                                                                        public void run() {
+                                                                            channel.wakeupWrites();
+                                                                        }
+                                                                    }, 1L, TimeUnit.MILLISECONDS);
+                                                                    channel.suspendWrites();
+                                                                } else try {
+                                                                    channel.shutdownWrites();
+                                                                } catch (Throwable t) {
+                                                                    t.printStackTrace();
+                                                                    throw new RuntimeException(t);
+                                                                }
+                                                            }
+                                                        };
+                                                        channel.getWriteSetter().set(listener);
+                                                        listener.handleEvent(channel);
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
                                                 }
-                                                done = true;
-                                            } else {
-                                                channel.resumeWrites();
                                             }
-                                            return;
-                                        }
-                                        buffer.rewind();
+                                        };
+                                        channel.getWriteSetter().set(listener);
+                                        listener.handleEvent(channel);
+                                        return;
                                     }
+                                    buffer.rewind();
                                 }
-                                else if (channel.shutdownWrites()) {
-                                    if (delayServerStop.getAndSet(true)) {
-                                        channel.close();
-                                    }
-                                    return;
-                                }
-                            }
-                            catch (ClosedChannelException e) {
+                            } catch (ClosedChannelException e) {
                                 channel.shutdownWrites();
                                 throw e;
                             }
-                            channel.resumeWrites();
                         } catch (Throwable t) {
                             t.printStackTrace();
                             throw new RuntimeException(t);

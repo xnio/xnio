@@ -56,6 +56,7 @@ import static org.xnio.nio.Log.selectorLog;
 final class WorkerThread extends Thread implements XnioExecutor {
     private static final long LONGEST_DELAY = 9223372036853L;
     private static final String FQCN = WorkerThread.class.getName();
+    private static final String NH_FQCN = NioHandle.class.getName();
 
     private final NioXnioWorker worker;
 
@@ -318,14 +319,14 @@ final class WorkerThread extends Thread implements XnioExecutor {
         final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
             if (log.isTraceEnabled()) {
-                log.logf(FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (same thread)", key, channel, ops);
+                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (same thread)", key, channel, Integer.valueOf(ops));
             }
             try {
                 key.interestOps(ops);
             } catch (CancelledKeyException ignored) {}
         } else {
             if (log.isTraceEnabled()) {
-                log.logf(FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, ops);
+                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, Integer.valueOf(ops));
             }
             try {
                 key.interestOps(ops);
