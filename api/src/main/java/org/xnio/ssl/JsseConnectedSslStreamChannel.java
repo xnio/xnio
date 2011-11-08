@@ -44,6 +44,8 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.TranslatingSuspendableChannel;
 
 /**
@@ -748,5 +750,38 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             buffer.compact();
         }
         return true;
+    }
+
+    private static long transfer(final long count, final ByteBuffer throughBuffer, final StreamSourceChannel source, final StreamSinkChannel sink) throws IOException {
+        long res;
+        long total = 0L;
+        throughBuffer.clear();
+        while (total < count) {
+            if (count - total < (long) throughBuffer.remaining()) {
+                throughBuffer.limit((int) (count - total));
+            }
+            try {
+                res = source.read(throughBuffer);
+                if (res <= 0) {
+                    return total == 0L ? res : total;
+                }
+            } finally {
+                throughBuffer.flip();
+            }
+            res = sink.write(throughBuffer);
+            if (res == 0) {
+                return total;
+            }
+            throughBuffer.compact();
+        }
+        return total;
+    }
+
+    public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
+        return transfer(count, throughBuffer, this, target);
+    }
+
+    public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
+        return transfer(count, throughBuffer, source, this);
     }
 }

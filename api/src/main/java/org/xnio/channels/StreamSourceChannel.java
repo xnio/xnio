@@ -22,6 +22,7 @@
 
 package org.xnio.channels;
 
+import java.nio.ByteBuffer;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.FileChannel;
@@ -44,6 +45,23 @@ public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByte
      * @throws IOException if an I/O error occurs
      */
     long transferTo(long position, long count, FileChannel target) throws IOException;
+
+    /**
+     * Transfers bytes into the given channel target.  On some platforms, this may avoid copying bytes between user
+     * and kernel space.  On other platforms, bytes are passed through the {@code throughBuffer} parameter's buffer
+     * space.  On entry, {@code throughBuffer} will be cleared.  On exit, the buffer will be
+     * flipped for emptying, and may possibly be empty or may contain data.  If this method returns a value less than
+     * {@code count}, then the remaining data in {@code throughBuffer} may contain data read from this channel which must
+     * be written to {@code target} to complete the operation.  Note that using a direct buffer may provide an
+     * intermediate performance gain on platforms without zero-copy facilities.
+     *
+     * @param count the number of bytes to be transferred
+     * @param throughBuffer the buffer to copy through.
+     * @param target the destination to write to
+     * @return the number of bytes (possibly 0) that were actually transferred, or -1 if the end of input was reached
+     * @throws IOException if an I/O error occurs
+     */
+    long transferTo(long count, ByteBuffer throughBuffer, StreamSinkChannel target) throws IOException;
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter();

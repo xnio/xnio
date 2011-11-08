@@ -35,6 +35,8 @@ import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 
 /**
  * Mock of a connected stream channel.<p>
@@ -218,6 +220,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     }
 
     @Override
+    public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
+        return 0;
+    }
+
+    @Override
     public int write(ByteBuffer src) throws IOException {
         if (closed) {
             throw new ClosedChannelException();
@@ -244,6 +251,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     @Override
     public long transferTo(long position, long count, FileChannel target) throws IOException {
         // do nothing for now...
+        return 0;
+    }
+
+    @Override
+    public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
         return 0;
     }
 
