@@ -430,13 +430,15 @@ public final class NioTcpTestCase extends TestCase {
                     });
                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
                         public void handleEvent(final ConnectedStreamChannel channel) {
+                            int res;
                             try {
-                                channel.read(ByteBuffer.allocate(100));
+                                res = channel.read(ByteBuffer.allocate(100));
                             } catch (IOException e) {
                                 serverOK.set(true);
-                            } finally {
                                 IoUtils.safeClose(channel);
+                                return;
                             }
+                            if (res > 0) IoUtils.safeClose(channel);
                         }
                     });
                     channel.resumeReads();
@@ -478,12 +480,15 @@ public final class NioTcpTestCase extends TestCase {
                     });
                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
                         public void handleEvent(final ConnectedStreamChannel channel) {
+                            int res;
                             try {
-                                if (channel.read(ByteBuffer.allocate(100)) == 0) return;
+                                res = channel.read(ByteBuffer.allocate(100));
                             } catch (IOException e) {
                                 clientOK.set(true);
+                                IoUtils.safeClose(channel);
+                                return;
                             }
-                            IoUtils.safeClose(channel);
+                            if (res > 0) IoUtils.safeClose(channel);
                         }
                     });
                     channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {

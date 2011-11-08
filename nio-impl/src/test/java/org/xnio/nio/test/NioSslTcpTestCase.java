@@ -30,6 +30,7 @@ import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -53,6 +54,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.WrappedChannel;
 import org.xnio.ssl.XnioSsl;
 
 @SuppressWarnings( { "JavaDoc" })
@@ -505,13 +507,15 @@ public final class NioSslTcpTestCase {
                     });
                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
                         public void handleEvent(final ConnectedStreamChannel channel) {
+                            int res;
                             try {
-                                channel.read(ByteBuffer.allocate(100));
+                                res = channel.read(ByteBuffer.allocate(100));
                             } catch (IOException e) {
                                 serverOK.set(true);
-                            } finally {
                                 IoUtils.safeClose(channel);
+                                return;
                             }
+                            if (res > 0) IoUtils.safeClose(channel);
                         }
                     });
                     channel.resumeReads();
@@ -554,12 +558,15 @@ public final class NioSslTcpTestCase {
                     });
                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
                         public void handleEvent(final ConnectedStreamChannel channel) {
+                            int res;
                             try {
-                                channel.read(ByteBuffer.allocate(100));
+                                res = channel.read(ByteBuffer.allocate(100));
                             } catch (IOException e) {
                                 clientOK.set(true);
                                 IoUtils.safeClose(channel);
+                                return;
                             }
+                            if (res > 0) IoUtils.safeClose(channel);
                         }
                     });
                     channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
