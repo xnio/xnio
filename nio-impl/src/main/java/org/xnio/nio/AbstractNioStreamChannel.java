@@ -233,7 +233,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     // Read methods
 
     public int read(final ByteBuffer dst) throws IOException {
-        int res = getReadChannel().read(dst);
+        int res;
+        try {
+            res = getReadChannel().read(dst);
+        } catch (ClosedChannelException e) {
+            return -1;
+        }
         if (res > 0) {
             lastRead = System.nanoTime();
         } else {
@@ -246,7 +251,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
-        long res = getReadChannel().read(dsts);
+        long res;
+        try {
+            res = getReadChannel().read(dsts);
+        } catch (ClosedChannelException e) {
+            return -1L;
+        }
         if (res > 0L) {
             lastRead = System.nanoTime();
         } else {
@@ -259,7 +269,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
-        long res = getReadChannel().read(dsts, offset, length);
+        long res;
+        try {
+            res = getReadChannel().read(dsts, offset, length);
+        } catch (ClosedChannelException e) {
+            return -1L;
+        }
         if (res > 0L) {
             lastRead = System.nanoTime();
         } else {

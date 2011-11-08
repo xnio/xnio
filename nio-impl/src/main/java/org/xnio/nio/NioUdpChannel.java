@@ -92,7 +92,12 @@ class NioUdpChannel implements MulticastMessageChannel {
 
     public int receiveFrom(final SocketAddressBuffer addressBuffer, final ByteBuffer buffer) throws IOException {
         final int o = buffer.remaining();
-        final SocketAddress sourceAddress = datagramChannel.receive(buffer);
+        final SocketAddress sourceAddress;
+        try {
+            sourceAddress = datagramChannel.receive(buffer);
+        } catch (ClosedChannelException e) {
+            return -1;
+        }
         if (sourceAddress == null) {
             return 0;
         } else {
@@ -118,7 +123,12 @@ class NioUdpChannel implements MulticastMessageChannel {
         }
         final int o = (int) Math.min(Buffers.remaining(buffers, offs, len), 65536L);
         final ByteBuffer buffer = ByteBuffer.allocate((int) o);
-        final SocketAddress sourceAddress = datagramChannel.receive(buffer);
+        final SocketAddress sourceAddress;
+        try {
+            sourceAddress = datagramChannel.receive(buffer);
+        } catch (ClosedChannelException e) {
+            return -1L;
+        }
         if (sourceAddress == null) {
             return 0L;
         } else {
