@@ -531,33 +531,27 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     public void shutdown() {
-        int oldState = state;
-        if ((oldState & CLOSE_COMP) != 0) {
-            log.tracef("Idempotent shutdown of %s", this);
-            return;
-        }
-        synchronized (this) {
-            oldState = state;
-            while ((oldState & CLOSE_REQ) == 0) {
-                // need to do the close ourselves...
-                if (! stateUpdater.compareAndSet(this, oldState, oldState | CLOSE_REQ)) {
-                    // changed in the meantime
-                    oldState = state;
-                    continue;
-                }
-                log.tracef("Initiating shutdown of %s", this);
-                for (WorkerThread worker : readWorkers) {
-                    worker.shutdown();
-                }
-                for (WorkerThread worker : writeWorkers) {
-                    worker.shutdown();
-                }
-                shutDownTaskPool();
-                return;
+        int oldState;
+        oldState = state;
+        while ((oldState & CLOSE_REQ) == 0) {
+            // need to do the close ourselves...
+            if (! stateUpdater.compareAndSet(this, oldState, oldState | CLOSE_REQ)) {
+                // changed in the meantime
+                oldState = state;
+                continue;
             }
-            log.tracef("Idempotent shutdown of %s", this);
+            log.tracef("Initiating shutdown of %s", this);
+            for (WorkerThread worker : readWorkers) {
+                worker.shutdown();
+            }
+            for (WorkerThread worker : writeWorkers) {
+                worker.shutdown();
+            }
+            shutDownTaskPool();
             return;
         }
+        log.tracef("Idempotent shutdown of %s", this);
+        return;
     }
 
     public List<Runnable> shutdownNow() {
