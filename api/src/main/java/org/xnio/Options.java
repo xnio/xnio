@@ -23,6 +23,7 @@
 package org.xnio;
 
 import org.xnio.channels.ReadTimeoutException;
+import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WriteTimeoutException;
 import org.xnio.sasl.SaslQop;
 import org.xnio.sasl.SaslStrength;
@@ -474,4 +475,11 @@ public final class Options {
      * Specify the maximum number of worker tasks to allow before rejecting.
      */
     public static final Option<Integer> WORKER_TASK_LIMIT = Option.simple(Options.class, "WORKER_TASK_LIMIT", Integer.class);
+
+    /**
+     * Specify that output should be buffered.  The exact behavior of the buffering is not specified; it may flush based
+     * on buffered size or time.  An explicit {@link SuspendableWriteChannel#flush()} will still cause
+     * the channel to flush its contents immediately.
+     */
+    public static final Option<Boolean> CORK = Option.simple(Options.class, "CORK", Boolean.class);
 }
