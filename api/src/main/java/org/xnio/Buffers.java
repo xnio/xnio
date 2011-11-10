@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.nio.ReadOnlyBufferException;
 import java.nio.ShortBuffer;
 import java.nio.BufferOverflowException;
 import java.nio.charset.CharsetDecoder;
@@ -1864,9 +1865,21 @@ public final class Buffers {
      * @throws IllegalArgumentException if both direct and heap buffers were found, or if a buffer is {@code null}
      */
     public static boolean isDirect(Buffer... buffers) throws IllegalArgumentException {
+        return isDirect(buffers, 0, buffers.length);
+    }
+
+    /**
+     * Determine whether the given buffers list is comprised solely of direct buffers or solely of heap buffers.
+     *
+     * @param buffers the buffers
+     * @return {@code true} if all the buffers are direct, {@code false} if they are all heap buffers
+     * @throws IllegalArgumentException if both direct and heap buffers were found, or if a buffer is {@code null}
+     */
+    public static boolean isDirect(final Buffer[] buffers, final int offset, final int length) {
         boolean foundDirect = false;
         boolean foundHeap = false;
-        if (buffers != null) for (Buffer buffer : buffers) {
+        for (int i = 0; i < length; i ++) {
+            final Buffer buffer = buffers[i + offset];
             if (buffer == null) {
                 throw new IllegalArgumentException("buffer is null");
             }
@@ -1883,6 +1896,32 @@ public final class Buffers {
             }
         }
         return foundDirect;
+    }
+
+    /**
+     * Assert the writability of the given buffers.
+     *
+     * @param buffers the buffers array
+     * @param offs the offset in the array to start searching
+     * @param len the number of buffers to check
+     * @throws ReadOnlyBufferException if any of the buffers are read-only
+     */
+    public static void assertWritable(Buffer[] buffers, int offs, int len) throws ReadOnlyBufferException {
+        for (int i = 0; i < len; i ++) {
+            if (buffers[i + offs].isReadOnly()) {
+                throw new ReadOnlyBufferException();
+            }
+        }
+    }
+
+    /**
+     * Assert the writability of the given buffers.
+     *
+     * @param buffers the buffers array
+     * @throws ReadOnlyBufferException if any of the buffers are read-only
+     */
+    public static void assertWritable(Buffer... buffers) throws ReadOnlyBufferException {
+        assertWritable(buffers, 0, buffers.length);
     }
 
     /**
