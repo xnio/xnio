@@ -36,6 +36,7 @@ import javax.net.ssl.SSLSession;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
+import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
@@ -201,15 +202,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             revertForcedResumeWrites();
         }
         super.handleWritable(channel);
-    }
-
-    @Override
-    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        if (tls) {
-            return src.transferTo(position, count, Channels.wrapByteChannel(this));
-        } else {
-            return channel.transferFrom(src, position, count);
-        }
     }
 
     @Override
@@ -529,15 +521,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     @Override
-    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
-        if (tls) {
-            return target.transferFrom(Channels.wrapByteChannel(this), position, count);
-        } else {
-            return channel.transferTo(position, count, target);
-        }
-    }
-
-    @Override
     public int read(final ByteBuffer dst) throws IOException {
         if (tls) {
             return (int) read(new ByteBuffer[] {dst}, 0, 1);
@@ -752,36 +735,31 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return true;
     }
 
-    private static long transfer(final long count, final ByteBuffer throughBuffer, final StreamSourceChannel source, final StreamSinkChannel sink) throws IOException {
-        long res;
-        long total = 0L;
-        throughBuffer.clear();
-        while (total < count) {
-            if (count - total < (long) throughBuffer.remaining()) {
-                throughBuffer.limit((int) (count - total));
-            }
-            try {
-                res = source.read(throughBuffer);
-                if (res <= 0) {
-                    return total == 0L ? res : total;
-                }
-            } finally {
-                throughBuffer.flip();
-            }
-            res = sink.write(throughBuffer);
-            if (res == 0) {
-                return total;
-            }
-            throughBuffer.compact();
-        }
-        return total;
-    }
-
+    @Override
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
-        return transfer(count, throughBuffer, this, target);
+        return IoUtils.transfer(this, count, throughBuffer, target);
     }
 
+    @Override
+    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
+        if (tls) {
+            return target.transferFrom(this, position, count);
+        } else {
+            return channel.transferTo(position, count, target);
+        }
+    }
+
+    @Override
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        return transfer(count, throughBuffer, source, this);
+        return IoUtils.transfer(source, count, throughBuffer, this);
+    }
+
+    @Override
+    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
+        if (tls) {
+            return src.transferTo(position, count, this);
+        } else {
+            return channel.transferFrom(src, position, count);
+        }
     }
 }

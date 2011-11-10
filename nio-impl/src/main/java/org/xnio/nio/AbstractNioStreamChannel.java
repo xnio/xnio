@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.XnioExecutor;
@@ -226,37 +227,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         return res;
     }
 
-    private static long transfer(final long count, final ByteBuffer throughBuffer, final StreamSourceChannel source, final StreamSinkChannel sink) throws IOException {
-        long res;
-        long total = 0L;
-        throughBuffer.clear();
-        while (total < count) {
-            if (count - total < (long) throughBuffer.remaining()) {
-                throughBuffer.limit((int) (count - total));
-            }
-            try {
-                res = source.read(throughBuffer);
-                if (res <= 0) {
-                    return total == 0L ? res : total;
-                }
-            } finally {
-                throughBuffer.flip();
-            }
-            res = sink.write(throughBuffer);
-            if (res == 0) {
-                return total;
-            }
-            throughBuffer.compact();
-        }
-        return total;
-    }
-
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
-        return transfer(count, throughBuffer, this, target);
+        return IoUtils.transfer(this, count, throughBuffer, target);
     }
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        return transfer(count, throughBuffer, source, this);
+        return IoUtils.transfer(source, count, throughBuffer, this);
     }
 
     // No flush action, by default

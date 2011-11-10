@@ -27,10 +27,12 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.Selector;
 import java.nio.channels.Channel;
+import java.nio.channels.WritableByteChannel;
 import java.util.Random;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -41,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipFile;
 import org.jboss.logging.Logger;
-import org.xnio.channels.BoundChannel;
 import org.xnio.channels.SuspendableReadChannel;
 
 import java.util.logging.Handler;
@@ -443,6 +444,46 @@ public final class IoUtils {
         } catch (IOException e) {
             closeLog.tracef(e, "Shutdown reads failed");
         }
+    }
+
+    /**
+     * Platform-independent channel-to-channel transfer method.  Uses regular {@code read} and {@code write} operations
+     * to move bytes from the {@code source} channel to the {@code sink} channel.  After this call, the {@code throughBuffer}
+     * should be checked for remaining bytes; if there are any, they should be written to the {@code sink} channel before
+     * proceeding.  This method may be used with NIO channels, XNIO channels, or a combination of the two.
+     * <p>
+     * If either or both of the given channels are blocking channels, then this method may block.
+     *
+     * @param source the source channel to read bytes from
+     * @param count the number of bytes to transfer (must be >= {@code 0L})
+     * @param throughBuffer the buffer to transfer through (must not be {@code null})
+     * @param sink the sink channel to write bytes to
+     * @return the number of bytes actually transferred (possibly 0)
+     * @throws IOException if an I/O error occurs during the transfer of bytes
+     */
+    public static long transfer(final ReadableByteChannel source, final long count, final ByteBuffer throughBuffer, final WritableByteChannel sink) throws IOException {
+        long res;
+        long total = 0L;
+        throughBuffer.clear();
+        while (total < count) {
+            if (count - total < (long) throughBuffer.remaining()) {
+                throughBuffer.limit((int) (count - total));
+            }
+            try {
+                res = source.read(throughBuffer);
+                if (res <= 0) {
+                    return total == 0L ? res : total;
+                }
+            } finally {
+                throughBuffer.flip();
+            }
+            res = sink.write(throughBuffer);
+            if (res == 0) {
+                return total;
+            }
+            throughBuffer.compact();
+        }
+        return total;
     }
 
     // nested classes
