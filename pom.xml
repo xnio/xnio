@@ -30,7 +30,7 @@
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Parent POM</name>
-    <version>3.0.0.CR3</version>
+    <version>3.0.0.CR4-SNAPSHOT</version>
     <description>The aggregator POM of the XNIO project</description>
 
     <modules>
