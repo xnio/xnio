@@ -584,13 +584,19 @@ final class NioXnioWorker extends XnioWorker {
         long start = System.nanoTime();
         long elapsed = 0L;
         Thread[] waiters, newWaiters;
-        do {
+        OUT: do {
             waiters = shutdownWaiters;
             if (waiters == SHUTDOWN_COMPLETE) {
                 return true;
             }
+            final Thread myThread = Thread.currentThread();
+            for (Thread waiter : waiters) {
+                if (waiter == myThread) {
+                    break OUT;
+                }
+            }
             newWaiters = Arrays.copyOf(waiters, waiters.length + 1);
-            newWaiters[waiters.length] = Thread.currentThread();
+            newWaiters[waiters.length] = myThread;
         } while (! shutdownWaitersUpdater.compareAndSet(this, waiters, newWaiters));
         final long nanos = unit.toNanos(timeout);
         while (((oldState = state) & CLOSE_COMP) == 0) {

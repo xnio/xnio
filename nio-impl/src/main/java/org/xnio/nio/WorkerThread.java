@@ -126,8 +126,8 @@ final class WorkerThread extends Thread implements XnioExecutor {
                     synchronized (lock) {
                         keyCount = selector.keys().size();
                         state = keyCount | SHUTDOWN;
-                        if (keyCount == 0 && workQueue.isEmpty() && delayQueue.isEmpty()) {
-                            // no keys or tasks left, shut down
+                        if (keyCount == 0 && workQueue.isEmpty()) {
+                            // no keys or tasks left, shut down (delay tasks are discarded)
                             return;
                         }
                     }
