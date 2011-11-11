@@ -39,6 +39,8 @@ import java.util.Random;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.concurrent.locks.LockSupport;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -77,6 +79,12 @@ final class NioXnioWorker extends XnioWorker {
     private final WorkerThread[] readWorkers;
     private final WorkerThread[] writeWorkers;
 
+    private volatile Thread[] shutdownWaiters = NONE;
+
+    private static final Thread[] NONE = new Thread[0];
+    private static final Thread[] SHUTDOWN_COMPLETE = new Thread[0];
+
+    private static final AtomicReferenceFieldUpdater<NioXnioWorker, Thread[]> shutdownWaitersUpdater = AtomicReferenceFieldUpdater.newUpdater(NioXnioWorker.class, Thread[].class, "shutdownWaiters");
     private static final AtomicIntegerFieldUpdater<NioXnioWorker> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnioWorker.class, "state");
 
     NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException {
@@ -238,6 +246,8 @@ final class NioXnioWorker extends XnioWorker {
             channel.socket().bind(bindAddress);
             final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
             final ChannelListener.SimpleSetter<NioTcpServer> setter = server.getAcceptSetter();
+            // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+            //noinspection unchecked
             setter.set((ChannelListener<? super NioTcpServer>) acceptListener);
             ok = true;
             return server;
@@ -257,6 +267,8 @@ final class NioXnioWorker extends XnioWorker {
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
+                // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+                //noinspection unchecked
                 connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
@@ -444,7 +456,11 @@ final class NioXnioWorker extends XnioWorker {
                         final boolean establishWriting = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
                         XnioExecutor outboundExec = establishWriting ? outbound.getWriteThread() : outbound.getReadThread();
                         XnioExecutor inboundExec = establishWriting ? inbound.getWriteThread() : inbound.getReadThread();
+                        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+                        //noinspection unchecked
                         outboundExec.execute(ChannelListeners.getChannelListenerTask(outbound, leftOpenListener));
+                        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+                        //noinspection unchecked
                         inboundExec.execute(ChannelListeners.getChannelListenerTask(inbound, rightOpenListener));
                         ok = true;
                     } catch (RejectedExecutionException e) {
@@ -487,7 +503,7 @@ final class NioXnioWorker extends XnioWorker {
     void openResourceUnconditionally() {
         int oldState = stateUpdater.getAndIncrement(this);
         if (log.isTraceEnabled()) {
-            log.tracef("CAS %s %08x -> %08x", this, oldState, oldState + 1);
+            log.tracef("CAS %s %08x -> %08x", this, Integer.valueOf(oldState), Integer.valueOf(oldState + 1));
         }
     }
 
@@ -505,20 +521,21 @@ final class NioXnioWorker extends XnioWorker {
             }
         } while (! stateUpdater.compareAndSet(this, oldState, oldState + 1));
         if (log.isTraceEnabled()) {
-            log.tracef("CAS %s %08x -> %08x", this, oldState, oldState + 1);
+            log.tracef("CAS %s %08x -> %08x", this, Integer.valueOf(oldState), Integer.valueOf(oldState + 1));
         }
     }
 
     void closeResource() {
         int oldState = stateUpdater.decrementAndGet(this);
         if (log.isTraceEnabled()) {
-            log.tracef("CAS %s %08x -> %08x", this, oldState + 1, oldState);
+            log.tracef("CAS %s %08x -> %08x", this, Integer.valueOf(oldState + 1), Integer.valueOf(oldState));
         }
         while (oldState == CLOSE_REQ) {
             if (stateUpdater.compareAndSet(this, CLOSE_REQ, CLOSE_REQ | CLOSE_COMP)) {
-                log.tracef("CAS %s %08x -> %08x (close complete)", this, CLOSE_REQ, CLOSE_REQ | CLOSE_COMP);
-                synchronized (this) {
-                    notifyAll();
+                log.tracef("CAS %s %08x -> %08x (close complete)", this, Integer.valueOf(CLOSE_REQ), Integer.valueOf(CLOSE_REQ | CLOSE_COMP));
+                final Thread[] waiters = shutdownWaitersUpdater.getAndSet(this, SHUTDOWN_COMPLETE);
+                for (Thread waiter : waiters) {
+                    LockSupport.unpark(waiter);
                 }
                 final Runnable task = getTerminationTask();
                 if (task != null) try {
@@ -566,16 +583,24 @@ final class NioXnioWorker extends XnioWorker {
         }
         long start = System.nanoTime();
         long elapsed = 0L;
-        synchronized (this) {
-            while (((oldState = state) & CLOSE_COMP) == 0) {
-                wait(timeout - elapsed);
-                elapsed = (System.nanoTime() - start) / 1000000L;
-                if (elapsed > unit.toNanos(timeout)) {
-                    return false;
-                }
+        Thread[] waiters, newWaiters;
+        do {
+            waiters = shutdownWaiters;
+            if (waiters == SHUTDOWN_COMPLETE) {
+                return true;
             }
-            return true;
+            newWaiters = Arrays.copyOf(waiters, waiters.length + 1);
+            newWaiters[waiters.length] = Thread.currentThread();
+        } while (! shutdownWaitersUpdater.compareAndSet(this, waiters, newWaiters));
+        final long nanos = unit.toNanos(timeout);
+        while (((oldState = state) & CLOSE_COMP) == 0) {
+            LockSupport.parkNanos(this, nanos - elapsed);
+            elapsed = System.nanoTime() - start;
+            if (elapsed > nanos) {
+                return false;
+            }
         }
+        return true;
     }
 
     protected void taskPoolTerminated() {
