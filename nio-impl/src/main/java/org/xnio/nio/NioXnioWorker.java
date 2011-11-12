@@ -184,11 +184,15 @@ final class NioXnioWorker extends XnioWorker {
         }
         final WorkerThread[] orig = write ? writeWorkers : readWorkers;
         final int length = orig.length;
+        final int halfLength = length >> 1;
         if (length == 0) {
             throw new IllegalArgumentException("No threads configured");
         }
         if (count == length) {
             return orig;
+        }
+        if (count > length) {
+            throw new IllegalArgumentException("Not enough " + (write ? "write" : "read") + " threads configured");
         }
         final WorkerThread[] result = new WorkerThread[count];
         final Random random = IoUtils.getThreadLocalRandom();
@@ -222,7 +226,7 @@ final class NioXnioWorker extends XnioWorker {
         }
         // lots of threads.  No faster way to do it.
         final HashSet<WorkerThread> set;
-        if (count >= (length >> 1)) {
+        if (count >= halfLength) {
             // We're returning half or more of the threads.
             set = new HashSet<WorkerThread>(Arrays.asList(orig));
             while (set.size() > count) {
