@@ -201,28 +201,54 @@ final class NioXnioWorker extends XnioWorker {
             return result;
         }
         if (length < 32) {
-            int bits = 0;
-            do {
-                bits |= (1 << random.nextInt(length));
-            } while (Integer.bitCount(bits) < count);
-            for (int i = 0; i < count; i ++) {
-                final int bit = Integer.numberOfTrailingZeros(bits);
-                result[i] = orig[bit];
-                bits ^= Integer.lowestOneBit(bits);
+            if (count >= halfLength) {
+                int bits = (1 << length) - 1;
+                do {
+                    bits &= ~(1 << random.nextInt(length));
+                } while (Integer.bitCount(bits) > count);
+                for (int i = 0; i < count; i ++) {
+                    final int bit = Integer.numberOfTrailingZeros(bits);
+                    result[i] = orig[bit];
+                    bits ^= Integer.lowestOneBit(bits);
+                }
+                return result;
+            } else {
+                int bits = 0;
+                do {
+                    bits |= (1 << random.nextInt(length));
+                } while (Integer.bitCount(bits) < count);
+                for (int i = 0; i < count; i ++) {
+                    final int bit = Integer.numberOfTrailingZeros(bits);
+                    result[i] = orig[bit];
+                    bits ^= Integer.lowestOneBit(bits);
+                }
+                return result;
             }
-            return result;
         }
         if (length < 64) {
-            long bits = 0;
-            do {
-                bits |= (1L << (long) random.nextInt(length));
-            } while (Long.bitCount(bits) < count);
-            for (int i = 0; i < count; i ++) {
-                final int bit = Long.numberOfTrailingZeros(bits);
-                result[i] = orig[bit];
-                bits ^= Long.lowestOneBit(bits);
+            if (count >= halfLength) {
+                long bits = (1L << (long) length) - 1L;
+                do {
+                    bits &= ~(1L << (long) random.nextInt(length));
+                } while (Long.bitCount(bits) > count);
+                for (int i = 0; i < count; i ++) {
+                    final int bit = Long.numberOfTrailingZeros(bits);
+                    result[i] = orig[bit];
+                    bits ^= Long.lowestOneBit(bits);
+                }
+                return result;
+            } else {
+                long bits = 0;
+                do {
+                    bits |= (1L << (long) random.nextInt(length));
+                } while (Long.bitCount(bits) < count);
+                for (int i = 0; i < count; i ++) {
+                    final int bit = Long.numberOfTrailingZeros(bits);
+                    result[i] = orig[bit];
+                    bits ^= Long.lowestOneBit(bits);
+                }
+                return result;
             }
-            return result;
         }
         // lots of threads.  No faster way to do it.
         final HashSet<WorkerThread> set;
