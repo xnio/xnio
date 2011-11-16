@@ -105,13 +105,24 @@ final class NioXnioWorker extends XnioWorker {
         WorkerThread[] readWorkers, writeWorkers;
         readWorkers = new WorkerThread[readCount];
         writeWorkers = new WorkerThread[writeCount];
+        final boolean markWorkerThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         boolean ok = false;
         try {
             for (int i = 0; i < readCount; i++) {
-                readWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
+                final WorkerThread readWorker = new WorkerThread(this, Selector.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
+                // Mark as daemon if the Options.THREAD_DAEMON has been set
+                if (markWorkerThreadAsDaemon) {
+                    readWorker.setDaemon(true);
+                }
+                readWorkers[i] = readWorker;
             }
             for (int i = 0; i < writeCount; i++) {
-                writeWorkers[i] = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
+                final WorkerThread writeWorker = new WorkerThread(this, Selector.open(), String.format("%s write-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize);
+                // Mark as daemon if Options.THREAD_DAEMON has been set
+                if (markWorkerThreadAsDaemon) {
+                    writeWorker.setDaemon(true);
+                }
+                writeWorkers[i] = writeWorker;
             }
             ok = true;
         } finally {

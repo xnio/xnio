@@ -85,6 +85,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         name = workerName;
         final int taskLimit = optionMap.get(Options.WORKER_TASK_LIMIT, 0x4000);
         final LimitedBlockingQueue<Runnable> taskQueue = new LimitedBlockingQueue<Runnable>(new LinkedBlockingQueue<Runnable>(taskLimit), taskLimit >> 2);
+        final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         taskPool = new TaskPool(
             optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4),
             optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
@@ -92,7 +93,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             taskQueue,
             new ThreadFactory() {
                 public Thread newThread(final Runnable r) {
-                    return new Thread(threadGroup, r, name + " task-" + taskSeq.getAndIncrement(), optionMap.get(Options.STACK_SIZE, 0L));
+                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + taskSeq.getAndIncrement(), optionMap.get(Options.STACK_SIZE, 0L));
+                    // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
+                    if (markThreadAsDaemon) {
+                        taskThread.setDaemon(true);
+                    }
+                    return taskThread;
                 }
             }, new RejectedExecutionHandler() {
                 public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor) {
