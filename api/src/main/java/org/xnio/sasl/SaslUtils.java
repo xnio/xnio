@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 import org.xnio.Buffers;
@@ -43,6 +44,7 @@ import org.xnio.Sequence;
 
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
+import javax.security.sasl.SaslClientFactory;
 import javax.security.sasl.SaslServer;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServerFactory;
@@ -63,38 +65,83 @@ public final class SaslUtils {
     public static final byte[] EMPTY_BYTES = new byte[0];
 
     /**
-     * Returns an iterator of all of the registered SaslServerFactories where the order is based on the
-     * order of the Provider registration.
+     * Returns an iterator of all of the registered {@code SaslServerFactory}s where the order is based on the
+     * order of the Provider registration and/or class path order.  Class path providers are listed before
+     * global providers; in the event of a name conflict, the class path provider is preferred.
      *
-     * @return the Iterator of registered SalServerFactories
+     * @param classLoader the class loader to use
+     * @param includeGlobal {@code true} to include globally registered providers, {@code false} to exclude them
+     * @return the {@code Iterator} of {@code SaslServerFactory}s
+     */
+    public static Iterator<SaslServerFactory> getSaslServerFactories(ClassLoader classLoader, boolean includeGlobal) {
+        return getFactories(SaslServerFactory.class, classLoader, includeGlobal);
+    }
+
+    /**
+     * Returns an iterator of all of the registered {@code SaslServerFactory}s where the order is based on the
+     * order of the Provider registration and/or class path order.
+     *
+     * @return the {@code Iterator} of {@code SaslServerFactory}s
      */
     public static Iterator<SaslServerFactory> getSaslServerFactories() {
-        final String filter = "SaslServerFactory.";
-        Set<SaslServerFactory> factories = new LinkedHashSet<SaslServerFactory>();
-        Set<String> loadedClasses = new HashSet<String>();
+        return getFactories(SaslServerFactory.class, null, true);
+    }
 
-        Provider[] providers = Security.getProviders();
-        for (Provider currentProvider : providers) {
-            final ClassLoader cl = currentProvider.getClass().getClassLoader();
-            for (Object currentKey : currentProvider.keySet()) {
-                if (currentKey instanceof String &&
-                        ((String) currentKey).startsWith(filter) &&
-                        ((String) currentKey).indexOf(" ") < 0) {
-                    String className = currentProvider.getProperty((String) currentKey);
-                    if (loadedClasses.add(className)) {
-                        try {
-                            Class factoryClass = Class.forName(className, true, cl);
-                            factories.add((SaslServerFactory) factoryClass.newInstance());
-                        } catch (ClassNotFoundException e) {
-                        } catch (InstantiationException e) {
-                        } catch (IllegalAccessException e) {
+    /**
+     * Returns an iterator of all of the registered {@code SaslClientFactory}s where the order is based on the
+     * order of the Provider registration and/or class path order.  Class path providers are listed before
+     * global providers; in the event of a name conflict, the class path provider is preferred.
+     *
+     * @param classLoader the class loader to use
+     * @param includeGlobal {@code true} to include globally registered providers, {@code false} to exclude them
+     * @return the {@code Iterator} of {@code SaslClientFactory}s
+     */
+    public static Iterator<SaslClientFactory> getSaslClientFactories(ClassLoader classLoader, boolean includeGlobal) {
+        return getFactories(SaslClientFactory.class, classLoader, includeGlobal);
+    }
+
+    /**
+     * Returns an iterator of all of the registered {@code SaslClientFactory}s where the order is based on the
+     * order of the Provider registration and/or class path order.
+     *
+     * @return the {@code Iterator} of {@code SaslClientFactory}s
+     */
+    public static Iterator<SaslClientFactory> getSaslClientFactories() {
+        return getFactories(SaslClientFactory.class, null, true);
+    }
+
+    private static <T> Iterator<T> getFactories(Class<T> type, ClassLoader classLoader, boolean includeGlobal) {
+        Set<T> factories = new LinkedHashSet<T>();
+        final ServiceLoader<T> loader = ServiceLoader.load(type, classLoader);
+        for (T factory : loader) {
+            factories.add(factory);
+        }
+        if (includeGlobal) {
+            Set<String> loadedClasses = new HashSet<String>();
+            final String filter = type.getSimpleName() + ".";
+
+            Provider[] providers = Security.getProviders();
+            for (Provider currentProvider : providers) {
+                final ClassLoader cl = currentProvider.getClass().getClassLoader();
+                for (Object currentKey : currentProvider.keySet()) {
+                    if (currentKey instanceof String &&
+                            ((String) currentKey).startsWith(filter) &&
+                            ((String) currentKey).indexOf(' ') < 0) {
+                        String className = currentProvider.getProperty((String) currentKey);
+                        if (className != null && loadedClasses.add(className)) {
+                            try {
+                                factories.add(Class.forName(className, true, cl).asSubclass(type).newInstance());
+                            } catch (ClassNotFoundException e) {
+                            } catch (ClassCastException e) {
+                            } catch (InstantiationException e) {
+                            } catch (IllegalAccessException e) {
+                            }
                         }
                     }
                 }
             }
         }
-
-        return Collections.unmodifiableSet(factories).iterator();
+        return factories.iterator();
     }
 
     /**
