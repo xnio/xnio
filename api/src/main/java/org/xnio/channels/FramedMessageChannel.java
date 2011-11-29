@@ -75,32 +75,10 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     /** {@inheritDoc} */
-    protected Readiness isReadable() {
-        if (readsDone || !channel.isOpen()) return Readiness.NEVER;
-        final ByteBuffer buffer = receiveBuffer.getResource();
-        final int size = buffer.position();
-        return size >= 4 && size >= buffer.getInt(0) + 4 ? Readiness.ALWAYS : Readiness.OKAY;
-    }
-
-    /** {@inheritDoc} */
-    protected Object getReadLock() {
-        return receiveBuffer;
-    }
-
-    /** {@inheritDoc} */
-    protected Readiness isWritable() {
-        return writesDone ? Readiness.NEVER : Readiness.OKAY;
-    }
-
-    /** {@inheritDoc} */
-    protected Object getWriteLock() {
-        return transmitBuffer;
-    }
-
-    /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
         synchronized (receiveBuffer) {
             if (readsDone) {
+                clearReadReady();
                 return -1;
             }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
@@ -114,6 +92,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     receiveBuffer.clear();
                 }
                 log.tracef("Did not read a length");
+                clearReadReady();
                 // must be <= 0
                 return res;
             }
@@ -131,6 +110,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                         Buffers.unget(receiveBuffer, 4);
                     }
                     log.tracef("Did not read enough bytes for a full message");
+                    clearReadReady();
                     // must be <= 0
                     return res;
                 }
@@ -144,6 +124,10 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
             } finally {
                 receiveBuffer.compact();
+                if (receiveBuffer.position() >= 4 && receiveBuffer.position() == 4 + receiveBuffer.getInt(0)) {
+                    // there's another packet ready to go
+                    setReadReady();
+                }
             }
         }
     }
@@ -157,6 +141,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (receiveBuffer) {
             if (readsDone) {
+                clearReadReady();
                 return -1;
             }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
@@ -170,6 +155,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                     receiveBuffer.clear();
                 }
                 log.tracef("Did not read a length");
+                clearReadReady();
                 return res;
             }
             receiveBuffer.flip();
@@ -186,6 +172,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                         Buffers.unget(receiveBuffer, 4);
                     }
                     log.tracef("Did not read enough bytes for a full message");
+                    clearReadReady();
                     // must be <= 0
                     return res;
                 }
@@ -199,6 +186,10 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
             } finally {
                 receiveBuffer.compact();
+                if (receiveBuffer.position() >= 4 && receiveBuffer.position() == 4 + receiveBuffer.getInt(0)) {
+                    // there's another packet ready to go
+                    setReadReady();
+                }
             }
         }
     }

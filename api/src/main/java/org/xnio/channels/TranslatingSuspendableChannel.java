@@ -23,6 +23,7 @@
 package org.xnio.channels;
 
 import java.io.IOException;
+import java.nio.channels.Channel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -91,8 +92,8 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     private static final int WRITE_FLAGS            = 0xffff << 0x10;
 
-    private final ChannelListener<W> readListener = new ChannelListener<W>() {
-        public void handleEvent(final W channel) {
+    private final ChannelListener<Channel> readListener = new ChannelListener<Channel>() {
+        public void handleEvent(final Channel channel) {
             handleReadable();
         }
 
@@ -101,8 +102,8 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     };
 
-    private final ChannelListener<W> writeListener = new ChannelListener<W>() {
-        public void handleEvent(final W channel) {
+    private final ChannelListener<Channel> writeListener = new ChannelListener<Channel>() {
+        public void handleEvent(final Channel channel) {
             handleWritable();
         }
 
@@ -111,8 +112,8 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     };
 
-    private final ChannelListener<W> closeListener = new ChannelListener<W>() {
-        public void handleEvent(final W channel) {
+    private final ChannelListener<Channel> closeListener = new ChannelListener<Channel>() {
+        public void handleEvent(final Channel channel) {
             IoUtils.safeClose(TranslatingSuspendableChannel.this);
         }
 
