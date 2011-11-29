@@ -28,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HANDSHAKE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
+import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_FAULTY_TASK;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_TASK;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
@@ -382,5 +383,24 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
         assertWrittenMessage("[!@#$%^&*()_]", "this", "[!@#$%^&*()_]", "this", "[!@#$%^&*()_]", "this", "[!@#$%^&*()_]",
                 "this", "this", "this", "this", "this", "this", "this", "[_)(*&^%$#@!]");
+    }
+
+    @Test
+    public void attemptToWriteWithFaultyTask() throws IOException {
+        // set the handshake actions that engineMock will emulate
+        engineMock.setHandshakeActions(NEED_FAULTY_TASK);
+        // message we plan to write
+        final ByteBuffer buffer = ByteBuffer.allocate(21);
+        buffer.put("write this if you can".getBytes("UTF-8")).flip();
+        // try to write a bunch of times, we will get an IOException at all of the times
+        for (int i = 0; i < 10; i ++) {
+            boolean failed = false;
+            try {
+                sslChannel.write(buffer);
+            } catch (IOException expected) {
+                failed = true;
+            }
+            assertTrue(failed);
+        }
     }
 }

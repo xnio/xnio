@@ -23,9 +23,11 @@ package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HANDSHAKE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
+import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_FAULTY_TASK;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_TASK;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
@@ -355,5 +357,23 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         assertReadMessage(buffer, "this", "this", "this", "this", "this", "this");
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
         assertWrittenMessage("[!@#$%^&*()_]", "[!@#$%^&*()_]", "[_)(*&^%$#@!]");
+    }
+
+    @Test
+    public void attemptToReadWithFaultyTask() throws IOException {
+        // set the handshake actions that engineMock will emulate
+        engineMock.setHandshakeActions(NEED_FAULTY_TASK);
+        // message we plan to write
+        final ByteBuffer buffer = ByteBuffer.allocate(21);
+        // try to write a bunch of times, we will get an IOException at all of the times
+        for (int i = 0; i < 10; i ++) {
+            boolean failed = false;
+            try {
+                sslChannel.read(buffer);
+            } catch (IOException expected) {
+                failed = true;
+            }
+            assertTrue(failed);
+        }
     }
 }

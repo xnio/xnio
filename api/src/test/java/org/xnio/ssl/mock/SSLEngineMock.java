@@ -214,8 +214,15 @@ public class SSLEngineMock extends SSLEngine{
                         return task;
                     }
                 }
-                case NEED_FAULTY_TASK: // TODO
-                    throw new IllegalStateException("NEED_FAULTY_TASK is not implemented yet");
+                case NEED_FAULTY_TASK:
+                    synchronized (mockery){ 
+                        final Runnable task = mockery.mock(Runnable.class, "RunnableFaultyMock" + taskCount++);
+                        mockery.checking(new Expectations() {{
+                            oneOf(task).run();
+                            will(throwException(new RuntimeException()));
+                        }});
+                        return task;
+                    }
             }
         }
         return null;
@@ -269,6 +276,7 @@ public class SSLEngineMock extends SSLEngine{
         }
         switch(actions[currentIndex]) {
             case NEED_TASK:
+            case NEED_FAULTY_TASK:
                 return HandshakeStatus.NEED_TASK;
             case NEED_WRAP:
                 return HandshakeStatus.NEED_WRAP;

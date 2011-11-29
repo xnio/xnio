@@ -170,6 +170,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 channel.wakeupWrites();
             }
         } while (allAreSet(oldState, READ_READY));
+       /* Readiness readable = isReadable();
+        if (readable == Readiness.ALWAYS || readable == Readiness.OKAY) {
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+        }*/
     }
 
     /**

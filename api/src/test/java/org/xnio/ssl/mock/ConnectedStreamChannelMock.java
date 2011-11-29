@@ -32,6 +32,7 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListener.Setter;
 import org.xnio.Option;
+import org.xnio.OptionMap;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -53,8 +54,20 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     private ByteBuffer readBuffer = ByteBuffer.allocate(10000);
     // read stuff can only be read if read is enabled
     private boolean readEnabled;
+    // can only write when write is enabled
+    private boolean writeEnabled = true;
     // indicates if this channel is closed
     private boolean closed = false;
+    private boolean writeResumed = false;
+    private boolean writeAwaken = false;
+    private boolean readAwaken = false;
+    private boolean readResumed = false;
+    private boolean readsDown = false;
+    private boolean writesDown = false;
+    private boolean allowShutdownWrites = true;
+    private boolean flushed = true;
+    private boolean flushEnabled = true;
+
     // dummy listener setter
     private final ChannelListener.Setter<ConnectedStreamChannel> listenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
         @Override
@@ -99,12 +112,19 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         readEnabled = enable;
     }
 
+    public synchronized void enableWrite(boolean enable) {
+        writeEnabled = enable;
+    }
+
     /**
      * Returns all the bytes that have been written to this channel mock.
      * 
      * @return the written bytes in the form of a UTF-8 string
      */
     public String getWrittenText() {
+        if (writeBuffer.position() == 0 && writeBuffer.limit() == writeBuffer.capacity()) {
+            return "";
+        }
         writeBuffer.flip();
         return Buffers.getModifiedUtf8(writeBuffer);
     }
@@ -119,117 +139,152 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         return !closed;
     }
 
+    private OptionMap optionMap; 
+
     @Override
     public boolean supportsOption(Option<?> option) {
-        System.out.println("Calling SUPPORTS OPTION");
-        return false;
+        return optionMap.contains(option);
     }
 
     @Override
     public <T> T getOption(Option<T> option) throws IOException {
-        System.out.println("Calling GET OPTION");
-        return null;
+        return optionMap.get(option);
     }
 
     @Override
     public <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException {
-        System.out.println("Calling SET OPTION");
-        return null;
+        throw new RuntimeException("Not supported");
+    }
+
+    public void setOptionMap(OptionMap optionMap) {
+        this.optionMap = optionMap;
     }
 
     @Override
     public void suspendReads() {
-        // do nothing for now...
+        readAwaken = false;
+        readResumed = false;
     }
 
     @Override
     public void resumeReads() {
-        //do nothing for now...
+        readResumed = true;
     }
 
     @Override
     public boolean isReadResumed() {
-        return false;
+        return readResumed;
     }
 
     @Override
     public void shutdownReads() throws IOException {
-        // do nothing for now...
+        readsDown = true;
+    }
+    
+    public boolean isShutdownReads() {
+        return readsDown;
     }
 
     @Override
     public void awaitReadable() throws IOException {
-        // do nothing for now...
+        throw new RuntimeException ("Not supported");
     }
 
     @Override
     public void awaitReadable(long time, TimeUnit timeUnit) throws IOException {
-        // do nothing for now...
+        throw new RuntimeException ("Not supported");
     }
 
     @Override
     public XnioExecutor getReadThread() {
-        return null;
+        throw new RuntimeException ("Not supported");
     }
 
     @Override
     public void suspendWrites() {
-        // do nothing for now...
+        writeAwaken = false;
+        writeResumed = false;
     }
 
     @Override
     public void resumeWrites() {
-        // do nothing for now...
+        writeResumed = true;
     }
 
     @Override
     public boolean isWriteResumed() {
-        return false;
+        return writeResumed;
     }
 
     @Override
-    public boolean shutdownWrites() throws IOException {
-        return true;
+    public synchronized boolean shutdownWrites() throws IOException {
+        if (allowShutdownWrites) {
+            writesDown = true;
+        }
+        return writesDown;
+    }
+
+    public boolean isShutdownWrites() {
+        return writesDown;
     }
 
     @Override
     public void awaitWritable() throws IOException {
-        // do nothing for now...
+        throw new RuntimeException("Not supported");
     }
 
     @Override
     public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {
-        // do nothing for now...
+        throw new RuntimeException("Not supported");
     }
 
     @Override
     public XnioExecutor getWriteThread() {
-        return null;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
-    public boolean flush() throws IOException {
-        // return always true for now...
-        return true;
+    public synchronized boolean flush() throws IOException {
+        if (flushEnabled) {
+            flushed = true;
+        }
+        return flushed;
+    }
+
+    public boolean isFlushed() {
+        return flushed;
+    }
+
+    public void enableFlush(boolean enable) {
+        flushEnabled = enable;
     }
 
     @Override
     public long transferFrom(FileChannel src, long position, long count) throws IOException {
-        // do nothing for now...
-        return 0;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        return 0;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
-    public int write(ByteBuffer src) throws IOException {
+    public synchronized int write(ByteBuffer src) throws IOException {
         if (closed) {
             throw new ClosedChannelException();
         }
-        return Buffers.copy(writeBuffer, src);
+        if (writeEnabled) {
+            if (writeBuffer.limit() < writeBuffer.capacity()) {
+                writeBuffer.limit(writeBuffer.capacity());
+            }
+            int bytes = Buffers.copy(writeBuffer, src);
+            if (bytes > 0) {
+                flushed = false;
+            }
+            return bytes;
+        }
+        return 0;
     }
 
     @Override
@@ -237,7 +292,14 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         if (closed) {
             throw new ClosedChannelException();
         }
-        return Buffers.copy(writeBuffer, srcs, offset, length);
+        if (writeEnabled) {
+            int bytes = Buffers.copy(writeBuffer, srcs, offset, length);
+            if (bytes > 0) {
+                flushed = false;
+            }
+            return bytes;
+        }
+        return 0;
     }
 
     @Override
@@ -245,18 +307,20 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         if (closed) {
             throw new ClosedChannelException();
         }
-        return Buffers.copy(writeBuffer, srcs, 0, srcs.length);
+        if (writeEnabled) {
+            return Buffers.copy(writeBuffer, srcs, 0, srcs.length);
+        }
+        return 0;
     }
 
     @Override
     public long transferTo(long position, long count, FileChannel target) throws IOException {
-        // do nothing for now...
-        return 0;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
-        return 0;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
@@ -285,6 +349,10 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         }
         return 0;
     }
+    
+    public boolean allReadDataConsumed() {
+        return readBuffer.position() == readBuffer.limit();
+    }
 
     @Override
     public long read(ByteBuffer[] dsts) throws IOException {
@@ -297,44 +365,69 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
         return 0;
     }
 
+    private SocketAddress peerAddress;
+
     @Override
     public SocketAddress getPeerAddress() {
-        // do nothing for now...
+        return peerAddress;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <A extends SocketAddress> A getPeerAddress(Class<A> type) {
+        if (type.isAssignableFrom(peerAddress.getClass())) {
+            return (A) peerAddress;
+        }
         return null;
     }
 
-    @Override
-    public <A extends SocketAddress> A getPeerAddress(Class<A> type) {
-        // do nothing for now...
-        return null;
+    public void setPeerAddress(SocketAddress peerAddress) {
+        this.peerAddress = peerAddress;
     }
+
+    private SocketAddress localAddress;
 
     @Override
     public SocketAddress getLocalAddress() {
-        // do nothing for now...
+        return localAddress;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <A extends SocketAddress> A getLocalAddress(Class<A> type) {
+        if (type.isAssignableFrom(localAddress.getClass())) {
+            return (A) localAddress;
+        }
         return null;
     }
 
-    @Override
-    public <A extends SocketAddress> A getLocalAddress(Class<A> type) {
-        // do nothing for now...
-        return null;
+    public void setLocalAddress(SocketAddress localAddress) {
+        this.localAddress = localAddress;
     }
 
     @Override
     public XnioWorker getWorker() {
-        // do nothing for now...
-        return null;
+        throw new RuntimeException("Not supported");
     }
 
     @Override
     public void wakeupReads() {
-        // do nothing for now...
+        readAwaken = true;
+        readResumed = true;
+    }
+
+    public boolean isReadAwaken() {
+        return readAwaken;
     }
 
     @Override
     public void wakeupWrites() {
-        // do nothing for now...
+        writeAwaken = true;
+        writeResumed = true;
+    }
+
+    public boolean isWriteAwaken() {
+        return writeAwaken;
     }
 
     @Override

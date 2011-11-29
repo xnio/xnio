@@ -346,32 +346,29 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     private void forceResumeReads() {
         // if is not read resumed, resume it
         synchronized (getReadLock()) {
-            if (!isReadResumed()) {
-                resumeReads();
+            if (!channel.isReadResumed()) {
+                channel.resumeReads();
                 forcedResumeReads = true;
             }
         }
         if (forcedResumeReads) {
-            suspendWrites();
+            channel.suspendWrites();
         }
     }
 
     private void revertForcedResumeReads() {
         // if is not read resumed, resume it
         forcedResumeReads = false;
-        suspendReads();
-        if (!isWriteResumed()) {
-            resumeWrites();
-        }
+        channel.suspendReads();
+        channel.wakeupWrites();
     }
 
     private void clearReadNeedsWrap() {
-        if (readNeedsWrap) {
-            readNeedsWrap = false;
-            resumeReadsIfRequested();
-            if (forcedResumeWrites) {
-                revertForcedResumeWrites();
-            }
+        assert readNeedsWrap;
+        readNeedsWrap = false;
+        resumeReadsIfRequested();
+        if (forcedResumeWrites) {
+            revertForcedResumeWrites();
         }
     }
 
@@ -385,23 +382,21 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     private void forceResumeWrites() {
         // if is not write resumed, resume it
         synchronized (getWriteLock()) {
-            if (!isWriteResumed()) {
-                resumeWrites();
+            if (!channel.isWriteResumed()) {
+                channel.resumeWrites();
                 forcedResumeWrites = true;
             }
         }
         if (forcedResumeWrites) {
-            suspendReads();
+            channel.suspendReads();
         }
     }
 
     private void revertForcedResumeWrites() {
         // if is not write resumed, resume it
         forcedResumeWrites = false;
-        suspendWrites();
-        if (!isReadResumed()) {
-            resumeReads();
-        }
+        channel.suspendWrites();
+        channel.wakeupReads();
     }
 
     /**
@@ -421,20 +416,22 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         if (readNeedsWrap && writeNeedsUnwrap) {
             readNeedsWrap = writeNeedsUnwrap = false;
         }
+        // if read needs wrap, the only possible reason is that something went wrong with flushing, try to flush now
+        if (readNeedsWrap && flush()) {
+            clearReadNeedsWrap();
+        }
         // FIXME when called by shutdown Writes, current thread already holds the lock
         //assert ! Thread.holdsLock(getWriteLock());
         boolean newResult = false;
         for (;;) {
             switch (result.getHandshakeStatus()) {
                 case FINISHED: {
-                    clearReadNeedsWrap();
                     clearWriteNeedsUnwrap();
                     // Operation can continue immediately
                     return true;
                 }
                 case NOT_HANDSHAKING: {
                     // Operation can continue immediately
-                    clearReadNeedsWrap();
                     clearWriteNeedsUnwrap();
                     return false;
                 }
@@ -472,9 +469,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     }
                 }
                 case NEED_UNWRAP: {
-                    // clear readNeedsWrap
-                    clearReadNeedsWrap();
-                    markWriteNeedsUnwrap();
                     // if read, let caller do the unwrap
                     if (! write) {
                         return newResult;
@@ -488,10 +482,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                                 clearWriteNeedsUnwrap();
                                 continue;
                             }
-                            // no point in proceeding, we're stuck until the user reads anyway
-                            markWriteNeedsUnwrap();
-                            resumeReadsIfRequestedAndSuspendWrites();
-                            return false;
+                            if (!readNeedsWrap) {
+                                // no point in proceeding, we're stuck until the user reads anyway
+                                markWriteNeedsUnwrap();
+                                resumeReadsIfRequestedAndSuspendWrites();
+                                return false;
+                            }
                         }
                     }
                     continue;
@@ -499,7 +495,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 case NEED_TASK: {
                     Runnable task;
                     while ((task = engine.getDelegatedTask()) != null) {
-                        task.run();
+                        try {
+                            task.run();
+                        } catch (Exception e) {
+                            throw new IOException(e);
+                        }
                     }
                     // caller should try to wrap/unwrap again
                     return true;
@@ -732,7 +732,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         } finally {
             buffer.compact();
         }
-        return true;
+        return channel.flush();
     }
 
     @Override
