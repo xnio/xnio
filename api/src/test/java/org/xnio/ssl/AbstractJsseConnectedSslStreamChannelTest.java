@@ -58,9 +58,13 @@ public abstract class AbstractJsseConnectedSslStreamChannelTest {
         context = new JUnit4Mockery();
         connectedChannelMock = new ConnectedStreamChannelMock();
         engineMock = new SSLEngineMock(context);
+        sslChannel = createSslChannel();
+    }
+
+    protected JsseConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        sslChannel = new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, true, socketBufferPool, applicationBufferPool, false);
+        return new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, true, socketBufferPool, applicationBufferPool, false);
     }
 
     @After

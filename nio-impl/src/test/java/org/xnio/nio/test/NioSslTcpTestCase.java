@@ -232,8 +232,8 @@ public final class NioSslTcpTestCase {
                                 final int c = channel.read(ByteBuffer.allocate(100));
                                 if (c == -1) {
                                     clientOK.set(true);
+                                    channel.close();
                                 }
-                                channel.close();
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
@@ -329,7 +329,7 @@ public final class NioSslTcpTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < serverSent.get()) {
+                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get()) {
                                                                     channel.getWriteThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();
@@ -414,7 +414,7 @@ public final class NioSslTcpTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < serverSent.get()) {
+                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get()) {
                                                                     channel.getWriteThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();

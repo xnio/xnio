@@ -33,11 +33,14 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.junit.Test;
+import org.xnio.ChannelListener;
+import org.xnio.channels.TranslatingSuspendableChannel;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 /**
@@ -47,6 +50,15 @@ import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
 public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnectedSslStreamChannelTest {
+
+    @Override
+    @SuppressWarnings("unchecked")
+    protected JsseConnectedSslStreamChannel createSslChannel() {
+        JsseConnectedSslStreamChannel channel = super.createSslChannel();
+        channel.getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
+        channel.getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
+        return channel;
+    }
 
     @Test
     public void readNeedsWrapWriteAndReadDisabled() throws IOException {
@@ -63,6 +75,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(connectedChannelMock.isWriteResumed());
         // attempt to read... channel is expected to return 0 as it stumbles upon a NEED_WRAP that cannot be executed
         assertEquals(0, sslChannel.read(buffer));
+        sslChannel.handleReadable();
         assertFalse(connectedChannelMock.isReadResumed());
         assertTrue(sslChannel.isReadResumed());
         assertTrue(connectedChannelMock.isWriteResumed());
@@ -293,7 +306,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
     }
 
     @Test
-    public void forceResumeReadsOnResumedReadChannel() throws IOException {
+    public void forceResumeReadsOnResumedReadChannel() throws Exception {
         sslChannel.resumeReads();
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isReadResumed());
@@ -305,13 +318,15 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         buffer.put("CANT WRITE WITHOUT UNWRAP".getBytes("UTF-8")).flip();
 
         sslChannel.write(buffer);
+        sslChannelHandleWritable();
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
         assertTrue(connectedChannelMock.isReadAwaken());
 
-        // everything keeps the same at connectedChannelMock when we try to resume reads
+        // everything keeps the same at connectedChannelMock when we try to resume writes
         sslChannel.resumeWrites();
+        sslChannelHandleWritable();
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
@@ -319,7 +334,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
     }
 
     @Test
-    public void forceResumeReadsOnSuspendedReadChannel() throws IOException {
+    public void forceResumeReadsOnSuspendedReadChannel() throws Exception {
         // resume writes, reads are suspended
         sslChannel.resumeWrites();
         assertFalse(sslChannel.isReadResumed());
@@ -332,6 +347,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("CANT WRITE WITHOUT UNWRAP".getBytes("UTF-8")).flip();
         assertEquals(0, sslChannel.write(buffer));
+        sslChannelHandleWritable();
 
         // write is still resumed at the sslChannel, and read is still suspended;
         // but at connected channel mock it is the other way around
@@ -367,14 +383,14 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         sslChannel.read(buffer);
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertTrue(connectedChannelMock.isReadResumed());
         assertTrue(connectedChannelMock.isWriteAwaken());
 
         // everything keeps the same at connectedChannelMock when we try to resume reads
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
         assertTrue(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertTrue(connectedChannelMock.isReadResumed());
         assertTrue(connectedChannelMock.isWriteAwaken());
     }
 
@@ -391,6 +407,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         connectedChannelMock.setReadData("CAN'T READ WITHOUT WRAP");
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         sslChannel.read(buffer);
+        sslChannel.handleReadable();
         assertTrue(sslChannel.isReadResumed());
         assertFalse(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isReadResumed());
@@ -498,7 +515,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
     @Test
     // test that a forced read is undone as soon as the issue that caused the forced read is solved
-    public void properHandlingOfForcedRead() throws IOException {
+    public void properHandlingOfForcedRead() throws Exception {
         /* Create the forced read scenario */
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, FINISH);
         connectedChannelMock.setReadData(HANDSHAKE_MSG);
@@ -513,6 +530,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("MSG".getBytes("UTF-8")).flip();
         assertEquals(0, sslChannel.write(buffer));
+        sslChannelHandleWritable();
 
         assertTrue(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
@@ -522,6 +540,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         /* Solve the forced read */
         connectedChannelMock.enableRead(true);
         assertEquals(0, sslChannel.read(ByteBuffer.allocate(2)));
+        sslChannel.handleReadable();
 
         assertTrue(connectedChannelMock.allReadDataConsumed());
         /* Assert the forced reads actions have been undone */
@@ -533,7 +552,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
     @Test
     // test that a forced write is undone as soon as the issue that caused the forced write is solved
-    public void properHandlingOfForcedWrite() throws IOException {
+    public void properHandlingOfForcedWrite() throws Exception {
         /* Create the forced write scenario */
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, FINISH);
         connectedChannelMock.setReadData(HANDSHAKE_MSG, "TXT");
@@ -548,6 +567,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
         ByteBuffer buffer = ByteBuffer.allocate(10);
         assertEquals(0, sslChannel.read(buffer));
+        sslChannel.handleReadable();
 
         assertTrue(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
@@ -559,6 +579,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         ByteBuffer writeBuffer = ByteBuffer.allocate(3);
         writeBuffer.put("TXT".getBytes("UTF-8")).flip();
         assertEquals(3, sslChannel.write(writeBuffer));
+        sslChannelHandleWritable();
 
         assertWrittenMessage(HANDSHAKE_MSG);
         assertTrue(connectedChannelMock.isFlushed());
@@ -582,6 +603,10 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertTrue(sslChannel.isReadResumed());
         assertTrue(connectedChannelMock.isReadAwaken());
         sslChannel.suspendReads();
+        // nothing happens now, because the handler has not been called yet
+        assertFalse(sslChannel.isReadResumed());
+        assertTrue(connectedChannelMock.isReadAwaken());
+        sslChannel.handleReadable();
         assertFalse(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
     }
@@ -598,6 +623,10 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(connectedChannelMock.isReadAwaken());
         assertTrue(connectedChannelMock.isReadResumed());
         sslChannel.suspendReads();
+        assertFalse(sslChannel.isReadResumed());
+        // connected channel mock does not have yet reads suspended, we need to call the handler for that
+        assertTrue(connectedChannelMock.isReadResumed());
+        sslChannel.handleReadable();
         assertFalse(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
     }
@@ -623,7 +652,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
     }
 
     @Test
-    public void suspendReadsOnResumedReadNeedsWrapChannel() throws IOException {
+    public void suspendReadsOnResumedReadNeedsWrapChannel() throws Exception {
         // resume reads first of all
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
@@ -636,6 +665,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
         // force resume writes on a readNeedsWrap scenario
         assertEquals(0, sslChannel.read(ByteBuffer.allocate(5)));
+        sslChannel.handleReadable();
         assertTrue(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
         assertFalse(sslChannel.isWriteResumed());
@@ -643,14 +673,15 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
         // suspendReads
         sslChannel.suspendReads();
+        sslChannelHandleWritable();
         assertFalse(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
         assertFalse(sslChannel.isWriteResumed());
-        // FIXME assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(connectedChannelMock.isWriteResumed());
     }
 
     @Test
-    public void resumeAndSuspendWritesOnNewChannel() throws IOException {
+    public void resumeAndSuspendWritesOnNewChannel() throws Exception {
         // brand newly created sslChannel, isWritable returns aLWAYS and resuming writes will awakeWrites for connectedChannelMock
         assertFalse(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
@@ -659,11 +690,15 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertTrue(connectedChannelMock.isWriteAwaken());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
+        // write is not suspended yet at the underlying channel, we need to call the handler for that
+        assertTrue(connectedChannelMock.isWriteResumed());
+        sslChannelHandleWritable();
+        assertFalse(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
     }
 
     @Test
-    public void resumeAndSuspendWrites() throws IOException {
+    public void resumeAndSuspendWrites() throws Exception {
         assertEquals(0, sslChannel.read(ByteBuffer.allocate(5)));
         
         // not a brand newly created sslChannel, isWritable returns OKAY and resuming writes will just reasumeWritesfor connectedChannelMock
@@ -674,6 +709,10 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(connectedChannelMock.isWriteAwaken());
         assertTrue(connectedChannelMock.isWriteResumed());
         sslChannel.suspendWrites();
+        assertFalse(sslChannel.isWriteResumed());
+        // write is not suspended yet at the underlying channel, we need to call the handler for that
+        assertTrue(connectedChannelMock.isWriteResumed());
+        sslChannelHandleWritable();
         assertFalse(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
     }
@@ -700,7 +739,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
     }
 
     @Test
-    public void suspendWritesOnResumedWriteNeedsUnwrapChannel() throws IOException {
+    public void suspendWritesOnResumedWriteNeedsUnwrapChannel() throws Exception {
         // resume writes first of all
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
@@ -714,6 +753,7 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         ByteBuffer buffer = ByteBuffer.allocate(1);
         buffer.put((byte) 0).flip();
         assertEquals(0, sslChannel.write(buffer));
+        sslChannelHandleWritable();
         assertTrue(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
@@ -721,9 +761,16 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
         // suspendWrites 
         sslChannel.suspendWrites();
+        sslChannel.handleReadable();
         assertFalse(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
-        // FIXME assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(connectedChannelMock.isReadResumed());
+    }
+
+    private void sslChannelHandleWritable() throws Exception {
+        Method handleWritableMethod = TranslatingSuspendableChannel.class.getDeclaredMethod("handleWritable");
+        handleWritableMethod.setAccessible(true);
+        handleWritableMethod.invoke(sslChannel);
     }
 }

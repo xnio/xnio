@@ -22,23 +22,24 @@
 
 package org.xnio.channels;
 
+import static java.lang.Thread.currentThread;
+import static java.util.Arrays.copyOf;
+import static java.util.concurrent.locks.LockSupport.park;
+import static java.util.concurrent.locks.LockSupport.parkNanos;
+import static java.util.concurrent.locks.LockSupport.unpark;
+
 import java.io.IOException;
 import java.nio.channels.Channel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
-
-import static java.lang.Thread.currentThread;
-import static java.util.Arrays.copyOf;
-import static java.util.concurrent.locks.LockSupport.park;
-import static java.util.concurrent.locks.LockSupport.parkNanos;
-import static java.util.concurrent.locks.LockSupport.unpark;
 
 /**
  * An abstract wrapped channel.
@@ -150,7 +151,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         oldState = clearFlags(WRITE_REQUIRES_READ);
         if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
             unparkWriteWaiters();
-            channel.wakeupWrites();
+            if (allAreSet(oldState, WRITE_REQUESTED)) {
+                channel.wakeupWrites();
+            }
         }
         if (allAreClear(oldState, READ_READY) && anyAreSet(oldState, READ_REQUIRES_WRITE | READ_REQUIRES_EXT)) {
             channel.suspendReads();
@@ -170,10 +173,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 channel.wakeupWrites();
             }
         } while (allAreSet(oldState, READ_READY));
-       /* Readiness readable = isReadable();
-        if (readable == Readiness.ALWAYS || readable == Readiness.OKAY) {
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
-        }*/
     }
 
     /**
@@ -189,7 +188,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         oldState = clearFlags(READ_REQUIRES_WRITE);
         if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
             unparkReadWaiters();
-            channel.wakeupReads();
+            if (allAreSet(oldState, READ_REQUESTED)) {
+                channel.wakeupReads();
+            }
         }
         if (allAreClear(oldState, WRITE_READY) && anyAreSet(oldState, WRITE_REQUIRES_READ | WRITE_REQUIRES_EXT)) {
             channel.suspendWrites();
@@ -264,6 +265,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             // read cannot proceed until write does
             channel.resumeWrites();
         }
+    }
+
+    /**
+     * Indicate if the channel is not readable until the write handler is called.
+     */
+    protected boolean readRequiresWrite() {
+        return allAreSet(state, READ_REQUIRES_WRITE);
     }
 
     /**
@@ -356,6 +364,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             // write cannot proceed until read does
             channel.resumeReads();
         }
+    }
+
+    /**
+     * Indicate if the channel is not writable until the read handler is called.
+     */
+    protected boolean writeRequiresRead() {
+        return allAreSet(state, WRITE_REQUIRES_READ);
     }
 
     /**
@@ -573,7 +588,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         try {
             return doIt = channel.shutdownWrites();
         } finally {
-            if (doIt) setFlags(WRITE_SHUT_DOWN);
+            if (doIt) {
+                if (setWriteShutDown()) {
+                    ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+                }
+            }
         }
     }
 
@@ -659,6 +678,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * @throws IOException if an I/O error occurs
      */
     public void close() throws IOException {
+        if ((!allAreSet(state, READ_SHUT_DOWN) || !allAreSet(state, WRITE_SHUT_DOWN)) && channel.isOpen()) {
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        }
         channel.close();
     }
 

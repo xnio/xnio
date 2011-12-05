@@ -42,7 +42,6 @@ import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Pooled;
 import org.xnio.XnioWorker;
-import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.StreamSinkChannel;
@@ -76,14 +75,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     // state
 
     private volatile boolean tls;
-    /** Writes need an unwrap (read) to proceed.  Set from write thread, clear from read thread. */
-    private volatile boolean writeNeedsUnwrap;
-    /** Reads need a wrap (write) to proceed.  Set from read thread, clear from write thread. */
-    private volatile boolean readNeedsWrap;
-    /** Indicates a write has been suspended because of writeNeedsUnwrap and a previously disabled read has been forced to resume */
-    private volatile boolean forcedResumeReads;
-    /** Indicates a read has been suspended because of readNeedsWrap and a previously disabled write has been forced to resume */
-    private volatile boolean forcedResumeWrites;
+    /**
+     * Indicates this channel has not started to handle handshake yet and, hence, it must enforce handshake kick off
+     * by forcing one of the read/write listeners to run. See the calls made to setReadReady and setWriteReady by
+     * the constructor.
+     */
+    private boolean firstHandshake = false;
 
     /**
      * Construct a new instance.
@@ -133,10 +130,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         } finally {
             if (! ok) receiveBuffer.free();
         }
-        // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
-        // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
-        // listeners to run. See isReadable/isWritable for further information.
-        readNeedsWrap = writeNeedsUnwrap = true;
+        // enforce handshake kick off by forcing one of the read/write listeners to run
+        firstHandshake = true;
+        setReadReady();
+        setWriteReady();
     }
 
     /** {@inheritDoc} */
@@ -167,41 +164,16 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return option == Options.SECURE || super.supportsOption(option);
     }
 
-    public void resumeReads() {
-        if (forcedResumeReads) {
-            revertForcedResumeReads();
-        }
-        super.resumeReads();
-    }
-
-    public void resumeWrites() {
-        if (forcedResumeWrites) {
-            revertForcedResumeWrites();
-        }
-        super.resumeWrites();
-    }
-
     @Override
-    protected void handleReadable(final ConnectedStreamChannel channel) {
-        if (forcedResumeReads) {
-            revertForcedResumeReads();
-        }
+    protected void handleReadable() {
         boolean read;
         do {
-            super.handleReadable(channel);
+            super.handleReadable();
             // if there is data in readBuffer, call read listener again
             synchronized(getReadLock()) {
                 read = readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
             }
         } while (read);
-    }
-
-    @Override
-    protected void handleWritable(final ConnectedStreamChannel channel) {
-        if (forcedResumeWrites) {
-            revertForcedResumeWrites();
-        }
-        super.handleWritable(channel);
     }
 
     @Override
@@ -236,7 +208,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 bytesConsumed += (long) result.bytesConsumed();
             }
             // handshake will tell us whether to keep the loop
-            run = run && (handleHandshake(result, true) || !writeNeedsUnwrap);
+            run = run && (handleHandshake(result, true) || !writeRequiresRead());
         } while (run);
         return bytesConsumed;
     }
@@ -252,7 +224,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 bytesConsumed += result.bytesConsumed();
             }
             // handshake will tell us whether to keep the loop
-            run = run && (handleHandshake(result, true) || (!writeNeedsUnwrap && src.hasRemaining()));
+            run = run && (handleHandshake(result, true) || (!writeRequiresRead() && src.hasRemaining()));
         }
         while (run);
         return bytesConsumed;
@@ -326,79 +298,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return true;
     }
 
-    private void markWriteNeedsUnwrap() {
-        if (!writeNeedsUnwrap) {
-            writeNeedsUnwrap = true;
-            forceResumeReads();
-        }
-    }
-
-    private void clearWriteNeedsUnwrap() {
-        if (writeNeedsUnwrap) {
-            writeNeedsUnwrap = false;
-            resumeWritesIfRequested();
-            if (forcedResumeReads) {
-                revertForcedResumeReads();
-            }
-        }
-    }
-
-    private void forceResumeReads() {
-        // if is not read resumed, resume it
-        synchronized (getReadLock()) {
-            if (!channel.isReadResumed()) {
-                channel.resumeReads();
-                forcedResumeReads = true;
-            }
-        }
-        if (forcedResumeReads) {
-            channel.suspendWrites();
-        }
-    }
-
-    private void revertForcedResumeReads() {
-        // if is not read resumed, resume it
-        forcedResumeReads = false;
-        channel.suspendReads();
-        channel.wakeupWrites();
-    }
-
-    private void clearReadNeedsWrap() {
-        assert readNeedsWrap;
-        readNeedsWrap = false;
-        resumeReadsIfRequested();
-        if (forcedResumeWrites) {
-            revertForcedResumeWrites();
-        }
-    }
-
-    private void markReadNeedsWrap() {
-        if (!readNeedsWrap) {
-            readNeedsWrap = true;
-            forceResumeWrites();
-        }
-    }
-
-    private void forceResumeWrites() {
-        // if is not write resumed, resume it
-        synchronized (getWriteLock()) {
-            if (!channel.isWriteResumed()) {
-                channel.resumeWrites();
-                forcedResumeWrites = true;
-            }
-        }
-        if (forcedResumeWrites) {
-            channel.suspendReads();
-        }
-    }
-
-    private void revertForcedResumeWrites() {
-        // if is not write resumed, resume it
-        forcedResumeWrites = false;
-        channel.suspendWrites();
-        channel.wakeupReads();
-    }
-
     /**
      * Handle handshake process, after a wrap or an unwrap operation.
      * 
@@ -413,12 +312,14 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     private boolean handleHandshake(SSLEngineResult result, boolean write) throws IOException {
         assert ! Thread.holdsLock(getReadLock());
         // reset the flag for "first attempt to handle handshake"
-        if (readNeedsWrap && writeNeedsUnwrap) {
-            readNeedsWrap = writeNeedsUnwrap = false;
+        if (firstHandshake) {
+            clearReadReady();
+            clearWriteReady();
+            firstHandshake = false;
         }
         // if read needs wrap, the only possible reason is that something went wrong with flushing, try to flush now
-        if (readNeedsWrap && flush()) {
-            clearReadNeedsWrap();
+        if (readRequiresWrite() && flush()) {
+            clearReadRequiresWrite();
         }
         // FIXME when called by shutdown Writes, current thread already holds the lock
         //assert ! Thread.holdsLock(getWriteLock());
@@ -426,18 +327,18 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         for (;;) {
             switch (result.getHandshakeStatus()) {
                 case FINISHED: {
-                    clearWriteNeedsUnwrap();
+                    clearWriteRequiresRead();
                     // Operation can continue immediately
                     return true;
                 }
                 case NOT_HANDSHAKING: {
                     // Operation can continue immediately
-                    clearWriteNeedsUnwrap();
+                    clearWriteRequiresRead();
                     return false;
                 }
                 case NEED_WRAP: {
-                    // clear writeNeedsUnwrap
-                    clearWriteNeedsUnwrap();
+                    // clear writeRequiresRead
+                    clearWriteRequiresRead();
                     // if write, let caller do the wrap
                     if (write) {
                         return true;
@@ -449,8 +350,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     synchronized (getWriteLock()) {
                         if (flushed = doFlush()) {
                             if (!handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
-                                markReadNeedsWrap();
-                                resumeWritesIfRequestedAndSuspendReads();
+                                setReadRequiresWrite();
                                 return false;
                             }
                             newResult = true;
@@ -459,11 +359,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     }
                     // if flushed, and given caller is reading, tell it to continue only if read needs wrap is 0
                     if (flushed) {
-                        return !readNeedsWrap;
+                        return !readRequiresWrite();
                     } else {
                         // else... oops, there is unflushed data, and handshake status is NEED_WRAP
                         // update readNeedsUnwrapUpdater to 1
-                        markReadNeedsWrap();
+                        setReadRequiresWrite();
                         // tell read caller to break read loop
                         return false;
                     }
@@ -479,13 +379,15 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                         if (handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer)) >= 0) { // FIXME what if the unwrap return buffer overflow???
                             // have we made some progress?
                             if(result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || result.bytesConsumed() > 0) {
-                                clearWriteNeedsUnwrap();
+                                if (result.bytesProduced() > 0 || buffer.hasRemaining()) {
+                                    super.setReadReady();
+                                }
+                                clearWriteRequiresRead();
                                 continue;
                             }
-                            if (!readNeedsWrap) {
+                            if (!readRequiresWrite()) {
                                 // no point in proceeding, we're stuck until the user reads anyway
-                                markWriteNeedsUnwrap();
-                                resumeReadsIfRequestedAndSuspendWrites();
+                                setWriteRequiresRead();
                                 return false;
                             }
                         }
@@ -565,6 +467,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         if (res == -1) {
             return total == 0L ? -1L : total;
         }
+        if (unwrappedBuffer.position() == 0 && !buffer.hasRemaining()) {
+            clearReadReady();
+        }
         return total;
     }
 
@@ -631,32 +536,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return tls ? engine.getSession() : null;
     }
 
-    @Override
-    protected Readiness isReadable() {
-        synchronized(getReadLock()) {
-            // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
-            // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
-            // listeners to run
-            return readNeedsWrap? (writeNeedsUnwrap? Readiness.ALWAYS: Readiness.NEVER): Readiness.OKAY;
-        }
-    }
-
-    @Override
     protected Object getReadLock() {
         return receiveBuffer;
     }
 
-    @Override
-    protected Readiness isWritable() {
-        synchronized(getWriteLock()) {
-            // writeNeedsUnwrap && readNeedsWrap set to true is a flag to indicate that this channel has not started
-            // to handle handshake and, hence, it must enforce its handshake kick off by forcing one of the read/write
-            // listeners to run
-            return writeNeedsUnwrap? (readNeedsWrap? Readiness.ALWAYS: Readiness.NEVER): Readiness.OKAY;
-        }
-    }
-
-    @Override
     protected Object getWriteLock() {
         return sendBuffer;
     }
