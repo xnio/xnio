@@ -26,6 +26,8 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+
+import org.xnio.Buffers;
 import org.xnio.Pooled;
 
 /**
@@ -33,8 +35,10 @@ import org.xnio.Pooled;
  */
 public class BufferPipeOutputStream extends OutputStream {
 
+    // internal buffer
     private Pooled<ByteBuffer> buffer;
-    private boolean eof;
+    // indicates this stream is closed
+    private boolean closed;
 
     private final BufferWriter bufferWriterTask;
 
@@ -59,7 +63,7 @@ public class BufferPipeOutputStream extends OutputStream {
 
     private void checkClosed() throws IOException {
         assert Thread.holdsLock(this);
-        if (eof) {
+        if (closed) {
             throw closed();
         }
     }
@@ -70,7 +74,7 @@ public class BufferPipeOutputStream extends OutputStream {
         if (buffer != null && buffer.getResource().hasRemaining()) {
             return buffer;
         } else {
-            if (buffer != null) send();
+            if (buffer != null) send(false);
             return this.buffer = bufferWriterTask.getBuffer(false);
         }
     }
@@ -98,12 +102,12 @@ public class BufferPipeOutputStream extends OutputStream {
     }
 
     // call with lock held
-    private void send() throws IOException {
+    private void send(boolean eof) throws IOException {
         assert Thread.holdsLock(this);
+        assert !closed;
         final Pooled<ByteBuffer> pooledBuffer = buffer;
         final ByteBuffer buffer = pooledBuffer == null ? null : pooledBuffer.getResource();
         this.buffer =  null;
-        final boolean eof = this.eof;
         if (buffer != null && buffer.position() > 0) {
             buffer.flip();
             send(pooledBuffer, eof);
@@ -120,19 +124,26 @@ public class BufferPipeOutputStream extends OutputStream {
         try {
             bufferWriterTask.accept(buffer, eof);
         } catch (IOException e) {
-            this.eof = true;
+            this.closed = true;
             throw e;
         }
     }
 
     /** {@inheritDoc} */
     public void flush() throws IOException {
+        flush(false);
+    }
+
+    private void flush(boolean eof) throws IOException {
         synchronized (this) {
-            send();
+            if (closed) {
+                return;
+            }
+            send(eof);
             try {
                 bufferWriterTask.flush();
             } catch (IOException e) {
-                eof = true;
+                closed = true;
                 buffer = null;
                 throw e;
             }
@@ -142,11 +153,14 @@ public class BufferPipeOutputStream extends OutputStream {
     /** {@inheritDoc} */
     public void close() throws IOException {
         synchronized (this) {
-            if (eof) {
+            if (closed) {
                 return;
             }
-            eof = true;
-            flush();
+            try {
+                flush(true);
+            } finally {
+                closed = true;
+            }
         }
     }
 
