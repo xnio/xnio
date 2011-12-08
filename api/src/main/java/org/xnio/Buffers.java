@@ -1124,6 +1124,25 @@ public final class Buffers {
     public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.allocate(0);
 
     /**
+     * The empty pooled byte buffer.  Freeing or discarding this buffer has no effect.
+     */
+    public static final Pooled<ByteBuffer> EMPTY_POOLED_BYTE_BUFFER = new Pooled<ByteBuffer>() {
+        public void discard() {
+        }
+
+        public void free() {
+        }
+
+        public ByteBuffer getResource() throws IllegalStateException {
+            return EMPTY_BYTE_BUFFER;
+        }
+
+        public String toString() {
+            return "empty pooled byte buffer";
+        }
+    };
+
+    /**
      * Determine whether any of the buffers has remaining data.
      *
      * @param buffers the buffers
