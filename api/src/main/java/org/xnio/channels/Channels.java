@@ -23,6 +23,7 @@
 package org.xnio.channels;
 
 import java.io.InterruptedIOException;
+import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
 import org.xnio.Buffers;
 
@@ -721,6 +722,27 @@ public final class Channels {
             return value == null ? defaultValue : value.longValue();
         } catch (IOException e) {
             return defaultValue;
+        }
+    }
+
+    /**
+     * Unwrap a nested channel type.  If the channel does not wrap the target type, {@code null} is returned.
+     *
+     * @param targetType the class to unwrap
+     * @param channel the channel
+     * @param <T> the type to unwrap
+     * @return the unwrapped type, or {@code null} if the given type is not wrapped
+     * @see WrappedChannel
+     */
+    public static <T extends Channel> T unwrap(Class<T> targetType, Channel channel) {
+        for (;;) {
+            if (targetType.isInstance(targetType)) {
+                return targetType.cast(channel);
+            } else if (channel instanceof WrappedChannel) {
+                channel = ((WrappedChannel<?>)channel).getChannel();
+            } else {
+                return null;
+            }
         }
     }
 }
