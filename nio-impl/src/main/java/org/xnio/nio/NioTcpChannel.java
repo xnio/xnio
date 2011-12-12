@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.jboss.logging.Logger;
-import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
