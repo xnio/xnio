@@ -164,15 +164,14 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     }
 
     public boolean shutdownWrites() throws IOException {
-        boolean ok = false;
         try {
             log.tracef("Shutting down writes on %s", this);
             socket.shutdownOutput();
-            ok = true;
+        } catch (IOException ignored) {
         } finally {
             cancelWriteKey();
             if (setBits(this, 0x01) == 0x02) {
-                if (ok) close(); else IoUtils.safeClose(this);
+                close();
             }
         }
         return true;
