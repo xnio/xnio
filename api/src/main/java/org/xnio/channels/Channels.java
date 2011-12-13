@@ -736,7 +736,9 @@ public final class Channels {
      */
     public static <T extends Channel> T unwrap(Class<T> targetType, Channel channel) {
         for (;;) {
-            if (targetType.isInstance(targetType)) {
+            if (channel == null) {
+                return null;
+            } else if (targetType.isInstance(channel)) {
                 return targetType.cast(channel);
             } else if (channel instanceof WrappedChannel) {
                 channel = ((WrappedChannel<?>)channel).getChannel();
