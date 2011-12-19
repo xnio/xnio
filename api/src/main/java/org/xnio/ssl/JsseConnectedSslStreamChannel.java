@@ -36,6 +36,8 @@ import javax.net.ssl.SSLSession;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
+import org.xnio.ChannelListener;
+import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.Options;
@@ -81,6 +83,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
      * the constructor.
      */
     private boolean firstHandshake = false;
+
+    /**
+     * Callback for notification of a handshake being finished.
+     */
+    private final ChannelListener.SimpleSetter<ConnectedSslStreamChannel> handshakeSetter = new ChannelListener.SimpleSetter<ConnectedSslStreamChannel>();
 
     /**
      * Construct a new instance.
@@ -164,6 +171,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return option == Options.SECURE || super.supportsOption(option);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public ChannelListener.Setter<ConnectedSslStreamChannel> getHandshakeSetter() {
+        return handshakeSetter;
+    }
+
     @Override
     protected void handleReadable() {
         boolean read;
@@ -174,6 +187,14 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 read = readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
             }
         } while (read);
+    }
+
+    protected void handleHandshakeFinished() {
+        final ChannelListener<? super ConnectedSslStreamChannel> listener = handshakeSetter.get();
+        if (listener == null) {
+            return;
+        }
+        ChannelListeners.<ConnectedSslStreamChannel>invokeChannelListener(this, listener);
     }
 
     @Override
@@ -328,6 +349,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             switch (result.getHandshakeStatus()) {
                 case FINISHED: {
                     clearWriteRequiresRead();
+                    handleHandshakeFinished();
                     // Operation can continue immediately
                     return true;
                 }

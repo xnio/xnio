@@ -51,4 +51,11 @@ public interface SslChannel extends CloseableChannel {
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends SslChannel> getCloseSetter();
+
+    /**
+     * Get the setter which can be used to change the handshake listener for this channel.
+     *
+     * @return the setter
+     */
+    ChannelListener.Setter<? extends SslChannel> getHandshakeSetter();
 }
