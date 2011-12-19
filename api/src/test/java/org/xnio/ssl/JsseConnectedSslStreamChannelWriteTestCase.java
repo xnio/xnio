@@ -63,11 +63,13 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertEquals(8, sslChannel.write(buffer));
         assertFalse(buffer.hasRemaining());
         // channel should not be able to shutdown writes... for that, it must receive a close message
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         // send the close message
         connectedChannelMock.setReadData(CLOSE_MSG);
         connectedChannelMock.enableRead(true);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
@@ -88,11 +90,13 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertEquals(8, sslChannel.write(buffer));
         assertFalse(buffer.hasRemaining());
         // channel should not be able to shutdown writes... for that, it must receive a close message
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         // send the close message
         connectedChannelMock.setReadData(CLOSE_MSG);
         connectedChannelMock.enableRead(true);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
@@ -125,7 +129,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertFalse(buffer.hasRemaining());
 
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -157,7 +162,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertFalse(buffer.hasRemaining());
 
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -190,11 +196,13 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         }
 
         // channel should not be able to shutdown writes... for that, it must receive a close message
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         // send the close message
         connectedChannelMock.setReadData("{message closed}");
         connectedChannelMock.enableRead(true);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
@@ -217,7 +225,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // make sure that channel managed to do the WRAP and got stalled on NEED_UNWRAP handshake status
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
         // channel should not be able to shutdown writes... for that, it must receive a close message
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -259,7 +268,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -309,7 +319,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -340,7 +351,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
@@ -377,7 +389,8 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // channel should be able to shutdown writes
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'connectedChannelMock' by 'sslChannel'

@@ -88,11 +88,12 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertWrittenMessage(new String[0]);
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
 
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertFalse(connectedChannelMock.isShutdownWrites());
 
         connectedChannelMock.enableWrite(true);
-        assertTrue(sslChannel.shutdownWrites());
+        assertTrue(sslChannel.flush());
         assertTrue(connectedChannelMock.isShutdownWrites());
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
 
@@ -118,15 +119,17 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(connectedChannelMock.isShutdownReads());
         sslChannel.shutdownReads();
         assertTrue(connectedChannelMock.isShutdownReads());
-        assertFalse(sslChannel.shutdownWrites());
-        assertFalse(sslChannel.shutdownWrites());
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
         assertWrittenMessage(new String[0]);
 
         connectedChannelMock.enableWrite(true);
         assertFalse(connectedChannelMock.isShutdownWrites());
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         assertTrue(connectedChannelMock.isShutdownWrites());
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         assertWrittenMessage(HANDSHAKE_MSG, CLOSE_MSG);
@@ -165,12 +168,14 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertTrue(sslChannel.flush());
         assertWrittenMessage("MSG");
 
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertWrittenMessage("MSG", CLOSE_MSG);
         assertTrue(connectedChannelMock.isFlushed());
 
         connectedChannelMock.setReadData(CLOSE_MSG);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         assertTrue(connectedChannelMock.isShutdownWrites());
         assertTrue(connectedChannelMock.isFlushed());
         assertWrittenMessage("MSG", CLOSE_MSG);
@@ -209,14 +214,17 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(sslChannel.flush());
         assertWrittenMessage(new String[0]);
 
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertFalse(connectedChannelMock.isShutdownWrites());
         connectedChannelMock.enableWrite(true);
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertFalse(connectedChannelMock.isShutdownWrites());
 
         connectedChannelMock.setReadData(CLOSE_MSG);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         assertTrue(connectedChannelMock.isShutdownWrites());
 
         assertTrue(connectedChannelMock.isOpen());
@@ -257,14 +265,17 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertTrue(sslChannel.flush());
         assertWrittenMessage(HANDSHAKE_MSG, "MSG READ DISABLED");
 
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertFalse(connectedChannelMock.isShutdownWrites());
         connectedChannelMock.enableWrite(true);
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         assertFalse(connectedChannelMock.isShutdownWrites());
 
         connectedChannelMock.setReadData(CLOSE_MSG);
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         assertTrue(connectedChannelMock.isShutdownWrites());
 
         assertTrue(connectedChannelMock.isOpen());

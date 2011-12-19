@@ -217,11 +217,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     }
 
     @Override
-    public synchronized boolean shutdownWrites() throws IOException {
+    public synchronized void shutdownWrites() throws IOException {
         if (allowShutdownWrites) {
             writesDown = true;
         }
-        return writesDown;
+        return;
     }
 
     public boolean isShutdownWrites() {

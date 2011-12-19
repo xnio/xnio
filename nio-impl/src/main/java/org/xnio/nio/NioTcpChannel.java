@@ -137,7 +137,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     }
 
     public void close() throws IOException {
-        if (setBits(this, 0x04) < 0x04) {
+        if (setBits(this, 0x03) != 0x03) {
             log.tracef("Closing %s", this);
             try {
                 socketChannel.close();
@@ -150,30 +150,35 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     }
 
     public void shutdownReads() throws IOException {
-        try {
-            log.tracef("Shutting down reads on %s", this);
-            socket.shutdownInput();
-        } catch (IOException ignored) {
-        } finally {
-            cancelReadKey();
-            if (setBits(this, 0x02) == 0x01) {
-                close();
+        final int old = setBits(this, 0x02);
+        if ((old & 0x02) == 0) {
+            try {
+                log.tracef("Shutting down reads on %s", this);
+                socket.shutdownInput();
+            } catch (IOException ignored) {
+            } finally {
+                cancelReadKey();
+                if (old == 0x01) {
+                    invokeCloseHandler();
+                }
             }
         }
     }
 
-    public boolean shutdownWrites() throws IOException {
-        try {
-            log.tracef("Shutting down writes on %s", this);
-            socket.shutdownOutput();
-        } catch (IOException ignored) {
-        } finally {
-            cancelWriteKey();
-            if (setBits(this, 0x01) == 0x02) {
-                close();
+    public void shutdownWrites() throws IOException {
+        final int old = setBits(this, 0x01);
+        if ((old & 0x01) == 0) {
+            try {
+                log.tracef("Shutting down writes on %s", this);
+                socket.shutdownOutput();
+            } catch (IOException ignored) {
+            } finally {
+                cancelWriteKey();
+                if (old == 0x02) {
+                    invokeCloseHandler();
+                }
             }
         }
-        return true;
     }
 
     public SocketAddress getPeerAddress() {

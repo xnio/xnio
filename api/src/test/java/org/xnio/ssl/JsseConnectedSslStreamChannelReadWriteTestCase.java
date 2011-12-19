@@ -75,7 +75,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         // MORE INFO: we have to shutdown write and read only after channel has read and written everything...
         // the mock here only mimics the behavior we find in SSLEngine implementation: the channel cannot do read
         // nor write after either read or write have been shutdown
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         sslChannel.shutdownReads();
         // close channel
         sslChannel.close();
@@ -101,7 +102,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         final ByteBuffer readBuffer = readFuture.get();
         // channel should be able to shutdown reads and writes
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been read to 'buffer' by 'channel'
@@ -130,7 +132,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
 
         // channel should be able to shutdown reads and writes
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
 
@@ -160,7 +163,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
 
         // channel should be able to shutdown reads and writes
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been read from 'connectedChannelMock' by 'channel'
@@ -206,7 +210,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
 
         // channel should be able to shutdown reads and writes
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
 
@@ -243,7 +248,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         Thread.sleep(10);
 
         writeFuture.get();
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         connectedChannelMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -253,7 +259,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
 
@@ -302,7 +309,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         Thread.sleep(10);
 
         writeFuture.get();
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         connectedChannelMock.setReadData("CLOSE_MSG");
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -311,7 +319,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
@@ -343,7 +352,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         connectedChannelMock.enableRead(true);
 
         writeFuture.get();
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         connectedChannelMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -352,7 +362,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // make sure that channel managed to do the WRAP and there is no more handshake actions left
@@ -388,7 +399,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         final Future<ByteBuffer> readFuture = triggerReadThread(24);
 
         writeFuture.get();
-        assertFalse(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertFalse(sslChannel.flush());
         connectedChannelMock.setReadData("[_)(*&^%$#@!]");
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -397,7 +409,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
-        assertTrue(sslChannel.shutdownWrites());
+        sslChannel.shutdownWrites();
+        assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
         // make sure that channel managed to do the WRAP and there is no more handshake actions left

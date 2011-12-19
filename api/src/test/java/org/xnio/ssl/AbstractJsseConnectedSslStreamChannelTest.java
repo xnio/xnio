@@ -64,7 +64,7 @@ public abstract class AbstractJsseConnectedSslStreamChannelTest {
     protected JsseConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        return new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, true, socketBufferPool, applicationBufferPool, false);
+        return new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, applicationBufferPool, false);
     }
 
     @After

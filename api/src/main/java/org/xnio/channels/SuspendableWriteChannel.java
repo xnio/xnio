@@ -58,16 +58,15 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     void wakeupWrites();
 
     /**
-     * Indicate that writing is complete for this channel.  Further attempts to write after this method is invoked will
-     * result in an exception; however, this method may have to be invoked multiple times in order to complete the
-     * shutdown operation.  If writes were already shut down successfully, calling this method again will have no
-     * additional effect.  Shutting down all directions of a channel will cause {@link #close()} to be called automatically.
-     *
-     * @return {@code true} if the write channel was closed, or {@code false} if the operation would have blocked
+     * Indicate that writing is complete for this channel.  Further attempts to write data to this channel
+     * after this method is invoked will result in an exception.  If this method was already called, calling this method
+     * again will have no additional effect.  After this method is called, any remaining data still must be flushed out
+     * via the {@link #flush()} method; once this is done, if the read side of the channel was shut down, the channel will
+     * automatically close.
      *
      * @throws IOException if an I/O error occurs
      */
-    boolean shutdownWrites() throws IOException;
+    void shutdownWrites() throws IOException;
 
     /**
      * Block until this channel becomes writable again.  This method may return spuriously
@@ -114,11 +113,24 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     ChannelListener.Setter<? extends SuspendableWriteChannel> getCloseSetter();
 
     /**
-     * Flush any waiting partial send or write.  Flushing a channel for which output was shut down is permitted; this
-     * method would simply return {@code true} in this case, since there is no outstanding data to flush.
+     * Flush any waiting partial send or write.  If there is no data to flush, or if the flush completed successfully,
+     * this method will return {@code true}.  If there is data to flush which cannot be immediately written, this method
+     * will return {@code false}.  If this method returns {@code true} after {@link #shutdownWrites()} was called on
+     * this channel, the write listener will no longer be invoked on this channel.  If this is case and additionally
+     * this is a write-only channel or the read side was previously shut down, then the channel will
+     * automatically be closed.
      *
      * @return {@code true} if the message was flushed, or {@code false} if the result would block
-     * @throws java.io.IOException if an I/O error occurs
+     * @throws IOException if an I/O error occurs
      */
     boolean flush() throws IOException;
+
+    /**
+     * Close this channel.  If data has been written but not flushed, that data may be discarded, depending on the
+     * channel implementation.  When a channel is closed, its close listener is invoked.  Invoking this method more than
+     * once has no additional effect.
+     *
+     * @throws IOException if the close failed
+     */
+    void close() throws IOException;
 }

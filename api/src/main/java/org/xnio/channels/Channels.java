@@ -72,9 +72,8 @@ public final class Channels {
      * @since 2.0
      */
     public static void shutdownWritesBlocking(SuspendableWriteChannel channel) throws IOException {
-        while (! channel.shutdownWrites()) {
-            channel.awaitWritable();
-        }
+        channel.shutdownWrites();
+        flushBlocking(channel);
     }
 
     /**
@@ -457,8 +456,6 @@ public final class Channels {
      * an accept is possible, and then returns the accepted connection.
      *
      * @param channel the accepting channel
-     * @param readThread the initial read thread to use for the new connection, or {@code null} for none
-     * @param writeThread the initial write thread to use for the new connection, or {@code null} for none
      * @param <C> the connection channel type
      * @param <A> the accepting channel type
      * @return the accepted channel
@@ -478,8 +475,6 @@ public final class Channels {
      * an accept is possible, and then returns the accepted connection.
      *
      * @param channel the accepting channel
-     * @param readThread the initial read thread to use for the new connection, or {@code null} for none
-     * @param writeThread the initial write thread to use for the new connection, or {@code null} for none
      * @param time the amount of time to wait
      * @param unit the unit of time to wait
      * @param <C> the connection channel type

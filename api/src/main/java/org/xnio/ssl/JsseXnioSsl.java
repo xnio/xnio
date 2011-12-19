@@ -139,6 +139,6 @@ public final class JsseXnioSsl extends XnioSsl {
     }
 
     ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap, final boolean server) {
-        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class), server), true, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
+        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class), server), socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
     }
 }

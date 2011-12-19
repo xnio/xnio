@@ -55,28 +55,31 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
     }
 
     public void shutdownReads() throws IOException {
-        boolean ok = false;
-        try {
-            sourceChannel.close();
-            ok = true;
-        } finally {
-            if (setBits(this, 0x02) == 0x01) {
-                if (ok) close(); else IoUtils.safeClose(this);
+        final int old = setBits(this, 0x01);
+        if ((old & 2) == 0) {
+            try {
+                sourceChannel.close();
+            } finally {
+                cancelReadKey();
+                if (old == 0x01) {
+                    invokeCloseHandler();
+                }
             }
         }
     }
 
-    public boolean shutdownWrites() throws IOException {
-        boolean ok = false;
-        try {
-            sinkChannel.close();
-            ok = true;
-        } finally {
-            if (setBits(this, 0x01) == 0x02) {
-                if (ok) close(); else IoUtils.safeClose(this);
+    public void shutdownWrites() throws IOException {
+        final int old = setBits(this, 0x01);
+        if ((old & 1) == 0) {
+            try {
+                sinkChannel.close();
+            } finally {
+                cancelWriteKey();
+                if (old == 0x02) {
+                    invokeCloseHandler();
+                }
             }
         }
-        return true;
     }
 
     public boolean isOpen() {
@@ -97,16 +100,28 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
     }
 
     public void close() throws IOException {
-        // since we've got two channels, only rethrow a failure on the WRITE side, since that's the side that stands to lose data
-        IoUtils.safeClose(sourceChannel);
-        try {
-            sinkChannel.close();
-        } finally {
-            if (setBits(this, 0x04) < 0x04) {
-                invokeCloseHandler();
+        final int old = setBits(this, 0x03);
+        if (old != 0x03) try {
+            if (old == 0) {
+                // since we've got two channels, only rethrow a failure on the WRITE side, since that's the side that stands to lose data
+                IoUtils.safeClose(sourceChannel);
+                try {
+                    sinkChannel.close();
+                } finally {
+                    cancelWriteKey();
+                    cancelReadKey();
+                }
+            } else if (old == 0x01) try {
+                sourceChannel.close();
+            } finally {
+                cancelReadKey();
+            } else if (old == 0x02) try {
+                sinkChannel.close();
+            } finally {
+                cancelWriteKey();
             }
-            cancelWriteKey();
-            cancelReadKey();
+        } finally {
+            invokeCloseHandler();
         }
     }
 

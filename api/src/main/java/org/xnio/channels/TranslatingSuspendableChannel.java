@@ -77,8 +77,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int READ_REQUIRES_WRITE    = 1 << 0x01; // channel cannot be read due to pending write
     private static final int READ_READY             = 1 << 0x02; // channel is always ready to be read
     private static final int READ_SHUT_DOWN         = 1 << 0x03; // user shut down reads
-    private static final int READ_REQUIRES_EXT      = 0x1f << 0x04; // channel cannot be read until external event completes, up to 32 events
-    private static final int READ_SINGLE_EXT        = 1 << 0x04; // one external event count value
+
+    private static final int READ_REQUIRES_EXT      = 0x1f << 0x0B; // channel cannot be read until external event completes, up to 32 events
+    private static final int READ_SINGLE_EXT        = 1 << 0x0B; // one external event count value
 
     private static final int READ_FLAGS             = 0xffff << 0x00;
 
@@ -87,9 +88,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int WRITE_REQUESTED        = 1 << 0x10;
     private static final int WRITE_REQUIRES_READ    = 1 << 0x11;
     private static final int WRITE_READY            = 1 << 0x12;
-    private static final int WRITE_SHUT_DOWN        = 1 << 0x13;
-    private static final int WRITE_REQUIRES_EXT     = 0x1f << 0x14; // up to 32 events
-    private static final int WRITE_SINGLE_EXT       = 1 << 0x14;
+    private static final int WRITE_SHUT_DOWN        = 1 << 0x13; // user requested shut down of writes
+    private static final int WRITE_COMPLETE         = 1 << 0x14; // flush acknowledged full write shutdown
+
+    private static final int WRITE_REQUIRES_EXT     = 0x1f << 0x1B; // up to 32 events
+    private static final int WRITE_SINGLE_EXT       = 1 << 0x1B;
 
     private static final int WRITE_FLAGS            = 0xffff << 0x10;
 
@@ -550,30 +553,94 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     }
 
     /**
-     * Base implementation which delegates the flush request to the channel.  Subclasses should override this
-     * method as appropriate.
+     * Perform channel flush.  To change the action taken to flush, subclasses should override {@link #flushAction(boolean)}.
      *
      * @return {@code true} if the flush completed, or {@code false} if the operation would block
      * @throws IOException if an error occurs
      */
-    public boolean flush() throws IOException {
+    public final boolean flush() throws IOException {
+        int oldState, newState;
+        oldState = stateUpdater.get(this);
+        if (allAreSet(oldState, WRITE_COMPLETE)) {
+            return channel.flush();
+        }
+        final boolean shutDown = allAreSet(oldState, WRITE_SHUT_DOWN);
+        if (! flushAction(shutDown)) {
+            return false;
+        }
+        if (! shutDown) {
+            return true;
+        }
+        newState = oldState | WRITE_COMPLETE;
+        while (! stateUpdater.compareAndSet(this, oldState, newState)) {
+            oldState = stateUpdater.get(this);
+            if (allAreSet(oldState, WRITE_COMPLETE)) {
+                return channel.flush();
+            }
+            newState = oldState | WRITE_COMPLETE;
+        }
+        if (allAreSet(oldState, READ_SHUT_DOWN)) {
+            ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        }
+        shutdownWritesComplete();
         return channel.flush();
     }
 
     /**
-     * Base implementation method which simply delegates the shutdown request to the delegate channel.  Subclasses may
-     * override this method and call up to this method as appropriate.
+     * The action to perform when the channel is flushed.  By default, this method delegates to the underlying channel.
+     * If the {@code shutDown} parameter is set, and this method returns {@code true}, the underlying channel will be
+     * shut down and this method will never be called again (future calls to {@link #flush()} will flush the underlying
+     * channel until it returns {@code true}).
+     *
+     * @param shutDown {@code true} if the channel's write side has been shut down, {@code false} otherwise
+     * @return {@code true} if the flush succeeded, {@code false} if it would block
+     * @throws IOException if an error occurs
+     */
+    protected boolean flushAction(final boolean shutDown) throws IOException {
+        return channel.flush();
+    }
+
+    /**
+     * Notification that the channel has successfully flushed after having shut down writes.  The underlying
+     * channel may not yet be fully flushed at this time.
+     *
+     * @throws IOException if an error occurs
+     */
+    protected void shutdownWritesComplete() throws IOException {
+    }
+
+    /**
+     * Perform the read shutdown action if it hasn't been performed already.
      *
      * @throws IOException if an I/O error occurs
      */
     public void shutdownReads() throws IOException {
-        try {
-            channel.shutdownReads();
+        int old = setFlags(READ_SHUT_DOWN);
+        if (allAreClear(old, READ_SHUT_DOWN)) try {
+            shutdownReadsAction();
         } finally {
-            if (setReadShutDown()) {
+            if (allAreSet(old, WRITE_COMPLETE)) {
                 ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
             }
         }
+    }
+
+    /**
+     * The action to perform when reads are shut down.  By default, this method delegates to the underlying channel.
+     *
+     * @throws IOException if an error occurs
+     */
+    protected void shutdownReadsAction() throws IOException {
+        channel.shutdownReads();
+    }
+
+    /**
+     * Determine whether the channel is shut down for reads.
+     *
+     * @return whether the channel is shut down for reads
+     */
+    protected boolean isReadShutDown() {
+        return allAreSet(state, READ_SHUT_DOWN);
     }
 
     /**
@@ -583,17 +650,30 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * @return {@code true} if the channel was shut down, or {@code false} if the operation would block
      * @throws IOException if an I/O error occurs
      */
-    public boolean shutdownWrites() throws IOException {
-        boolean doIt = true;
-        try {
-            return doIt = channel.shutdownWrites();
-        } finally {
-            if (doIt) {
-                if (setWriteShutDown()) {
-                    ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
-                }
-            }
+    public void shutdownWrites() throws IOException {
+        int old = setFlags(WRITE_SHUT_DOWN);
+        if (allAreClear(old, WRITE_SHUT_DOWN)) {
+            shutdownWritesAction();
         }
+    }
+
+    /**
+     * The action to perform when writes are requested to be shut down.  By default, this method delegates to the
+     * underlying channel.
+     *
+     * @throws IOException if an error occurs
+     */
+    protected void shutdownWritesAction() throws IOException {
+        channel.shutdownWrites();
+    }
+
+    /**
+     * Determine whether the channel is shut down for writes.
+     *
+     * @return whether the channel is shut down for writes
+     */
+    protected boolean isWriteShutDown() {
+        return allAreSet(state, WRITE_SHUT_DOWN);
     }
 
     /** {@inheritDoc} */
@@ -673,20 +753,35 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     }
 
     /**
-     * Base channel close implementation.  Delegates to the delegate channel by default.
+     * Close this channel.  This method is idempotent.
      *
      * @throws IOException if an I/O error occurs
      */
     public void close() throws IOException {
-        if ((!allAreSet(state, READ_SHUT_DOWN) || !allAreSet(state, WRITE_SHUT_DOWN)) && channel.isOpen()) {
+        int old = setFlags(READ_SHUT_DOWN | WRITE_SHUT_DOWN | WRITE_COMPLETE);
+        final boolean readShutDown = allAreSet(old, READ_SHUT_DOWN), writeShutDown = allAreSet(old, WRITE_COMPLETE);
+        if (! (readShutDown || writeShutDown)) try {
+            closeAction(readShutDown, writeShutDown);
+        } finally {
             ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
         }
+    }
+
+    /**
+     * The action to perform when the channel is closed via the {@link #close()} method.  By default, the underlying
+     * channel is closed.
+     *
+     * @param readShutDown if reads were previously shut down
+     * @param writeShutDown if writes were previously shut down
+     * @throws IOException if an error occurs
+     */
+    protected void closeAction(final boolean readShutDown, final boolean writeShutDown) throws IOException {
         channel.close();
     }
 
     /** {@inheritDoc} */
     public boolean isOpen() {
-        return channel.isOpen();
+        return ! allAreSet(state, READ_SHUT_DOWN | WRITE_COMPLETE);
     }
 
     /** {@inheritDoc} */

@@ -173,7 +173,7 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
             }
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
-        return new JsseConnectedSslStreamChannel(tcpChannel, engine, true, socketBufferPool, applicationBufferPool, startTls);
+        return new JsseConnectedSslStreamChannel(tcpChannel, engine, socketBufferPool, applicationBufferPool, startTls);
     }
 
     public ChannelListener.Setter<? extends AcceptingChannel<ConnectedSslStreamChannel>> getCloseSetter() {

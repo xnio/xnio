@@ -284,7 +284,7 @@ class NioUdpChannel implements MulticastMessageChannel {
         throw new UnsupportedOperationException("Shutdown reads");
     }
 
-    public boolean shutdownWrites() throws IOException {
+    public void shutdownWrites() throws IOException {
         throw new UnsupportedOperationException("Shutdown writes");
     }
 

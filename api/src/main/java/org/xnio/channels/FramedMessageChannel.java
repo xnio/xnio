@@ -28,6 +28,7 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
+import org.xnio.IoUtils;
 import org.xnio.Pooled;
 
 /**
@@ -44,7 +45,6 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     private final Pooled<ByteBuffer> receiveBuffer;
     private final Pooled<ByteBuffer> transmitBuffer;
     private boolean readsDone;
-    private boolean writesDone;
 
     /**
      * Construct a new instance.
@@ -194,20 +194,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
-    /** {@inheritDoc} */
-    public void shutdownReads() throws IOException {
+    protected void shutdownReadsAction() throws IOException {
         synchronized (receiveBuffer) {
-            if (readsDone) return;
-            doShutdownReads();
-        }
-        super.shutdownReads();
-    }
-
-    private void doShutdownReads() {
-        assert Thread.holdsLock(receiveBuffer);
-        log.tracef("Shutting down reads on %s", this);
-        if (! readsDone) {
-            readsDone = true;
+            log.tracef("Shutting down reads on %s", this);
             try {
                 receiveBuffer.getResource().clear();
             } catch (Throwable t) {
@@ -222,7 +211,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
         synchronized (transmitBuffer) {
-            if (writesDone) {
+            if (! isWriteShutDown()) {
                 throw new EOFException("Writes have been shut down");
             }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
@@ -251,7 +240,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (transmitBuffer) {
-            if (writesDone) {
+            if (isWriteShutDown()) {
                 throw new EOFException("Writes have been shut down");
             }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
@@ -272,32 +261,18 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
-    /** {@inheritDoc} */
-    public boolean shutdownWrites() throws IOException {
+    protected boolean flushAction(final boolean shutDown) throws IOException {
         synchronized (transmitBuffer) {
-            return writesDone || doFlush() && super.shutdownWrites() && doShutdownWrites();
+            return (shutDown || doFlushBuffer()) && channel.flush();
         }
     }
 
-    private boolean doShutdownWrites() {
-        assert Thread.holdsLock(transmitBuffer);
-        log.tracef("Shutting down writes on %s", this);
-        if (! writesDone) {
-            writesDone = true;
-            try {
-                transmitBuffer.getResource().clear();
-            } catch (Throwable t) {}
+    protected void shutdownWritesComplete() throws IOException {
+        synchronized (transmitBuffer) {
+            log.tracef("Finished shutting down writes on %s", this);
             try {
                 transmitBuffer.free();
             } catch (Throwable t) {}
-        }
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    public boolean flush() throws IOException {
-        synchronized (transmitBuffer) {
-            return writesDone || doFlush();
         }
     }
 
@@ -324,24 +299,35 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         return doFlushBuffer() && channel.flush();
     }
 
-    /** {@inheritDoc} */
-    public void close() throws IOException {
+    protected void closeAction(final boolean readShutDown, final boolean writeShutDown) throws IOException {
         boolean error = false;
-        synchronized (transmitBuffer) {
-            if (! writesDone) {
+        if (! writeShutDown) {
+            synchronized (transmitBuffer) {
                 try {
                     if (! doFlush()) error = true;
                 } catch (Throwable t) {
                     error = true;
                 }
-                doShutdownWrites();
+                try {
+                    transmitBuffer.free();
+                } catch (Throwable t) {
+                }
             }
         }
-        synchronized (receiveBuffer) {
-            doShutdownReads();
+        if (! readShutDown) {
+            synchronized (receiveBuffer) {
+                try {
+                    receiveBuffer.free();
+                } catch (Throwable t) {
+                }
+            }
         }
-        super.close();
-        if (error) throw new IOException("Unflushed data truncated");
+        try {
+            if (error) throw new IOException("Unflushed data truncated");
+            channel.close();
+        } finally {
+            IoUtils.safeClose(channel);
+        }
     }
 
     /** {@inheritDoc} */
