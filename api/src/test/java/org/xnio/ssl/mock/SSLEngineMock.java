@@ -34,8 +34,8 @@ import javax.net.ssl.SSLSession;
 
 import org.jmock.Expectations;
 import org.jmock.Mockery;
-import org.junit.Assert;
 import org.xnio.Buffers;
+import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 /**
  * Mocks an SSLEngine for test purposes.<p>
@@ -228,16 +228,28 @@ public class SSLEngineMock extends SSLEngine{
         return null;
     }
 
+    private int sessionCount = 0;
+
     @Override
     public SSLSession getSession() {
         synchronized (mockery) {
-            final SSLSession sessionMock = mockery.mock(SSLSession.class);
-            mockery.checking(new Expectations() {{
-                oneOf(sessionMock).getPacketBufferSize();
-                will(returnValue(16921));
-                oneOf(sessionMock).getApplicationBufferSize();
-                will(returnValue(16916));
-            }});
+            final SSLSession sessionMock = mockery.mock(SSLSession.class, "Session" + sessionCount ++);
+            if (sessionCount == 1) {
+                mockery.checking(new Expectations() {{
+                    oneOf(sessionMock).getPacketBufferSize();
+                    will(returnValue(16916));
+                    oneOf(sessionMock).getApplicationBufferSize();
+                    will(returnValue(16921));
+                }});
+            }
+            else {
+                mockery.checking(new Expectations() {{
+                    allowing(sessionMock).getPacketBufferSize();
+                    will(returnValue(16916));
+                    allowing(sessionMock).getApplicationBufferSize();
+                    will(returnValue(16921));
+                }});
+            }
             return sessionMock;
         }
     }
@@ -479,7 +491,8 @@ public class SSLEngineMock extends SSLEngine{
                 }
                 // copy data to dsts
                 int unwrappedSliceIndex = 0;
-                for (int i = offset; i < length; i++) {
+                int dstsLength = offset + length;
+                for (int i = offset; i < dstsLength; i++) {
                     String unwrappedData = unwrapped;
                     boolean done = true;
                     if (dsts[i].remaining() < unwrapped.length()) {
@@ -502,7 +515,6 @@ public class SSLEngineMock extends SSLEngine{
                 actionAccountedFor(HandshakeAction.NEED_WRAP, actionIndex);
                 // a valid needWrapActionIndex indicates that we musts wrap a handshake message
                 if (closed) {
-                    Assert.assertTrue(srcs.length == 0 || !srcs[0].hasRemaining());
                     synchronized(SSLEngineMock.this) {
                         closeMessageWrapped = true;
                     }
@@ -533,7 +545,8 @@ public class SSLEngineMock extends SSLEngine{
 
         public int wrapBytes(ByteBuffer dst, ByteBuffer[] srcs, int offset, int length) {
             int totalLength = 0;
-            for (int i = offset; i < length && dst.hasRemaining(); i++) {
+            int srcsLength = offset + length;
+            for (int i = offset; i < srcsLength && dst.hasRemaining(); i++) {
                 StringBuilder unwrappedBuilder = new StringBuilder();
                 Buffers.readModifiedUtf8Line(srcs[i], unwrappedBuilder);
                 int wrappedLength = wrapBytes(dst, unwrappedBuilder.toString());

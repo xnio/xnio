@@ -25,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 import org.jmock.Mockery;
@@ -35,6 +36,7 @@ import org.xnio.BufferAllocator;
 import org.xnio.Buffers;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
+import org.xnio.channels.TranslatingSuspendableChannel;
 import org.xnio.ssl.mock.ConnectedStreamChannelMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 
@@ -137,5 +139,11 @@ public abstract class AbstractJsseConnectedSslStreamChannelTest {
             writtenMessage = stringBuffer.toString();
         }
         assertEquals(0, writtenMessage.length());
+    }
+
+    protected void sslChannelHandleWritable() throws Exception {
+        Method handleWritableMethod = TranslatingSuspendableChannel.class.getDeclaredMethod("handleWritable");
+        handleWritableMethod.setAccessible(true);
+        handleWritableMethod.invoke(sslChannel);
     }
 }

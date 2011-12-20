@@ -180,7 +180,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             super.handleReadable();
             // if there is data in readBuffer, call read listener again
             synchronized(getReadLock()) {
-                read = readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
+                read = !isReadShutDown() && readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
             }
         } while (read);
     }
@@ -225,7 +225,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 bytesConsumed += (long) result.bytesConsumed();
             }
             // handshake will tell us whether to keep the loop
-            run = run && (handleHandshake(result, true) || !writeRequiresRead());
+            run = run && (handleHandshake(result, true) || (!writeRequiresRead() && Buffers.hasRemaining(srcs, offset, length)));
         } while (run);
         return bytesConsumed;
     }
@@ -335,8 +335,12 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             firstHandshake = false;
         }
         // if read needs wrap, the only possible reason is that something went wrong with flushing, try to flush now
-        if (readRequiresWrite() && flush()) {
-            clearReadRequiresWrite();
+        if (readRequiresWrite()) {
+            synchronized(getWriteLock()) {
+                if (doFlush()) {
+                    clearReadRequiresWrite();
+                }
+            }
         }
         // FIXME when called by shutdown Writes, current thread already holds the lock
         //assert ! Thread.holdsLock(getWriteLock());
@@ -563,19 +567,20 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
-        try {
-            if (! tls) {
-                channel.shutdownReads();
-                return;
-            }
+        if (! tls) {
             channel.shutdownReads();
+            return;
+        }
+        channel.shutdownReads();
+        if (!isWriteShutDown()) {
             synchronized (getReadLock()) {
                 engine.closeInbound();
             }
             write(Buffers.EMPTY_BYTE_BUFFER, true);
             flush();
-        } finally {
-            readBuffer.free();
+        }
+        if (writeComplete) {
+            closeAction(true, true);
         }
     }
 
@@ -594,6 +599,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         } finally {
             sendBuffer.free();
         }
+        if (readShutDown) {
+            closeAction(true, true);
+        }
     }
 
     protected boolean flushAction(final boolean shutDown) throws IOException {
@@ -601,7 +609,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             return channel.flush();
         }
         synchronized (getWriteLock()) {
-            return doFlush();
+            return doFlush(shutDown);
         }
     }
 
@@ -610,9 +618,28 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     private boolean doFlush() throws IOException {
+        return doFlush(false);
+    }
+
+    private boolean doFlush(final boolean shutdown) throws IOException {
         assert Thread.holdsLock(getWriteLock());
         assert ! Thread.holdsLock(getReadLock());
+        if (isWriteComplete()) {
+            return true;
+        }
         final ByteBuffer buffer = sendBuffer.getResource();
+        if (shutdown && (!engine.isOutboundDone() || !engine.isInboundDone())) {
+            SSLEngineResult result;
+            do {
+                if (!handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
+                    return false;
+                }
+            } while (handleHandshake(result, true));
+            handleWrapResult(result = wrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+            if (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING || !engine.isOutboundDone()) {
+                return false;
+            }
+        }
         buffer.flip();
         try {
             while (buffer.hasRemaining()) {
@@ -629,14 +656,16 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     protected void closeAction(final boolean readShutDown, final boolean writeShutDown) throws IOException {
         try {
-            if (! readShutDown) {
+            if (!readShutDown && !engine.isInboundDone()) {
                 engine.closeInbound();
             }
             if (! writeShutDown) {
                 engine.closeOutbound();
             }
-            if (! doFlush()) {
-                throw new IOException("Unsent data truncated");
+            synchronized(getWriteLock()) {
+                if (! doFlush()) {
+                    throw new IOException("Unsent data truncated");
+                }
             }
             channel.close();
         } finally {

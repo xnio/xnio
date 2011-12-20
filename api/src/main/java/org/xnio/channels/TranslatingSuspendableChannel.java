@@ -200,7 +200,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             return;
         }
         do {
-            if (anyAreSet(oldState, WRITE_SHUT_DOWN) || allAreClear(oldState, WRITE_REQUESTED)) {
+            if (anyAreSet(oldState, WRITE_COMPLETE) || allAreClear(oldState, WRITE_REQUESTED)) {
                 channel.suspendWrites();
                 return;
             }
@@ -506,7 +506,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void resumeWrites() {
         final int oldState = setFlags(WRITE_REQUESTED);
-        if (anyAreSet(oldState, WRITE_REQUESTED | WRITE_SHUT_DOWN)) {
+        if (anyAreSet(oldState, WRITE_REQUESTED | WRITE_COMPLETE)) {
             // idempotent or shut down, either way
             return;
         }
@@ -531,7 +531,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public void wakeupWrites() {
         final int oldState = setFlags(WRITE_REQUESTED);
-        if (anyAreSet(oldState, WRITE_SHUT_DOWN)) {
+        if (anyAreSet(oldState, WRITE_COMPLETE)) {
             return;
         }
         channel.wakeupWrites();
@@ -683,6 +683,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         return allAreSet(state, WRITE_SHUT_DOWN);
     }
 
+    protected boolean isWriteComplete() {
+        return allAreSet(state, WRITE_COMPLETE);
+    }
+
     /** {@inheritDoc} */
     public void awaitReadable() throws IOException {
         int oldState = state;
@@ -767,7 +771,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     public void close() throws IOException {
         int old = setFlags(READ_SHUT_DOWN | WRITE_SHUT_DOWN | WRITE_COMPLETE);
         final boolean readShutDown = allAreSet(old, READ_SHUT_DOWN), writeShutDown = allAreSet(old, WRITE_COMPLETE);
-        if (! (readShutDown || writeShutDown)) try {
+        if (! (readShutDown && writeShutDown)) try {
             closeAction(readShutDown, writeShutDown);
         } finally {
             ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());

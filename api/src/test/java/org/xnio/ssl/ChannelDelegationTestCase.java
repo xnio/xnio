@@ -23,6 +23,7 @@ package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -90,6 +91,16 @@ public class ChannelDelegationTestCase extends AbstractJsseConnectedSslStreamCha
         assertSame(address, sslChannel.getPeerAddress(InetSocketAddress.class));
         assertSame(address, sslChannel.getPeerAddress(SocketAddress.class));
         assertNull(sslChannel.getPeerAddress(LocalSocketAddress.class));
+    }
+
+    @Test
+    public void getWorker() {
+        assertSame(sslChannel.getWorker(), connectedChannelMock.getWorker());
+    }
+    
+    @Test
+    public void getSslSession() {
+        assertNotNull(sslChannel.getSslSession());
     }
 
     @Test

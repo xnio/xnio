@@ -33,14 +33,12 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.junit.Test;
 import org.xnio.ChannelListener;
-import org.xnio.channels.TranslatingSuspendableChannel;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 /**
@@ -777,11 +775,5 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
         assertFalse(connectedChannelMock.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
         assertFalse(connectedChannelMock.isReadResumed());
-    }
-
-    private void sslChannelHandleWritable() throws Exception {
-        Method handleWritableMethod = TranslatingSuspendableChannel.class.getDeclaredMethod("handleWritable");
-        handleWritableMethod.setAccessible(true);
-        handleWritableMethod.invoke(sslChannel);
     }
 }

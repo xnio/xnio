@@ -26,6 +26,7 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.xnio.Buffers;
@@ -33,6 +34,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListener.Setter;
 import org.xnio.Option;
 import org.xnio.OptionMap;
+import org.xnio.Xnio;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -67,6 +69,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     private boolean allowShutdownWrites = true;
     private boolean flushed = true;
     private boolean flushEnabled = true;
+    private XnioWorker worker = new XnioWorkerMock();
 
     // dummy listener setter
     private final ChannelListener.Setter<ConnectedStreamChannel> listenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
@@ -407,7 +410,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public XnioWorker getWorker() {
-        throw new RuntimeException("Not supported");
+        return worker;
     }
 
     @Override
@@ -443,5 +446,36 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     @Override
     public Setter<? extends ConnectedStreamChannel> getCloseSetter() {
         return listenerSetter;
+    }
+
+    private static class XnioWorkerMock extends XnioWorker {
+
+        public XnioWorkerMock() {
+            super(new Xnio("mock"){
+                @Override
+                public XnioWorker createWorker(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask)
+                        throws IOException, IllegalArgumentException {
+                    return null;
+                }}, new ThreadGroup("mock"), OptionMap.EMPTY, new Runnable() {
+                @Override
+                public void run() {}});
+        }
+
+        @Override
+        public void shutdown() {}
+
+        @Override
+        public List<Runnable> shutdownNow() {return null;}
+
+        @Override
+        public boolean isShutdown() {return false;}
+
+        @Override
+        public boolean isTerminated() {return false;}
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+            return false;
+        }
     }
 }

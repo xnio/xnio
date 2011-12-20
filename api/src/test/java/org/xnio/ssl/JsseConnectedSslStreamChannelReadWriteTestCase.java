@@ -236,7 +236,7 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         connectedChannelMock.enableRead(true);
 
         // attempt to read and write
-        final Future<Void> writeFuture = triggerWriteThread("write a lot", "write a lot", "write a lot",
+        final Future<Void> writeFuture = triggerMultipleWriteThread("write a lot", "write a lot", "write a lot",
                 "write it", "a lot", "write it down", "a lot");
         final Future<ByteBuffer> readFuture = triggerReadThread(54);
         Thread.sleep(20);
@@ -296,8 +296,8 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         connectedChannelMock.enableRead(true);
 
         // attempt to read and write
-        final Future<Void> writeFuture = triggerWriteThread("MockTest1", "MockTest2", "MockTest2", "MockTest1", "MockTest2", "MockTest3", "MockTest4");
-        final Future<ByteBuffer> readFuture = triggerReadThread(99);
+        final Future<Void> writeFuture = triggerMultipleWriteThread("MockTest1", "MockTest2", "MockTest2", "MockTest1", "MockTest2", "MockTest3", "MockTest4");
+        final Future<ByteBuffer> readFuture = triggerMultipleReadThread(99);
         Thread.sleep(40);
         connectedChannelMock.setReadData("HANDSHAKE_MSG", "HANDSHAKE_MSG", "MOCK 3", "HANDSHAKE_MSG");
         Thread.sleep(10);
@@ -345,7 +345,7 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
                 HANDSHAKE_MSG, "read this", HANDSHAKE_MSG, "read this");
 
         // attempt to read and write
-        final Future<Void> writeFuture = triggerWriteThread("write this", "write this", "write this", "write this",
+        final Future<Void> writeFuture = triggerMultipleWriteThread("write this", "write this", "write this", "write this",
                 "write this");
         final Future<ByteBuffer> readFuture = triggerReadThread(54);
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
@@ -394,9 +394,9 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         connectedChannelMock.enableRead(true);
 
         // attempt to read and write
-        final Future<Void> writeFuture = triggerWriteThread("write this", "write this", "write this", "write this",
+        final Future<Void> writeFuture = triggerMultipleWriteThread("write this", "write this", "write this", "write this",
                 "write this");
-        final Future<ByteBuffer> readFuture = triggerReadThread(24);
+        final Future<ByteBuffer> readFuture = triggerMultipleReadThread(24);
 
         writeFuture.get();
         sslChannel.shutdownWrites();
@@ -437,11 +437,105 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         return writeRunnable.getResultFuture();
     }
 
+    private Future<ByteBuffer> triggerMultipleReadThread(int expectedReadLength) {
+        MultipleReadRunnable readRunnable = new MultipleReadRunnable(expectedReadLength);
+        Thread newThread = new Thread(readRunnable);
+        newThread.start();
+        return readRunnable.getResultFuture();
+    }
+
+    private Future<Void> triggerMultipleWriteThread(String... text) {
+        MultipleWriteRunnable writeRunnable = new MultipleWriteRunnable(text);
+        Thread newThread = new Thread(writeRunnable);
+        newThread.start();
+        return writeRunnable.getResultFuture();
+    }
+
     private class ReadRunnable implements Runnable {
         private ResultFuture<ByteBuffer> resultFuture;
         private int expectedReadLength;
 
         public ReadRunnable(int expectedReadLength) {
+            this.expectedReadLength = expectedReadLength;
+            this.resultFuture = new ResultFuture<ByteBuffer>();
+        }
+        
+        public Future<ByteBuffer> getResultFuture() {
+            return resultFuture;
+        }
+
+        @Override
+        public void run() {
+            final ByteBuffer buffer = ByteBuffer.allocate(100);
+            final ByteBuffer[] buffers = new ByteBuffer[10];
+            for (int i = 0; i < 10; i++) {
+                buffers[i] = ByteBuffer.allocate(10);
+            }
+            // attempt to read... channel is expected to read the entire message without any issues
+            try {
+                int totalLength = 0;
+                long length = 0;
+                while ((length  = sslChannel.read(buffers)) >= 0) {
+                    totalLength += length;
+                }
+                assertEquals(-1, sslChannel.read(buffers, 0, 10));
+                assertEquals(-1, sslChannel.read(buffers, 0, 10));
+                assertEquals(-1, sslChannel.read(buffers, 0, 10));
+                for (ByteBuffer b: buffers) {
+                    b.flip();
+                }
+                Buffers.copy(buffer, buffers, 0, 10);
+                buffer.flip();
+                assertEquals("This is what we read '" + Buffers.getModifiedUtf8(buffer) + "'", expectedReadLength, totalLength);
+                
+            } catch (IOException e) {
+                throw new RuntimeException("Unexpected IOException while reading", e);
+            }
+            resultFuture.setResult(buffer);
+        }
+    }
+
+    private class WriteRunnable implements Runnable {
+        private ResultFuture<Void> resultFuture;
+        private String[] text;
+
+        public WriteRunnable(String... text) {
+            this.text = text;
+            this.resultFuture = new ResultFuture<Void>();
+        }
+
+        public Future<Void> getResultFuture() {
+            return resultFuture;
+        }
+
+        @Override
+        public void run() {
+            final ByteBuffer[] buffer = new ByteBuffer[text.length];
+            int totalBytes = 0;
+            try {
+                for (int i = 0; i < text.length; i++) {
+                // attempt to write... channel is expected to write the entire message without any issues
+                    buffer[i] = ByteBuffer.allocate(50);
+                    buffer[i].put(text[i].getBytes("UTF-8")).flip();
+                    totalBytes += text[i].length();
+                }
+                final int attemptsLimit = 10000;
+                int attempts = 0;
+                long bytes = 0;
+                while ((bytes += sslChannel.write(buffer)) < totalBytes && (++ attempts) < attemptsLimit);
+                assertEquals(totalBytes, bytes);
+            } catch (IOException e) {
+                throw new RuntimeException("Unexpected exception while writing", e);
+            }
+            resultFuture.setResult(null);
+        }
+    }
+
+    private class MultipleReadRunnable implements Runnable {
+        private ResultFuture<ByteBuffer> resultFuture;
+        private int expectedReadLength;
+
+        public MultipleReadRunnable(int expectedReadLength) {
             this.expectedReadLength = expectedReadLength;
             this.resultFuture = new ResultFuture<ByteBuffer>();
         }
@@ -472,11 +566,11 @@ public class JsseConnectedSslStreamChannelReadWriteTestCase extends AbstractJsse
         }
     }
 
-    private class WriteRunnable implements Runnable {
+    private class MultipleWriteRunnable implements Runnable {
         private ResultFuture<Void> resultFuture;
         private String[] text;
 
-        public WriteRunnable(String... text) {
+        public MultipleWriteRunnable(String... text) {
             this.text = text;
             this.resultFuture = new ResultFuture<Void>();
         }
