@@ -562,7 +562,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         return sendBuffer;
     }
 
-    protected void shutdownReadsAction() throws IOException {
+    protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
         try {
             if (! tls) {
                 channel.shutdownReads();
@@ -587,7 +587,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         engine.closeOutbound();
     }
 
-    protected void shutdownWritesComplete() throws IOException {
+    protected void shutdownWritesComplete(final boolean readShutDown) throws IOException {
         try {
             channel.shutdownWrites();
             suspendWrites();

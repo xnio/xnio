@@ -579,10 +579,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             newState = oldState | WRITE_COMPLETE;
         }
-        if (allAreSet(oldState, READ_SHUT_DOWN)) {
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        final boolean readShutDown = allAreSet(oldState, READ_SHUT_DOWN);
+        try {
+            shutdownWritesComplete(readShutDown);
+        } finally {
+            if (readShutDown) ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
         }
-        shutdownWritesComplete();
         return channel.flush();
     }
 
@@ -604,9 +606,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * Notification that the channel has successfully flushed after having shut down writes.  The underlying
      * channel may not yet be fully flushed at this time.
      *
+     * @param readShutDown {@code true} if the read side was already shut down, {@code false} otherwise
      * @throws IOException if an error occurs
      */
-    protected void shutdownWritesComplete() throws IOException {
+    protected void shutdownWritesComplete(final boolean readShutDown) throws IOException {
     }
 
     /**
@@ -616,11 +619,14 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      */
     public void shutdownReads() throws IOException {
         int old = setFlags(READ_SHUT_DOWN);
-        if (allAreClear(old, READ_SHUT_DOWN)) try {
-            shutdownReadsAction();
-        } finally {
-            if (allAreSet(old, WRITE_COMPLETE)) {
-                ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        if (allAreClear(old, READ_SHUT_DOWN)) {
+            final boolean writeComplete = allAreSet(old, WRITE_COMPLETE);
+            try {
+                shutdownReadsAction(writeComplete);
+            } finally {
+                if (writeComplete) {
+                    ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+                }
             }
         }
     }
@@ -629,8 +635,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * The action to perform when reads are shut down.  By default, this method delegates to the underlying channel.
      *
      * @throws IOException if an error occurs
+     * @param writeComplete
      */
-    protected void shutdownReadsAction() throws IOException {
+    protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
         channel.shutdownReads();
     }
 

@@ -194,7 +194,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
-    protected void shutdownReadsAction() throws IOException {
+    protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
         synchronized (receiveBuffer) {
             log.tracef("Shutting down reads on %s", this);
             try {
@@ -267,7 +267,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
-    protected void shutdownWritesComplete() throws IOException {
+    protected void shutdownWritesComplete(final boolean readShutDown) throws IOException {
         synchronized (transmitBuffer) {
             log.tracef("Finished shutting down writes on %s", this);
             try {
