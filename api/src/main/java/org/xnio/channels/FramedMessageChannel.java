@@ -211,7 +211,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
         synchronized (transmitBuffer) {
-            if (! isWriteShutDown()) {
+            if (isWriteShutDown()) {
                 throw new EOFException("Writes have been shut down");
             }
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
