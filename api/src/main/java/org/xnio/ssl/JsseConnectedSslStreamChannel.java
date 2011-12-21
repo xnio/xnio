@@ -135,8 +135,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         }
         // enforce handshake kick off by forcing one of the read/write listeners to run
         firstHandshake = true;
-        setReadReady();
-        setWriteReady();
+        if (tls) {
+            setReadReady();
+            setWriteReady();
+        }
     }
 
     /** {@inheritDoc} */
@@ -487,6 +489,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             }
         } while (handleHandshake(result, false) || res > 0);
         if (res == -1) {
+            clearReadReady();
             return total == 0L ? -1L : total;
         }
         if (unwrappedBuffer.position() == 0 && !buffer.hasRemaining()) {
@@ -551,6 +554,8 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     public void startHandshake() throws IOException {
         tls = true;
         engine.beginHandshake();
+        setReadReady();
+        setWriteReady();
     }
 
     @Override

@@ -122,7 +122,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(connectedChannelMock.isReadAwaken());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
         assertFalse(connectedChannelMock.isWriteResumed());
         // attempt to read... channel is expected to return 0 as it stumbles upon a NEED_WRAP that cannot be executed
         assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}));
@@ -200,8 +200,8 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isReadResumed());
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
-        assertTrue(connectedChannelMock.isWriteAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isWriteAwaken());
         engineMock.setHandshakeActions(NEED_UNWRAP);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("COULDNT WRITE WITHOUT UNWRAP".getBytes("UTF-8")).flip();
@@ -211,14 +211,14 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
         assertTrue(connectedChannelMock.isWriteResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
 
         // everything keeps the same at connectedChannelMock when we try to resume reads
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
         assertTrue(connectedChannelMock.isWriteResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
     }
 
     @Test
@@ -228,7 +228,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(sslChannel.isReadResumed());
         assertTrue(sslChannel.isWriteResumed());
         assertFalse(connectedChannelMock.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteAwaken());
+        assertFalse(connectedChannelMock.isWriteAwaken());
 
         // write needs to unwrap... try to write
         engineMock.setHandshakeActions(NEED_UNWRAP);
@@ -260,7 +260,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(connectedChannelMock.isReadResumed());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
         sslChannel.suspendReads();
 
         assertFalse(sslChannel.isReadResumed());
@@ -280,7 +280,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(connectedChannelMock.isReadResumed());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isReadAwaken());
+        assertFalse(connectedChannelMock.isReadAwaken());
         assertTrue(connectedChannelMock.isReadResumed());
         sslChannel.suspendReads();
         assertFalse(sslChannel.isReadResumed());
@@ -297,7 +297,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(connectedChannelMock.isWriteResumed());
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteAwaken());
+        assertFalse(connectedChannelMock.isWriteAwaken());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
         assertTrue(connectedChannelMock.isWriteResumed());
@@ -315,7 +315,7 @@ public class StartTLSTestCase extends AbstractJsseConnectedSslStreamChannelTest 
         assertFalse(connectedChannelMock.isWriteResumed());
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteAwaken());
+        assertFalse(connectedChannelMock.isWriteAwaken());
         assertTrue(connectedChannelMock.isWriteResumed());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
