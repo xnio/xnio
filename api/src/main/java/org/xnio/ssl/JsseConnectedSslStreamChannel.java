@@ -177,14 +177,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     @Override
     protected void handleReadable() {
-        boolean read;
-        do {
-            super.handleReadable();
-            // if there is data in readBuffer, call read listener again
-            synchronized(getReadLock()) {
-                read = !isReadShutDown() && readBuffer.getResource().position() > 0 && readBuffer.getResource().hasRemaining() && isReadResumed();
-            }
-        } while (read);
+        super.handleReadable();
     }
 
     protected void handleHandshakeFinished() {
@@ -488,12 +481,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
             }
         } while (handleHandshake(result, false) || res > 0);
-        if (res == -1) {
+        if (total == 0L) {
             clearReadReady();
-            return total == 0L ? -1L : total;
-        }
-        if (unwrappedBuffer.position() == 0 && !buffer.hasRemaining()) {
-            clearReadReady();
+            if (res == -1) {
+                return -1L;
+            }
         }
         return total;
     }
