@@ -160,12 +160,28 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
         if (allAreClear(oldState, READ_READY) && anyAreSet(oldState, READ_REQUIRES_WRITE | READ_REQUIRES_EXT)) {
             channel.suspendReads();
-            return;
+            oldState = state;
+            if (anyAreSet(oldState, READ_READY) || allAreClear(oldState, READ_REQUIRES_WRITE | READ_REQUIRES_EXT)) {
+                // undo
+                channel.resumeReads();
+            } else {
+                return;
+            }
         }
         do {
-            if (anyAreSet(oldState, READ_SHUT_DOWN) || allAreClear(oldState, READ_REQUESTED)) {
+            if (anyAreSet(oldState, READ_SHUT_DOWN)) {
                 channel.suspendReads();
                 return;
+            }
+            if (allAreClear(oldState, READ_REQUESTED)) {
+                channel.suspendReads();
+                oldState = state;
+                if (allAreSet(oldState, READ_REQUESTED)) {
+                    // undo
+                    channel.resumeReads();
+                } else {
+                    return;
+                }
             }
             unparkReadWaiters();
             ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
@@ -197,12 +213,28 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
         if (allAreClear(oldState, WRITE_READY) && anyAreSet(oldState, WRITE_REQUIRES_READ | WRITE_REQUIRES_EXT)) {
             channel.suspendWrites();
-            return;
+            oldState = state;
+            if (anyAreSet(oldState, WRITE_READY) || allAreClear(oldState, WRITE_REQUIRES_READ | WRITE_REQUIRES_EXT)) {
+                // undo
+                channel.resumeWrites();
+            } else {
+                return;
+            }
         }
         do {
-            if (anyAreSet(oldState, WRITE_COMPLETE) || allAreClear(oldState, WRITE_REQUESTED)) {
+            if (anyAreSet(oldState, WRITE_COMPLETE)) {
                 channel.suspendWrites();
                 return;
+            }
+            if (allAreClear(oldState, WRITE_REQUESTED)) {
+                channel.suspendWrites();
+                oldState = state;
+                if (allAreSet(oldState, WRITE_REQUESTED)) {
+                    // undo
+                    channel.resumeWrites();
+                } else {
+                    return;
+                }
             }
             unparkWriteWaiters();
             ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
