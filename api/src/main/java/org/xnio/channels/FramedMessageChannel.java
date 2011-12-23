@@ -124,7 +124,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
             } finally {
                 receiveBuffer.compact();
-                if (receiveBuffer.position() >= 4 && receiveBuffer.position() == 4 + receiveBuffer.getInt(0)) {
+                if (receiveBuffer.position() >= 4 && receiveBuffer.position() >= 4 + receiveBuffer.getInt(0)) {
                     // there's another packet ready to go
                     setReadReady();
                 }
@@ -186,7 +186,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
             } finally {
                 receiveBuffer.compact();
-                if (receiveBuffer.position() >= 4 && receiveBuffer.position() == 4 + receiveBuffer.getInt(0)) {
+                if (receiveBuffer.position() >= 4 && receiveBuffer.position() >= 4 + receiveBuffer.getInt(0)) {
                     // there's another packet ready to go
                     setReadReady();
                 }
