@@ -145,11 +145,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * Called when the underlying channel is readable.
      */
     protected void handleReadable() {
-        final ChannelListener<? super C> listener = readSetter.get();
-        if (listener == null) {
-            suspendReads();
-            return;
-        }
         int oldState;
         oldState = clearFlags(WRITE_REQUIRES_READ);
         if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
@@ -184,8 +179,14 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             }
             unparkReadWaiters();
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
-            oldState = clearFlags(WRITE_REQUIRES_READ);
+            final ChannelListener<? super C> listener = readSetter.get();
+            if (listener == null) {
+                // damage control
+                oldState = clearFlag(READ_REQUESTED | WRITE_REQUIRES_READ) & ~READ_REQUESTED;
+            } else {
+                ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+                oldState = clearFlags(WRITE_REQUIRES_READ);
+            }
             if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
                 unparkWriteWaiters();
                 // race is OK
@@ -198,11 +199,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      * Called when the underlying channel is writable.
      */
     protected void handleWritable() {
-        final ChannelListener<? super C> listener = writeSetter.get();
-        if (listener == null) {
-            suspendWrites();
-            return;
-        }
         int oldState;
         oldState = clearFlags(READ_REQUIRES_WRITE);
         if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
@@ -237,8 +233,14 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             }
             unparkWriteWaiters();
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
-            oldState = clearFlags(READ_REQUIRES_WRITE);
+            final ChannelListener<? super C> listener = writeSetter.get();
+            if (listener == null) {
+                // damage control
+                oldState = clearFlags(WRITE_REQUESTED | READ_REQUIRES_WRITE) & ~WRITE_REQUESTED;
+            } else {
+                ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+                oldState = clearFlags(READ_REQUIRES_WRITE);
+            }
             if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
                 unparkReadWaiters();
                 // race is OK
