@@ -34,6 +34,10 @@
     <description>The API JAR of the XNIO project</description>
     <url>http://www.jboss.org/xnio</url>
 
+    <properties>
+        <skip.enforcer>false</skip.enforcer>
+    </properties>
+
     <parent>
         <groupId>org.jboss.xnio</groupId>
         <artifactId>xnio-all</artifactId>
@@ -83,6 +87,7 @@
                             <goal>enforce</goal>
                         </goals>
                         <configuration>
+                            <skip>${skip.enforcer}</skip>
                             <rules>
                                 <requireJavaVersion>
                                     <!-- version >= 1.7 -->

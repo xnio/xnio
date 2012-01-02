@@ -41,6 +41,8 @@ import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 
+import static org.xnio.Bits.*;
+
 /**
  * An abstract wrapped channel.
  *
@@ -78,10 +80,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int READ_READY             = 1 << 0x02; // channel is always ready to be read
     private static final int READ_SHUT_DOWN         = 1 << 0x03; // user shut down reads
 
-    private static final int READ_REQUIRES_EXT      = 0x1f << 0x0B; // channel cannot be read until external event completes, up to 32 events
+    private static final int READ_REQUIRES_EXT      = intBitMask(0x0B, 0x0F); // channel cannot be read until external event completes, up to 32 events
     private static final int READ_SINGLE_EXT        = 1 << 0x0B; // one external event count value
 
-    private static final int READ_FLAGS             = 0xffff << 0x00;
+    private static final int READ_FLAGS             = intBitMask(0x00, 0x0F);
 
     // write-side
 
@@ -91,10 +93,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int WRITE_SHUT_DOWN        = 1 << 0x13; // user requested shut down of writes
     private static final int WRITE_COMPLETE         = 1 << 0x14; // flush acknowledged full write shutdown
 
-    private static final int WRITE_REQUIRES_EXT     = 0x1f << 0x1B; // up to 32 events
+    private static final int WRITE_REQUIRES_EXT     = intBitMask(0x1B, 0x1F); // up to 32 events
     private static final int WRITE_SINGLE_EXT       = 1 << 0x1B;
 
-    private static final int WRITE_FLAGS            = 0xffff << 0x10;
+    private static final int WRITE_FLAGS            = intBitMask(0x10, 0x1F);
 
     private final ChannelListener<Channel> readListener = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
@@ -881,18 +883,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     private int clearFlag(final int count) {
         return stateUpdater.getAndAdd(this, -count);
-    }
-
-    private static boolean anyAreSet(int var, int flags) {
-        return (var & flags) != 0;
-    }
-
-    private static boolean allAreSet(int var, int flags) {
-        return (var & flags) == flags;
-    }
-
-    private static boolean allAreClear(int var, int flags) {
-        return (var & flags) == 0;
     }
 
     private boolean addReadWaiter() {
