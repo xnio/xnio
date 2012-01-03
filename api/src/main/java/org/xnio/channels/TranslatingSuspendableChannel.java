@@ -687,10 +687,8 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     }
 
     /**
-     * Base implementation method which simply delegates the shutdown request to the delegate channel.  Subclasses may
-     * override this method and call up to this method as appropriate.
+     * Perform the write shutdown action if it hasn't been performed already.
      *
-     * @return {@code true} if the channel was shut down, or {@code false} if the operation would block
      * @throws IOException if an I/O error occurs
      */
     public void shutdownWrites() throws IOException {
