@@ -1,0 +1,64 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE enable race condition scenario
+CLASS org.xnio.racecondition.ResumeReadsOnHandlingReadableChannelTestCase
+METHOD test
+AT INVOKE java.lang.Thread.start 1
+IF TRUE
+DO
+    debug("Enabling race condition scenario"),
+    flag("race condition enabled for ResumeReadsOnHandlingReadableChannelTestCase")
+ENDRULE
+
+RULE handle readable checked read requested is false
+CLASS org.xnio.mock.ConnectedStreamChannelMock
+METHOD suspendReads
+AT ENTRY
+IF flagged("race condition enabled for ResumeReadsOnHandlingReadableChannelTestCase")
+DO
+    debug("TranslatingSuspendableChannel just checked that read is not requested... waiting for resumeReads"),
+    signalWake("read not requested checked", true),
+    waitFor("read requested"),
+    debug("Now read is requested... proceeding with handleReadable after a check that read is not requested")
+ENDRULE
+
+RULE resumeReads after handleReadable checked read is not requested
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD resumeReads
+AT ENTRY
+IF flagged("race condition enabled for ResumeReadsOnHandlingReadableChannelTestCase")
+DO
+    debug("resumeReads... waiting for handle readable to check read is not requested"),
+    waitFor("read not requested checked"),
+    debug("Proceeding with resumeReads")
+ENDRULE
+
+RULE after resumeReads
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD resumeReads
+AT EXIT
+IF flagged("race condition enabled for ResumeReadsOnHandlingReadableChannelTestCase")
+DO
+    debug("Finished resumeReads... waking handleReadable"),
+    signalWake("read requested", true)
+ENDRULE

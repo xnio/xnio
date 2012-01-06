@@ -37,7 +37,7 @@ import org.xnio.Buffers;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
 import org.xnio.channels.TranslatingSuspendableChannel;
-import org.xnio.ssl.mock.ConnectedStreamChannelMock;
+import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 
 /**
