@@ -1,0 +1,133 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE handle writable before anything else
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$SetWriteListener
+METHOD run
+AT ENTRY
+IF TRUE
+DO
+   debug("wait for handleWritable#1"),
+   waitFor("handleWritable#1"),
+   debug("proceed with SetWriteListener#run")
+ENDRULE
+
+RULE handle writable 1
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$InvokeHandleWritable
+METHOD run
+AFTER INVOKE org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$MyTranslatingSuspendableChannel.handleWritable 1
+IF TRUE
+DO
+    debug("Finished attempt 1 to handle writable"),
+    signalWake("handleWritable#1", true),
+    flag("handle writable1 finished")
+ENDRULE
+
+RULE suspend writes
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$SetWriteListener
+METHOD run
+AFTER INVOKE org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$MyTranslatingSuspendableChannel.suspendWrites()
+IF TRUE
+DO
+    debug("Suspended writes... waking handleWritable#2"),
+    signalWake("suspend writes", true),
+    debug("Waiting for handleWritable#2 to complete"),
+    waitFor("handleWritable#2"),
+    debug("Proceeding with set write listener")
+ENDRULE
+
+RULE at handle writable 2
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD handleWritable
+AT INVOKE org.xnio.channels.TranslatingSuspendableChannel.clearFlags 1
+IF flagged("handle writable1 finished") AND NOT flagged("handle writable2 finished")
+DO
+    debug("Waiting for suspended writes before proceeding with attempt 2 to handle writable"),
+    waitFor("suspend writes")
+ENDRULE
+
+RULE after handle writable 2
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$InvokeHandleWritable
+METHOD run
+AFTER INVOKE org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$MyTranslatingSuspendableChannel.handleWritable 2
+IF TRUE
+DO
+    debug("Finished attempt 2 to handle writable"),
+    signalWake("handleWritable#2", true),
+    flag("handle writable2 finished")
+ENDRULE
+
+
+RULE set write listener
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$SetWriteListener
+METHOD run
+AFTER INVOKE org.xnio.ChannelListener$Setter.set
+IF TRUE
+DO
+   debug("Changed listener... waking handleWritable#3"),
+   signalWake("set listener", true),
+   debug("Waiting for handleWritable#3 to complete"),
+   waitFor("handleWritable#3"),
+   debug("Proceeding with resumeWrites")
+ENDRULE
+
+RULE at handle writable 3
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD handleWritable
+AT INVOKE org.xnio.Bits.anyAreSet 1
+IF flagged("handle writable2 finished") AND NOT flagged("handle writable3 finished")
+DO
+    debug("Waiting for set listener before proceeding with attempt 3 to handle writable"),
+    waitFor("set listener")
+ENDRULE
+
+
+RULE after handle writable 3
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$InvokeHandleWritable
+METHOD run
+AFTER INVOKE org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$MyTranslatingSuspendableChannel.handleWritable 3
+IF TRUE
+DO
+   debug("Finished attempt 3 to handle writable"),
+   signalWake("handleWritable#3", true),
+   flag("handle writable3 finished")
+ENDRULE
+
+RULE resume writes
+CLASS org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$SetWriteListener
+METHOD run
+AFTER INVOKE org.xnio.racecondition.SetWriteListenerOnHandlingWritableChannelTestCase$MyTranslatingSuspendableChannel.resumeWrites
+IF TRUE
+DO
+   debug("Resumed writes... waking handleWritable#4"),
+   signalWake("resume writes", true)
+ENDRULE
+
+RULE at handle writable 4
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD handleWritable
+AT INVOKE org.xnio.channels.TranslatingSuspendableChannel.clearFlags 1
+IF flagged("handle writable3 finished")
+DO
+    debug("Waiting for resume writes before proceeding with attempt 4 to handle writable"),
+    waitFor("resume writes")
+ENDRULE

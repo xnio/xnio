@@ -1,0 +1,55 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE read cannot handle NEED_WRAP
+CLASS org.xnio.ssl.JsseConnectedSslStreamChannel
+METHOD handleHandshake
+AFTER INVOKE org.xnio.ssl.JsseConnectedSslStreamChannel.handleWrapResult
+IF TRUE
+DO
+    debug("read could not handle NEED_WRAP... waking write thread before setReadRequiresWrite"),
+    signalWake("read cannot handle NEED_WRAP", true),
+    # if this thread manages to wait without timing out, an assert !writeRequiresRead()  will fail
+    waitFor("write thread finished", 300),
+    debug("proceeding with assert !writeRequiresRead; setReadRequiresWrite");
+ENDRULE
+
+RULE start Write thread
+CLASS org.xnio.racecondition.SetWriteRequiresReadOnReadingSslChannelTestCase$Write
+METHOD run
+AT ENTRY
+IF TRUE
+DO
+    debug("holding write thread"),
+    waitFor("read cannot handle NEED_WRAP"),
+    debug("starting write thread")
+ENDRULE
+
+RULE finish Write thread
+CLASS org.xnio.racecondition.SetWriteRequiresReadOnReadingSslChannelTestCase$Write
+METHOD run
+AT EXIT
+IF TRUE
+DO
+    debug("finished write thread... waking read thread"),
+    signalWake("write thread finished")
+ENDRULE

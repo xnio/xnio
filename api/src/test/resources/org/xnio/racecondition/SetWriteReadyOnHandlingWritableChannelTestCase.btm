@@ -1,0 +1,64 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE enable race condition scenario
+CLASS org.xnio.racecondition.SetWriteReadyOnHandlingWritableChannelTestCase
+METHOD test
+AT INVOKE java.lang.Thread.start 1
+IF TRUE
+DO
+    debug("Enabling race condition scenario"),
+    flag("race condition enabled for SetWriteReadyOnHandlingWritableChannelTestCase")
+ENDRULE
+
+RULE handle writable checked write ready is false
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD handleWritable
+AFTER INVOKE org.xnio.Bits.allAreClear 1
+IF flagged("race condition enabled for SetWriteReadyOnHandlingWritableChannelTestCase")
+DO
+    debug("TranslatingSuspendableChannel just checked that write is not ready... waiting for setWriteReady"),
+    signalWake("write not ready checked", true),
+    waitFor("write ready"),
+    debug("Now write is ready... proceeding with handleWritable after a check that write is not ready")
+ENDRULE
+
+RULE setWriteReady after handleWritable checked write ready is false
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD setWriteReady
+AT ENTRY
+IF flagged("race condition enabled for SetWriteReadyOnHandlingWritableChannelTestCase")
+DO
+    debug("setWriteReady... waiting for handle writable to check write ready is false"),
+    waitFor("write not ready checked"),
+    debug("Proceeding with setWriteReady")
+ENDRULE
+
+RULE after setWriteReady
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD setWriteReady
+AT EXIT
+IF flagged("race condition enabled for SetWriteReadyOnHandlingWritableChannelTestCase")
+DO
+    debug("Finished setWriteReady... waking handleWritable"),
+    signalWake("write ready", true)
+ENDRULE

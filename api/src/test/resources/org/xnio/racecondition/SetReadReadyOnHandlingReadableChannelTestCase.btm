@@ -1,0 +1,64 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE enable race condition scenario
+CLASS org.xnio.racecondition.SetReadReadyOnHandlingReadableChannelTestCase
+METHOD test
+AT INVOKE java.lang.Thread.start 1
+IF TRUE
+DO
+    debug("Enabling race condition scenario"),
+    flag("race condition enabled for SetReadReadyOnHandlingReadableChannelTestCase")
+ENDRULE
+
+RULE handle readable checked read ready is false
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD handleReadable
+AFTER INVOKE org.xnio.Bits.allAreClear 1
+IF flagged("race condition enabled for SetReadReadyOnHandlingReadableChannelTestCase")
+DO
+    debug("TranslatingSuspendableChannel just checked that read is not ready... waiting for setReadReady"),
+    signalWake("read not ready checked", true),
+    waitFor("read ready"),
+    debug("Now read is ready... proceeding with handleReadable after a check that read is not ready")
+ENDRULE
+
+RULE setReadReady after handleReadable checked read ready is false
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD setReadReady
+AT ENTRY
+IF flagged("race condition enabled for SetReadReadyOnHandlingReadableChannelTestCase")
+DO
+    debug("setReadReady... waiting for handle readable to check read ready is false"),
+    waitFor("read not ready checked"),
+    debug("Proceeding with setReadReady")
+ENDRULE
+
+RULE after setReadReady
+CLASS org.xnio.channels.TranslatingSuspendableChannel
+METHOD setReadReady
+AT EXIT
+IF flagged("race condition enabled for SetReadReadyOnHandlingReadableChannelTestCase")
+DO
+    debug("Finished setReadReady... waking handleReadable"),
+    signalWake("read ready", true)
+ENDRULE
