@@ -96,7 +96,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
             long now = System.currentTimeMillis();
             final long deadline = now + readTimeout;
             while ((res = delegate.read(dsts, offset, length)) == 0L) {
-                if (now >= deadline) {
+                if (now >= deadline) {// FIXME unreachable code
                     throw new ReadTimeoutException("Read timed out");
                 }
                 delegate.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);
@@ -135,7 +135,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
             long now = System.currentTimeMillis();
             final long deadline = now + readTimeout;
             while ((res = delegate.read(dst)) == 0L) {
-                if (now >= deadline) {
+                if (now >= deadline) {// FIXME unreachable code
                     throw new ReadTimeoutException("Read timed out");
                 }
                 delegate.awaitReadable(deadline - now, TimeUnit.MILLISECONDS);

@@ -32,6 +32,7 @@ import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
 import org.junit.After;
 import org.junit.Before;
+import org.xnio.AssertReadWrite;
 import org.xnio.BufferAllocator;
 import org.xnio.Buffers;
 import org.xnio.ByteBufferSlicePool;
@@ -94,12 +95,7 @@ public abstract class AbstractJsseConnectedSslStreamChannelTest {
      * @param message the message expected to have been written to the channel mock
      */
     protected final void assertWrittenMessage(String... message) {
-        StringBuffer stringBuffer = new StringBuffer();
-        for (String messageString: message) {
-            stringBuffer.append(messageString);
-        }
-        assertEquals("expected total size: "+ stringBuffer.length() + " actual length: " + connectedChannelMock.getWrittenText().length(),
-                stringBuffer.toString(), connectedChannelMock.getWrittenText());
+       AssertReadWrite.assertWrittenMessage(connectedChannelMock, message);
     }
 
     /**

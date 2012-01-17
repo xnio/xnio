@@ -28,6 +28,9 @@ import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+
+import javax.net.ssl.SSLContext;
+
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.ChannelListener;
@@ -44,8 +47,6 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-
-import javax.net.ssl.SSLContext;
 
 /**
  * An XNIO SSL provider based on JSSE.  Works with any XNIO provider.
@@ -116,7 +117,7 @@ public final class JsseXnioSsl extends XnioSsl {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
         worker.connectStream(bindAddress, destination, new ChannelListener<ConnectedStreamChannel>() {
                     public void handleEvent(final ConnectedStreamChannel tcpChannel) {
-                        final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, optionMap, false);
+                        final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, optionMap);
                         futureResult.setResult(channel);
                         ChannelListeners.invokeChannelListener(channel, openListener);
                     }
@@ -138,7 +139,7 @@ public final class JsseXnioSsl extends XnioSsl {
         return server;
     }
 
-    ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap, final boolean server) {
-        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class), server), socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
+    ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap) {
+        return new JsseConnectedSslStreamChannel(tcpChannel, JsseSslUtils.createSSLEngine(sslContext, optionMap, tcpChannel.getPeerAddress(InetSocketAddress.class)), socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
     }
 }

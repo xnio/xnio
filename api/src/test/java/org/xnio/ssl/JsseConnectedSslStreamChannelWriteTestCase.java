@@ -114,19 +114,30 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH);
         // set ReadData on connectedChannelMock
         connectedChannelMock.setReadData("handshake", "channel closed");
+        connectedChannelMock.enableFlush(false);
         // message we want to write
         final ByteBuffer buffer = ByteBuffer.allocate(100);
+        final ByteBuffer[] buffers = new ByteBuffer[]{buffer};
         buffer.put("MockTest".getBytes("UTF-8")).flip();
 
-        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on connectedChannelMock is not available
-        assertEquals(0, sslChannel.write(buffer));
+        // attempt to write... channel is expected to stop on NEED_WRAP, as flush is disabled on connectedChannelMock
+        assertEquals(0, sslChannel.write(buffers, 0, 1));
+        assertFalse(connectedChannelMock.isFlushed());
+        connectedChannelMock.enableFlush(true);
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
+        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on connectedChannelMock is not available
+        assertEquals(0, sslChannel.write(buffers, 0, 1));
+        assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
+        assertTrue(connectedChannelMock.isFlushed());
 
         // enable read, now read data will be available to JsseConnectedSslStreamChannel
         connectedChannelMock.enableRead(true);
         // channel is expected to write all data from buffer
-        assertEquals(8, sslChannel.write(buffer));
+        assertEquals(8, sslChannel.write(new ByteBuffer[]{buffer, ByteBuffer.allocate(0)}, 0, 2));
         assertFalse(buffer.hasRemaining());
+
+        // for coverage purposes, attempt to write empty buffers
+        assertEquals(0, sslChannel.write(new ByteBuffer[]{buffer, ByteBuffer.allocate(0)}, 0, 2));
 
         // channel should be able to shutdown writes
         sslChannel.shutdownWrites();
@@ -415,5 +426,14 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
             }
             assertTrue(failed);
         }
+    }
+
+    // FIXME @Test
+    public void closeWithoutFlushing() throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(10);
+        buffer.put("abc".getBytes("UTF-8")).flip();
+        sslChannel.write(buffer);
+        sslChannel.close();
+        assertWrittenMessage("abc");
     }
 }
