@@ -97,7 +97,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
             long now = System.currentTimeMillis();
             final long deadline = now + writeTimeout;
             while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
-                if (now >= deadline) {
+                if (now >= deadline) {// FIXME unreachable code
                     throw new WriteTimeoutException("Write timed out");
                 }
                 delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
@@ -136,7 +136,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
             long now = System.currentTimeMillis();
             final long deadline = now + writeTimeout;
             while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
-                if (now >= deadline) {
+                if (now >= deadline) {// FIXME unreachable code
                     throw new WriteTimeoutException("Write timed out");
                 }
                 delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
@@ -160,7 +160,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
             long now = System.currentTimeMillis();
             final long deadline = now + writeTimeout;
             while (! delegate.flush()) {
-                if (now >= deadline) {
+                if (now >= deadline) {// FIXME unreachable code
                     throw new WriteTimeoutException("Flush timed out");
                 }
                 delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);

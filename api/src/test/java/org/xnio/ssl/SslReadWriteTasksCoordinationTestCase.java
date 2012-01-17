@@ -97,6 +97,9 @@ public class SslReadWriteTasksCoordinationTestCase extends AbstractJsseConnected
 
         assertWrittenMessage(HANDSHAKE_MSG, CLOSE_MSG);
         assertTrue(connectedChannelMock.isFlushed());
+
+        connectedChannelMock.enableFlush(false);
+        sslChannel.close();
     }
 
     @Test

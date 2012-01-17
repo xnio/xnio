@@ -240,4 +240,19 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         }
         assertTrue(failed);
     }
+
+    // FIXME @Test
+    public void closeCantFlush() throws IOException {
+        connectedChannelMock.enableFlush(false);
+        ByteBuffer buffer = ByteBuffer.allocate(10);
+        buffer.put("abc".getBytes("UTF-8")).flip();
+        sslChannel.write(buffer);
+        try {
+            sslChannel.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        assertWrittenMessage("abc");
+    }
 }

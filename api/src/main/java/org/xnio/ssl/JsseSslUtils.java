@@ -33,15 +33,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.xnio.OptionMap;
-import org.xnio.Options;
-import org.xnio.Sequence;
-import org.xnio.SslClientAuthMode;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
+
+import org.xnio.OptionMap;
+import org.xnio.Options;
+import org.xnio.Sequence;
 
 /**
  * Utility methods for creating JSSE constructs and configuring them via XNIO option maps.
@@ -133,38 +133,19 @@ public final class JsseSslUtils {
     }
 
     /**
-     * Create a new SSL engine, configured from an option map.
+     * Create a new client mode SSL engine, configured from an option map.
      *
      * @param sslContext the SSL context
      * @param optionMap the SSL options
      * @param peerAddress the peer address of the connection
-     * @param server {@code true} to default to server mode, {@code false} otherwise
      * @return the configured SSL engine
      */
-    public static SSLEngine createSSLEngine(SSLContext sslContext, OptionMap optionMap, InetSocketAddress peerAddress, boolean server) {
+    public static SSLEngine createSSLEngine(SSLContext sslContext, OptionMap optionMap, InetSocketAddress peerAddress) {
         final SSLEngine engine = sslContext.createSSLEngine(
                 optionMap.get(Options.SSL_PEER_HOST_NAME, peerAddress.getHostName()),
                 optionMap.get(Options.SSL_PEER_PORT, peerAddress.getPort())
         );
-        final boolean clientMode = optionMap.get(Options.SSL_USE_CLIENT_MODE, false) ^ ! server;
-        engine.setUseClientMode(clientMode);
-        if (! clientMode) {
-            final SslClientAuthMode clientAuthMode = optionMap.get(Options.SSL_CLIENT_AUTH_MODE);
-            if (clientAuthMode != null) switch (clientAuthMode) {
-                case NOT_REQUESTED:
-                    engine.setNeedClientAuth(false);
-                    engine.setWantClientAuth(false);
-                    break;
-                case REQUESTED:
-                    engine.setNeedClientAuth(false);
-                    engine.setWantClientAuth(true);
-                    break;
-                case REQUIRED:
-                    engine.setWantClientAuth(false);
-                    engine.setNeedClientAuth(true);
-                    break;
-            }
-        }
+        engine.setUseClientMode(true);
         engine.setEnableSessionCreation(optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true));
         final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
         if (cipherSuites != null) {
