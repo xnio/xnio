@@ -482,4 +482,16 @@ public final class Options {
      * the channel to flush its contents immediately.
      */
     public static final Option<Boolean> CORK = Option.simple(Options.class, "CORK", Boolean.class);
+
+    /**
+     * The high water mark for a server's connections.  Once this number of connections have been accepted, accepts
+     * will be suspended for that server.
+     */
+    public static final Option<Integer> CONNECTION_HIGH_WATER = Option.simple(Options.class, "CONNECTION_HIGH_WATER", Integer.class);
+
+    /**
+     * The low water mark for a server's connections.  Once the number of active connections have dropped below this
+     * number, accepts can be resumed for that server.
+     */
+    public static final Option<Integer> CONNECTION_LOW_WATER = Option.simple(Options.class, "CONNECTION_LOW_WATER", Integer.class);
 }

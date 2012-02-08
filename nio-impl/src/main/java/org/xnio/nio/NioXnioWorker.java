@@ -304,7 +304,7 @@ final class NioXnioWorker extends XnioWorker {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
             channel.socket().bind(bindAddress);
-            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel);
+            final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, channel);
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
@@ -408,7 +408,7 @@ final class NioXnioWorker extends XnioWorker {
             final SocketChannel accepted = channel.accept();
             if (accepted != null) {
                 IoUtils.safeClose(channel);
-                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted);
+                final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, accepted);
                 //noinspection unchecked
                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
@@ -437,7 +437,7 @@ final class NioXnioWorker extends XnioWorker {
                         try {
                             accepted.configureBlocking(false);
                             final NioTcpChannel tcpChannel;
-                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, accepted);
+                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, null, accepted);
                             futureResult.setResult(tcpChannel);
                             ok = true;
                             //noinspection unchecked

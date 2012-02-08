@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.IoUtils;
 import org.xnio.Option;
@@ -45,7 +45,7 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
-import static org.xnio.nio.Log.log;
+import static org.xnio.Bits.*;
 
 final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
@@ -68,23 +68,44 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             .add(Options.KEEP_ALIVE)
             .add(Options.TCP_OOB_INLINE)
             .add(Options.TCP_NODELAY)
+            .add(Options.CONNECTION_HIGH_WATER)
+            .add(Options.CONNECTION_LOW_WATER)
             .create();
 
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings("unused")
     private volatile int keepAlive;
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings("unused")
     private volatile int oobInline;
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings("unused")
     private volatile int tcpNoDelay;
-    @SuppressWarnings( { "unused" })
+    @SuppressWarnings("unused")
     private volatile int sendBuffer = -1;
+    @SuppressWarnings("unused")
+    private volatile long connectionStatus = CONN_LOW_MASK | CONN_HIGH_MASK;
+
+    private static final int  CONN_MAX          = (1 << 20) - 1;
+    private static final long CONN_COUNT_MASK   = longBitMask(0, 19);
+    private static final long CONN_COUNT_BIT    = 0L;
+    private static final long CONN_COUNT_ONE    = 1L << CONN_COUNT_BIT;
+    private static final long CONN_LOW_MASK     = longBitMask(20, 39);
+    private static final long CONN_LOW_BIT      = 20L;
+    @SuppressWarnings("unused")
+    private static final long CONN_LOW_ONE      = 1L << CONN_LOW_BIT;
+    private static final long CONN_HIGH_MASK    = longBitMask(40, 59);
+    private static final long CONN_HIGH_BIT     = 40L;
+    @SuppressWarnings("unused")
+    private static final long CONN_HIGH_ONE     = 1L << CONN_HIGH_BIT;
+    private static final long CONN_SUSPENDING   = 1L << 60L;
+    private static final long CONN_FULL         = 1L << 61L;
+    private static final long CONN_RESUMED      = 1L << 62L;
 
     private static final AtomicIntegerFieldUpdater<NioTcpServer> keepAliveUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "keepAlive");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> oobInlineUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "oobInline");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> tcpNoDelayUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "tcpNoDelay");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> sendBufferUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "sendBuffer");
+    private static final AtomicLongFieldUpdater<NioTcpServer> connectionStatusUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpServer.class, "connectionStatus");
 
-    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws ClosedChannelException {
+    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
         this.worker = worker;
         this.channel = channel;
         final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
@@ -95,8 +116,39 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         for (int i = 0, length = threads.length; i < length; i++) {
             handles[i] = threads[i].addChannel(channel, this, 0, acceptSetter);
         }
+        //noinspection unchecked
         acceptHandles = Arrays.asList(handles);
         socket = channel.socket();
+        if (optionMap.contains(Options.REUSE_ADDRESSES)) {
+            socket.setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+        }
+        if (optionMap.contains(Options.RECEIVE_BUFFER)) {
+            socket.setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
+        }
+        if (optionMap.contains(Options.SEND_BUFFER)) {
+            sendBufferUpdater.set(this, optionMap.get(Options.SEND_BUFFER, 0));
+        }
+        if (optionMap.contains(Options.KEEP_ALIVE)) {
+            keepAliveUpdater.set(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.TCP_OOB_INLINE)) {
+            oobInlineUpdater.set(this, optionMap.get(Options.TCP_OOB_INLINE, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.TCP_NODELAY)) {
+            tcpNoDelayUpdater.set(this, optionMap.get(Options.TCP_NODELAY, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.CONNECTION_HIGH_WATER) || optionMap.contains(Options.CONNECTION_LOW_WATER)) {
+            final int highWater = optionMap.get(Options.CONNECTION_HIGH_WATER, CONN_MAX);
+            final int lowWater = optionMap.get(Options.CONNECTION_LOW_WATER, highWater);
+            if (highWater <= 0 || highWater > CONN_MAX) {
+                throw new IllegalArgumentException("High water must be greater than 0 and less than or equal to " + CONN_MAX);
+            }
+            if (lowWater <= 0 || lowWater > highWater) {
+                throw new IllegalArgumentException("Low water must be greater than 0 and less than or equal to high water (" + highWater + ")");
+            }
+            final long highLowWater = (long) highWater << CONN_HIGH_BIT | (long) lowWater << CONN_LOW_BIT;
+            connectionStatusUpdater.set(this, highLowWater);
+        }
     }
 
     public void close() throws IOException {
@@ -160,29 +212,125 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     }
 
     public NioTcpChannel accept() throws IOException {
+        // This method changes the state of the CONN_SUSPENDING flag.
+        // As such it is responsible to make sure that when the flag is cleared, the resume state accurately
+        // reflects the state of the CONN_RESUMED and CONN_FULL flags.
+        long oldVal, newVal;
+        do {
+            oldVal = connectionStatus;
+            if (allAreSet(oldVal, CONN_FULL)) {
+                log.trace("No connection accepted (full)");
+                return null;
+            }
+            newVal = oldVal + CONN_COUNT_ONE;
+            if ((newVal & CONN_COUNT_MASK) >> CONN_COUNT_BIT == (newVal & CONN_HIGH_MASK) >> CONN_HIGH_BIT) {
+                newVal |= CONN_SUSPENDING | CONN_FULL;
+            }
+        } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        boolean wasSuspended = anyAreSet(oldVal, CONN_FULL) || allAreClear(oldVal, CONN_RESUMED);
+        boolean doSuspend = ! wasSuspended && allAreClear(oldVal, CONN_SUSPENDING) && allAreSet(newVal, CONN_FULL | CONN_SUSPENDING);
         final SocketChannel accepted = channel.accept();
+        final NioTcpChannel newChannel;
         if (accepted == null) {
+            undoAccept(newVal, wasSuspended, doSuspend);
+            log.trace("No connection accepted");
             return null;
         }
-        accepted.configureBlocking(false);
-        final Socket socket = accepted.socket();
-        socket.setKeepAlive(keepAlive != 0);
-        socket.setOOBInline(oobInline != 0);
-        socket.setTcpNoDelay(tcpNoDelay != 0);
-        final int sendBuffer = this.sendBuffer;
-        if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
-        final NioTcpChannel newChannel;
         boolean ok = false;
         try {
-            newChannel = new NioTcpChannel(worker, accepted);
+            accepted.configureBlocking(false);
+            final Socket socket = accepted.socket();
+            socket.setKeepAlive(keepAlive != 0);
+            socket.setOOBInline(oobInline != 0);
+            socket.setTcpNoDelay(tcpNoDelay != 0);
+            final int sendBuffer = this.sendBuffer;
+            if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
+            newChannel = new NioTcpChannel(worker, this, accepted);
             ok = true;
+            log.trace("TCP server accepted connection");
         } finally {
-            if (! ok) {
+            if (!ok) {
+                log.trace("Failed to accept a connection, undoing");
+                undoAccept(newVal, wasSuspended, doSuspend);
                 IoUtils.safeClose(accepted);
             }
         }
-        log.trace("TCP server accepted connection");
+        if (doSuspend) {
+            // handle suspend
+            if (allAreSet(oldVal, CONN_RESUMED)) {
+                // we were previously resumed, so stop calling accept handlers for now
+                doResume(0);
+            }
+            // now attempt to synchronize the connection state with the new suspend state
+            newVal = oldVal & ~CONN_SUSPENDING;
+            while (!connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
+                oldVal = connectionStatus;
+                // it's up to whoever increments or decrements connectionStatus to set or clear CONN_FULL
+                if ((allAreClear(oldVal, CONN_FULL) && allAreSet(oldVal, CONN_RESUMED)) != doSuspend) {
+                    doResume((doSuspend = !doSuspend) ? 0 : SelectionKey.OP_ACCEPT);
+                }
+                newVal = oldVal & ~CONN_SUSPENDING;
+            }
+        }
         return newChannel;
+    }
+
+    private void undoAccept(long newVal, final boolean wasSuspended, boolean doSuspend) {
+        // re-synchronize the resume status of this channel
+        // first assume that the value hasn't changed
+        long oldVal = newVal;
+        newVal = oldVal - CONN_COUNT_ONE;
+        newVal &= ~(CONN_FULL | CONN_SUSPENDING);
+        doSuspend = !doSuspend && !wasSuspended;
+        while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
+            // the value has changed - reevaluate everything necessary to resynchronize resume and decrement the count
+            oldVal = connectionStatus;
+            newVal = (oldVal - CONN_COUNT_ONE) & ~CONN_SUSPENDING;
+            if (allAreSet(newVal, CONN_FULL) && (newVal & CONN_COUNT_MASK) >> CONN_COUNT_BIT <= (newVal & CONN_LOW_MASK) >> CONN_LOW_BIT) {
+                // dropped below the line
+                newVal &= ~CONN_FULL;
+            }
+            if ((allAreClear(newVal, CONN_FULL) && allAreSet(newVal, CONN_RESUMED)) != doSuspend) {
+                doResume((doSuspend = ! doSuspend) ? 0 : SelectionKey.OP_ACCEPT);
+            }
+        }
+    }
+
+    void channelClosed() {
+        long oldVal, newVal;
+        do {
+            oldVal = connectionStatus;
+            newVal = oldVal - CONN_COUNT_ONE;
+            if (allAreSet(newVal, CONN_FULL) && (newVal & CONN_COUNT_MASK) >> CONN_COUNT_BIT <= (newVal & CONN_LOW_MASK) >> CONN_LOW_BIT) {
+                // dropped below the line
+                newVal &= ~CONN_FULL;
+                if (allAreSet(newVal, CONN_RESUMED)) {
+                    newVal |= CONN_SUSPENDING;
+                }
+            }
+        } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(oldVal, CONN_SUSPENDING) || allAreClear(newVal, CONN_SUSPENDING)) {
+            // done - we either didn't change the full setting, or we did but someone already has the suspending status,
+            // or the user doesn't want to resume anyway, so we don't need to do anything about it
+            return;
+        }
+        // We attempt to resume at this point.
+        boolean doSuspend = false;
+        doResume(SelectionKey.OP_ACCEPT);
+        oldVal = newVal;
+        newVal &= ~CONN_SUSPENDING;
+        while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
+            // the value has changed - reevaluate everything necessary to resynchronize resume and decrement the count
+            oldVal = connectionStatus;
+            newVal = (oldVal - CONN_COUNT_ONE) & ~CONN_SUSPENDING;
+            if (allAreSet(newVal, CONN_FULL) && (newVal & CONN_COUNT_MASK) >> CONN_COUNT_BIT <= (newVal & CONN_LOW_MASK) >> CONN_LOW_BIT) {
+                // dropped below the line
+                newVal &= ~CONN_FULL;
+            }
+            if ((allAreClear(newVal, CONN_FULL) && allAreSet(newVal, CONN_RESUMED)) != doSuspend) {
+                doResume((doSuspend = ! doSuspend) ? 0 : SelectionKey.OP_ACCEPT);
+            }
+        }
     }
 
     public String toString() {
@@ -211,14 +359,53 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     }
 
     public void suspendAccepts() {
-        for (NioHandle<NioTcpServer> handle : acceptHandles) {
-            handle.resume(0);
-        }
+        doResumeWithFlag(false);
     }
 
     public void resumeAccepts() {
+        doResumeWithFlag(true);
+    }
+
+    private void doResumeWithFlag(boolean flag) {
+        long oldVal, newVal;
+        do {
+            oldVal = connectionStatus;
+            if (allAreSet(oldVal, CONN_RESUMED) == flag) {
+                // idempotent call
+                return;
+            }
+            newVal = oldVal ^ CONN_RESUMED | CONN_SUSPENDING;
+        } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        if (anyAreSet(oldVal, CONN_SUSPENDING | CONN_FULL)) {
+            // someone else is in charge of the suspending status, or we cannot resume anyway
+            return;
+        }
+        // we are officially the suspending thread.
+        oldVal = newVal;
+        newVal = oldVal & ~CONN_SUSPENDING;
+        doResume(flag ? SelectionKey.OP_ACCEPT : 0);
+        if (connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
+            // done!  most normal invocations will terminate here
+            return;
+        }
+        // at this point the status has changed from another thread.
+        // the other thread may have called suspend/resume, accept, or a connection may have closed.
+        // now we have to make sure the resume status of the NIO channel catches up to connectionStatus.
+        do {
+            oldVal = connectionStatus;
+            if ((allAreSet(oldVal, CONN_RESUMED) && allAreClear(oldVal, CONN_FULL)) != flag) {
+                // the resumed status has been toggled
+                doResume((flag = !flag) ? SelectionKey.OP_ACCEPT : 0);
+            }
+            newVal = oldVal & ~CONN_SUSPENDING;
+        } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        // we've successfully cleared the SUSPENDING flag while ensuring that at the time it was cleared, the resume
+        // status is accurate.
+    }
+
+    private void doResume(final int op) {
         for (NioHandle<NioTcpServer> handle : acceptHandles) {
-            handle.resume(SelectionKey.OP_ACCEPT);
+            handle.resume(op);
         }
     }
 

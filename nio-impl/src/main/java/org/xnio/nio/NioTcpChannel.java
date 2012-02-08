@@ -48,6 +48,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
 
     private final SocketChannel socketChannel;
     private final Socket socket;
+    private final NioTcpServer server;
 
     private volatile int closeBits = 0;
 
@@ -63,9 +64,10 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             .add(Options.IP_TRAFFIC_CLASS)
             .create();
 
-    NioTcpChannel(final NioXnioWorker worker, final SocketChannel socketChannel) throws ClosedChannelException {
+    NioTcpChannel(final NioXnioWorker worker, final NioTcpServer server, final SocketChannel socketChannel) throws ClosedChannelException {
         super(worker);
         this.socketChannel = socketChannel;
+        this.server = server;
         socket = socketChannel.socket();
         start();
     }
@@ -141,6 +143,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             log.tracef("Closing %s", this);
             try {
                 socketChannel.close();
+                if (server != null) server.channelClosed();
             } finally {
                 cancelReadKey();
                 cancelWriteKey();
