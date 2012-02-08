@@ -315,6 +315,15 @@ public abstract class Option<T> implements Serializable {
                 return Boolean.valueOf(string.trim());
             }
         });
+        map.put(Property.class, new Option.ValueParser<Object>() {
+            public Object parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
+                final int idx = string.indexOf('=');
+                if (idx == -1) {
+                    throw new IllegalArgumentException("Invalid format for property value '" + string + "'");
+                }
+                return Property.of(string.substring(0, idx), string.substring(idx + 1, string.length()));
+            }
+        });
         parsers = map;
     }
 
