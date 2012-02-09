@@ -23,14 +23,20 @@
 package org.xnio;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.SuspendableWriteChannel;
+import org.xnio.channels.WritableMessageChannel;
 
 /**
  * Channel listener utility methods.
@@ -52,6 +58,11 @@ public final class ChannelListeners {
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             IoUtils.safeClose(channel);
+        }
+    };
+    private static final ChannelListener<SuspendableWriteChannel> WRITE_SUSPENDING_CHANNEL_LISTENER = new ChannelListener<SuspendableWriteChannel>() {
+        public void handleEvent(final SuspendableWriteChannel channel) {
+            channel.suspendWrites();
         }
     };
 
@@ -237,6 +248,210 @@ public final class ChannelListeners {
                 }
             }
         };
+    }
+
+    /**
+     * A flushing channel listener.  Flushes the channel and then calls the delegate listener.  Calls the exception
+     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
+     * to the delegating listener.
+     * <p>
+     * The returned listener is stateless and may be reused on any number of channels concurrently or sequentially.
+     *
+     * @param delegate the delegate listener
+     * @param exceptionHandler the exception handler
+     * @param <T> the channel type
+     * @return the flushing channel listener
+     */
+    public static <T extends SuspendableWriteChannel> ChannelListener<T> flushingChannelListener(final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                final boolean result;
+                try {
+                    result = channel.flush();
+                } catch (IOException e) {
+                    channel.suspendWrites();
+                    exceptionHandler.handleException(channel, e);
+                    return;
+                }
+                if (result) {
+                    Channels.setWriteListener(channel, delegate);
+                    delegate.handleEvent(channel);
+                } else {
+                    Channels.setWriteListener(channel, this);
+                    channel.resumeWrites();
+                }
+            }
+
+            public String toString() {
+                return "Flushing channel listener -> " + delegate;
+            }
+        };
+    }
+
+    /**
+     * A writing channel listener.  Writes the buffer to the channel and then calls the delegate listener.  Calls the exception
+     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
+     * to the delegating listener.
+     * <p>
+     * The returned listener is stateful and will not execute properly if reused.
+     *
+     * @param pooled the buffer to write
+     * @param delegate the delegate listener
+     * @param exceptionHandler the exception handler
+     * @param <T> the channel type
+     * @return the writing channel listener
+     */
+    public static <T extends StreamSinkChannel> ChannelListener<T> writingChannelListener(final Pooled<ByteBuffer> pooled, final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                final ByteBuffer buffer = pooled.getResource();
+                int result;
+                do {
+                    try {
+                        result = channel.write(buffer);
+                    } catch (IOException e) {
+                        channel.suspendWrites();
+                        pooled.free();
+                        exceptionHandler.handleException(channel, e);
+                        return;
+                    }
+                    if (result == 0) {
+                        Channels.setWriteListener(channel, this);
+                        channel.resumeWrites();
+                        return;
+                    }
+                } while (buffer.hasRemaining());
+                pooled.free();
+                Channels.setWriteListener(channel, delegate);
+                delegate.handleEvent(channel);
+            }
+
+            public String toString() {
+                return "Writing channel listener -> " + delegate;
+            }
+        };
+    }
+
+    /**
+     * A sending channel listener.  Writes the buffer to the channel and then calls the delegate listener.  Calls the exception
+     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
+     * to the delegating listener.
+     * <p>
+     * The returned listener is stateful and will not execute properly if reused.
+     *
+     * @param pooled the buffer to send
+     * @param delegate the delegate listener
+     * @param exceptionHandler the exception handler
+     * @param <T> the channel type
+     * @return the sending channel listener
+     */
+    public static <T extends WritableMessageChannel> ChannelListener<T> sendingChannelListener(final Pooled<ByteBuffer> pooled, final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                final ByteBuffer buffer = pooled.getResource();
+                final boolean result;
+                try {
+                    result = channel.send(buffer);
+                } catch (IOException e) {
+                    channel.suspendWrites();
+                    pooled.free();
+                    exceptionHandler.handleException(channel, e);
+                    return;
+                }
+                if (result) {
+                    pooled.free();
+                    Channels.setWriteListener(channel, delegate);
+                    delegate.handleEvent(channel);
+                } else {
+                    Channels.setWriteListener(channel, this);
+                    channel.resumeWrites();
+                }
+            }
+
+            public String toString() {
+                return "Sending channel listener -> " + delegate;
+            }
+        };
+    }
+
+    /**
+     * A file-sending channel listener.  Writes the file to the channel and then calls the delegate listener.  Calls the exception
+     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
+     * to the delegating listener.
+     * <p>
+     * The returned listener is stateful and will not execute properly if reused.
+     *
+     * @param source the file to read from
+     * @param position the position in the source file to read from
+     * @param count the number of bytes to read
+     * @param delegate the listener to call when the file is sent
+     * @param exceptionHandler the exception handler to call if a problem occurs
+     * @param <T> the channel type
+     * @return the channel listener
+     */
+    public static <T extends StreamSinkChannel> ChannelListener<T> fileSendingChannelListener(final FileChannel source, final long position, final long count, final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        if (count == 0L) {
+            return delegatingChannelListener(delegate);
+        }
+        return new ChannelListener<T>() {
+            private long p = position;
+            private long cnt = count;
+
+            public void handleEvent(final T channel) {
+                long result;
+                long cnt = this.cnt;
+                long p = this.p;
+                try {
+                    do {
+                        try {
+                            result = channel.transferFrom(source, p, cnt);
+                        } catch (IOException e) {
+                            exceptionHandler.handleException(channel, e);
+                            return;
+                        }
+                        if (result == 0L) {
+                            Channels.setWriteListener(channel, this);
+                            channel.resumeWrites();
+                            return;
+                        }
+                        p += result;
+                        if ((cnt -= result) == 0L) {
+                            Channels.setWriteListener(channel, delegate);
+                            delegate.handleEvent(channel);
+                            return;
+                        }
+                    } while (cnt > 0L);
+                } finally {
+                    this.p = p;
+                    this.cnt = cnt;
+                }
+            }
+        };
+    }
+
+    /**
+     * A delegating channel listener which passes an event to another listener of the same or a super type.
+     *
+     * @param delegate the delegate
+     * @param <T> the channel type
+     * @return the listener
+     */
+    public static <T extends Channel> ChannelListener<T> delegatingChannelListener(final ChannelListener<? super T> delegate) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                delegate.handleEvent(channel);
+            }
+        };
+    }
+
+    /**
+     * The write-suspending channel listener.  The returned listener will suspend writes when called.  Useful for chaining
+     * writing listeners to a flush listener to this listener.  This listener is a stateless singleton object.
+     *
+     * @return the suspending channel listener
+     */
+    public static ChannelListener<SuspendableWriteChannel> writeSuspendingChannelListener() {
+        return WRITE_SUSPENDING_CHANNEL_LISTENER;
     }
 
     private static class DelegatingSetter<T extends Channel, O extends Channel> implements ChannelListener.Setter<T> {
