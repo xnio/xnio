@@ -36,6 +36,7 @@ import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import org.xnio.channels.SuspendableReadChannel;
 import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WritableMessageChannel;
 
@@ -59,11 +60,6 @@ public final class ChannelListeners {
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             IoUtils.safeClose(channel);
-        }
-    };
-    private static final ChannelListener<SuspendableWriteChannel> WRITE_SUSPENDING_CHANNEL_LISTENER = new ChannelListener<SuspendableWriteChannel>() {
-        public void handleEvent(final SuspendableWriteChannel channel) {
-            channel.suspendWrites();
         }
     };
 
@@ -253,8 +249,7 @@ public final class ChannelListeners {
 
     /**
      * A flushing channel listener.  Flushes the channel and then calls the delegate listener.  Calls the exception
-     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
-     * to the delegating listener.
+     * handler if an exception occurs.  The delegate listener should ensure that the channel write listener is appropriately set.
      * <p>
      * The returned listener is stateless and may be reused on any number of channels concurrently or sequentially.
      *
@@ -291,8 +286,8 @@ public final class ChannelListeners {
 
     /**
      * A write shutdown channel listener.  Shuts down and flushes the channel and calls the delegate listener.  Calls
-     * the exception handler if an exception occurs.  When the delegate listener is called, the channel's write listener
-     * will be set to the delegating listener and the channel's write side will be shut down and flushed.
+     * the exception handler if an exception occurs.  When the delegate listener is called, the channel's write side will be shut down and flushed.
+     * The delegate listener should ensure that the channel write listener is appropriately set.
      *
      * @param delegate the delegate listener
      * @param exceptionHandler the exception handler
@@ -316,8 +311,7 @@ public final class ChannelListeners {
 
     /**
      * A writing channel listener.  Writes the buffer to the channel and then calls the delegate listener.  Calls the exception
-     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
-     * to the delegating listener.
+     * handler if an exception occurs.  The delegate listener should ensure that the channel write listener is appropriately set.
      * <p>
      * The returned listener is stateful and will not execute properly if reused.
      *
@@ -332,14 +326,20 @@ public final class ChannelListeners {
             public void handleEvent(final T channel) {
                 final ByteBuffer buffer = pooled.getResource();
                 int result;
+                boolean ok = false;
                 do {
                     try {
                         result = channel.write(buffer);
+                        ok = true;
                     } catch (IOException e) {
                         channel.suspendWrites();
                         pooled.free();
                         exceptionHandler.handleException(channel, e);
                         return;
+                    } finally {
+                        if (! ok) {
+                            pooled.free();
+                        }
                     }
                     if (result == 0) {
                         Channels.setWriteListener(channel, this);
@@ -348,7 +348,6 @@ public final class ChannelListeners {
                     }
                 } while (buffer.hasRemaining());
                 pooled.free();
-                Channels.setWriteListener(channel, delegate);
                 delegate.handleEvent(channel);
             }
 
@@ -360,8 +359,7 @@ public final class ChannelListeners {
 
     /**
      * A sending channel listener.  Writes the buffer to the channel and then calls the delegate listener.  Calls the exception
-     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
-     * to the delegating listener.
+     * handler if an exception occurs.  The delegate listener should ensure that the channel write listener is appropriately set.
      * <p>
      * The returned listener is stateful and will not execute properly if reused.
      *
@@ -375,23 +373,22 @@ public final class ChannelListeners {
         return new ChannelListener<T>() {
             public void handleEvent(final T channel) {
                 final ByteBuffer buffer = pooled.getResource();
-                final boolean result;
+                boolean free = true;
                 try {
-                    result = channel.send(buffer);
+                    if (! (free = channel.send(buffer))) {
+                        Channels.setWriteListener(channel, this);
+                        channel.resumeWrites();
+                        return;
+                    }
                 } catch (IOException e) {
                     channel.suspendWrites();
                     pooled.free();
                     exceptionHandler.handleException(channel, e);
                     return;
+                } finally {
+                    if (free) pooled.free();
                 }
-                if (result) {
-                    pooled.free();
-                    Channels.setWriteListener(channel, delegate);
-                    delegate.handleEvent(channel);
-                } else {
-                    Channels.setWriteListener(channel, this);
-                    channel.resumeWrites();
-                }
+                delegate.handleEvent(channel);
             }
 
             public String toString() {
@@ -402,8 +399,7 @@ public final class ChannelListeners {
 
     /**
      * A file-sending channel listener.  Writes the file to the channel and then calls the delegate listener.  Calls the exception
-     * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
-     * to the delegating listener.
+     * handler if an exception occurs.  The delegate listener should ensure that the channel write listener is appropriately set.
      * <p>
      * The returned listener is stateful and will not execute properly if reused.
      *
@@ -442,7 +438,6 @@ public final class ChannelListeners {
                         }
                         p += result;
                         if ((cnt -= result) == 0L) {
-                            Channels.setWriteListener(channel, delegate);
                             delegate.handleEvent(channel);
                             return;
                         }
@@ -457,8 +452,7 @@ public final class ChannelListeners {
 
     /**
      * A file-receiving channel listener.  Writes the file from the channel and then calls the delegate listener.  Calls the exception
-     * handler if an exception occurs.  When the delegate listener is called, the channel's read listener will be set
-     * to the delegating listener.
+     * handler if an exception occurs.  The delegate listener should ensure that the channel read listener is appropriately set.
      * <p>
      * The returned listener is stateful and will not execute properly if reused.
      *
@@ -497,7 +491,6 @@ public final class ChannelListeners {
                         }
                         p += result;
                         if ((cnt -= result) == 0L) {
-                            Channels.setReadListener(channel, delegate);
                             delegate.handleEvent(channel);
                             return;
                         }
@@ -513,7 +506,7 @@ public final class ChannelListeners {
     /**
      * A delegating channel listener which passes an event to another listener of the same or a super type.
      *
-     * @param delegate the delegate
+     * @param delegate the delegate channel listener
      * @param <T> the channel type
      * @return the listener
      */
@@ -526,13 +519,35 @@ public final class ChannelListeners {
     }
 
     /**
-     * The write-suspending channel listener.  The returned listener will suspend writes when called.  Useful for chaining
-     * writing listeners to a flush listener to this listener.  This listener is a stateless singleton object.
+     * A write-suspending channel listener.  The returned listener will suspend writes when called.  Useful for chaining
+     * writing listeners to a flush listener to this listener. The delegate listener should ensure that the channel write listener is appropriately set.
      *
+     * @param delegate the delegate channel listener
      * @return the suspending channel listener
      */
-    public static ChannelListener<SuspendableWriteChannel> writeSuspendingChannelListener() {
-        return WRITE_SUSPENDING_CHANNEL_LISTENER;
+    public static <T extends SuspendableWriteChannel> ChannelListener<T> writeSuspendingChannelListener(final ChannelListener<? super T> delegate) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.suspendWrites();
+                delegate.handleEvent(channel);
+            }
+        };
+    }
+
+    /**
+     * A read-suspending channel listener.  The returned listener will suspend read when called.
+     * The delegate listener should ensure that the channel read listener is appropriately set.
+     *
+     * @param delegate the delegate channel listener
+     * @return the suspending channel listener
+     */
+    public static <T extends SuspendableReadChannel> ChannelListener<T> readSuspendingChannelListener(final ChannelListener<? super T> delegate) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.suspendReads();
+                delegate.handleEvent(channel);
+            }
+        };
     }
 
     private static class DelegatingSetter<T extends Channel, O extends Channel> implements ChannelListener.Setter<T> {
