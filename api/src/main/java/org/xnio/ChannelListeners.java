@@ -35,6 +35,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WritableMessageChannel;
 
@@ -289,6 +290,31 @@ public final class ChannelListeners {
     }
 
     /**
+     * A write shutdown channel listener.  Shuts down and flushes the channel and calls the delegate listener.  Calls
+     * the exception handler if an exception occurs.  When the delegate listener is called, the channel's write listener
+     * will be set to the delegating listener and the channel's write side will be shut down and flushed.
+     *
+     * @param delegate the delegate listener
+     * @param exceptionHandler the exception handler
+     * @param <T> the channel type
+     * @return the channel listener
+     */
+    public static <T extends SuspendableWriteChannel> ChannelListener<T> writeShutdownChannelListener(final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        final ChannelListener<T> flushingListener = flushingChannelListener(delegate, exceptionHandler);
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                try {
+                    channel.shutdownWrites();
+                } catch (IOException e) {
+                    exceptionHandler.handleException(channel, e);
+                    return;
+                }
+                flushingListener.handleEvent(channel);
+            }
+        };
+    }
+
+    /**
      * A writing channel listener.  Writes the buffer to the channel and then calls the delegate listener.  Calls the exception
      * handler if an exception occurs.  When the delegate listener is called, the channel's write listener will be set
      * to the delegating listener.
@@ -417,6 +443,61 @@ public final class ChannelListeners {
                         p += result;
                         if ((cnt -= result) == 0L) {
                             Channels.setWriteListener(channel, delegate);
+                            delegate.handleEvent(channel);
+                            return;
+                        }
+                    } while (cnt > 0L);
+                } finally {
+                    this.p = p;
+                    this.cnt = cnt;
+                }
+            }
+        };
+    }
+
+    /**
+     * A file-receiving channel listener.  Writes the file from the channel and then calls the delegate listener.  Calls the exception
+     * handler if an exception occurs.  When the delegate listener is called, the channel's read listener will be set
+     * to the delegating listener.
+     * <p>
+     * The returned listener is stateful and will not execute properly if reused.
+     *
+     * @param target the file to write to
+     * @param position the position in the target file to write to
+     * @param count the number of bytes to write
+     * @param delegate the listener to call when the file is sent
+     * @param exceptionHandler the exception handler to call if a problem occurs
+     * @param <T> the channel type
+     * @return the channel listener
+     */
+    public static <T extends StreamSourceChannel> ChannelListener<T> fileReceivingChannelListener(final FileChannel target, final long position, final long count, final ChannelListener<? super T> delegate, final ChannelExceptionHandler<? super T> exceptionHandler) {
+        if (count == 0L) {
+            return delegatingChannelListener(delegate);
+        }
+        return new ChannelListener<T>() {
+            private long p = position;
+            private long cnt = count;
+
+            public void handleEvent(final T channel) {
+                long result;
+                long cnt = this.cnt;
+                long p = this.p;
+                try {
+                    do {
+                        try {
+                            result = channel.transferTo(p, cnt, target);
+                        } catch (IOException e) {
+                            exceptionHandler.handleException(channel, e);
+                            return;
+                        }
+                        if (result == 0L) {
+                            Channels.setReadListener(channel, this);
+                            channel.resumeReads();
+                            return;
+                        }
+                        p += result;
+                        if ((cnt -= result) == 0L) {
+                            Channels.setReadListener(channel, delegate);
                             delegate.handleEvent(channel);
                             return;
                         }
