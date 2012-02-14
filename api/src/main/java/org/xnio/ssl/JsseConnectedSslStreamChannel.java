@@ -393,7 +393,8 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     final ByteBuffer buffer = receiveBuffer.getResource();
                     final ByteBuffer unwrappedBuffer = readBuffer.getResource();
                     synchronized (getReadLock()) {
-                        if (handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer)) >= 0) { // FIXME what if the unwrap return buffer overflow???
+                        int unwrapResult = handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer));
+                        if (unwrapResult >= 0) { // FIXME what if the unwrap return buffer overflow???
                             // have we made some progress?
                             if(result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || result.bytesConsumed() > 0) {
                                 if (result.bytesProduced() > 0 || buffer.hasRemaining()) {
@@ -406,6 +407,10 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                             // no point in proceeding, we're stuck until the user reads anyway
                             setWriteRequiresRead();
                             return false;
+                        } else if (unwrapResult == -1 && result.getHandshakeStatus() == HandshakeStatus.NEED_UNWRAP) {
+                            // connection has been closed by peer prior to handshake finished
+                            this.close();
+                            throw new ClosedChannelException();
                         }
                     }
                     continue;
