@@ -206,6 +206,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             } catch (Throwable t) {
             }
         }
+        channel.shutdownReads();
     }
 
     /** {@inheritDoc} */
@@ -274,6 +275,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 transmitBuffer.free();
             } catch (Throwable t) {}
         }
+        channel.shutdownWrites();
     }
 
     private boolean doFlushBuffer() throws IOException {
