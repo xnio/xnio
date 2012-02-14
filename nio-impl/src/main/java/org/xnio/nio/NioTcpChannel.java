@@ -162,7 +162,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             } finally {
                 cancelReadKey();
                 if (old == 0x01) {
-                    invokeCloseHandler();
+                    try {
+                        socketChannel.close();
+                    } finally {
+                        invokeCloseHandler();
+                    }
                 }
             }
         }
@@ -178,7 +182,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             } finally {
                 cancelWriteKey();
                 if (old == 0x02) {
-                    invokeCloseHandler();
+                    try {
+                        socketChannel.close();
+                    } finally {
+                        invokeCloseHandler();
+                    }
                 }
             }
         }
