@@ -33,6 +33,7 @@ import javax.net.ssl.SSLContext;
 
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
+import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
@@ -115,11 +116,14 @@ public final class JsseXnioSsl extends XnioSsl {
 
     public IoFuture<ConnectedSslStreamChannel> connectSsl(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
-        worker.connectStream(bindAddress, destination, new ChannelListener<ConnectedStreamChannel>() {
+        final IoFuture<ConnectedStreamChannel> connectedChannelFuture = worker.connectStream(bindAddress, destination, new ChannelListener<ConnectedStreamChannel>() {
                     public void handleEvent(final ConnectedStreamChannel tcpChannel) {
                         final ConnectedSslStreamChannel channel = createSslConnectedStreamChannel(sslContext, tcpChannel, optionMap);
-                        futureResult.setResult(channel);
-                        ChannelListeners.invokeChannelListener(channel, openListener);
+                        if (!futureResult.setResult(channel)) {
+                            IoUtils.safeClose(channel);
+                        } else {
+                            ChannelListeners.invokeChannelListener(channel, openListener);
+                        }
                     }
                 }, bindListener, optionMap).addNotifier(new IoFuture.HandlingNotifier<ConnectedStreamChannel, FutureResult<ConnectedSslStreamChannel>>() {
             public void handleCancelled(final FutureResult<ConnectedSslStreamChannel> result) {
@@ -130,6 +134,20 @@ public final class JsseXnioSsl extends XnioSsl {
                 result.setException(exception);
             }
         }, futureResult);
+        futureResult.getIoFuture().addNotifier(new IoFuture.HandlingNotifier<ConnectedStreamChannel, IoFuture<ConnectedStreamChannel>>() {
+            public void handleCancelled(final IoFuture<ConnectedStreamChannel> result) {
+                result.cancel();
+            }
+        }, connectedChannelFuture);
+        futureResult.addCancelHandler(new Cancellable() {
+
+            @Override
+            public Cancellable cancel() {
+                futureResult.setCancelled();
+                return this;
+            }
+            
+        });
         return futureResult.getIoFuture();
     }
 

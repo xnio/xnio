@@ -322,9 +322,13 @@ final class NioXnioWorker extends XnioWorker {
                         if (socketChannel.finishConnect()) {
                             connectHandle.suspend();
                             connectHandle.getHandlerSetter().set(null);
-                            futureResult.setResult(tcpChannel);
-                            //noinspection unchecked
-                            ChannelListeners.invokeChannelListener(tcpChannel, openListener);
+                            if (!futureResult.setResult(tcpChannel)) {
+                                // if futureResult is canceled, close channel
+                                IoUtils.safeClose(channel);
+                            } else {
+                                //noinspection unchecked
+                                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
+                            }
                         }
                     } catch (IOException e) {
                         IoUtils.safeClose(channel);
@@ -339,7 +343,7 @@ final class NioXnioWorker extends XnioWorker {
             futureResult.addCancelHandler(new Cancellable() {
                 public Cancellable cancel() {
                     if (futureResult.setCancelled()) {
-                        IoUtils.safeClose(channel);
+                        IoUtils.safeClose(tcpChannel);
                     }
                     return this;
                 }
