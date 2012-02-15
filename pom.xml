@@ -30,7 +30,7 @@
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Parent POM</name>
-    <version>3.0.2.GA-SNAPSHOT</version>
+    <version>3.0.2.GA</version>
     <description>The aggregator POM of the XNIO project</description>
 
     <modules>
