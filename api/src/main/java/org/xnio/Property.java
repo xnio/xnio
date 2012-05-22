@@ -64,10 +64,20 @@ public final class Property implements Serializable {
     public String getValue() {
         return value;
     }
+    
+    /**
+     * Get the {@link String} representation of this property.
+     * 
+     * @return the {@link String} representation of this property.
+     */
+    @Override
+    public String toString() {
+        return "(" + key + "=>" + value + ")";
+    }
 
     /**
      * Get the hash code for this Property.
-     *
+     * 
      * @return the hash code.
      */
     @Override
