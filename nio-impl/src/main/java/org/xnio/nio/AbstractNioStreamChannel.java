@@ -207,7 +207,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastRead = System.nanoTime();
         } else {
             int timeout = readTimeout;
-            if (timeout > 0 && ((lastRead - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
                 throw new ReadTimeoutException("Read timed out");
             }
         }
@@ -220,7 +220,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastWrite = System.nanoTime();
         } else {
             int timeout = writeTimeout;
-            if (timeout > 0 && ((lastWrite - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
                 throw new WriteTimeoutException("Write timed out");
             }
         }
@@ -254,7 +254,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastRead = System.nanoTime();
         } else {
             int timeout = readTimeout;
-            if (timeout > 0 && ((lastRead - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
                 throw new ReadTimeoutException("Read timed out");
             }
         }
@@ -272,7 +272,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastRead = System.nanoTime();
         } else {
             int timeout = readTimeout;
-            if (timeout > 0 && ((lastRead - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
                 throw new ReadTimeoutException("Read timed out");
             }
         }
@@ -290,7 +290,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastRead = System.nanoTime();
         } else {
             int timeout = readTimeout;
-            if (timeout > 0 && ((lastRead - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
                 throw new ReadTimeoutException("Read timed out");
             }
         }
@@ -305,7 +305,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastWrite = System.nanoTime();
         } else {
             int timeout = writeTimeout;
-            if (timeout > 0 && ((lastWrite - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
                 throw new WriteTimeoutException("Write timed out");
             }
         }
@@ -318,7 +318,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastWrite = System.nanoTime();
         } else {
             int timeout = writeTimeout;
-            if (timeout > 0 && ((lastWrite - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
                 throw new WriteTimeoutException("Write timed out");
             }
         }
@@ -331,7 +331,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
             lastWrite = System.nanoTime();
         } else {
             int timeout = writeTimeout;
-            if (timeout > 0 && ((lastWrite - System.nanoTime()) / 1000000L) > (long) timeout) {
+            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
                 throw new WriteTimeoutException("Write timed out");
             }
         }

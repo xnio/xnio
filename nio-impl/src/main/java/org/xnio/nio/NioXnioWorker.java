@@ -326,6 +326,7 @@ final class NioXnioWorker extends XnioWorker {
                                 // if futureResult is canceled, close channel
                                 IoUtils.safeClose(channel);
                             } else {
+                                channel.configureFrom(optionMap);
                                 //noinspection unchecked
                                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                             }
@@ -413,6 +414,7 @@ final class NioXnioWorker extends XnioWorker {
             if (accepted != null) {
                 IoUtils.safeClose(channel);
                 final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, accepted);
+                tcpChannel.configureFrom(optionMap);
                 //noinspection unchecked
                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
@@ -442,6 +444,7 @@ final class NioXnioWorker extends XnioWorker {
                             accepted.configureBlocking(false);
                             final NioTcpChannel tcpChannel;
                             tcpChannel = new NioTcpChannel(NioXnioWorker.this, null, accepted);
+                            tcpChannel.configureFrom(optionMap);
                             futureResult.setResult(tcpChannel);
                             ok = true;
                             //noinspection unchecked
