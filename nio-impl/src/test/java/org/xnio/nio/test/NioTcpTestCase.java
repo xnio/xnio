@@ -48,6 +48,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.ReadTimeoutException;
 
 @SuppressWarnings( { "JavaDoc" })
 public final class NioTcpTestCase extends TestCase {
@@ -710,5 +711,69 @@ public final class NioTcpTestCase extends TestCase {
             worker.shutdown();
         }
         checkProblems();
+    }
+
+    public void testReadTimeout() throws Exception {
+        problems.clear();
+        final CountDownLatch closeLatch = new CountDownLatch(2);
+        final AtomicBoolean gotReadTimeout = new AtomicBoolean();
+        log.info("Test: testReadTimeout");
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(closeLatch.await(3L, TimeUnit.SECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+             public void handleEvent(final ConnectedStreamChannel channel) {
+                 try {
+                     channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                         public void handleEvent(final ConnectedStreamChannel channel) {
+                             closeLatch.countDown();
+                         }
+                     });
+                     channel.setOption(Options.READ_TIMEOUT, Integer.valueOf(500));
+                     channel.read(ByteBuffer.allocate(100));
+                     channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                         public void handleEvent(final ConnectedStreamChannel channel) {
+                             try {
+                                 channel.read(ByteBuffer.allocate(100));
+                             } catch (ReadTimeoutException e) {
+                                 gotReadTimeout.set(true);
+                             } catch (IOException e) {
+                                 log.errorf(e, "Client read failed");
+                             } finally {
+                                 IoUtils.safeClose(channel);
+                             }
+                         }
+                     });
+                     channel.getReadThread().executeAfter(new Runnable() {
+                         public void run() {
+                             channel.wakeupReads();
+                         }
+                     }, 600, TimeUnit.MILLISECONDS);
+                 } catch (IOException e) {
+                     log.errorf(e, "Client read failed");
+                     IoUtils.safeClose(channel);
+                 }
+             }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+             public void handleEvent(final ConnectedStreamChannel channel) {
+                 channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                     public void handleEvent(final ConnectedStreamChannel channel) {
+                         closeLatch.countDown();
+                     }
+                 });
+                 channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                     public void handleEvent(final ConnectedStreamChannel channel) {
+                         IoUtils.safeClose(channel);
+                     }
+                 });
+                 channel.resumeReads();
+             }
+        });
+        assertTrue("Got read timeout", gotReadTimeout.get());
     }
 }
