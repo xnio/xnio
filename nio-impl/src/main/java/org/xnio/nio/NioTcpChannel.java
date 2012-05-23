@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
+import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -68,6 +69,18 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         this.socketChannel = socketChannel;
         socket = socketChannel.socket();
         start();
+    }
+
+    void configureFrom(final OptionMap optionMap) throws IOException {
+        for (Option<?> option : optionMap) {
+            if (supportsOption(option)) {
+                doSetOption(option, optionMap);
+            }
+        }
+    }
+
+    private <T> void doSetOption(Option<T> option, OptionMap map) throws IOException {
+        setOption(option, option.cast(map.get(option)));
     }
 
     BoundChannel getBoundChannel() {
@@ -208,7 +221,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return OPTIONS.contains(option);
+        return OPTIONS.contains(option) || super.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws UnsupportedOptionException, IOException {

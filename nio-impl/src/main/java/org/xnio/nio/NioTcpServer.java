@@ -68,6 +68,8 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             .add(Options.KEEP_ALIVE)
             .add(Options.TCP_OOB_INLINE)
             .add(Options.TCP_NODELAY)
+            .add(Options.READ_TIMEOUT)
+            .add(Options.WRITE_TIMEOUT)
             .create();
 
     @SuppressWarnings( { "unused" })
@@ -78,13 +80,19 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private volatile int tcpNoDelay;
     @SuppressWarnings( { "unused" })
     private volatile int sendBuffer = -1;
+    @SuppressWarnings("unused")
+    private volatile int readTimeout = 0;
+    @SuppressWarnings("unused")
+    private volatile int writeTimeout = 0;
 
     private static final AtomicIntegerFieldUpdater<NioTcpServer> keepAliveUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "keepAlive");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> oobInlineUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "oobInline");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> tcpNoDelayUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "tcpNoDelay");
     private static final AtomicIntegerFieldUpdater<NioTcpServer> sendBufferUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "sendBuffer");
+    private static final AtomicIntegerFieldUpdater<NioTcpServer> readTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "readTimeout");
+    private static final AtomicIntegerFieldUpdater<NioTcpServer> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "writeTimeout");
 
-    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws ClosedChannelException {
+    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
         this.worker = worker;
         this.channel = channel;
         final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
@@ -97,6 +105,30 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         }
         acceptHandles = Arrays.asList(handles);
         socket = channel.socket();
+        if (optionMap.contains(Options.REUSE_ADDRESSES)) {
+            socket.setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+        }
+        if (optionMap.contains(Options.RECEIVE_BUFFER)) {
+            socket.setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
+        }
+        if (optionMap.contains(Options.SEND_BUFFER)) {
+            sendBufferUpdater.set(this, optionMap.get(Options.SEND_BUFFER, 0));
+        }
+        if (optionMap.contains(Options.KEEP_ALIVE)) {
+            keepAliveUpdater.set(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.TCP_OOB_INLINE)) {
+            oobInlineUpdater.set(this, optionMap.get(Options.TCP_OOB_INLINE, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.TCP_NODELAY)) {
+            tcpNoDelayUpdater.set(this, optionMap.get(Options.TCP_NODELAY, false) ? 1 : 0);
+        }
+        if (optionMap.contains(Options.READ_TIMEOUT)) {
+            readTimeoutUpdater.set(this, optionMap.get(Options.READ_TIMEOUT, 0));
+        }
+        if (optionMap.contains(Options.WRITE_TIMEOUT)) {
+            writeTimeoutUpdater.set(this, optionMap.get(Options.WRITE_TIMEOUT, 0));
+        }
     }
 
     public void close() throws IOException {
@@ -127,6 +159,10 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             return option.cast(Boolean.valueOf(oobInline != 0));
         } else if (option == Options.TCP_NODELAY) {
             return option.cast(Boolean.valueOf(tcpNoDelay != 0));
+        } else if (option == Options.READ_TIMEOUT) {
+            return option.cast(Integer.valueOf(readTimeout));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            return option.cast(Integer.valueOf(writeTimeout));
         } else {
             return null;
         }
@@ -153,6 +189,10 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             old = Boolean.valueOf(oobInlineUpdater.getAndSet(this, Options.TCP_OOB_INLINE.cast(value).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.TCP_NODELAY) {
             old = Boolean.valueOf(tcpNoDelayUpdater.getAndSet(this, Options.TCP_NODELAY.cast(value).booleanValue() ? 1 : 0) != 0);
+        } else if (option == Options.READ_TIMEOUT) {
+            old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value).intValue()));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value).intValue()));
         } else {
             return null;
         }
@@ -175,6 +215,8 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         boolean ok = false;
         try {
             newChannel = new NioTcpChannel(worker, accepted);
+            newChannel.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
+            newChannel.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
             ok = true;
         } finally {
             if (! ok) {
