@@ -77,10 +77,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
         synchronized (receiveBuffer) {
-//            if (readsDone) { FIXME
-//                clearReadReady();
-//                return -1;
-//            }
+            if (isReadShutDown()) {
+                return -1;
+            }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res = 0;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
@@ -142,10 +141,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     /** {@inheritDoc} */
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (receiveBuffer) {
-//            if (readsDone) { FIXME
-//                clearReadReady();
-//                return -1;
-//            }
+            if (isReadShutDown()) {
+                return -1;
+            }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
             int res = 0;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
