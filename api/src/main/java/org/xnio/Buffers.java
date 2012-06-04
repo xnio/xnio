@@ -24,6 +24,9 @@ package org.xnio;
 
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.io.OutputStream;
 import java.nio.Buffer;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -1983,6 +1986,92 @@ public final class Buffers {
      */
     public static void addRandom(ByteBuffer target) {
         addRandom(target, IoUtils.getThreadLocalRandom());
+    }
+
+    /**
+     * Fill a buffer from an input stream.  Specially optimized for heap buffers.  If a partial transfer occurs
+     * due to interruption, the buffer's position is updated accordingly.
+     *
+     * @param target the target buffer
+     * @param source the source stream
+     * @return the number of bytes transferred, or {@code -1} if no bytes were moved due to end-of-stream
+     * @throws IOException if the stream read fails
+     */
+    public static int fillFromStream(ByteBuffer target, InputStream source) throws IOException {
+        final int remaining = target.remaining();
+        if (remaining == 0) {
+            return 0;
+        } else {
+            final int p = target.position();
+            if (target.hasArray()) {
+                // fast path
+                final int res;
+                try {
+                    res = source.read(target.array(), p + target.arrayOffset(), remaining);
+                } catch (InterruptedIOException e) {
+                    target.position(p + e.bytesTransferred);
+                    throw e;
+                }
+                if (res > 0) {
+                    target.position(p + res);
+                }
+                return res;
+            } else {
+                byte[] tmp = new byte[remaining];
+                final int res;
+                try {
+                    res = source.read(tmp);
+                } catch (InterruptedIOException e) {
+                    final int n = e.bytesTransferred;
+                    target.put(tmp, 0, n);
+                    target.position(p + n);
+                    throw e;
+                }
+                if (res > 0) {
+                    target.put(tmp, 0, res);
+                }
+                return res;
+            }
+        }
+    }
+
+    /**
+     * Empty a buffer to an output stream.  Specially optimized for heap buffers.  If a partial transfer occurs
+     * due to interruption, the buffer's position is updated accordingly.
+     *
+     * @param target the target stream
+     * @param source the source buffer
+     * @throws IOException if the stream write fails
+     */
+    public static void emptyToStream(OutputStream target, ByteBuffer source) throws IOException {
+        final int remaining = source.remaining();
+        if (remaining == 0) {
+            return;
+        } else {
+            final int p = source.position();
+            if (source.hasArray()) {
+                // fast path
+                try {
+                    target.write(source.array(), p + source.arrayOffset(), remaining);
+                } catch (InterruptedIOException e) {
+                    source.position(p + e.bytesTransferred);
+                    throw e;
+                }
+                source.position(source.limit());
+                return;
+            } else {
+                byte[] tmp = take(source);
+                try {
+                    target.write(tmp);
+                } catch (InterruptedIOException e) {
+                    source.position(p + e.bytesTransferred);
+                    throw e;
+                } catch (IOException e) {
+                    source.position(p);
+                    throw e;
+                }
+            }
+        }
     }
 
     private static class SecureByteBufferPool implements Pool<ByteBuffer> {
