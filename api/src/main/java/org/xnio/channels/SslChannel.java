@@ -31,7 +31,7 @@ import org.xnio.ChannelListener;
 /**
  * A channel which can use SSL/TLS to negotiate a security layer.
  */
-public interface SslChannel extends CloseableChannel {
+public interface SslChannel extends ConnectedChannel {
 
     /**
      * Start or restart the SSL/TLS handshake.  To force a complete SSL/TLS session renegotiation, the current
