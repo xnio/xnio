@@ -23,6 +23,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.IoUtils;
 import org.xnio.Option;
@@ -45,6 +47,7 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
+import static java.util.concurrent.locks.LockSupport.*;
 import static org.xnio.Bits.*;
 
 final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
@@ -89,6 +92,9 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     @SuppressWarnings("unused")
     private volatile int writeTimeout = 0;
 
+    @SuppressWarnings("unused")
+    private volatile Thread waitingThread;
+
     private static final int  CONN_MAX          = (1 << 20) - 1;
     private static final long CONN_COUNT_MASK   = longBitMask(0, 19);
     private static final long CONN_COUNT_BIT    = 0L;
@@ -113,6 +119,8 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final AtomicIntegerFieldUpdater<NioTcpServer> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(NioTcpServer.class, "writeTimeout");
 
     private static final AtomicLongFieldUpdater<NioTcpServer> connectionStatusUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpServer.class, "connectionStatus");
+
+    private static final AtomicReferenceFieldUpdater<NioTcpServer, Thread> waitingThreadUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpServer.class, Thread.class, "waitingThread");
 
     NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
         this.worker = worker;
@@ -156,14 +164,22 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             final int highWater = optionMap.get(Options.CONNECTION_HIGH_WATER, CONN_MAX);
             final int lowWater = optionMap.get(Options.CONNECTION_LOW_WATER, highWater);
             if (highWater <= 0 || highWater > CONN_MAX) {
-                throw new IllegalArgumentException("High water must be greater than 0 and less than or equal to " + CONN_MAX);
+                throw badHighWater();
             }
             if (lowWater <= 0 || lowWater > highWater) {
-                throw new IllegalArgumentException("Low water must be greater than 0 and less than or equal to high water (" + highWater + ")");
+                throw badLowWater(highWater);
             }
             final long highLowWater = (long) highWater << CONN_HIGH_BIT | (long) lowWater << CONN_LOW_BIT;
             connectionStatusUpdater.set(this, highLowWater);
         }
+    }
+
+    private static IllegalArgumentException badLowWater(final int highWater) {
+        return new IllegalArgumentException("Low water must be greater than 0 and less than or equal to high water (" + highWater + ")");
+    }
+
+    private static IllegalArgumentException badHighWater() {
+        return new IllegalArgumentException("High water must be greater than 0 and less than or equal to " + CONN_MAX);
     }
 
     public void close() throws IOException {
@@ -198,6 +214,10 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             return option.cast(Integer.valueOf(readTimeout));
         } else if (option == Options.WRITE_TIMEOUT) {
             return option.cast(Integer.valueOf(writeTimeout));
+        } else if (option == Options.CONNECTION_HIGH_WATER) {
+            return option.cast(Integer.valueOf(getHighWater(connectionStatus)));
+        } else if (option == Options.CONNECTION_LOW_WATER) {
+            return option.cast(Integer.valueOf(getLowWater(connectionStatus)));
         } else {
             return null;
         }
@@ -228,10 +248,88 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
             old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value).intValue()));
         } else if (option == Options.WRITE_TIMEOUT) {
             old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value).intValue()));
+        } else if (option == Options.CONNECTION_HIGH_WATER) {
+            old = Integer.valueOf(getHighWater(updateWaterMark(-1, Options.CONNECTION_LOW_WATER.cast(value).intValue())));
+        } else if (option == Options.CONNECTION_LOW_WATER) {
+            old = Integer.valueOf(getLowWater(updateWaterMark(Options.CONNECTION_LOW_WATER.cast(value).intValue(), -1)));
         } else {
             return null;
         }
         return option.cast(old);
+    }
+
+    private long updateWaterMark(int reqNewLowWater, int reqNewHighWater) {
+        // at least one must be specified
+        assert reqNewLowWater != -1 || reqNewHighWater != -1;
+        // if both given, low must be less than high
+        assert reqNewLowWater == -1 || reqNewHighWater == -1 || reqNewLowWater <= reqNewHighWater;
+        long oldVal, newVal;
+        int oldHighWater, oldLowWater, connCount;
+        int newLowWater, newHighWater;
+        do {
+            oldVal = connectionStatus;
+            oldLowWater = getLowWater(oldVal);
+            oldHighWater = getHighWater(oldVal);
+            connCount = getCount(oldVal);
+            newLowWater = reqNewLowWater == -1 ? oldLowWater : reqNewLowWater;
+            newHighWater = reqNewHighWater == -1 ? oldHighWater : reqNewHighWater;
+            // Make sure the new values make sense
+            if (reqNewLowWater != -1 && newLowWater > newHighWater) {
+                newHighWater = newLowWater;
+            } else if (reqNewHighWater != -1 && newHighWater < newLowWater) {
+                newLowWater = newHighWater;
+            }
+            // See if the change would be redundant
+            if (oldLowWater == newLowWater && oldHighWater == newHighWater) {
+                return oldVal;
+            }
+            newVal = withLowWater(withHighWater(oldVal, newHighWater), newLowWater);
+            // determine if we need to suspend because the high water line dropped below count
+            //    ...or if we need to resume because the low water line rose above count
+            if (allAreClear(oldVal, CONN_FULL) && oldHighWater > connCount && newHighWater < connCount) {
+                newVal |= CONN_FULL | CONN_SUSPENDING;
+            } else if (allAreSet(oldVal, CONN_FULL) && oldLowWater < connCount && newLowWater > connCount) {
+                newVal &= CONN_FULL;
+                newVal |= CONN_SUSPENDING;
+            }
+        } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(oldVal, CONN_FULL) && allAreClear(newVal, CONN_FULL)) {
+            final Thread thread = waitingThreadUpdater.getAndSet(this, null);
+            if (thread != null) {
+                unpark(thread);
+            }
+        }
+        if (allAreClear(oldVal, CONN_SUSPENDING) && allAreSet(newVal, CONN_SUSPENDING)) {
+            // we have work to do...
+            if (allAreSet(newVal, CONN_FULL)) {
+                doResume(0);
+                synchronizeConnectionState(newVal, true);
+            } else {
+                doResume(SelectionKey.OP_ACCEPT);
+                synchronizeConnectionState(newVal, false);
+            }
+        }
+        return newVal;
+    }
+
+    private static int getHighWater(final long value) {
+        return (int) (value & CONN_HIGH_MASK >> CONN_HIGH_BIT);
+    }
+
+    private static int getLowWater(final long value) {
+        return (int) (value & CONN_LOW_MASK >> CONN_LOW_BIT);
+    }
+
+    private static int getCount(final long value) {
+        return (int) (value & CONN_COUNT_MASK >> CONN_COUNT_BIT);
+    }
+
+    private static long withHighWater(final long oldValue, final int highWater) {
+        return oldValue & ~CONN_HIGH_MASK | (long)highWater << CONN_HIGH_BIT;
+    }
+
+    private static long withLowWater(final long oldValue, final int lowWater) {
+        return oldValue & ~CONN_LOW_MASK | (long)lowWater << CONN_LOW_BIT;
     }
 
     public NioTcpChannel accept() throws IOException {
@@ -246,7 +344,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
                 return null;
             }
             newVal = oldVal + CONN_COUNT_ONE;
-            if ((newVal & CONN_COUNT_MASK) >> CONN_COUNT_BIT == (newVal & CONN_HIGH_MASK) >> CONN_HIGH_BIT) {
+            if (getCount(newVal) > getHighWater(newVal)) {
                 newVal |= CONN_SUSPENDING | CONN_FULL;
             }
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
@@ -288,17 +386,22 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
                 doResume(0);
             }
             // now attempt to synchronize the connection state with the new suspend state
-            newVal = oldVal & ~CONN_SUSPENDING;
-            while (!connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
-                oldVal = connectionStatus;
-                // it's up to whoever increments or decrements connectionStatus to set or clear CONN_FULL
-                if ((allAreClear(oldVal, CONN_FULL) && allAreSet(oldVal, CONN_RESUMED)) != doSuspend) {
-                    doResume((doSuspend = !doSuspend) ? 0 : SelectionKey.OP_ACCEPT);
-                }
-                newVal = oldVal & ~CONN_SUSPENDING;
-            }
+            synchronizeConnectionState(oldVal, doSuspend);
         }
         return newChannel;
+    }
+
+    private void synchronizeConnectionState(long oldVal, boolean suspended) {
+        long newVal;
+        newVal = oldVal & ~CONN_SUSPENDING;
+        while (!connectionStatusUpdater.compareAndSet(this, oldVal, newVal)) {
+            oldVal = connectionStatus;
+            // it's up to whoever increments or decrements connectionStatus to set or clear CONN_FULL
+            if ((allAreClear(oldVal, CONN_FULL) && allAreSet(oldVal, CONN_RESUMED)) != suspended) {
+                doResume((suspended = !suspended) ? 0 : SelectionKey.OP_ACCEPT);
+            }
+            newVal = oldVal & ~CONN_SUSPENDING;
+        }
     }
 
     private void undoAccept(long newVal, final boolean wasSuspended, boolean doSuspend) {
@@ -320,6 +423,12 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
                 doResume((doSuspend = ! doSuspend) ? 0 : SelectionKey.OP_ACCEPT);
             }
         }
+        if (allAreSet(oldVal, CONN_FULL) && allAreClear(newVal, CONN_FULL)) {
+            final Thread thread = waitingThreadUpdater.getAndSet(this, null);
+            if (thread != null) {
+                unpark(thread);
+            }
+        }
     }
 
     void channelClosed() {
@@ -335,6 +444,12 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
                 }
             }
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(oldVal, CONN_FULL) && allAreClear(newVal, CONN_FULL)) {
+            final Thread thread = waitingThreadUpdater.getAndSet(this, null);
+            if (thread != null) {
+                unpark(thread);
+            }
+        }
         if (allAreSet(oldVal, CONN_SUSPENDING) || allAreClear(newVal, CONN_SUSPENDING)) {
             // done - we either didn't change the full setting, or we did but someone already has the suspending status,
             // or the user doesn't want to resume anyway, so we don't need to do anything about it
@@ -448,11 +563,73 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     }
 
     public void awaitAcceptable() throws IOException {
-        SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT);
+        // We need to park if there are no new accepts pending.  Else we need to wait properly.
+        final Thread thread = Thread.currentThread();
+        long val = connectionStatus;
+        for (;;) {
+            while (allAreSet(val, CONN_FULL)) {
+                final Thread nextThread = waitingThreadUpdater.getAndSet(this, thread);
+                try {
+                    // if it's still set after we've registered...
+                    if (allAreSet(connectionStatus, CONN_FULL)) {
+                        park(this);
+                    }
+                } finally {
+                    if (nextThread != null) {
+                        unpark(nextThread);
+                    }
+                }
+                if (thread.isInterrupted()) {
+                    throw new InterruptedIOException();
+                }
+                val = connectionStatus;
+            }
+            SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT);
+            if (allAreClear(val = connectionStatus, CONN_FULL)) {
+                return;
+            }
+        }
     }
 
     public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
-        SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT, time, timeUnit);
+        long then = System.nanoTime();
+        long now;
+        long duration = timeUnit.toNanos(time);
+        final Thread thread = Thread.currentThread();
+        long val = connectionStatus;
+        for (;;) {
+            while (allAreSet(val, CONN_FULL)) {
+                final Thread nextThread = waitingThreadUpdater.getAndSet(this, thread);
+                try {
+                    // if it's still set after we've registered...
+                    if (allAreSet(connectionStatus, CONN_FULL)) {
+                        parkNanos(this, duration);
+                    }
+                } finally {
+                    if (nextThread != null) {
+                        unpark(nextThread);
+                    }
+                }
+                if (thread.isInterrupted()) {
+                    throw new InterruptedIOException();
+                }
+                val = connectionStatus;
+                duration -= (now = System.nanoTime()) - then;
+                then = now;
+                if (duration <= 0L) {
+                    return;
+                }
+            }
+            SelectorUtils.await(worker.getXnio(), channel, SelectionKey.OP_ACCEPT, duration, TimeUnit.NANOSECONDS);
+            if (allAreClear(val = connectionStatus, CONN_FULL)) {
+                return;
+            }
+            duration -= (now = System.nanoTime()) - then;
+            then = now;
+            if (duration <= 0L) {
+                return;
+            }
+        }
     }
 
     public XnioWorker getWorker() {
