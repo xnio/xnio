@@ -100,8 +100,7 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     XnioExecutor getWriteThread();
 
     /**
-     * Get the setter which can be used to change the write listener for this channel.  When the listener is called,
-     * additional notifications are automatically suspended.
+     * Get the setter which can be used to change the write listener for this channel.
      *
      * @return the setter
      *

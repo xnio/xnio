@@ -97,8 +97,7 @@ public interface SuspendableReadChannel extends CloseableChannel {
     XnioExecutor getReadThread();
 
     /**
-     * Get the setter which can be used to change the read listener for this channel.  When the listener is called,
-     * additional notifications are automatically suspended.
+     * Get the setter which can be used to change the read listener for this channel.
      *
      * @return the setter
      *

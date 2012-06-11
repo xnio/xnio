@@ -72,8 +72,7 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     void awaitAcceptable(long time, TimeUnit timeUnit) throws IOException;
 
     /**
-     * Get the setter which can be used to change the accept listener for this channel.  When the listener is called,
-     * additional notifications are automatically suspended.
+     * Get the setter which can be used to change the accept listener for this channel.
      *
      * @return the setter
      */
