@@ -30,7 +30,9 @@ import java.io.IOException;
 import org.xnio.ChannelListener;
 
 /**
- * A stream source channel.  This type of channel is a readable source for bytes.
+ * A stream source channel.  This type of channel is a readable source for bytes.  While all channel types are
+  * thread-safe, reading a stream from more than one thread concurrently will cause data corruption and may be
+  * disallowed at the option of the implementation.
  */
 public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByteChannel, SuspendableReadChannel {
 

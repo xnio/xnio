@@ -30,7 +30,9 @@ import java.io.IOException;
 import org.xnio.ChannelListener;
 
 /**
- * A stream sink channel.  This type of channel is a writable destination for bytes.
+ * A stream sink channel.  This type of channel is a writable destination for bytes.  While all channel types are
+ * thread-safe, writing a stream from more than one thread concurrently will cause data corruption and may be
+ * disallowed at the option of the implementation.
  */
 public interface StreamSinkChannel extends WritableByteChannel, GatheringByteChannel, SuspendableWriteChannel {
 
