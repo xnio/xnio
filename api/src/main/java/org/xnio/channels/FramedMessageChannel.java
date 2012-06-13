@@ -81,7 +81,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 return -1;
             }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
-            int res = 0;
+            int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
             do {
                 res = channel.read(receiveBuffer);
@@ -145,7 +145,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 return -1;
             }
             final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
-            int res = 0;
+            int res;
             final ConnectedStreamChannel channel = (ConnectedStreamChannel) this.channel;
             do {
                 res = channel.read(receiveBuffer);
