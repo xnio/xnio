@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+import org.xnio.BrokenPipeException;
 import org.xnio.Buffers;
 import org.xnio.Pooled;
 
@@ -160,6 +161,27 @@ public class BufferPipeOutputStream extends OutputStream {
                 flush(true);
             } finally {
                 closed = true;
+            }
+        }
+    }
+
+    /**
+     * Break the pipe and return any filling pooled buffer.  Sets the stream to an EOF condition.  Callers to this
+     * method should ensure that any threads blocked on {@link BufferWriter#accept(org.xnio.Pooled, boolean)} are
+     * unblocked, preferably with a {@link BrokenPipeException}.
+     *
+     * @return the current pooled buffer, or {@code null} if none was pending
+     */
+    public Pooled<ByteBuffer> breakPipe() {
+        synchronized (this) {
+            if (closed) {
+                return null;
+            }
+            closed = true;
+            try {
+                return buffer;
+            } finally {
+                buffer = null;
             }
         }
     }
