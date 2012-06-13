@@ -709,14 +709,14 @@ public final class ChannelListeners {
                 final I source = this.source;
                 final O sink = this.sink;
 
-                source.getReadSetter().set(sourceListener);
+                Channels.setReadListener(source, sourceListener);
                 if (sourceListener == null) {
                     source.suspendReads();
                 } else {
                     source.wakeupReads();
                 }
 
-                sink.getWriteSetter().set(sinkListener);
+                Channels.setWriteListener(sink, sinkListener);
                 if (sinkListener == null) {
                     sink.suspendWrites();
                 } else {
@@ -773,14 +773,14 @@ public final class ChannelListeners {
                 }
                 if (transferred == -1) {
                     if (count == Long.MAX_VALUE) {
-                        source.getReadSetter().set(sourceListener);
+                        Channels.setReadListener(source, sourceListener);
                         if (sourceListener == null) {
                             source.suspendReads();
                         } else {
                             source.wakeupReads();
                         }
 
-                        sink.getWriteSetter().set(sinkListener);
+                        Channels.setWriteListener(sink, sinkListener);
                         if (sinkListener == null) {
                             sink.suspendWrites();
                         } else {
