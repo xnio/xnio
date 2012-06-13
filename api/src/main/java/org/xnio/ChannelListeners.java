@@ -22,6 +22,7 @@
 
 package org.xnio;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
@@ -133,6 +134,15 @@ public final class ChannelListeners {
      */
     public static ChannelListener<Channel> nullChannelListener() {
         return NULL_LISTENER;
+    }
+
+    /**
+     * Get a channel exception handler which closes the channel upon exception.
+     *
+     * @return the channel exception handler
+     */
+    public static ChannelExceptionHandler<Channel> closingChannelExceptionHandler() {
+        return CLOSING_HANDLER;
     }
 
     /**
@@ -550,6 +560,275 @@ public final class ChannelListeners {
         };
     }
 
+    static final class TransferListener<I extends StreamSourceChannel, O extends StreamSinkChannel> implements ChannelListener<Channel> {
+        private final Pooled<ByteBuffer> pooledBuffer;
+        private final I source;
+        private final O sink;
+        private final ChannelListener<? super I> sourceListener;
+        private final ChannelListener<? super O> sinkListener;
+        private final ChannelExceptionHandler<? super O> writeExceptionHandler;
+        private final ChannelExceptionHandler<? super I> readExceptionHandler;
+        private long count;
+        private volatile int state;
+
+        TransferListener(final long count, final Pooled<ByteBuffer> pooledBuffer, final I source, final O sink, final ChannelListener<? super I> sourceListener, final ChannelListener<? super O> sinkListener, final ChannelExceptionHandler<? super O> writeExceptionHandler, final ChannelExceptionHandler<? super I> readExceptionHandler, final int state) {
+            this.count = count;
+            this.pooledBuffer = pooledBuffer;
+            this.source = source;
+            this.sink = sink;
+            this.sourceListener = sourceListener;
+            this.sinkListener = sinkListener;
+            this.writeExceptionHandler = writeExceptionHandler;
+            this.readExceptionHandler = readExceptionHandler;
+            this.state = state;
+        }
+
+        public void handleEvent(final Channel channel) {
+            final ByteBuffer buffer = pooledBuffer.getResource();
+            int state = this.state;
+            // always read after and write before state
+            long count = this.count;
+            long lres;
+            int ires;
+
+            switch (state) {
+                case 0: {
+                    // read listener
+                    for (;;) {
+                        try {
+                            lres = source.transferTo(count, buffer, sink);
+                        } catch (IOException e) {
+                            readFailed(e);
+                            return;
+                        }
+                        if (lres == 0) {
+                            this.count = count;
+                            return;
+                        }
+                        if (lres == -1) {
+                            // possibly unexpected EOF
+                            if (count == Long.MAX_VALUE) {
+                                // it's OK; just be done
+                                done();
+                                return;
+                            } else {
+                                readFailed(new EOFException());
+                                return;
+                            }
+                        }
+                        if (count != Long.MAX_VALUE) {
+                            count -= lres;
+                        }
+                        while (buffer.hasRemaining()) {
+                            try {
+                                ires = sink.write(buffer);
+                            } catch (IOException e) {
+                                writeFailed(e);
+                                return;
+                            }
+                            if (ires == 0) {
+                                this.count = count;
+                                this.state = 1;
+                                source.suspendReads();
+                                sink.resumeWrites();
+                                return;
+                            }
+                        }
+                    }
+                }
+                case 1: {
+                    // write listener
+                    for (;;) {
+                        while (buffer.hasRemaining()) {
+                            try {
+                                ires = sink.write(buffer);
+                            } catch (IOException e) {
+                                writeFailed(e);
+                                return;
+                            }
+                            if (ires == 0) {
+                                return;
+                            }
+                        }
+                        try {
+                            lres = source.transferTo(count, buffer, sink);
+                        } catch (IOException e) {
+                            readFailed(e);
+                            return;
+                        }
+                        if (lres == 0) {
+                            this.count = count;
+                            this.state = 0;
+                            sink.suspendWrites();
+                            source.resumeReads();
+                            return;
+                        }
+                        if (lres == -1) {
+                            // possibly unexpected EOF
+                            if (count == Long.MAX_VALUE) {
+                                // it's OK; just be done
+                                done();
+                                return;
+                            } else {
+                                readFailed(new EOFException());
+                                return;
+                            }
+                        }
+                        if (count != Long.MAX_VALUE) {
+                            count -= lres;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void writeFailed(final IOException e) {
+            try {
+                source.suspendReads();
+                sink.suspendWrites();
+                writeExceptionHandler.handleException(sink, e);
+            } finally {
+                pooledBuffer.free();
+            }
+        }
+
+        private void readFailed(final IOException e) {
+            try {
+                source.suspendReads();
+                sink.suspendWrites();
+                readExceptionHandler.handleException(source, e);
+            } finally {
+                pooledBuffer.free();
+            }
+        }
+
+        private void done() {
+            try {
+                final ChannelListener<? super I> sourceListener = this.sourceListener;
+                final ChannelListener<? super O> sinkListener = this.sinkListener;
+                final I source = this.source;
+                final O sink = this.sink;
+
+                source.getReadSetter().set(sourceListener);
+                if (sourceListener == null) {
+                    source.suspendReads();
+                } else {
+                    source.wakeupReads();
+                }
+
+                sink.getWriteSetter().set(sinkListener);
+                if (sinkListener == null) {
+                    sink.suspendWrites();
+                } else {
+                    sink.wakeupWrites();
+                }
+            } finally {
+                pooledBuffer.free();
+            }
+        }
+    }
+
+    /**
+     * Initiate a low-copy transfer between two stream channels.  The pool should be a direct buffer pool for best
+     * performance.  The channels will be closed when the transfer completes or if there is an error.
+     *
+     * @param source the source channel
+     * @param sink the target channel
+     * @param pool the pool from which the transfer buffer should be allocated
+     * @param <I> the source stream type
+     * @param <O> the sink stream type
+     */
+    public static <I extends StreamSourceChannel, O extends StreamSinkChannel> void initiateTransfer(final I source, final O sink, Pool<ByteBuffer> pool) {
+        initiateTransfer(Long.MAX_VALUE, source, sink, CLOSING_CHANNEL_LISTENER, CLOSING_CHANNEL_LISTENER, CLOSING_HANDLER, CLOSING_HANDLER, pool);
+    }
+
+    /**
+     * Initiate a low-copy transfer between two stream channels.  The pool should be a direct buffer pool for best
+     * performance.
+     *
+     * @param count the number of bytes to transfer, or {@link Long#MAX_VALUE} to transfer all remaining bytes
+     * @param source the source channel
+     * @param sink the target channel
+     * @param sourceListener the source listener to set and call when the transfer is complete, or {@code null} to clear the listener at that time
+     * @param sinkListener the target listener to set and call when the transfer is complete, or {@code null} to clear the listener at that time
+     * @param readExceptionHandler the read exception handler to call if an error occurs during a read operation
+     * @param writeExceptionHandler the write exception handler to call if an error occurs during a write operation
+     * @param pool the pool from which the transfer buffer should be allocated
+     */
+    public static <I extends StreamSourceChannel, O extends StreamSinkChannel> void initiateTransfer(long count, final I source, final O sink, final ChannelListener<? super I> sourceListener, final ChannelListener<? super O> sinkListener, final ChannelExceptionHandler<? super I> readExceptionHandler, final ChannelExceptionHandler<? super O> writeExceptionHandler, Pool<ByteBuffer> pool) {
+        if (pool == null) {
+            throw new IllegalArgumentException("pool is null");
+        }
+        final Pooled<ByteBuffer> allocated = pool.allocate();
+        boolean free = true;
+        try {
+            final ByteBuffer buffer = allocated.getResource();
+            long transferred;
+            do {
+                try {
+                    transferred = source.transferTo(count, buffer, sink);
+                } catch (IOException e) {
+                    readExceptionHandler.handleException(source, e);
+                    return;
+                }
+                if (transferred == -1) {
+                    if (count == Long.MAX_VALUE) {
+                        source.getReadSetter().set(sourceListener);
+                        if (sourceListener == null) {
+                            source.suspendReads();
+                        } else {
+                            source.wakeupReads();
+                        }
+
+                        sink.getWriteSetter().set(sinkListener);
+                        if (sinkListener == null) {
+                            sink.suspendWrites();
+                        } else {
+                            sink.wakeupWrites();
+                        }
+                    } else {
+                        source.suspendReads();
+                        sink.suspendWrites();
+                        readExceptionHandler.handleException(source, new EOFException());
+                    }
+                    return;
+                }
+                if (count != Long.MAX_VALUE) {
+                    count -= transferred;
+                }
+                while (buffer.hasRemaining()) {
+                    final int res;
+                    try {
+                        res = sink.write(buffer);
+                    } catch (IOException e) {
+                        writeExceptionHandler.handleException(sink, e);
+                        return;
+                    }
+                    if (res == 0) {
+                        // write first listener
+                        final TransferListener<I, O> listener = new TransferListener<I, O>(count, allocated, source, sink, sourceListener, sinkListener, writeExceptionHandler, readExceptionHandler, 1);
+                        source.suspendReads();
+                        source.getReadSetter().set(listener);
+                        sink.getWriteSetter().set(listener);
+                        sink.resumeWrites();
+                        free = false;
+                        return;
+                    }
+                }
+            } while (transferred > 0L);
+            // read first listener
+            final TransferListener<I, O> listener = new TransferListener<I, O>(count, allocated, source, sink, sourceListener, sinkListener, writeExceptionHandler, readExceptionHandler, 0);
+            sink.suspendWrites();
+            sink.getWriteSetter().set(listener);
+            source.getReadSetter().set(listener);
+            source.resumeReads();
+            free = false;
+            return;
+        } finally {
+            if (free) allocated.free();
+        }
+    }
+
     private static class DelegatingSetter<T extends Channel, O extends Channel> implements ChannelListener.Setter<T> {
         private final ChannelListener.Setter<O> setter;
         private final T realChannel;
@@ -578,4 +857,10 @@ public final class ChannelListeners {
             channelListener.handleEvent(realChannel);
         }
     }
+
+    private static final ChannelExceptionHandler<Channel> CLOSING_HANDLER = new ChannelExceptionHandler<Channel>() {
+        public void handleException(final Channel channel, final IOException exception) {
+            IoUtils.safeClose(channel);
+        }
+    };
 }
