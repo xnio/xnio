@@ -22,12 +22,10 @@
 
 package org.xnio.channels;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOError;
 import java.io.InterruptedIOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
 import java.security.AccessController;
@@ -787,9 +785,9 @@ public final class Channels {
                 final String osName = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
                 try {
                     if (osName.contains("windows")) {
-                        return new RandomAccessFile("NUL:", "rw").getChannel();
+                        return new FileOutputStream("NUL:").getChannel();
                     } else {
-                        return new RandomAccessFile("/dev/null", "rw").getChannel();
+                        return new FileOutputStream("/dev/null").getChannel();
                     }
                 } catch (FileNotFoundException e) {
                     throw new IOError(e);
