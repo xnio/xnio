@@ -22,9 +22,17 @@
 
 package org.xnio.channels;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOError;
 import java.io.InterruptedIOException;
+import java.io.RandomAccessFile;
 import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Locale;
 import org.xnio.Buffers;
 
 import java.io.IOException;
@@ -741,5 +749,52 @@ public final class Channels {
                 return null;
             }
         }
+    }
+
+    private static final FileChannel NULL_FILE_CHANNEL;
+
+    /**
+     * Attempt to drain the given number of bytes from the stream source channel.
+     *
+     * @param channel the channel to drain
+     * @param count the number of bytes
+     * @return the number of bytes drained, or 0 if reading the channel would block
+     * @throws IOException if an error occurs
+     */
+    public static long drain(StreamSourceChannel channel, long count) throws IOException {
+        return channel.transferTo(0, count, NULL_FILE_CHANNEL);
+    }
+
+    /**
+     * Attempt to drain the given number of bytes from the readable byte channel.
+     *
+     * @param channel the channel to drain
+     * @param count the number of bytes
+     * @return the number of bytes drained, or 0 if reading the channel would block
+     * @throws IOException if an error occurs
+     */
+    public static long drain(ReadableByteChannel channel, long count) throws IOException {
+        if (channel instanceof StreamSourceChannel) {
+            return drain((StreamSourceChannel) channel, count);
+        } else {
+            return NULL_FILE_CHANNEL.transferFrom(channel, 0, count);
+        }
+    }
+
+    static {
+        NULL_FILE_CHANNEL = AccessController.doPrivileged(new PrivilegedAction<FileChannel>() {
+            public FileChannel run() {
+                final String osName = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
+                try {
+                    if (osName.contains("windows")) {
+                        return new RandomAccessFile("NUL:", "rw").getChannel();
+                    } else {
+                        return new RandomAccessFile("/dev/null", "rw").getChannel();
+                    }
+                } catch (FileNotFoundException e) {
+                    throw new IOError(e);
+                }
+            }
+        });
     }
 }
