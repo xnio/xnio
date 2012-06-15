@@ -135,4 +135,7 @@ public class XnioWorkerMock extends XnioWorker {
         return false;
     }
 
+    @Override
+    public void awaitTermination() throws InterruptedException {
+    }
 }

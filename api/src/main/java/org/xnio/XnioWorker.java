@@ -564,15 +564,54 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //
     //==================================================
 
+    /**
+     * Shut down this worker.  This method returns immediately.  Upon return worker shutdown will have
+     * commenced but not necessarily completed.  When worker shutdown is complete, the termination task (if one was
+     * defined) will be executed.
+     */
     public abstract void shutdown();
 
+    /**
+     * Immediately terminate the worker.  Any outstanding tasks are collected and returned in a list.  Upon return
+     * worker shutdown will have commenced but not necessarily completed; however the worker will only complete its
+     * current tasks instead of completing all tasks.
+     *
+     * @return the list of outstanding tasks
+     */
     public abstract List<Runnable> shutdownNow();
 
+    /**
+     * Determine whether the worker has been shut down.  Will return {@code true} once either shutdown method has
+     * been called.
+     *
+     * @return {@code true} the worker has been shut down
+     */
     public abstract boolean isShutdown();
 
+    /**
+     * Determine whether the worker has terminated.  Will return {@code true} once all worker threads are exited
+     * (with the possible exception of the thread running the termination task, if any).
+     *
+     * @return {@code true} if the worker is terminated
+     */
     public abstract boolean isTerminated();
 
+    /**
+     * Wait for termination.
+     *
+     * @param timeout the amount of time to wait
+     * @param unit the unit of time
+     * @return {@code true} if termination completed before the timeout expired
+     * @throws InterruptedException if the operation was interrupted
+     */
     public abstract boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException;
+
+    /**
+     * Wait for termination.
+     *
+     * @throws InterruptedException if the operation was interrupted
+     */
+    public abstract void awaitTermination() throws InterruptedException;
 
     //==================================================
     //

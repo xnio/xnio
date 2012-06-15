@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.LockSupport;
+import org.xnio.Bits;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -80,12 +81,11 @@ final class NioXnioWorker extends XnioWorker {
     private final WorkerThread[] readWorkers;
     private final WorkerThread[] writeWorkers;
 
-    private volatile Thread[] shutdownWaiters = NONE;
+    @SuppressWarnings("unused")
+    private volatile Thread shutdownWaiter;
 
-    private static final Thread[] NONE = new Thread[0];
-    private static final Thread[] SHUTDOWN_COMPLETE = new Thread[0];
+    private static final AtomicReferenceFieldUpdater<NioXnioWorker, Thread> shutdownWaiterUpdater = AtomicReferenceFieldUpdater.newUpdater(NioXnioWorker.class, Thread.class, "shutdownWaiter");
 
-    private static final AtomicReferenceFieldUpdater<NioXnioWorker, Thread[]> shutdownWaitersUpdater = AtomicReferenceFieldUpdater.newUpdater(NioXnioWorker.class, Thread[].class, "shutdownWaiters");
     private static final AtomicIntegerFieldUpdater<NioXnioWorker> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnioWorker.class, "state");
 
     NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException {
@@ -576,10 +576,8 @@ final class NioXnioWorker extends XnioWorker {
         while (oldState == CLOSE_REQ) {
             if (stateUpdater.compareAndSet(this, CLOSE_REQ, CLOSE_REQ | CLOSE_COMP)) {
                 log.tracef("CAS %s %08x -> %08x (close complete)", this, Integer.valueOf(CLOSE_REQ), Integer.valueOf(CLOSE_REQ | CLOSE_COMP));
-                final Thread[] waiters = shutdownWaitersUpdater.getAndSet(this, SHUTDOWN_COMPLETE);
-                for (Thread waiter : waiters) {
-                    LockSupport.unpark(waiter);
-                }
+                final Thread waiter = shutdownWaiterUpdater.getAndSet(this, null);
+                if (waiter != null) LockSupport.unpark(waiter);
                 final Runnable task = getTerminationTask();
                 if (task != null) try {
                     task.run();
@@ -621,35 +619,56 @@ final class NioXnioWorker extends XnioWorker {
 
     public boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException {
         int oldState = state;
-        if ((oldState & CLOSE_COMP) != 0) {
+        if (Bits.allAreSet(oldState, CLOSE_COMP)) {
             return true;
         }
-        long start = System.nanoTime();
-        long elapsed = 0L;
-        Thread[] waiters, newWaiters;
-        OUT: do {
-            waiters = shutdownWaiters;
-            if (waiters == SHUTDOWN_COMPLETE) {
-                return true;
-            }
-            final Thread myThread = Thread.currentThread();
-            for (Thread waiter : waiters) {
-                if (waiter == myThread) {
-                    break OUT;
+        long then = System.nanoTime();
+        long duration = unit.toNanos(timeout);
+        final Thread myThread = Thread.currentThread();
+        final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
+        boolean completed = false;
+        try {
+            while (Bits.allAreClear(oldState = state, CLOSE_COMP)) {
+                LockSupport.parkNanos(this, duration);
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
+                long now = System.nanoTime();
+                duration -= now - then;
+                if (duration < 0L) {
+                    oldState = state;
+                    break;
                 }
             }
-            newWaiters = Arrays.copyOf(waiters, waiters.length + 1);
-            newWaiters[waiters.length] = myThread;
-        } while (! shutdownWaitersUpdater.compareAndSet(this, waiters, newWaiters));
-        final long nanos = unit.toNanos(timeout);
-        while (((oldState = state) & CLOSE_COMP) == 0) {
-            LockSupport.parkNanos(this, nanos - elapsed);
-            elapsed = System.nanoTime() - start;
-            if (elapsed > nanos) {
-                return false;
+            return completed = Bits.allAreSet(oldState, CLOSE_COMP);
+        } finally {
+            if (oldThread != null && (completed || ! shutdownWaiterUpdater.compareAndSet(this, myThread, oldThread))) {
+                LockSupport.unpark(oldThread);
             }
         }
-        return true;
+    }
+
+    public void awaitTermination() throws InterruptedException {
+        int oldState = state;
+        if (Bits.allAreSet(oldState, CLOSE_COMP)) {
+            return;
+        }
+        final Thread myThread = Thread.currentThread();
+        final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
+        boolean completed = false;
+        try {
+            while (Bits.allAreClear(state, CLOSE_COMP)) {
+                LockSupport.park(this);
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
+            }
+            completed = true;
+        } finally {
+            if (oldThread != null && (completed || ! shutdownWaiterUpdater.compareAndSet(this, myThread, oldThread))) {
+                LockSupport.unpark(oldThread);
+            }
+        }
     }
 
     protected void taskPoolTerminated() {
