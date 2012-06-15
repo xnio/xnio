@@ -344,9 +344,11 @@ public final class Buffers {
      * @return the number of bytes put into the destination buffer
      */
     public static int copy(int count, final ByteBuffer destination, final ByteBuffer source) {
-        final int cnt = Math.min(Math.min(count, source.remaining()), destination.remaining());
-        destination.put(slice(source, cnt));
-        return cnt;
+        int cnt = count >= 0? Math.min(Math.min(count, source.remaining()), destination.remaining()):
+            Math.max(Math.max(count, - source.remaining()), - destination.remaining());
+        final ByteBuffer copy = slice(source, cnt);
+        destination.put(copy);
+        return copy.position(); // cnt could be negative, so it is safer to return copy.position() instead of cnt
     }
 
     /**
@@ -362,11 +364,16 @@ public final class Buffers {
     public static int copy(int count, final ByteBuffer[] destinations, final int offset, final int length, final ByteBuffer source) {
         if (source.remaining() > count) {
             final int oldLimit = source.limit();
-            try {
-                source.limit(source.position() + count);
-                return copy(destinations, offset, length, source);
-            } finally {
-                source.limit(oldLimit);
+            if (count < 0) {
+                // count from end (count is NEGATIVE)
+                throw new UnsupportedOperationException("Copy with negative count is not supported");
+            } else {
+                try {
+                    source.limit(source.position() + count);
+                    return copy(destinations, offset, length, source);
+                } finally {
+                    source.limit(oldLimit);
+                }
             }
         } else {
             return copy(destinations, offset, length, source);
@@ -385,12 +392,17 @@ public final class Buffers {
      */
     public static int copy(int count, final ByteBuffer destination, final ByteBuffer[] sources, final int offset, final int length) {
         if (destination.remaining() > count) {
-            final int oldLimit = destination.limit();
-            try {
-                destination.limit(destination.position() + count);
-                return copy(sources, offset, length, destination);
-            } finally {
-                destination.limit(oldLimit);
+            if (count < 0) {
+                // count from end (count is NEGATIVE)
+                throw new UnsupportedOperationException("Copy with negative count is not supported");
+            } else {
+                final int oldLimit = destination.limit();
+                try {
+                    destination.limit(destination.position() + count);
+                    return copy(sources, offset, length, destination);
+                } finally {
+                    destination.limit(oldLimit);
+                }
             }
         } else {
             return copy(sources, offset, length, destination);
@@ -412,7 +424,11 @@ public final class Buffers {
     public static long copy(long count, final ByteBuffer[] destinations, final int destOffset, final int destLength, final ByteBuffer[] sources, final int srcOffset, final int srcLength) {
         long t = 0L;
         int s = 0, d = 0;
-        if (destLength == 0 || srcLength == 0 || count <= 0L) {
+        if (count < 0) {
+            // count from end (count is NEGATIVE)
+            throw new UnsupportedOperationException("Copy with negative count is not supported");
+        }
+        if (destLength == 0 || srcLength == 0 || count == 0L) {
             return 0L;
         }
         ByteBuffer source = sources[srcOffset];
