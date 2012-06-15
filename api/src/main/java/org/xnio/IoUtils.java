@@ -617,6 +617,14 @@ public final class IoUtils {
             tryOne(attachment);
         }
 
+        public void handleCancelled(final Result<T> attachment) {
+            result.setCancelled();
+        }
+
+        public void handleDone(final T data, final Result<T> attachment) {
+            result.setResult(data);
+        }
+
         void tryOne(final Result<T> attachment) {
             final IoFuture<? extends T> ioFuture = delegate.open(openListener);
             ioFuture.addNotifier(this, attachment);
