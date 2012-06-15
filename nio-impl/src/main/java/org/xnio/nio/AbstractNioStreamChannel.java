@@ -262,24 +262,13 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
-        long res;
-        try {
-            res = getReadChannel().read(dsts);
-        } catch (ClosedChannelException e) {
-            return -1L;
-        }
-        if (res > 0L) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
-        return res;
+        return read(dsts, 0, dsts.length);
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        if (length == 1) {
+            return read(dsts[offset]);
+        }
         long res;
         try {
             res = getReadChannel().read(dsts, offset, length);
@@ -313,19 +302,13 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     }
 
     public long write(final ByteBuffer[] srcs) throws IOException {
-        long res = getWriteChannel().write(srcs);
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
-        return res;
+        return write(srcs, 0, srcs.length);
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        if (length == 1) {
+            return write(srcs[offset]);
+        }
         long res = getWriteChannel().write(srcs, offset, length);
         if (res > 0L) {
             lastWrite = System.nanoTime();
