@@ -198,7 +198,7 @@ public final class Buffers {
         if (sliceSize < 0) {
             // count from end (sliceSize is NEGATIVE)
             final ByteBuffer target = allocator.allocate(-sliceSize);
-            buffer.limit(oldLim + sliceSize);
+            buffer.position(oldLim + sliceSize);
             try {
                 target.put(buffer);
                 return target;
