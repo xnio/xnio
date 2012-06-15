@@ -1765,9 +1765,10 @@ public final class Buffers {
         for (;;) {
             final CoderResult coderResult = decoder.decode(src, oneChar, false);
             if (coderResult.isUnderflow()) {
-                return false;
-            }
-            if (oneChar.hasRemaining()) {
+                if (oneChar.hasRemaining()) {
+                    return false;
+                }
+            } else if (oneChar.hasRemaining()) {
                 throw new IllegalStateException();
             }
             final char ch = oneChar.get(0);
