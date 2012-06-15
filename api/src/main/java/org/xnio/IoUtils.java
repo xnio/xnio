@@ -485,6 +485,7 @@ public final class IoUtils {
             if (res == 0) {
                 return total;
             }
+            total += res;
             throughBuffer.compact();
         }
         return total;
