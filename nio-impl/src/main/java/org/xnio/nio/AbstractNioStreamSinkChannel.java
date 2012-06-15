@@ -69,7 +69,6 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
     }
 
     void start() throws ClosedChannelException {
-        final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
         writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
         lastWrite = System.nanoTime();
