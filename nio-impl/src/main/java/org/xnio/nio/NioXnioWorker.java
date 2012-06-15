@@ -60,6 +60,8 @@ import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.ChannelListener.SimpleSetter;
@@ -491,38 +493,17 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    public void createPipe(final ChannelListener<? super StreamChannel> leftOpenListener, final ChannelListener<? super StreamChannel> rightOpenListener, final OptionMap optionMap) throws IOException {
+    public org.xnio.Pipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
         boolean ok = false;
         final Pipe in = Pipe.open();
         try {
             final Pipe out = Pipe.open();
             try {
-                final NioPipeChannel outbound = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
-                try {
-                    final NioPipeChannel inbound = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
-                    try {
-                        final boolean establishWriting = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
-                        XnioExecutor outboundExec = establishWriting ? outbound.getWriteThread() : outbound.getReadThread();
-                        XnioExecutor inboundExec = establishWriting ? inbound.getWriteThread() : inbound.getReadThread();
-                        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
-                        //noinspection unchecked
-                        outboundExec.execute(ChannelListeners.getChannelListenerTask(outbound, leftOpenListener));
-                        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
-                        //noinspection unchecked
-                        inboundExec.execute(ChannelListeners.getChannelListenerTask(inbound, rightOpenListener));
-                        ok = true;
-                    } catch (RejectedExecutionException e) {
-                        throw new IOException("Failed to execute open task(s)", e);
-                    } finally {
-                        if (! ok) {
-                            safeClose(inbound);
-                        }
-                    }
-                } finally {
-                    if (! ok) {
-                        safeClose(outbound);
-                    }
-                }
+                final NioPipeChannel left = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
+                final NioPipeChannel right = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
+                final org.xnio.Pipe<StreamChannel, StreamChannel> result = new org.xnio.Pipe<StreamChannel, StreamChannel>(left, right);
+                ok = true;
+                return result;
             } finally {
                 if (! ok) {
                     safeClose(out.sink());
@@ -533,6 +514,21 @@ final class NioXnioWorker extends XnioWorker {
             if (! ok) {
                 safeClose(in.sink());
                 safeClose(in.source());
+            }
+        }
+    }
+
+    public org.xnio.Pipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
+        final Pipe pipe = Pipe.open();
+        boolean ok = false;
+        try {
+            final org.xnio.Pipe<StreamSourceChannel,StreamSinkChannel> result = new org.xnio.Pipe<StreamSourceChannel, StreamSinkChannel>(new NioPipeSourceChannel(this, pipe.source()), new NioPipeSinkChannel(this, pipe.sink()));
+            ok = true;
+            return result;
+        } finally {
+            if (! ok) {
+                safeClose(pipe.sink());
+                safeClose(pipe.source());
             }
         }
     }

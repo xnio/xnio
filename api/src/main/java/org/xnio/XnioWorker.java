@@ -46,7 +46,6 @@ import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
-import org.xnio.channels.UnsupportedOptionException;
 
 /**
  * A worker for I/O channel notification.
@@ -305,7 +304,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the future connection
      */
     protected IoFuture<ConnectedStreamChannel> acceptLocalStream(LocalSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOptionException("Accept a local stream connection");
+        throw new UnsupportedOperationException("Accept a local stream connection");
     }
 
     /**
@@ -320,7 +319,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     @SuppressWarnings({ "unused" })
     protected IoFuture<ConnectedStreamChannel> acceptTcpStream(InetSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOptionException("Accept a TCP connection");
+        throw new UnsupportedOperationException("Accept a TCP connection");
     }
 
     //==================================================
@@ -443,7 +442,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the future connection
      */
     protected IoFuture<ConnectedMessageChannel> acceptLocalDatagram(LocalSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOptionException("Accept a local message connection");
+        throw new UnsupportedOperationException("Accept a local message connection");
     }
 
     //==================================================
@@ -498,9 +497,22 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param rightOpenListener the right-hand open listener
      * @param optionMap the pipe channel configuration
      * @throws IOException if the pipe could not be created
+     * @deprecated Users should prefer the simpler {@link #createFullDuplexPipe()} instead.
      */
+    @Deprecated
     public void createPipe(ChannelListener<? super StreamChannel> leftOpenListener, ChannelListener<? super StreamChannel> rightOpenListener, final OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("Bi-directional Pipe");
+        final Pipe<StreamChannel, StreamChannel> pipe = createFullDuplexPipe();
+        final boolean establishWriting = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
+        final StreamChannel left = pipe.getLeftSide();
+        XnioExecutor leftExec = establishWriting ? left.getWriteThread() : left.getReadThread();
+        final StreamChannel right = pipe.getRightSide();
+        XnioExecutor rightExec = establishWriting ? right.getWriteThread() : right.getReadThread();
+        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+        //noinspection unchecked
+        leftExec.execute(ChannelListeners.getChannelListenerTask(left, leftOpenListener));
+        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+        //noinspection unchecked
+        rightExec.execute(ChannelListeners.getChannelListenerTask(right, rightOpenListener));
     }
 
     /**
@@ -510,9 +522,41 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param sinkListener the sink open listener
      * @param optionMap the pipe channel configuration
      * @throws IOException if the pipe could not be created
+     * @deprecated Users should prefer the simpler {@link #createHalfDuplexPipe()} instead.
      */
+    @Deprecated
     public void createOneWayPipe(ChannelListener<? super StreamSourceChannel> sourceListener, ChannelListener<? super StreamSinkChannel> sinkListener, final OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("Unidirectional Pipe");
+        final Pipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
+        final StreamSourceChannel left = pipe.getLeftSide();
+        XnioExecutor leftExec = left.getReadThread();
+        final StreamSinkChannel right = pipe.getRightSide();
+        XnioExecutor rightExec = right.getWriteThread();
+        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+        //noinspection unchecked
+        leftExec.execute(ChannelListeners.getChannelListenerTask(left, sourceListener));
+        // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
+        //noinspection unchecked
+        rightExec.execute(ChannelListeners.getChannelListenerTask(right, sinkListener));
+    }
+
+    /**
+     * Create a two-way stream pipe.
+     *
+     * @return the created pipe
+     * @throws IOException if the pipe could not be created
+     */
+    public Pipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+        throw new UnsupportedOperationException("Create a full-duplex pipe");
+    }
+
+    /**
+     * Create a one-way stream pipe.
+     *
+     * @return the created pipe
+     * @throws IOException if the pipe could not be created
+     */
+    public Pipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
+        throw new UnsupportedOperationException("Create a half-duplex pipe");
     }
 
     //==================================================
