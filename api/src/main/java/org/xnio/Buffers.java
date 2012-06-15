@@ -1997,6 +1997,9 @@ public final class Buffers {
      * @param random the RNG
      */
     public static void addRandom(ByteBuffer target, Random random) {
+        if (target.remaining() == 0) {
+            return;
+        }
         addRandom(target, random, random.nextInt(target.remaining()));
     }
 
