@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -44,6 +43,7 @@ import java.util.concurrent.locks.LockSupport;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.ChannelPipe;
 import org.xnio.ClosedWorkerException;
 import org.xnio.FailedIoFuture;
 import org.xnio.FinishedIoFuture;
@@ -53,7 +53,6 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
@@ -493,7 +492,7 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    public org.xnio.Pipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+    public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
         boolean ok = false;
         final Pipe in = Pipe.open();
         try {
@@ -501,7 +500,7 @@ final class NioXnioWorker extends XnioWorker {
             try {
                 final NioPipeChannel left = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
                 final NioPipeChannel right = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
-                final org.xnio.Pipe<StreamChannel, StreamChannel> result = new org.xnio.Pipe<StreamChannel, StreamChannel>(left, right);
+                final ChannelPipe<StreamChannel, StreamChannel> result = new ChannelPipe<StreamChannel, StreamChannel>(left, right);
                 ok = true;
                 return result;
             } finally {
@@ -518,11 +517,11 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    public org.xnio.Pipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
+    public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
         final Pipe pipe = Pipe.open();
         boolean ok = false;
         try {
-            final org.xnio.Pipe<StreamSourceChannel,StreamSinkChannel> result = new org.xnio.Pipe<StreamSourceChannel, StreamSinkChannel>(new NioPipeSourceChannel(this, pipe.source()), new NioPipeSinkChannel(this, pipe.sink()));
+            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(new NioPipeSourceChannel(this, pipe.source()), new NioPipeSinkChannel(this, pipe.sink()));
             ok = true;
             return result;
         } finally {

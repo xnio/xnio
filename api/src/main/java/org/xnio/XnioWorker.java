@@ -500,7 +500,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     @Deprecated
     public void createPipe(ChannelListener<? super StreamChannel> leftOpenListener, ChannelListener<? super StreamChannel> rightOpenListener, final OptionMap optionMap) throws IOException {
-        final Pipe<StreamChannel, StreamChannel> pipe = createFullDuplexPipe();
+        final ChannelPipe<StreamChannel, StreamChannel> pipe = createFullDuplexPipe();
         final boolean establishWriting = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
         final StreamChannel left = pipe.getLeftSide();
         XnioExecutor leftExec = establishWriting ? left.getWriteThread() : left.getReadThread();
@@ -525,7 +525,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     @Deprecated
     public void createOneWayPipe(ChannelListener<? super StreamSourceChannel> sourceListener, ChannelListener<? super StreamSinkChannel> sinkListener, final OptionMap optionMap) throws IOException {
-        final Pipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
+        final ChannelPipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
         final StreamSourceChannel left = pipe.getLeftSide();
         XnioExecutor leftExec = left.getReadThread();
         final StreamSinkChannel right = pipe.getRightSide();
@@ -544,7 +544,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the created pipe
      * @throws IOException if the pipe could not be created
      */
-    public Pipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+    public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
         throw new UnsupportedOperationException("Create a full-duplex pipe");
     }
 
@@ -554,7 +554,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the created pipe
      * @throws IOException if the pipe could not be created
      */
-    public Pipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
+    public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
         throw new UnsupportedOperationException("Create a half-duplex pipe");
     }
 

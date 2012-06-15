@@ -29,7 +29,7 @@ import org.xnio.channels.CloseableChannel;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class Pipe<L extends CloseableChannel, R extends CloseableChannel> {
+public final class ChannelPipe<L extends CloseableChannel, R extends CloseableChannel> {
     private final L leftSide;
     private final R rightSide;
 
@@ -39,7 +39,7 @@ public final class Pipe<L extends CloseableChannel, R extends CloseableChannel> 
      * @param leftSide the pipe left side
      * @param rightSide the pipe right side
      */
-    public Pipe(final L leftSide, final R rightSide) {
+    public ChannelPipe(final L leftSide, final R rightSide) {
         this.rightSide = rightSide;
         this.leftSide = leftSide;
     }
