@@ -284,8 +284,8 @@ public final class Buffers {
             if (rem == 0) {
                 continue;
             } else if (rem > destination.remaining()) {
-                destination.put(slice(buffer, rem));
-                t += rem;
+                t += destination.remaining();
+                destination.put(slice(buffer, destination.remaining()));
                 return t;
             } else {
                 destination.put(buffer);
