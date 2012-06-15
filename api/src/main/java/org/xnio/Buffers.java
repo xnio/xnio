@@ -398,14 +398,14 @@ public final class Buffers {
             } else {
                 final int oldLimit = destination.limit();
                 try {
-                    destination.limit(destination.position() + count);
-                    return copy(sources, offset, length, destination);
+                    destination.limit(destination.position() + Math.min(count, destination.remaining()));
+                    return copy(destination, sources, offset, length);
                 } finally {
                     destination.limit(oldLimit);
                 }
             }
         } else {
-            return copy(sources, offset, length, destination);
+            return copy(destination, sources, offset, length);
         }
     }
 
