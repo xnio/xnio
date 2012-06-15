@@ -317,7 +317,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      *
      * @return the future connection
      */
-    @SuppressWarnings({ "unused" })
     protected IoFuture<ConnectedStreamChannel> acceptTcpStream(InetSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         throw new UnsupportedOperationException("Accept a TCP connection");
     }
