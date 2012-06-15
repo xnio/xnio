@@ -217,7 +217,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
      * @return the substring
      */
     public ByteString substring(int offs, int len) {
-        if (this.len - offs > len) {
+        if (this.len - offs < len) {
             throw new IndexOutOfBoundsException();
         }
         return new ByteString(bytes, this.offs + offs, len);
