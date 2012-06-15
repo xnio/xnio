@@ -788,7 +788,7 @@ public final class Buffers {
                 c += (long) rem;
             } else {
                 buffer.position(buffer.position() + (int) cnt);
-                return c - cnt;
+                return c + cnt;
             }
         }
         return c;
