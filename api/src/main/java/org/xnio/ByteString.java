@@ -88,7 +88,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
      * @return the new byte string
      */
     public static ByteString copyOf(byte[] b, int offs, int len) {
-        return new ByteString(Arrays.copyOfRange(b, offs, len));
+        return new ByteString(Arrays.copyOfRange(b, offs, offs + len));
     }
 
     /**
