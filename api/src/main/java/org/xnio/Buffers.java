@@ -1616,6 +1616,8 @@ public final class Buffers {
                     unget(src, 1);
                     return false;
                 }
+            } else {
+                builder.append(replacement);
             }
         }
     }
@@ -1719,6 +1721,8 @@ public final class Buffers {
                     unget(src, 1);
                     return false;
                 }
+            } else {
+                builder.append(replacement);
             }
         }
     }
