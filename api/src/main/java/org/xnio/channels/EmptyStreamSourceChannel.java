@@ -49,7 +49,12 @@ public final class EmptyStreamSourceChannel implements StreamSourceChannel {
     private final ChannelListener.SimpleSetter<EmptyStreamSourceChannel> closeSetter = new ChannelListener.SimpleSetter<EmptyStreamSourceChannel>();
     private final Runnable readRunnable = new Runnable() {
         public void run() {
-            ChannelListeners.invokeChannelListener(EmptyStreamSourceChannel.this, readSetter.get());
+            ChannelListener<? super EmptyStreamSourceChannel> listener = readSetter.get();
+            if (listener == null) {
+                suspendReads();
+                return;
+            }
+            ChannelListeners.invokeChannelListener(EmptyStreamSourceChannel.this, listener);
             final int oldVal = state;
             if (allAreSet(oldVal, RESUMED) && allAreClear(oldVal, EMPTIED | CLOSED)) {
                 executor.execute(this);
@@ -140,7 +145,7 @@ public final class EmptyStreamSourceChannel implements StreamSourceChannel {
             newVal = RESUMED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         if (allAreClear(oldVal, EMPTIED)) {
-            wakeupReads();
+            executor.execute(readRunnable);
         }
     }
 
@@ -149,6 +154,14 @@ public final class EmptyStreamSourceChannel implements StreamSourceChannel {
     }
 
     public void wakeupReads() {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (anyAreSet(oldVal, CLOSED)) {
+                return;
+            }
+            newVal = RESUMED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         executor.execute(readRunnable);
     }
 
