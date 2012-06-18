@@ -66,6 +66,9 @@ final class TypeSequenceOption<T> extends Option<Sequence<Class<? extends T>>> {
 
     public Sequence<Class<? extends T>> parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
         final List<Class<? extends T>> list = new ArrayList<Class<? extends T>>();
+        if (string.isEmpty()) {
+            return Sequence.empty();
+        }
         for (String value : string.split(",")) {
             list.add(parser.parseValue(value, classLoader));
         }
