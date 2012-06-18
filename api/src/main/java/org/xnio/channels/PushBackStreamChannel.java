@@ -63,22 +63,42 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
+        final StreamSourceChannel channel = this.channel;
+        if (channel == null) {
+            return 0;
+        }
         return channel.transferTo(position, count, target);
     }
 
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
+        final StreamSourceChannel channel = this.channel;
+        if (channel == null) {
+            return 0;
+        }
         return channel.transferTo(count, throughBuffer, target);
     }
 
     public int read(final ByteBuffer dst) throws IOException {
+        final StreamSourceChannel channel = this.channel;
+        if (channel == null) {
+            return -1;
+        }
         return channel.read(dst);
     }
 
     public long read(final ByteBuffer[] dsts) throws IOException {
+        final StreamSourceChannel channel = this.channel;
+        if (channel == null) {
+            return -1;
+        }
         return channel.read(dsts);
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        final StreamSourceChannel channel = this.channel;
+        if (channel == null) {
+            return -1;
+        }
         return channel.read(dsts, offset, length);
     }
 
@@ -131,11 +151,17 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     }
 
     public void awaitReadable() throws IOException {
-        channel.awaitReadable();
+        final StreamSourceChannel channel = this.channel;
+        if (channel != null) {
+            channel.awaitReadable();
+        }
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        channel.awaitReadable(time, timeUnit);
+        final StreamSourceChannel channel = this.channel;
+        if (channel != null) {
+            channel.awaitReadable(time, timeUnit);
+        }
     }
 
     public XnioExecutor getReadThread() {
