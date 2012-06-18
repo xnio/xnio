@@ -447,11 +447,11 @@ public final class ChannelListeners {
                             return;
                         }
                         p += result;
-                        if ((cnt -= result) == 0L) {
-                            delegate.handleEvent(channel);
-                            return;
-                        }
+                        cnt -= result;
                     } while (cnt > 0L);
+                    // cnt is 0
+                    delegate.handleEvent(channel);
+                    return;
                 } finally {
                     this.p = p;
                     this.cnt = cnt;
@@ -500,11 +500,11 @@ public final class ChannelListeners {
                             return;
                         }
                         p += result;
-                        if ((cnt -= result) == 0L) {
-                            delegate.handleEvent(channel);
-                            return;
-                        }
+                        cnt -= result;
                     } while (cnt > 0L);
+                    // cnt = 0
+                    delegate.handleEvent(channel);
+                    return;
                 } finally {
                     this.p = p;
                     this.cnt = cnt;

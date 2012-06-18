@@ -184,38 +184,38 @@ public final class Buffers {
      * Copy a portion of the buffer into a newly allocated buffer.  The original buffer's position will be moved up past the copy that was taken.
      *
      * @param buffer the buffer to slice
-     * @param sliceSize the size of the copy
+     * @param count the size of the copy
      * @param allocator the buffer allocator to use
      * @return the buffer slice
      */
-    public static ByteBuffer copy(ByteBuffer buffer, int sliceSize, BufferAllocator<ByteBuffer> allocator) {
+    public static ByteBuffer copy(ByteBuffer buffer, int count, BufferAllocator<ByteBuffer> allocator) {
         final int oldRem = buffer.remaining();
-        if (sliceSize > oldRem || sliceSize < -oldRem) {
+        if (count > oldRem || count < -oldRem) {
             throw new BufferUnderflowException();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
-        if (sliceSize < 0) {
+        if (count < 0) {
             // count from end (sliceSize is NEGATIVE)
-            final ByteBuffer target = allocator.allocate(-sliceSize);
-            buffer.position(oldLim + sliceSize);
+            final ByteBuffer target = allocator.allocate(-count);
+            buffer.position(oldLim + count);
             try {
                 target.put(buffer);
                 return target;
             } finally {
                 buffer.limit(oldLim);
-                buffer.position(oldLim + sliceSize);
+                buffer.position(oldLim + count);
             }
         } else {
             // count from start
-            final ByteBuffer target = allocator.allocate(sliceSize);
-            buffer.limit(oldPos + sliceSize);
+            final ByteBuffer target = allocator.allocate(count);
+            buffer.limit(oldPos + count);
             try {
                 target.put(buffer);
                 return target;
             } finally {
                 buffer.limit(oldLim);
-                buffer.position(oldPos + sliceSize);
+                buffer.position(oldPos + count);
             }
         }
     }
@@ -315,20 +315,22 @@ public final class Buffers {
         ByteBuffer source = sources[srcOffset];
         ByteBuffer dest = destinations[destOffset];
         while (s < srcLength && d < destLength) {
+            source = sources[srcOffset + s];
+            dest = destinations[destOffset + d];
             final int sr = source.remaining();
             final int dr = dest.remaining();
             if (sr < dr) {
                 dest.put(source);
-                source = sources[srcOffset + ++s];
+                s++;
                 t += sr;
             } else if (sr > dr) {
                 dest.put(slice(source, dr));
-                dest = destinations[destOffset + ++d];
+                d++;
                 t += dr;
             } else {
                 dest.put(source);
-                source = sources[srcOffset + ++s];
-                dest = destinations[destOffset + ++d];
+                s++;
+                d++;
                 t += sr;
             }
         }
@@ -431,25 +433,25 @@ public final class Buffers {
         if (destLength == 0 || srcLength == 0 || count == 0L) {
             return 0L;
         }
-        ByteBuffer source = sources[srcOffset];
-        ByteBuffer dest = destinations[destOffset];
         while (s < srcLength && d < destLength) {
+            final ByteBuffer source = sources[srcOffset + s];
+            final ByteBuffer dest = destinations[destOffset + d];
             final int sr = source.remaining();
             final int dr = (int) Math.min(count, (long) dest.remaining());
             if (sr < dr) {
                 dest.put(source);
-                source = sources[srcOffset + ++s];
+                s++;
                 t += sr;
                 count -= (long)sr;
             } else if (sr > dr) {
                 dest.put(slice(source, dr));
-                dest = destinations[destOffset + ++d];
+                d++;
                 t += dr;
                 count -= (long)dr;
             } else {
                 dest.put(source);
-                source = sources[srcOffset + ++s];
-                dest = destinations[destOffset + ++d];
+                s++;
+                d++;
                 t += sr;
                 count -= (long)sr;
             }
