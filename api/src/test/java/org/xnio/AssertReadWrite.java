@@ -40,12 +40,27 @@ public class AssertReadWrite {
      * @param message message expected to have been read into {@code dst}
      */
     public static final void assertReadMessage(ByteBuffer dst, String... message) {
-        StringBuffer stringBuffer = new StringBuffer();
+        final StringBuffer stringBuffer = new StringBuffer();
         for (String messageString: message) {
             stringBuffer.append(messageString);
         }
         dst.flip();
         assertEquals(stringBuffer.toString(), Buffers.getModifiedUtf8(dst));
+    }
+
+    /**
+     * Asserts that the message read by {@code sslChannel}, contained in {@code dst}, equals {@code message}.
+     * @param dst     the byte array containing the read message
+     * @param message message expected to have been read into {@code dst}
+     */
+    public static final void assertReadMessage(byte[] dst, String... message) {
+        final StringBuffer stringBuffer = new StringBuffer();
+        for (String messageString: message) {
+            stringBuffer.append(messageString);
+        }
+        final ByteBuffer buffer = ByteBuffer.wrap(dst);
+        buffer.limit(stringBuffer.length());
+        assertEquals(stringBuffer.toString(), Buffers.getModifiedUtf8(buffer));
     }
 
     /**
@@ -55,7 +70,7 @@ public class AssertReadWrite {
      * @param message              the message expected to have been written to the channel mock
      */
     public static final void assertWrittenMessage(ConnectedStreamChannelMock connectedChannelMock, String... message) {
-        StringBuffer stringBuffer = new StringBuffer();
+        final StringBuffer stringBuffer = new StringBuffer();
         for (String messageString: message) {
             stringBuffer.append(messageString);
         }

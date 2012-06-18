@@ -20,14 +20,17 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 
-package org.xnio.test;
+package org.xnio;
 
 import junit.framework.TestCase;
 
 import static org.xnio.Bits.*;
 
 /**
+ * Test for {@link Bits}.
+ * 
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
 public final class BitsTestCase extends TestCase {
     public void testBitMask() {
@@ -39,6 +42,50 @@ public final class BitsTestCase extends TestCase {
         assertEquals(1L, longBitMask(0, 0));
         assertEquals(0xFFFFFFFFFFFFFFFFL, longBitMask(0, 63));
         assertEquals(0x8000000000000000L, longBitMask(63, 63));
+    }
+
+    public void testInvalidBitMask() {
+        AssertionError expected = null;
+        try {
+            intBitMask(-8, 23);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+        expected = null;
+        try {
+            intBitMask(24, 23);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+        expected = null;
+        try {
+            intBitMask(8, 32);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        expected = null;
+        try {
+            longBitMask(-8, 55);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+        expected = null;
+        try {
+            longBitMask(56, 55);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+        expected = null;
+        try {
+            longBitMask(8, 64);
+        } catch (AssertionError e) {
+            expected = e;
+        }
+        assertNotNull(expected);
     }
 
     public void testAllAreClearInt() {
@@ -127,6 +174,38 @@ public final class BitsTestCase extends TestCase {
         assertTrue(anyAreClear(0xFF00FF00FF00FF00L, 0x0080000000000000L));
         assertTrue(anyAreClear(0xFF00FF00FF00FF00L, 0x0000000000000001L));
         assertTrue(anyAreClear(0xFF00FF00FF00FF00L, 0x00FF000000000000L));
+    }
+
+    // unsigned methods
+
+    public void testUnsignedByte() {
+        assertEquals(0x5, unsigned((byte) 0x5));
+        assertEquals(0xfb, unsigned((byte) -0x5));
+        assertEquals(0x5, unsigned((byte) -0xfb));
+
+        assertEquals(0xff, unsigned((byte) -0x1));
+        assertEquals(0x1, unsigned((byte) -0xff));
+    }
+
+    public void testUnsginedShort() {
+        assertEquals(0xf875, unsigned((short) -0x78b));
+        assertEquals(0x78b, unsigned((short) -0xf875));
+
+        assertEquals(0xffff, unsigned((short) -0x1));
+        assertEquals(0x1, unsigned((short) -0xffff));
+    }
+
+    public void testUnsignedInt() {
+        assertEquals(0xffffffffl, unsigned((int) 0xffffffff));
+
+        assertEquals(0xffffffffl, unsigned((int) -1));
+        assertEquals(0x1l, unsigned((int) -0xffffffff));
+
+        assertEquals(0xfffff544l, unsigned((int) -0xabc));
+        assertEquals(0xabc, unsigned((int) -0xfffff544));
+
+        assertEquals(0xfffff541l, unsigned((int) -0xabf));
+        assertEquals(0xabf, unsigned((int) -0xfffff541));
     }
 
     // byte array methods

@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.xnio.BufferAllocator;
@@ -52,8 +53,8 @@ import org.xnio.SslClientAuthMode;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.ConnectedStreamChannelMock;
-import org.xnio.ssl.mock.AcceptingChannelMock;
 import org.xnio.ssl.mock.SSLContextMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 
@@ -631,13 +632,20 @@ public class JsseAcceptingSslStreamChannelTestCase {
         AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
         final JsseAcceptingSslStreamChannel channel = new JsseAcceptingSslStreamChannel(new SSLContextMock(engineMock),
                 acceptingChannelMock, OptionMap.EMPTY, socketBufferPool, applicationBufferPool, true);
-        // set null Option to true FIXME
+        Exception expected = null;
         try {
             channel.setOption(null, true);
-        } catch (NullPointerException e) {}
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+        expected = null;
         try {
             channel.getOption(null);
-        } catch (NullPointerException e) {}
+        } catch (NullPointerException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
     }
 
     @Test

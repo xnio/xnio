@@ -19,7 +19,7 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.xnio.ssl.mock;
+package org.xnio.mock;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import org.xnio.ChannelListener;
 import org.xnio.ChannelListener.Setter;
 import org.xnio.ChannelListener.SimpleSetter;
 import org.xnio.Option;
@@ -36,23 +37,22 @@ import org.xnio.OptionMap;
 import org.xnio.OptionMap.Builder;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.mock.ConnectedStreamChannelMock;
 
 /**
  * {@link AcceptingChannel} mock.
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
-// TODO move to another package
-public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamChannelMock> {
-    private Setter<AcceptingChannelMock> acceptSetter = new SimpleSetter<AcceptingChannelMock>();
-    private Setter<AcceptingChannelMock> closeSetter = new SimpleSetter<AcceptingChannelMock>();
-    private boolean acceptanceEnabled = true;
+public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamChannelMock>, ChannelMock {
+    private SimpleSetter<AcceptingChannelMock> acceptSetter = new SimpleSetter<AcceptingChannelMock>();
+    private SimpleSetter<AcceptingChannelMock> closeSetter = new SimpleSetter<AcceptingChannelMock>();
+    private volatile boolean acceptanceEnabled = true;
     private OptionMap optionMap = OptionMap.EMPTY;
     private boolean closed = false;
     private SocketAddress localAddress;
     private boolean acceptsResumed = false;
     private boolean acceptsWokenUp = false;
+    private String info = null; // any extra information regarding this channel used by tests
 
     public AcceptingChannelMock() {
         
@@ -123,6 +123,11 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
         return oldValue;
     }
 
+    @Override
+    public OptionMap getOptionMap() {
+        return optionMap;
+    }
+
     public void setOptionMap(OptionMap optionMap) {
         this.optionMap = optionMap;
     }
@@ -185,11 +190,14 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
     @Override
     public ConnectedStreamChannelMock accept() throws IOException {
         if (acceptanceEnabled) {
+            //System.out.println("Acceptance enabled... returning accepted channel");
             ConnectedStreamChannelMock channel = new ConnectedStreamChannelMock();
             channel.setPeerAddress(new InetSocketAddress(42630));
             return channel;
+        } else {
+            //System.out.println("Acceptance NOT enabled");
         }
-        throw new IOException("Acceptance disabled");
+        return null;
     }
 
     @Override
@@ -201,8 +209,22 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
     public Setter<? extends AcceptingChannel<ConnectedStreamChannelMock>> getCloseSetter() {
         return closeSetter;
     }
+    
+    public ChannelListener<? super AcceptingChannelMock> getAcceptListener() {
+        return acceptSetter.get();
+    }
 
     public void enableAcceptance(boolean enable) {
         acceptanceEnabled = enable;
+    }
+
+    @Override
+    public String getInfo() {
+        return info;
+    }
+
+    @Override
+    public void setInfo(String i) {
+        info = i;
     }
 }

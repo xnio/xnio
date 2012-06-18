@@ -35,6 +35,7 @@ import java.util.concurrent.locks.LockSupport;
 import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListener.Setter;
+import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.XnioExecutor;
@@ -50,7 +51,7 @@ import org.xnio.channels.StreamSourceChannel;
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
-public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
+public class ConnectedStreamChannelMock implements ConnectedStreamChannel, ChannelMock{
 
     // written stuff will be copied to this buffer
     private ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
@@ -74,14 +75,36 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
     private boolean flushEnabled = true;
     private boolean eof = false;
     private XnioWorker worker = new XnioWorkerMock(null, OptionMap.EMPTY, null);
+    private XnioExecutor executor = new XnioExecutorMock();
     private Thread readWaiter;
     private Thread writeWaiter;
+    private ChannelListener<? super ConnectedStreamChannel> readListener;
+    private ChannelListener<? super ConnectedStreamChannel> writeListener;
+    private ChannelListener<? super ConnectedStreamChannel> closeListener;
+    private String info = null; // any extra information regarding this channel used by tests
 
-    // dummy listener setter
-    private final ChannelListener.Setter<ConnectedStreamChannel> listenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+    // listener setters
+    private final ChannelListener.Setter<ConnectedStreamChannel> readListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
         @Override
-        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {}
+        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+            readListener = listener;
+        }
     };
+
+    private final ChannelListener.Setter<ConnectedStreamChannel> writeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+        @Override
+        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+            writeListener = listener;
+        }
+    };
+
+    private final ChannelListener.Setter<ConnectedStreamChannel> closeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+        @Override
+        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+            closeListener = listener;
+        }
+    };
+
 
     /**
      * Feeds {@code readData} to read clients.
@@ -228,7 +251,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
             LockSupport.unpark(writeWaiter);
         }
     }
-    
+
     public synchronized void enableClosedChek(boolean enable) {
         checkClosed = enable;
     }
@@ -264,21 +287,34 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public boolean supportsOption(Option<?> option) {
-        return optionMap.contains(option);
+        return optionMap == null? false: optionMap.contains(option);
     }
 
     @Override
     public <T> T getOption(Option<T> option) throws IOException {
-        return optionMap.get(option);
+        return optionMap == null? null: optionMap.get(option);
     }
 
     @Override
     public <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException {
-        throw new RuntimeException("Not supported");
+        final OptionMap.Builder optionMapBuilder = OptionMap.builder();
+        T previousValue = null;
+        if (optionMap != null) {
+            optionMapBuilder.addAll(optionMap);
+            previousValue = optionMap.get(option);
+        }
+        optionMapBuilder.set(option, value);
+        optionMap = optionMapBuilder.getMap();
+        return previousValue;
     }
 
     public void setOptionMap(OptionMap optionMap) {
         this.optionMap = optionMap;
+    }
+
+    @Override
+    public OptionMap getOptionMap() {
+        return optionMap;
     }
 
     @Override
@@ -344,7 +380,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public XnioExecutor getReadThread() {
-        throw new RuntimeException ("Not supported");
+        return executor;
     }
 
     @Override
@@ -407,7 +443,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public XnioExecutor getWriteThread() {
-        throw new RuntimeException("Not supported");
+        return executor;
     }
 
     @Override
@@ -428,12 +464,18 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public long transferFrom(FileChannel src, long position, long count) throws IOException {
-        throw new RuntimeException("Not supported");
+        if (writeEnabled) {
+            return src.transferTo(position, count, this);
+        }
+        return 0;
     }
 
     @Override
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        throw new RuntimeException("Not supported");
+        if (writeEnabled) {
+            IoUtils.transfer(source, count, throughBuffer, this);
+        }
+        return 0;
     }
 
     @Override
@@ -460,6 +502,9 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
             throw new ClosedChannelException();
         }
         if (writeEnabled) {
+            if (writeBuffer.limit() < writeBuffer.capacity()) {
+                writeBuffer.limit(writeBuffer.capacity());
+            }
             int bytes = Buffers.copy(writeBuffer, srcs, offset, length);
             if (bytes > 0) {
                 flushed = false;
@@ -475,6 +520,9 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
             throw new ClosedChannelException();
         }
         if (writeEnabled) {
+            if (writeBuffer.limit() < writeBuffer.capacity()) {
+                writeBuffer.limit(writeBuffer.capacity());
+            }
             return Buffers.copy(writeBuffer, srcs, 0, srcs.length);
         }
         return 0;
@@ -482,12 +530,18 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public long transferTo(long position, long count, FileChannel target) throws IOException {
-        throw new RuntimeException("Not supported");
+        if (readEnabled) {
+            return target.transferFrom(this, position, count);
+        }
+        return 0;
     }
 
     @Override
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
-        throw new RuntimeException("Not supported");
+        if (readEnabled) {
+            return IoUtils.transfer(this, count, throughBuffer, target);
+        }
+        return 0;
     }
 
     @Override
@@ -539,10 +593,13 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
             throw new ClosedChannelException();
         }
         if (readEnabled) {
-            if (!readBuffer.hasRemaining() && eof) {
+            if ((!readBuffer.hasRemaining() || readBuffer.position() == 0 && readBuffer.limit() == readBuffer.capacity()) && eof) {
                 return -1;
             }
-            return Buffers.copy(readBuffer, dsts, 0, dsts.length);
+            if (readBuffer.limit() == readBuffer.capacity() && readBuffer.position() == 0) {
+                return 0;
+            }
+            return Buffers.copy(dsts, 0, dsts.length, readBuffer);
         }
         return 0;
     }
@@ -618,16 +675,38 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel {
 
     @Override
     public Setter<? extends ConnectedStreamChannel> getReadSetter() {
-        return listenerSetter;
+        return readListenerSetter;
     }
 
     @Override
     public Setter<? extends ConnectedStreamChannel> getWriteSetter() {
-        return listenerSetter;
+        return writeListenerSetter;
     }
 
     @Override
     public Setter<? extends ConnectedStreamChannel> getCloseSetter() {
-        return listenerSetter;
+        return closeListenerSetter;
+    }
+
+    public ChannelListener<? super ConnectedStreamChannel> getReadListener() {
+        return readListener;
+    }
+
+    public ChannelListener<? super ConnectedStreamChannel> getWriteListener() {
+        return writeListener;
+    }
+
+    public ChannelListener<? super ConnectedStreamChannel> getCloseListener() {
+        return closeListener;
+    }
+
+    @Override
+    public String getInfo() {
+        return info;
+    }
+
+    @Override
+    public void setInfo(String i) {
+        info = i;
     }
 }
