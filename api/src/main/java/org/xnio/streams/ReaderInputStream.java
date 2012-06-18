@@ -97,6 +97,8 @@ public final class ReaderInputStream extends InputStream {
         this.encoder = encoder;
         charBuffer = CharBuffer.wrap(new char[bufferSize]);
         byteBuffer = ByteBuffer.wrap(new byte[(int) ((float)bufferSize * encoder.averageBytesPerChar() + 0.5f)]);
+        charBuffer.flip();
+        byteBuffer.flip();
     }
 
     private static CharsetEncoder getEncoder(final Charset charset) {
@@ -140,6 +142,7 @@ public final class ReaderInputStream extends InputStream {
         final CharBuffer charBuffer = this.charBuffer;
         final ByteBuffer byteBuffer = this.byteBuffer;
         byteBuffer.compact();
+        boolean filled = false;
         try {
             while (byteBuffer.hasRemaining()) {
                 while (charBuffer.hasRemaining()) {
@@ -148,6 +151,7 @@ public final class ReaderInputStream extends InputStream {
                         return true;
                     }
                     if (result.isUnderflow()) {
+                        filled = true;
                         break;
                     }
                     if (result.isError()) {
@@ -164,7 +168,9 @@ public final class ReaderInputStream extends InputStream {
                 try {
                     final int cnt = reader.read(charBuffer);
                     if (cnt == -1) {
-                        return false;
+                        return filled;
+                    } else if (cnt > 0) {
+                        filled = true;
                     }
                 } finally {
                     charBuffer.flip();
@@ -201,8 +207,8 @@ public final class ReaderInputStream extends InputStream {
 
     /** {@inheritDoc} */
     public void close() throws IOException {
-        byteBuffer.clear();
-        charBuffer.clear();
+        byteBuffer.clear().flip();
+        charBuffer.clear().flip();
         reader.close();
     }
 
