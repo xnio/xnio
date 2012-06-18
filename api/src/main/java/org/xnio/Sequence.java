@@ -141,7 +141,7 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
      * @return {@code true} if the sequence has no elements
      */
     public boolean isEmpty() {
-        return values.length != 0;
+        return values.length == 0;
     }
 
     /**
