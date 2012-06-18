@@ -275,7 +275,7 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
                     cnt = 0L;
                 }
             }
-            final long res = next.transferTo(count, throughBuffer, target);
+            final long res = next.transferTo(count - cnt, throughBuffer, target);
             return res > 0L ? cnt + res : cnt > 0L ? cnt : res;
         }
 
