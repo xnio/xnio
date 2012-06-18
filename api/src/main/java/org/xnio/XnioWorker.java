@@ -681,7 +681,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
-            return option.cast(Long.valueOf(taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS)));
+            return option.cast(Integer.valueOf((int) Math.min((long) Integer.MAX_VALUE, taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS))));
         } else {
             return null;
         }
@@ -699,7 +699,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
             final long old = taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS);
             taskPool.setKeepAliveTime(Options.WORKER_TASK_KEEPALIVE.cast(value).intValue(), TimeUnit.MILLISECONDS);
-            return option.cast(Long.valueOf(old));
+            return option.cast(Integer.valueOf((int) Math.min((long) Integer.MAX_VALUE, old)));
         } else {
             return null;
         }
