@@ -72,6 +72,15 @@ public final class WriterOutputStream extends OutputStream {
      * @param bufferSize the buffer size to use
      */
     public WriterOutputStream(final Writer writer, final CharsetDecoder decoder, int bufferSize) {
+        if (writer == null) {
+            throw new IllegalArgumentException("writer is null");
+        }
+        if (decoder == null) {
+            throw new IllegalArgumentException("decoder is null");
+        }
+        if (bufferSize < 1) {
+            throw new IllegalArgumentException("bufferSize must be larger than 0");
+        }
         this.writer = writer;
         this.decoder = decoder;
         byteBuffer = ByteBuffer.allocate(bufferSize);

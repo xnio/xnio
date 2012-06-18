@@ -56,7 +56,7 @@ public class BufferedChannelInputStream extends InputStream {
      */
     public BufferedChannelInputStream(final StreamSourceChannel channel, final int bufferSize) {
         if (channel == null) {
-            throw new NullPointerException("channel is null");
+            throw new IllegalArgumentException("channel is null");
         }
         if (bufferSize < 1) {
             throw new IllegalArgumentException("Buffer size must be at least one byte");
@@ -76,10 +76,10 @@ public class BufferedChannelInputStream extends InputStream {
      */
     public BufferedChannelInputStream(final StreamSourceChannel channel, final int bufferSize, final long timeout, final TimeUnit unit) {
         if (channel == null) {
-            throw new NullPointerException("channel is null");
+            throw new IllegalArgumentException("channel is null");
         }
         if (unit == null) {
-            throw new NullPointerException("unit is null");
+            throw new IllegalArgumentException("unit is null");
         }
         if (bufferSize < 1) {
             throw new IllegalArgumentException("Buffer size must be at least one byte");

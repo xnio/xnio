@@ -50,6 +50,9 @@ public class ChannelInputStream extends InputStream {
      * @param channel the channel to wrap
      */
     public ChannelInputStream(final StreamSourceChannel channel) {
+        if (channel == null) {
+            throw new IllegalArgumentException("channel is null");
+        }
         this.channel = channel;
     }
 
@@ -61,6 +64,12 @@ public class ChannelInputStream extends InputStream {
      * @param timeoutUnit the time unit for read timeouts
      */
     public ChannelInputStream(final StreamSourceChannel channel, final long timeout, final TimeUnit timeoutUnit) {
+        if (channel == null) {
+            throw new IllegalArgumentException("Null channel");
+        }
+        if (timeoutUnit == null) {
+            throw new IllegalArgumentException("Null timeoutUnit");
+        }
         if (timeout < 0L) {
             throw new IllegalArgumentException("Negative timeout");
         }
@@ -140,6 +149,9 @@ public class ChannelInputStream extends InputStream {
     /** {@inheritDoc} */
     public int read(final byte[] b, final int off, final int len) throws IOException {
         if (closed) return -1;
+        if (len < 1) {
+            return 0;
+        }
         final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
         long timeout = this.timeout;
         if (timeout == 0L) {

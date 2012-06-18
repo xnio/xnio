@@ -34,6 +34,9 @@ final class TypeOption<T> extends Option<Class<? extends T>> {
 
     TypeOption(final Class<?> declClass, final String name, final Class<T> type) {
         super(declClass, name);
+        if (type == null) {
+            throw new IllegalArgumentException("type is null");
+        }
         this.type = type;
         parser = Option.getClassParser(type);
     }

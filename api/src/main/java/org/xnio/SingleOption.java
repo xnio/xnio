@@ -34,6 +34,9 @@ final class SingleOption<T> extends Option<T> {
 
     SingleOption(final Class<?> declClass, final String name, final Class<T> type) {
         super(declClass, name);
+        if (type == null) {
+            throw new IllegalArgumentException("type is null");
+        }
         this.type = type;
         parser = Option.getParser(type);
     }

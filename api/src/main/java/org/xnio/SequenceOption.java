@@ -38,6 +38,9 @@ final class SequenceOption<T> extends Option<Sequence<T>> {
 
     SequenceOption(final Class<?> declClass, final String name, final Class<T> elementType) {
         super(declClass, name);
+        if (elementType == null) {
+            throw new IllegalArgumentException("elementType is null");
+        }
         this.elementType = elementType;
         parser = Option.getParser(elementType);
     }

@@ -52,6 +52,9 @@ public class ChannelOutputStream extends OutputStream {
      * @param channel the channel to wrap
      */
     public ChannelOutputStream(final StreamSinkChannel channel) {
+        if (channel == null) {
+            throw new IllegalArgumentException("Null channel");
+        }
         this.channel = channel;
     }
 
@@ -63,6 +66,12 @@ public class ChannelOutputStream extends OutputStream {
      * @param unit the write timeout units
      */
     public ChannelOutputStream(final StreamSinkChannel channel, final long timeout, final TimeUnit unit) {
+        if (channel == null) {
+            throw new IllegalArgumentException("Null channel");
+        }
+        if (unit == null) {
+            throw new IllegalArgumentException("Null unit");
+        }
         if (timeout < 0L) {
             throw new IllegalArgumentException("Negative timeout");
         }
@@ -131,6 +140,9 @@ public class ChannelOutputStream extends OutputStream {
     /** {@inheritDoc} */
     public void write(final byte[] b, final int off, final int len) throws IOException {
         if (closed) throw closed();
+        if (len < 1) {
+            return;
+        }
         final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
         final long timeout = this.timeout;
         if (timeout == 0L) {

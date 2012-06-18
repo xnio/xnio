@@ -824,6 +824,9 @@ public final class Buffers {
      * @return the bytes
      */
     public static byte[] take(ByteBuffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException("cnt cannot be negative");
+        }
         final byte[] bytes = new byte[cnt];
         buffer.get(bytes);
         return bytes;
@@ -837,6 +840,9 @@ public final class Buffers {
      * @return the chars
      */
     public static char[] take(CharBuffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException("cnt cannot be negative");
+        }
         final char[] chars = new char[cnt];
         buffer.get(chars);
         return chars;
@@ -850,6 +856,9 @@ public final class Buffers {
      * @return the shorts
      */
     public static short[] take(ShortBuffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException("cnt cannot be negative");
+        }
         final short[] shorts = new short[cnt];
         buffer.get(shorts);
         return shorts;
@@ -863,6 +872,9 @@ public final class Buffers {
      * @return the ints
      */
     public static int[] take(IntBuffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException("cnt cannot be negative");
+        }
         final int[] ints = new int[cnt];
         buffer.get(ints);
         return ints;
@@ -876,6 +888,9 @@ public final class Buffers {
      * @return the longs
      */
     public static long[] take(LongBuffer buffer, int cnt) {
+        if (cnt < 0) {
+            throw new IllegalArgumentException("cnt cannot be negative");
+        }
         final long[] longs = new long[cnt];
         buffer.get(longs);
         return longs;
@@ -952,6 +967,12 @@ public final class Buffers {
      * @return a stringable object
      */
     public static Object createDumper(final ByteBuffer buffer, final int indent, final int columns) {
+        if (columns <= 0) {
+            throw new IllegalArgumentException("columns must be positive");
+        }
+        if (indent < 0) {
+            throw new IllegalArgumentException("indent must be non-negative");
+        }
         return new Object() {
             public String toString() {
                 StringBuilder b = new StringBuilder();
@@ -975,6 +996,12 @@ public final class Buffers {
      * @throws IOException if an error occurs during append
      */
     public static void dump(final ByteBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
+        if (columns <= 0) {
+            throw new IllegalArgumentException("columns must be positive");
+        }
+        if (indent < 0) {
+            throw new IllegalArgumentException("indent must be non-negative");
+        }
         final int pos = buffer.position();
         final int remaining = buffer.remaining();
         final int rowLength = (8 << (columns - 1));
@@ -1052,6 +1079,12 @@ public final class Buffers {
      * @return a stringable object
      */
     public static Object createDumper(final CharBuffer buffer, final int indent, final int columns) {
+        if (columns <= 0) {
+            throw new IllegalArgumentException("columns must be positive");
+        }
+        if (indent < 0) {
+            throw new IllegalArgumentException("indent must be non-negative");
+        }
         return new Object() {
             public String toString() {
                 StringBuilder b = new StringBuilder();
@@ -1075,6 +1108,12 @@ public final class Buffers {
      * @throws IOException if an error occurs during append
      */
     public static void dump(final CharBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
+        if (columns <= 0) {
+            throw new IllegalArgumentException("columns must be positive");
+        }
+        if (indent < 0) {
+            throw new IllegalArgumentException("indent must be non-negative");
+        }
         final int pos = buffer.position();
         final int remaining = buffer.remaining();
         final int rowLength = (8 << (columns - 1));

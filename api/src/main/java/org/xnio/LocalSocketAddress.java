@@ -41,6 +41,9 @@ public final class LocalSocketAddress extends SocketAddress {
      * @param name the name of this socket address
      */
     public LocalSocketAddress(final String name) {
+        if (name == null) {
+            throw new IllegalArgumentException("name is null");
+        }
         this.name = name;
     }
 

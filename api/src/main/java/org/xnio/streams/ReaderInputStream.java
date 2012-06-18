@@ -93,6 +93,15 @@ public final class ReaderInputStream extends InputStream {
      * @param bufferSize the buffer size to use
      */
     public ReaderInputStream(final Reader reader, final CharsetEncoder encoder, final int bufferSize) {
+        if (reader == null) {
+            throw new IllegalArgumentException("writer is null");
+        }
+        if (encoder == null) {
+            throw new IllegalArgumentException("decoder is null");
+        }
+        if (bufferSize < 1) {
+            throw new IllegalArgumentException("bufferSize must be larger than 0");
+        }
         this.reader = reader;
         this.encoder = encoder;
         charBuffer = CharBuffer.wrap(new char[bufferSize]);

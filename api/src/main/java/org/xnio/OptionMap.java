@@ -360,8 +360,11 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public <T> Builder set(Option<T> key, T value) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             if (value == null) {
-                throw new NullPointerException("value is null");
+                throw new IllegalArgumentException("value is null");
             }
             list.add(new OVPair<T>(key, value));
             return this;
@@ -375,6 +378,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder set(Option<Integer> key, int value) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             list.add(new OVPair<Integer>(key, Integer.valueOf(value)));
             return this;
         }
@@ -387,6 +393,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder setSequence(Option<Sequence<Integer>> key, int... values) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             Integer[] a = new Integer[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Integer.valueOf(values[i]);
@@ -403,6 +412,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder set(Option<Long> key, long value) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             list.add(new OVPair<Long>(key, Long.valueOf(value)));
             return this;
         }
@@ -415,6 +427,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder setSequence(Option<Sequence<Long>> key, long... values) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             Long[] a = new Long[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Long.valueOf(values[i]);
@@ -431,6 +446,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder set(Option<Boolean> key, boolean value) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             list.add(new OVPair<Boolean>(key, Boolean.valueOf(value)));
             return this;
         }
@@ -444,6 +462,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public Builder setSequence(Option<Sequence<Boolean>> key, boolean... values) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             Boolean[] a = new Boolean[values.length];
             for (int i = 0; i < values.length; i++) {
                 a[i] = Boolean.valueOf(values[i]);
@@ -461,6 +482,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          * @return this builder
          */
         public <T> Builder setSequence(Option<Sequence<T>> key, T... values) {
+            if (key == null) {
+                throw new IllegalArgumentException("key is null");
+            }
             list.add(new OVPair<Sequence<T>>(key, Sequence.of(values)));
             return this;
         }

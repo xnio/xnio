@@ -50,6 +50,9 @@ public abstract class Option<T> implements Serializable {
     private final String name;
 
     Option(final Class<?> declClass, final String name) {
+        if (declClass == null) {
+            throw new IllegalArgumentException("declClass is null");
+        }
         this.declClass = declClass;
         if (name == null) {
             throw new NullPointerException("name is null");
