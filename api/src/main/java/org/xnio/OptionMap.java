@@ -341,7 +341,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                 if (name.startsWith(prefix)) {
                     final String optionName = name.substring(prefix.length());
                     try {
-                        final Option<?> option = Option.fromString(optionName, null);
+                        final Option<?> option = Option.fromString(optionName, getClass().getClassLoader());
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
                         log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
