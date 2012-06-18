@@ -45,7 +45,7 @@ import org.xnio.channels.StreamSourceChannel;
 public class BufferedChannelInputStream extends InputStream {
     private final StreamSourceChannel channel;
     private final ByteBuffer buffer;
-    private volatile boolean closed;
+    private volatile boolean eof;
     private volatile long timeout;
 
     /**
@@ -125,35 +125,45 @@ public class BufferedChannelInputStream extends InputStream {
      * @throws IOException if an I/O error occurs
      */
     public int read() throws IOException {
-        if (closed) return -1;
+        if (eof) return -1;
         final ByteBuffer buffer = this.buffer;
+        final int oldBufferPosition = buffer.position();
+        final int oldBufferLimit = buffer.limit();
         final StreamSourceChannel channel = this.channel;
         final long timeout = this.timeout;
-        if (timeout == 0L) {
-            while (! buffer.hasRemaining()) {
-                buffer.clear();
-                final int res = Channels.readBlocking(channel, buffer);
-                if (res == -1) {
-                    return -1;
-                }
-                buffer.flip();
-            }
-        } else {
-            if (! buffer.hasRemaining()) {
-                long now = System.currentTimeMillis();
-                final long deadline = timeout - now;
-                do {
+        try {
+            if (timeout == 0L) {
+                while (! buffer.hasRemaining()) {
                     buffer.clear();
-                    if (deadline <= now) {
-                        throw new ReadTimeoutException("Read timed out");
-                    }
-                    final int res = Channels.readBlocking(channel, buffer, deadline - now, TimeUnit.MILLISECONDS);
+                    final int res = Channels.readBlocking(channel, buffer);
+                    buffer.flip();
                     if (res == -1) {
+                        eof = true;
                         return -1;
                     }
-                    buffer.flip();
-                } while (! buffer.hasRemaining());
+                }
+            } else {
+                if (! buffer.hasRemaining()) {
+                    long now = System.currentTimeMillis();
+                    final long deadline = timeout + now;
+                    do {
+                        buffer.clear();
+                        if (deadline <= System.currentTimeMillis()) {
+                            buffer.flip();
+                            throw new ReadTimeoutException("Read timed out");
+                        }
+                        final int res = Channels.readBlocking(channel, buffer, deadline - now, TimeUnit.MILLISECONDS);
+                        buffer.flip();
+                        if (res == -1) {
+                            eof = true;
+                            return -1;
+                        }
+                    } while (! buffer.hasRemaining());
+                }
             }
+        } catch (IOException e) {
+            buffer.position(oldBufferPosition).limit(oldBufferLimit);
+            throw e;
         }
         return buffer.get() & 0xff;
     }
@@ -173,14 +183,16 @@ public class BufferedChannelInputStream extends InputStream {
         }
         int total = 0;
         final ByteBuffer buffer = this.buffer;
+        final int oldBufferPosition = buffer.position();
+        final int oldBufferLimit = buffer.limit();
         if (buffer.hasRemaining()) {
             final int cnt = min(buffer.remaining(), len);
-            buffer.get(b, off, len);
+            buffer.get(b, off, cnt);
             total += cnt;
             off += cnt;
             len -= cnt;
         }
-        if (closed) return -1;
+        if (eof) return -1;
         final StreamSourceChannel channel = this.channel;
         final long timeout = this.timeout;
         try {
@@ -189,9 +201,11 @@ public class BufferedChannelInputStream extends InputStream {
                     final ByteBuffer dst = ByteBuffer.wrap(b, off, len);
                     int res = total > 0 ? channel.read(dst) : Channels.readBlocking(channel, dst);
                     if (res == -1) {
+                        eof = true;
                         return total == 0 ? -1 : total;
                     }
                     total += res;
+                    len -= res;
                     if (res == 0) {
                         break;
                     }
@@ -209,9 +223,11 @@ public class BufferedChannelInputStream extends InputStream {
                         }
                     }
                     if (res == -1) {
+                        eof = true;
                         return total == 0 ? -1 : total;
                     }
                     total += res;
+                    len -= res;
                     if (res == 0) {
                         break;
                     }
@@ -219,6 +235,7 @@ public class BufferedChannelInputStream extends InputStream {
             }
         } catch (InterruptedIOException e) {
             e.bytesTransferred = total;
+            buffer.position(oldBufferPosition).limit(oldBufferLimit);
             throw e;
         }
         return total;
@@ -237,30 +254,40 @@ public class BufferedChannelInputStream extends InputStream {
         }
         long total = 0L;
         final ByteBuffer buffer = this.buffer;
+        final int oldBufferPosition = buffer.position();
+        final int oldBufferLimit = buffer.limit();
         if (buffer.hasRemaining()) {
             final int cnt = (int) min(buffer.remaining(), n);
             Buffers.skip(buffer, cnt);
             total += cnt;
             n -= cnt;
         }
-        if (closed) {
+        if (eof) {
             return total;
         }
         final StreamSourceChannel channel = this.channel;
         if (n > 0L) {
-            // Buffer was cleared
             try {
+                // Buffer was cleared
                 while (n > 0L) {
                     buffer.clear();
                     int res = total > 0L ? channel.read(buffer) : Channels.readBlocking(channel, buffer);
                     if (res <= 0) {
+                        buffer.position(0).limit(0);
                         return total;
                     }
+                    if (res > n) {
+                        buffer.position( buffer.position() - (res - (int) n));
+                        return total + n;
+                    }
+                    n -= res;
                     total += (long) res;
                 }
-            } finally {
-                buffer.position(0).limit(0);
+            } catch (IOException e) {
+                buffer.position(oldBufferPosition).limit(oldBufferLimit);
+                throw e;
             }
+            buffer.position(0).limit(0);
         }
         return total;
     }
@@ -276,7 +303,7 @@ public class BufferedChannelInputStream extends InputStream {
     public int available() throws IOException {
         final ByteBuffer buffer = this.buffer;
         final int rem = buffer.remaining();
-        if (rem > 0 || closed) {
+        if (rem > 0 || eof) {
             return rem;
         }
         buffer.clear();
@@ -296,7 +323,8 @@ public class BufferedChannelInputStream extends InputStream {
      * @throws IOException if an I/O error occurs
      */
     public void close() throws IOException {
-        closed = true;
+        eof = true;
+        buffer.clear().flip();
         channel.shutdownReads();
     }
 }
