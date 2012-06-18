@@ -160,6 +160,7 @@ public class ChannelOutputStream extends OutputStream {
                         throw e;
                     }
                     if (closed) throw closed();
+                    now = System.currentTimeMillis();
                 }
             }
         }
