@@ -173,6 +173,7 @@ public final class WriterOutputStream extends OutputStream {
     /** {@inheritDoc} */
     public void flush() throws IOException {
         if (closed) throw new IOException("Stream closed");
+        doFlush(false);
         writer.flush();
     }
 
