@@ -42,7 +42,7 @@ import static org.xnio.Bits.anyAreSet;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class EmptyStreamSourceChannel implements StreamSourceChannel {
+public class EmptyStreamSourceChannel implements StreamSourceChannel {
     private final XnioWorker worker;
     private final XnioExecutor executor;
     private final ChannelListener.SimpleSetter<EmptyStreamSourceChannel> readSetter = new ChannelListener.SimpleSetter<EmptyStreamSourceChannel>();
