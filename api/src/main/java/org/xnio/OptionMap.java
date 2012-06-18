@@ -297,8 +297,9 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add all options from a properties file.  Finds all entries which start with a given prefix; the remainder
-         * of the property key (after the prefix) is the option name, and the value is the option value.
+         * Add all options from a properties file.  Finds all entries which start with a given prefix followed by '.';
+         * the remainder of the property key (after the prefix) is the option name, and the value is the option value.
+         * <p>If the prefix does not end with '.' character, a '.' will be appended to it before parsing.
          *
          * @param props the properties to read
          * @param prefix the prefix
@@ -324,14 +325,18 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
         }
 
         /**
-         * Add all options from a properties file.  Finds all entries which start with a given prefix; the remainder
-         * of the property key (after the prefix) is the option name, and the value is the option value.
+         * Add all options from a properties file.  Finds all entries which start with a given prefix followed by '.';
+         * the remainder of the property key (after the prefix) is the option name, and the value is the option value.
+         *<p>If the prefix does not end with '.' character, a '.' will be appended to it before parsing.
          *
          * @param props the properties to read
          * @param prefix the prefix
          * @return this builder
          */
         public Builder parseAll(Properties props, String prefix) {
+            if (! prefix.endsWith(".")) {
+                prefix = prefix + ".";
+            }
             for (String name : props.stringPropertyNames()) {
                 if (name.startsWith(prefix)) {
                     final String optionName = name.substring(prefix.length());
