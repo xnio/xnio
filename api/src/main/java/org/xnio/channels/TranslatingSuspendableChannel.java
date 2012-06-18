@@ -22,13 +22,18 @@
 
 package org.xnio.channels;
 
+import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
-import static java.util.Arrays.copyOf;
 import static java.util.concurrent.locks.LockSupport.park;
 import static java.util.concurrent.locks.LockSupport.parkNanos;
 import static java.util.concurrent.locks.LockSupport.unpark;
+import static org.xnio.Bits.allAreClear;
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.Bits.anyAreSet;
+import static org.xnio.Bits.intBitMask;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.channels.Channel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -40,8 +45,6 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
-
-import static org.xnio.Bits.*;
 
 /**
  * An abstract wrapped channel.
@@ -64,14 +67,13 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private final ChannelListener.SimpleSetter<C> closeSetter = new ChannelListener.SimpleSetter<C>();
 
     private volatile int state;
-    private volatile Thread[] readWaiters = NOT_WAITING;
-    private volatile Thread[] writeWaiters = NOT_WAITING;
-
-    private static final Thread[] NOT_WAITING = new Thread[0];
+    private volatile Thread readWaiter;
+    private volatile Thread writeWaiter;
 
     private static final AtomicIntegerFieldUpdater<TranslatingSuspendableChannel> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, "state");
-    private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread[]> readWaitersUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread[].class, "readWaiters");
-    private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread[]> writeWaitersUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread[].class, "writeWaiters");
+
+    private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread> readWaiterUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread.class, "readWaiter");
+    private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread> writeWaiterUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread.class, "writeWaiter");
 
     // read-side
 
@@ -80,7 +82,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int READ_READY             = 1 << 0x02; // channel is always ready to be read
     private static final int READ_SHUT_DOWN         = 1 << 0x03; // user shut down reads
 
-    private static final int READ_REQUIRES_EXT      = intBitMask(0x0B, 0x0F); // channel cannot be read until external event completes, up to 32 events
+    private static final int READ_REQUIRES_EXT      = intBitMask(0x0B, 0x0F); // channel cannot be read until external event completes, up to 31 events
     private static final int READ_SINGLE_EXT        = 1 << 0x0B; // one external event count value
 
     private static final int READ_FLAGS             = intBitMask(0x00, 0x0F);
@@ -266,6 +268,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      */
     protected void setReadReady() {
         int oldState = setFlags(READ_READY);
+        unparkReadWaiters();
         if (allAreSet(oldState, READ_READY)) {
             // idempotent
             return;
@@ -365,6 +368,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      */
     protected void setWriteReady() {
         int oldState = setFlags(WRITE_READY);
+        unparkWriteWaiters();
         if (allAreSet(oldState, WRITE_READY)) {
             // idempotent
             return;
@@ -526,10 +530,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     /** {@inheritDoc} */
     public void wakeupReads() {
-        final int oldState = setFlags(READ_REQUESTED);
-        if (anyAreSet(oldState, READ_SHUT_DOWN)) {
+        if (anyAreSet(state, READ_SHUT_DOWN)) {
             return;
         }
+        final int oldState = setFlags(READ_REQUESTED);
         channel.wakeupReads();
     }
 
@@ -566,11 +570,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     /** {@inheritDoc} */
     public void wakeupWrites() {
-        final int oldState = setFlags(WRITE_REQUESTED);
-        if (anyAreSet(oldState, WRITE_COMPLETE)) {
+        if (anyAreSet(state, WRITE_SHUT_DOWN)) {
             return;
         }
+        final int oldState = setFlags(WRITE_REQUESTED);
         channel.wakeupWrites();
+        unparkWriteWaiters();
     }
 
     /** {@inheritDoc} */
@@ -727,15 +732,25 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(oldState, READ_READY | READ_SHUT_DOWN)) {
             return;
         }
-        if (addReadWaiter()) {
+        final Thread thread = currentThread();
+        final Thread next = readWaiterUpdater.getAndSet(this, thread);
+        try {
+            if (anyAreSet(oldState = state, READ_READY | READ_SHUT_DOWN)) {
+                return;
+            }
             if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
                 channel.resumeWrites();
             } else {
                 channel.resumeReads();
             }
             park(this);
+            if (thread.isInterrupted()) {
+                throw new InterruptedIOException();
+            }
+        } finally {
+            // always unpark because we cannot know if our awaken was spurious
+            if (next != null) unpark(next);
         }
-        return;
     }
 
     /** {@inheritDoc} */
@@ -744,15 +759,28 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(oldState, READ_READY | READ_SHUT_DOWN)) {
             return;
         }
-        if (addReadWaiter()) {
+        final Thread thread = currentThread();
+        final Thread next = readWaiterUpdater.getAndSet(this, thread);
+        long then = nanoTime();
+        long now;
+        long duration = timeUnit.toNanos(time);
+        try {
+            if (anyAreSet(oldState = state, READ_READY | READ_SHUT_DOWN)) {
+                return;
+            }
             if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
                 channel.resumeWrites();
             } else {
                 channel.resumeReads();
             }
-            parkNanos(this, timeUnit.toNanos(time));
+            parkNanos(this, duration);
+            if (thread.isInterrupted()) {
+                throw new InterruptedIOException();
+            }
+        } finally {
+            // always unpark because we cannot know if our awaken was spurious
+            if (next != null) unpark(next);
         }
-        return;
     }
 
     public XnioExecutor getReadThread() {
@@ -765,15 +793,25 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(oldState, WRITE_READY | WRITE_SHUT_DOWN)) {
             return;
         }
-        if (addWriteWaiter()) {
+        final Thread thread = currentThread();
+        final Thread next = writeWaiterUpdater.getAndSet(this, thread);
+        try {
+            if (anyAreSet(oldState = state, WRITE_READY | WRITE_SHUT_DOWN)) {
+                return;
+            }
             if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
                 channel.resumeReads();
             } else {
                 channel.resumeWrites();
             }
             park(this);
+            if (thread.isInterrupted()) {
+                throw new InterruptedIOException();
+            }
+        } finally {
+            // always unpark because we cannot know if our awaken was spurious
+            if (next != null) unpark(next);
         }
-        return;
     }
 
     /** {@inheritDoc} */
@@ -782,15 +820,42 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(oldState, WRITE_READY | WRITE_SHUT_DOWN)) {
             return;
         }
-        if (addWriteWaiter()) {
+        final Thread thread = currentThread();
+        final Thread next = writeWaiterUpdater.getAndSet(this, thread);
+        long then = nanoTime();
+        long now;
+        long duration = timeUnit.toNanos(time);
+        try {
+            if (anyAreSet(oldState = state, WRITE_READY | WRITE_SHUT_DOWN)) {
+                return;
+            }
             if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
                 channel.resumeReads();
             } else {
                 channel.resumeWrites();
             }
-            parkNanos(this, timeUnit.toNanos(time));
+            parkNanos(this, duration);
+            if (thread.isInterrupted()) {
+                throw new InterruptedIOException();
+            }
+        } finally {
+            // always unpark because we cannot know if our awaken was spurious
+            if (next != null) unpark(next);
         }
-        return;
+    }
+
+    private void unparkReadWaiters() {
+        final Thread waiter = readWaiterUpdater.getAndSet(this, null);
+        if (waiter != null) {
+            unpark(waiter);
+        }
+    }
+
+    private void unparkWriteWaiters() {
+        final Thread waiter = writeWaiterUpdater.getAndSet(this, null);
+        if (waiter != null) {
+            unpark(waiter);
+        }
     }
 
     public XnioExecutor getWriteThread() {
@@ -881,63 +946,5 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
 
     private int clearFlag(final int count) {
         return stateUpdater.getAndAdd(this, -count);
-    }
-
-    private boolean addReadWaiter() {
-        Thread[] oldWaiters, newWaiters;
-        do {
-            oldWaiters = readWaiters;
-            if (oldWaiters == NOT_WAITING) {
-                return false;
-            } else if (oldWaiters == null) {
-                newWaiters = new Thread[] { currentThread() };
-            } else {
-                final int oldLength = oldWaiters.length;
-                for (int i = 0; i < oldLength; i++) {
-                    if (oldWaiters[i] == currentThread()) {
-                        return true;
-                    }
-                }
-                newWaiters = copyOf(oldWaiters, oldLength + 1);
-                newWaiters[oldLength] = currentThread();
-            }
-        } while (! readWaitersUpdater.compareAndSet(this, oldWaiters, newWaiters));
-        return true;
-    }
-
-    private boolean addWriteWaiter() {
-        Thread[] oldWaiters, newWaiters;
-        do {
-            oldWaiters = writeWaiters;
-            if (oldWaiters == NOT_WAITING) {
-                return false;
-            } else if (oldWaiters == null) {
-                newWaiters = new Thread[] { currentThread() };
-            } else {
-                final int oldLength = oldWaiters.length;
-                for (int i = 0; i < oldLength; i++) {
-                    if (oldWaiters[i] == currentThread()) {
-                        return true;
-                    }
-                }
-                newWaiters = copyOf(oldWaiters, oldLength + 1);
-                newWaiters[oldLength] = currentThread();
-            }
-        } while (! writeWaitersUpdater.compareAndSet(this, oldWaiters, newWaiters));
-        return true;
-    }
-
-    private void unparkReadWaiters() {
-        final Thread[] waiters = readWaitersUpdater.getAndSet(this, NOT_WAITING);
-        for (Thread waiter : waiters) {
-            unpark(waiter);
-        }
-    }
-
-    private void unparkWriteWaiters() {
-        final Thread[] waiters = writeWaitersUpdater.getAndSet(this, NOT_WAITING);
-        for (Thread waiter : waiters) {
-            unpark(waiter);
-        }
     }
 }
