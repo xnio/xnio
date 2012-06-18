@@ -217,11 +217,7 @@ public final class ChannelListeners {
      * @return the delegating setter
      */
     public static <T extends Channel> ChannelListener.Setter<T> getDelegatingSetter(final ChannelListener.Setter<? extends Channel> target, final T realChannel) {
-        return target == null ? null : delegatingSetter(target, realChannel);
-    }
-
-    private static <T extends Channel, O extends Channel> DelegatingSetter<T, O> delegatingSetter(final ChannelListener.Setter<O> setter, final T realChannel) {
-        return new DelegatingSetter<T,O>(setter, realChannel);
+        return target == null ? null : new DelegatingSetter<T>(target, realChannel);
     }
 
     /**
@@ -829,21 +825,21 @@ public final class ChannelListeners {
         }
     }
 
-    private static class DelegatingSetter<T extends Channel, O extends Channel> implements ChannelListener.Setter<T> {
-        private final ChannelListener.Setter<O> setter;
+    private static class DelegatingSetter<T extends Channel> implements ChannelListener.Setter<T> {
+        private final ChannelListener.Setter<? extends Channel> setter;
         private final T realChannel;
 
-        DelegatingSetter(final ChannelListener.Setter<O> setter, final T realChannel) {
+        DelegatingSetter(final ChannelListener.Setter<? extends Channel> setter, final T realChannel) {
             this.setter = setter;
             this.realChannel = realChannel;
         }
 
         public void set(final ChannelListener<? super T> channelListener) {
-            setter.set(channelListener == null ? null : new DelegatingChannelListener<T, O>(channelListener, realChannel));
+            setter.set(channelListener == null ? null : new DelegatingChannelListener<T>(channelListener, realChannel));
         }
     }
 
-    private static class DelegatingChannelListener<T extends Channel, O extends Channel> implements ChannelListener<O> {
+    private static class DelegatingChannelListener<T extends Channel> implements ChannelListener<Channel> {
 
         private final ChannelListener<? super T> channelListener;
         private final T realChannel;
