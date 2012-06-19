@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.xnio.Buffers;
 import org.xnio.ChannelListener;
@@ -45,11 +46,16 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
 
     private final StreamSourceChannel firstChannel;
     private volatile StreamSourceChannel channel;
+    @SuppressWarnings("unused")
+    private volatile int flags;
 
     private final ChannelListener.Setter<PushBackStreamChannel> readSetter;
     private final ChannelListener.Setter<PushBackStreamChannel> closeSetter;
 
     private static final AtomicReferenceFieldUpdater<PushBackStreamChannel, StreamSourceChannel> channelUpdater = AtomicReferenceFieldUpdater.newUpdater(PushBackStreamChannel.class, StreamSourceChannel.class, "channel");
+    private static final AtomicIntegerFieldUpdater<PushBackStreamChannel> flagsUpdater = AtomicIntegerFieldUpdater.newUpdater(PushBackStreamChannel.class, "flags");
+
+    private static final int FLAG_ENTERED = 1;
 
     /**
      * Construct a new instance.
@@ -60,6 +66,16 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
         this.channel = firstChannel = channel;
         readSetter = ChannelListeners.getDelegatingSetter(firstChannel.getReadSetter(), this);
         closeSetter = ChannelListeners.getDelegatingSetter(firstChannel.getCloseSetter(), this);
+    }
+
+    private void enter() {
+        if (! flagsUpdater.compareAndSet(this, 0, FLAG_ENTERED)) {
+            throw new ConcurrentStreamChannelAccessException();
+        }
+    }
+
+    private void exit() {
+        flagsUpdater.set(this, 0);
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
@@ -132,7 +148,10 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     }
 
     public void resumeReads() {
-        firstChannel.resumeReads();
+        final StreamSourceChannel channel = this.channel;
+        if (channel != null) {
+            channel.resumeReads();
+        }
     }
 
     public boolean isReadResumed() {
@@ -210,7 +229,8 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
 
         public long transferTo(long position, long count, FileChannel target) throws IOException {
             long cnt;
-            synchronized (this) {
+            enter();
+            try {
                 final ByteBuffer src;
                 try {
                     src = buffer.getResource();
@@ -239,13 +259,16 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
                     channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
                     cnt = 0L;
                 }
+            } finally {
+                exit();
             }
             return cnt + next.transferTo(position, count, target);
         }
 
         public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
             long cnt;
-            synchronized (this) {
+            enter();
+            try {
                 throughBuffer.clear();
                 final ByteBuffer src;
                 try {
@@ -274,17 +297,20 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
                     channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
                     cnt = 0L;
                 }
+            } finally {
+                exit();
             }
             final long res = next.transferTo(count - cnt, throughBuffer, target);
             return res > 0L ? cnt + res : cnt > 0L ? cnt : res;
         }
 
-        public synchronized long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
             long cnt;
             if (! Buffers.hasRemaining(dsts, offset, length)) {
                 return 0L;
             }
-            synchronized (this) {
+            enter();
+            try {
                 final ByteBuffer src;
                 try {
                     src = buffer.getResource();
@@ -298,6 +324,8 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
                     channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
                     cnt = 0;
                 }
+            } finally {
+                exit();
             }
             final long res = next.read(dsts, offset, length);
             return res > 0 ? res + cnt : cnt > 0 ? cnt : res;
@@ -312,7 +340,8 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
             if (! dst.hasRemaining()) {
                 return 0;
             }
-            synchronized (this) {
+            enter();
+            try {
                 final ByteBuffer src;
                 try {
                     src = buffer.getResource();
@@ -326,14 +355,36 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
                     channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
                     cnt = 0;
                 }
+            } finally {
+                exit();
             }
             final int res = next.read(dst);
             return res > 0 ? res + cnt : cnt > 0 ? cnt : res;
         }
 
-        public synchronized void close() throws IOException {
-            buffer.free();
+        public void close() throws IOException {
+            enter();
+            try {
+                buffer.free();
+            } finally {
+                exit();
+            }
             next.close();
+        }
+
+        public void resumeReads() {
+            // reads are always ready in this case
+            firstChannel.wakeupReads();
+        }
+
+        public void shutdownReads() throws IOException {
+            enter();
+            try {
+                buffer.free();
+            } finally {
+                exit();
+            }
+            next.shutdownReads();
         }
 
         public void awaitReadable() throws IOException {
@@ -347,51 +398,47 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
         // unused methods
 
         public boolean isOpen() {
-            return false;
+            throw new UnsupportedOperationException();
         }
 
         public ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter() {
-            return null;
+            throw new UnsupportedOperationException();
         }
 
         public ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter() {
-            return null;
+            throw new UnsupportedOperationException();
         }
 
         public void suspendReads() {
-        }
-
-        public void resumeReads() {
+            throw new UnsupportedOperationException();
         }
 
         public boolean isReadResumed() {
-            return false;
+            throw new UnsupportedOperationException();
         }
 
         public void wakeupReads() {
-        }
-
-        public void shutdownReads() throws IOException {
+            throw new UnsupportedOperationException();
         }
 
         public XnioExecutor getReadThread() {
-            return null;
+            throw new UnsupportedOperationException();
         }
 
         public XnioWorker getWorker() {
-            return null;
+            throw new UnsupportedOperationException();
         }
 
         public boolean supportsOption(final Option<?> option) {
-            return false;
+            throw new UnsupportedOperationException();
         }
 
         public <T> T getOption(final Option<T> option) throws IOException {
-            return null;
+            throw new UnsupportedOperationException();
         }
 
         public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-            return null;
+            throw new UnsupportedOperationException();
         }
     }
 }
