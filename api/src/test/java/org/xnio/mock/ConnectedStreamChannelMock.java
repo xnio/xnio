@@ -21,8 +21,6 @@
  */
 package org.xnio.mock;
 
-import static org.junit.Assert.assertSame;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.SocketAddress;
@@ -184,7 +182,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         if (resetPosition) {
             readBuffer.position(position);
         }
-        if (readWaiter != null &&readEnabled) {
+        if (readWaiter != null && totalLength > 0 && readEnabled) {
             LockSupport.unpark(readWaiter);
         }
     }
@@ -226,7 +224,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         if (resetPosition) {
             readBuffer.position(position);
         }
-        if (readWaiter != null && readEnabled) {
+        if (readWaiter != null && totalLength > 0 && readEnabled) {
             LockSupport.unpark(readWaiter);
         }
     }
@@ -240,7 +238,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
 
     public synchronized void enableRead(boolean enable) {
         readEnabled = enable;
-        if (readWaiter != null && readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) {
+        if (readWaiter != null && readEnabled && ((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
             LockSupport.unpark(readWaiter);
         }
     }
@@ -351,7 +349,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
             if (readWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
             }
-            if (readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) {
+            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readEnabled) {
                 return;
             }
             readWaiter = Thread.currentThread();
@@ -367,12 +365,18 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
      */
     @Override
     public synchronized void awaitReadable(long time, TimeUnit timeUnit) throws IOException {
-        if (readWaiter != null) {
-            throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
-        }
-        if (((!readBuffer.hasRemaining() || readBuffer.capacity() == readBuffer.limit()) && !eof) || !readEnabled) {
+        synchronized (this) {
+            if (readWaiter != null) {
+                throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
+            }
+            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readEnabled) {
+                return;
+            }
             readWaiter = Thread.currentThread();
-            LockSupport.parkNanos(timeUnit.toNanos(time));
+        }
+        // FIXME assertSame("ConnectedStreamChannelMock.awaitReadable(long, TimeUnit) can be used only with TimeUnit.NANOSECONDS", TimeUnit.MILLISECONDS, timeUnit);
+        LockSupport.parkNanos(timeUnit.toNanos(time));
+        synchronized (this) {
             readWaiter = null;
         }
     }
@@ -429,12 +433,18 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
 
     @Override
     public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {
-        if (writeWaiter != null) {
-            throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one write waiter thread at most... there is already a  waiting thread" + writeWaiter);
-        }
-        if (!writeEnabled) {
+        synchronized (this) {
+            if (writeWaiter != null) {
+                throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one write waiter thread at most... there is already a  waiting thread" + writeWaiter);
+            }
+            if (writeEnabled) {
+                return;
+            }
             writeWaiter = Thread.currentThread();
-            LockSupport.parkNanos(timeUnit.toNanos(time));
+        }
+        // FIXME assertSame("ConnectedStreamChannelMock.awaitWritable(long, TimeUnit) can be used only with TimeUnit.NANOSECONDS", TimeUnit.NANOSECONDS, timeUnit);
+        LockSupport.parkNanos(timeUnit.toNanos(time));
+        synchronized (this) {
             writeWaiter = null;
         }
     }
