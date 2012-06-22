@@ -121,14 +121,14 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableByteChannel & SuspendableWriteChannel> int writeBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
-        long remaining = unit.toMillis(time);
-        long now = System.currentTimeMillis();
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
         int t = 0;
         while (buffer.hasRemaining() && remaining > 0L) {
             int res = channel.write(buffer);
             if (res == 0) {
-                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
-                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+                channel.awaitWritable(remaining, TimeUnit.NANOSECONDS);
+                remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
             } else {
                 t += res;
             }
@@ -178,14 +178,14 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends GatheringByteChannel & SuspendableWriteChannel> long writeBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
-        long remaining = unit.toMillis(time);
-        long now = System.currentTimeMillis();
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
         long t = 0;
         while (Buffers.hasRemaining(buffers, offs, len) && remaining > 0L) {
             long res = channel.write(buffers, offs, len);
             if (res == 0) {
-                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
-                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+                channel.awaitWritable(remaining, TimeUnit.NANOSECONDS);
+                remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
             } else {
                 t += res;
             }
@@ -222,12 +222,12 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel> boolean sendBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
-        long remaining = unit.toMillis(time);
-        long now = System.currentTimeMillis();
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
         while (remaining > 0L) {
             if (!channel.send(buffer)) {
-                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
-                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+                channel.awaitWritable(remaining, TimeUnit.NANOSECONDS);
+                remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
             } else {
                 return true;
             }
@@ -268,12 +268,12 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends WritableMessageChannel> boolean sendBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
-        long remaining = unit.toMillis(time);
-        long now = System.currentTimeMillis();
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
         while (remaining > 0L) {
             if (!channel.send(buffers, offs, len)) {
-                channel.awaitWritable(remaining, TimeUnit.MILLISECONDS);
-                remaining -= Math.max(-now + (now = System.currentTimeMillis()), 0L);
+                channel.awaitWritable(remaining, TimeUnit.NANOSECONDS);
+                remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
             } else {
                 return true;
             }
