@@ -31,7 +31,8 @@ import org.xnio.Buffers;
 
 /**
  * A blocking wrapper for a {@code StreamChannel}.  Write operations will block until some data may be transferred.
- * Once any amount of data is written, the operation will return.
+ * Once any amount of data is written, the operation will return.  If a write timeout is specified, then the write methods
+ * will throw a {@link WriteTimeoutException} if the timeout expires without writing any data.
  */
 public class BlockingWritableByteChannel implements GatheringByteChannel, Flushable {
     private final StreamSinkChannel delegate;
@@ -58,7 +59,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
             throw new IllegalArgumentException("Negative write timeout");
         }
         this.delegate = delegate;
-        final long calcTimeout = writeTimeoutUnit.toMillis(writeTimeout);
+        final long calcTimeout = writeTimeoutUnit.toNanos(writeTimeout);
         this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
@@ -72,7 +73,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
         if (writeTimeout < 0L) {
             throw new IllegalArgumentException("Negative write timeout");
         }
-        final long calcTimeout = writeTimeoutUnit.toMillis(writeTimeout);
+        final long calcTimeout = writeTimeoutUnit.toNanos(writeTimeout);
         this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
@@ -86,22 +87,25 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
      * @throws IOException if an I/O error occurs
      */
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        if (!Buffers.hasRemaining(srcs, offset, length)) {
+            return 0L;
+        }
         final StreamSinkChannel delegate = this.delegate;
         long res;
-        final long writeTimeout = this.writeTimeout;
-        if (writeTimeout == 0L) {
-            while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
-                delegate.awaitWritable();
-            }
-        } else {
-            long now = System.currentTimeMillis();
-            final long deadline = now + writeTimeout;
-            while ((res = delegate.write(srcs, offset, length)) == 0L && Buffers.hasRemaining(srcs, offset, length)) {
-                if (now >= deadline) {// FIXME unreachable code
+        if ((res = delegate.write(srcs, offset, length)) == 0L) {
+            long start = System.nanoTime();
+            long elapsed = 0L, writeTimeout;
+            do {
+                writeTimeout = this.writeTimeout;
+                if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
+                    delegate.awaitWritable();
+                } else if (writeTimeout <= elapsed) {
                     throw new WriteTimeoutException("Write timed out");
+                } else {
+                    delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
-                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
-            }
+                elapsed = System.nanoTime() - start;
+            } while ((res = delegate.write(srcs, offset, length)) == 0L);
         }
         return res;
     }
@@ -125,22 +129,25 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
      * @throws IOException if an I/O error occurs
      */
     public int write(final ByteBuffer src) throws IOException {
+        if (! src.hasRemaining()) {
+            return 0;
+        }
         final StreamSinkChannel delegate = this.delegate;
         int res;
-        final long writeTimeout = this.writeTimeout;
-        if (writeTimeout == 0L) {
-            while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
-                delegate.awaitWritable();
-            }
-        } else {
-            long now = System.currentTimeMillis();
-            final long deadline = now + writeTimeout;
-            while ((res = delegate.write(src)) == 0 && src.hasRemaining()) {
-                if (now >= deadline) {// FIXME unreachable code
+        if ((res = delegate.write(src)) == 0L) {
+            long start = System.nanoTime();
+            long elapsed = 0L, writeTimeout;
+            do {
+                writeTimeout = this.writeTimeout;
+                if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
+                    delegate.awaitWritable();
+                } else if (writeTimeout <= elapsed) {
                     throw new WriteTimeoutException("Write timed out");
+                } else {
+                    delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
-                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
-            }
+                elapsed = System.nanoTime() - start;
+            } while ((res = delegate.write(src)) == 0L);
         }
         return res;
     }
@@ -153,18 +160,20 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
     /** {@inheritDoc} */
     public void flush() throws IOException {
         final StreamSinkChannel delegate = this.delegate;
-        final long writeTimeout = this.writeTimeout;
-        if (writeTimeout == 0L) {
-            Channels.flushBlocking(delegate);
-        } else {
-            long now = System.currentTimeMillis();
-            final long deadline = now + writeTimeout;
-            while (! delegate.flush()) {
-                if (now >= deadline) {// FIXME unreachable code
+        if (! delegate.flush()) {
+            long start = System.nanoTime();
+            long elapsed = 0L, writeTimeout;
+            do {
+                writeTimeout = this.writeTimeout;
+                if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
+                    delegate.awaitWritable();
+                } else if (writeTimeout <= elapsed) {
                     throw new WriteTimeoutException("Flush timed out");
+                } else {
+                    delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
-                delegate.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
-            }
+                elapsed = System.nanoTime() - start;
+            } while (! delegate.flush());
         }
     }
 

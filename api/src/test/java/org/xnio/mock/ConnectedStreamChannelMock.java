@@ -372,8 +372,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         }
         if (((!readBuffer.hasRemaining() || readBuffer.capacity() == readBuffer.limit()) && !eof) || !readEnabled) {
             readWaiter = Thread.currentThread();
-            assertSame("ConnectedStreamChannelMock.awaitReadable(long, TimeUnit) can be used only with TimeUnit.MILLISECONDS", TimeUnit.MILLISECONDS, timeUnit);
-            LockSupport.parkUntil(System.currentTimeMillis() + time);
+            LockSupport.parkNanos(timeUnit.toNanos(time));
             readWaiter = null;
         }
     }
@@ -435,8 +434,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         }
         if (!writeEnabled) {
             writeWaiter = Thread.currentThread();
-            assertSame("ConnectedStreamChannelMock.awaitWritable(long, TimeUnit) can be used only with TimeUnit.MILLISECONDS", TimeUnit.MILLISECONDS, timeUnit);
-            LockSupport.parkUntil(System.currentTimeMillis() + time);
+            LockSupport.parkNanos(timeUnit.toNanos(time));
             writeWaiter = null;
         }
     }

@@ -23,6 +23,7 @@ package org.xnio.channels;
 
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.xnio.mock.ConnectedStreamChannelMock;
 
 /**
@@ -30,6 +31,7 @@ import org.xnio.mock.ConnectedStreamChannelMock;
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
+@Ignore
 public class BlockingByteChannelWriteTestCase extends AbstractBlockingWritableByteChannelTest<BlockingByteChannel> {
 
     @Override
