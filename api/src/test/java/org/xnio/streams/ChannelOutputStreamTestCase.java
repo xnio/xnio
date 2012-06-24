@@ -259,10 +259,10 @@ public class ChannelOutputStreamTestCase extends AbstractChannelStreamTest<Chann
     public void writeByteArraysAndBytesWithTimeout() throws IOException {
         final ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
         channelMock.enableWrite(false);
-        // try using 10 microseconds, timeout value is rounded up to 1 millisecond
+        // try using 10 microseconds, timeout value is not rounded up to 1 millisecond
         final ChannelOutputStream stream = new ChannelOutputStream(channelMock, 10, TimeUnit.MICROSECONDS);
-        assertEquals(1000, stream.getWriteTimeout(TimeUnit.MICROSECONDS));
-        assertEquals(1, stream.getWriteTimeout(TimeUnit.MILLISECONDS));
+        assertEquals(10, stream.getWriteTimeout(TimeUnit.MICROSECONDS));
+        assertEquals(0, stream.getWriteTimeout(TimeUnit.MILLISECONDS));
         stream.setWriteTimeout(200, TimeUnit.MILLISECONDS);
         assertEquals(200, stream.getWriteTimeout(TimeUnit.MILLISECONDS));
         // start write test

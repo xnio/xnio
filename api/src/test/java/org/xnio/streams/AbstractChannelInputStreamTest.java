@@ -528,10 +528,10 @@ public abstract class AbstractChannelInputStreamTest<T extends InputStream> exte
     @Test
     public void readByteArraysAndBytesWithTimeout() throws IOException {
         final ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
-        // try using 10 microseconds, timeout value is rounded up to 1 millisecond
+        // try using 10 microseconds, timeout value is NOT rounded up
         final T stream = createChannelInputStream(channelMock, 10, TimeUnit.MICROSECONDS, 10);
-        assertEquals(1000, getReadTimeout(stream, TimeUnit.MICROSECONDS));
-        assertEquals(1, getReadTimeout(stream, TimeUnit.MILLISECONDS));
+        assertEquals(10, getReadTimeout(stream, TimeUnit.MICROSECONDS));
+        assertEquals(10000, getReadTimeout(stream, TimeUnit.NANOSECONDS));
         // start read test
         final byte[] bytes = new byte[5];
         assertAvailableBytes(stream, 0, 0);

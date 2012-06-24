@@ -66,17 +66,20 @@ public class ChannelInputStreamTestCase extends AbstractChannelInputStreamTest<C
         final ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
         final ChannelInputStream stream = new ChannelInputStream(channelMock);
         channelMock.setReadData("skip all");
-        channelMock.enableRead(true);
+        channelMock.enableRead(false);
         SkipBytesTask skipTask = new SkipBytesTask(stream, 16);
         Thread skipBytesThread = new Thread(skipTask);
         skipBytesThread.start();
         skipBytesThread.join(200);
         assertTrue(skipBytesThread.isAlive());
 
-        channelMock.setReadData("skip all this - data");
-        channelMock.setEof();
+        channelMock.enableRead(false);
         skipBytesThread.join();
         assertEquals(16, skipTask.getSkipResult());
+
+        channelMock.setReadData("skip all this - data");
+        channelMock.setEof();
+
         // try again
         skipTask = new SkipBytesTask(stream, 8);
         skipBytesThread = new Thread(skipTask);

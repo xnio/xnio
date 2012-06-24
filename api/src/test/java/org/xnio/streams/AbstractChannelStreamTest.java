@@ -95,8 +95,8 @@ public abstract class AbstractChannelStreamTest <T extends Closeable> {
         assertNotNull(getOperationTimeoutException);
         // set timeout to 1 microsecond
         setOperationTimeout(stream, 1, TimeUnit.MICROSECONDS);
-        assertEquals(1, getOperationTimeout(stream, TimeUnit.MILLISECONDS));
-        assertEquals(1000, getOperationTimeout(stream, TimeUnit.MICROSECONDS)); // timeout is rounded up to 1 millisecond
+        assertEquals(0, getOperationTimeout(stream, TimeUnit.MILLISECONDS));
+        assertEquals(1000, getOperationTimeout(stream, TimeUnit.NANOSECONDS)); // timeout is not rounded up
         assertEquals(0, getOperationTimeout(stream, TimeUnit.SECONDS));
         // set timeout to 0 milliseconds
         setOperationTimeout(stream, 0, TimeUnit.MILLISECONDS);

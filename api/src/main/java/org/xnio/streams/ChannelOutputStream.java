@@ -27,7 +27,10 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import org.xnio.Bits;
 import org.xnio.channels.Channels;
+import org.xnio.channels.ConcurrentStreamChannelAccessException;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.WriteTimeoutException;
 
@@ -43,8 +46,14 @@ import org.xnio.channels.WriteTimeoutException;
 public class ChannelOutputStream extends OutputStream {
 
     protected final StreamSinkChannel channel;
-    protected volatile boolean closed;
-    protected volatile long timeout;
+    @SuppressWarnings("unused")
+    private volatile int flags;
+    private volatile long timeout;
+
+    private static final AtomicIntegerFieldUpdater<ChannelOutputStream> flagsUpdater = AtomicIntegerFieldUpdater.newUpdater(ChannelOutputStream.class, "flags");
+
+    private static final int FLAG_CLOSED = 2;
+    private static final int FLAG_ENTERED = 1;
 
     /**
      * Construct a new instance.  No write timeout is configured.
@@ -76,12 +85,33 @@ public class ChannelOutputStream extends OutputStream {
             throw new IllegalArgumentException("Negative timeout");
         }
         this.channel = channel;
-        final long calcTimeout = unit.toMillis(timeout);
+        final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
     private static IOException closed() {
         return new IOException("The output stream is closed");
+    }
+
+    private boolean enter() {
+        int old = flags;
+        do {
+            if (Bits.allAreSet(old, FLAG_ENTERED)) {
+                throw new ConcurrentStreamChannelAccessException();
+            }
+        } while (! flagsUpdater.compareAndSet(this, old, old | FLAG_ENTERED));
+        return Bits.allAreSet(old, FLAG_CLOSED);
+    }
+
+    private void exit(boolean setEof) {
+        int oldFlags, newFlags;
+        do {
+            oldFlags = flags;
+            newFlags = oldFlags &~ FLAG_ENTERED;
+            if (setEof) {
+                newFlags |= FLAG_CLOSED;
+            }
+        } while (! flagsUpdater.compareAndSet(this, oldFlags, newFlags));
     }
 
     /**
@@ -91,7 +121,7 @@ public class ChannelOutputStream extends OutputStream {
      * @return the timeout in the given unit
      */
     public long getWriteTimeout(TimeUnit unit) {
-        return unit.convert(timeout, TimeUnit.MILLISECONDS);
+        return unit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
     /**
@@ -104,31 +134,37 @@ public class ChannelOutputStream extends OutputStream {
         if (timeout < 0L) {
             throw new IllegalArgumentException("Negative timeout");
         }
-        final long calcTimeout = unit.toMillis(timeout);
+        final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
     /** {@inheritDoc} */
     public void write(final int b) throws IOException {
-        if (closed) throw closed();
-        final ByteBuffer buffer = ByteBuffer.wrap(new byte[] { (byte) b });
-        final long timeout = this.timeout;
-        if (timeout == 0L) {
-            while (channel.write(buffer) == 0) {
-                channel.awaitWritable();
-                if (closed) throw closed();
+        boolean closed = enter();
+        try {
+            if (closed) throw closed();
+            final StreamSinkChannel channel = this.channel;
+            final ByteBuffer buffer = ByteBuffer.wrap(new byte[] { (byte) b });
+            int res = channel.write(buffer);
+            if (res == 0) {
+                long timeout;
+                long start = System.nanoTime();
+                long elapsed = 0L;
+                do {
+                    timeout = this.timeout;
+                    if (timeout == 0L) {
+                        channel.awaitWritable();
+                    } else if (timeout < elapsed) {
+                        throw new WriteTimeoutException("Write timed out");
+                    } else {
+                        channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
+                    }
+                    elapsed = System.nanoTime() - start;
+                    res = channel.write(buffer);
+                } while (res == 0);
             }
-        } else {
-            long now = System.currentTimeMillis();
-            final long deadline = now + timeout;
-            while (channel.write(buffer) == 0) {
-                if (now >= deadline) {
-                    throw new WriteTimeoutException("Write timed out");
-                }
-                channel.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
-                if (closed) throw closed();
-                now = System.currentTimeMillis();
-            }
+        } finally {
+            exit(closed);
         }
     }
 
@@ -139,53 +175,96 @@ public class ChannelOutputStream extends OutputStream {
 
     /** {@inheritDoc} */
     public void write(final byte[] b, final int off, final int len) throws IOException {
-        if (closed) throw closed();
         if (len < 1) {
             return;
         }
-        final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
-        final long timeout = this.timeout;
-        if (timeout == 0L) {
+        boolean closed = enter();
+        try {
+            if (closed) throw closed();
+            final StreamSinkChannel channel = this.channel;
+            final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
+            int res;
             while (buffer.hasRemaining()) {
-                while (channel.write(buffer) == 0) {
-                    try {
-                        channel.awaitWritable();
-                    } catch (InterruptedIOException e) {
-                        e.bytesTransferred = buffer.position();
-                        throw e;
-                    }
-                    if (closed) throw closed();
-                }
-            }
-        } else {
-            long now = System.currentTimeMillis();
-            final long deadline = now + timeout;
-            while (buffer.hasRemaining()) {
-                while (channel.write(buffer) == 0) {
-                    try {
-                        if (now >= deadline) {
-                            throw new WriteTimeoutException("Write timed out");
+                res = channel.write(buffer);
+                if (res == 0) {
+                    long timeout;
+                    long start = System.nanoTime();
+                    long elapsed = 0L;
+                    do {
+                        timeout = this.timeout;
+                        try {
+                            if (timeout == 0L) {
+                                channel.awaitWritable();
+                            } else if (timeout < elapsed) {
+                                throw new WriteTimeoutException("Write timed out");
+                            } else {
+                                channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
+                            }
+                        } catch (InterruptedIOException e) {
+                            e.bytesTransferred = buffer.position() - off;
+                            throw e;
                         }
-                        channel.awaitWritable(deadline - now, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedIOException e) {
-                        e.bytesTransferred = buffer.position();
-                        throw e;
-                    }
-                    if (closed) throw closed();
-                    now = System.currentTimeMillis();
+                        elapsed = System.nanoTime() - start;
+                        res = channel.write(buffer);
+                    } while (res == 0);
                 }
             }
+        } finally {
+            exit(closed);
         }
     }
 
     /** {@inheritDoc} */
     public void flush() throws IOException {
-        Channels.flushBlocking(channel);
+        final boolean closed = enter();
+        try {
+            final StreamSinkChannel channel = this.channel;
+            if (! channel.flush()) {
+                long timeout;
+                long start = System.nanoTime();
+                long elapsed = 0L;
+                do {
+                    timeout = this.timeout;
+                    if (timeout == 0L) {
+                        channel.awaitWritable();
+                    } else if (timeout < elapsed) {
+                        throw new WriteTimeoutException("Write timed out");
+                    } else {
+                        channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
+                    }
+                    elapsed = System.nanoTime() - start;
+                } while (! channel.flush());
+            }
+        } finally {
+            exit(closed);
+        }
     }
 
     /** {@inheritDoc} */
     public void close() throws IOException {
-        closed = true;
-        Channels.shutdownWritesBlocking(channel);
+        final boolean closed = enter();
+        try {
+            if (closed) return;
+            final StreamSinkChannel channel = this.channel;
+            channel.shutdownWrites();
+            if (! channel.flush()) {
+                long timeout;
+                long start = System.nanoTime();
+                long elapsed = 0L;
+                do {
+                    timeout = this.timeout;
+                    if (timeout == 0L) {
+                        channel.awaitWritable();
+                    } else if (timeout < elapsed) {
+                        throw new WriteTimeoutException("Write timed out");
+                    } else {
+                        channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
+                    }
+                    elapsed = System.nanoTime() - start;
+                } while (! channel.flush());
+            }
+        } finally {
+            exit(true);
+        }
     }
 }
