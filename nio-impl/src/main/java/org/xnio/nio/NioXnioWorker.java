@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
@@ -57,6 +58,7 @@ import org.xnio.Options;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
@@ -669,6 +671,10 @@ final class NioXnioWorker extends XnioWorker {
                 LockSupport.unpark(oldThread);
             }
         }
+    }
+
+    protected void doMigration(final CloseableChannel channel) throws ClosedChannelException {
+        ((AbstractNioChannel<?>)channel).migrateTo(this);
     }
 
     protected void taskPoolTerminated() {

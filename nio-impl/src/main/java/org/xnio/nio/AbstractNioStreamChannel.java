@@ -51,10 +51,9 @@ import org.xnio.channels.WriteTimeoutException;
 import static org.xnio.ChannelListener.SimpleSetter;
 import static org.xnio.nio.Log.log;
 
-abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> implements StreamChannel {
+abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> extends AbstractNioChannel<C> implements StreamChannel {
 
     private static final String FQCN = AbstractNioStreamChannel.class.getName();
-    private final NioXnioWorker worker;
 
     private volatile NioHandle<C> readHandle;
     private volatile NioHandle<C> writeHandle;
@@ -67,13 +66,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     private final SimpleSetter<C> readSetter = new SimpleSetter<C>();
     private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
-    private final SimpleSetter<C> closeSetter = new SimpleSetter<C>();
 
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> readTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "readTimeout");
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "writeTimeout");
 
     AbstractNioStreamChannel(final NioXnioWorker worker) throws ClosedChannelException {
-        this.worker = worker;
+        super(worker);
     }
 
     void start() throws ClosedChannelException {
@@ -88,11 +86,6 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     protected abstract GatheringByteChannel getWriteChannel();
 
     // Basic
-
-    public XnioWorker getWorker() {
-        return worker;
-    }
-
     // Setters
 
     public final ChannelListener.Setter<? extends C> getReadSetter() {
@@ -102,11 +95,6 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
     public final ChannelListener.Setter<? extends C> getWriteSetter() {
         return writeSetter;
     }
-
-    public final ChannelListener.Setter<? extends C> getCloseSetter() {
-        return closeSetter;
-    }
-
     // Suspend/resume
 
     public final void suspendReads() {
@@ -354,18 +342,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
         return OPTIONS.contains(option);
     }
 
-    // Type-safety stuff
-
-    @SuppressWarnings("unchecked")
-    private C typed() {
-        return (C) this;
-    }
-
     // Utils for subclasses
-
-    protected void invokeCloseHandler() {
-        ChannelListeners.invokeChannelListener(typed(), closeSetter.get());
-    }
 
     protected void cancelWriteKey() {
         if (writeHandle != null) {
@@ -385,5 +362,30 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> i
 
     NioHandle<C> getWriteHandle() {
         return writeHandle;
+    }
+
+    void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
+        boolean ok = false;
+        final WorkerThread writeThread = worker.choose(true);
+        final WorkerThread readThread = worker.choose(false);
+        final NioHandle<C> newWriteHandle = writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        try {
+            final NioHandle<C> newReadHandle = readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
+            try {
+                cancelReadKey();
+                cancelWriteKey();
+                ok = true;
+            } finally {
+                if (ok) {
+                    readHandle = newReadHandle;
+                    writeHandle = newWriteHandle;
+                    super.migrateTo(worker);
+                }
+            }
+        } finally {
+            if (! ok) {
+                newWriteHandle.cancelKey();
+            }
+        }
     }
 }

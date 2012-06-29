@@ -49,7 +49,7 @@ import org.xnio.channels.UnsupportedOptionException;
 /**
  *
  */
-class BioDatagramUdpChannel implements MulticastMessageChannel {
+class BioDatagramUdpChannel extends AbstractNioChannel<BioDatagramUdpChannel> implements MulticastMessageChannel {
     private static final Logger log = Logger.getLogger("org.xnio.nio.udp.bio-server.channel");
 
     private final DatagramSocket datagramSocket;
@@ -64,7 +64,6 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     private final NioSetter<BioDatagramUdpChannel> readSetter = new NioSetter<BioDatagramUdpChannel>();
     private final NioSetter<BioDatagramUdpChannel> writeSetter = new NioSetter<BioDatagramUdpChannel>();
-    private final NioSetter<BioDatagramUdpChannel> closeSetter = new NioSetter<BioDatagramUdpChannel>();
 
     private final WorkerThread readThread;
     private final WorkerThread writeThread;
@@ -84,9 +83,9 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
     private IOException readException;
 
     private final AtomicBoolean closeCalled = new AtomicBoolean(false);
-    private final XnioWorker worker;
 
-    BioDatagramUdpChannel(final XnioWorker worker, int sendBufSize, int recvBufSize, final DatagramSocket datagramSocket, final WorkerThread readThread, final WorkerThread writeThread) {
+    BioDatagramUdpChannel(final NioXnioWorker worker, int sendBufSize, int recvBufSize, final DatagramSocket datagramSocket, final WorkerThread readThread, final WorkerThread writeThread) {
+        super(worker);
         this.datagramSocket = datagramSocket;
         if (sendBufSize == -1) {
             sendBufSize = 4096;
@@ -139,10 +138,6 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     public NioSetter<BioDatagramUdpChannel> getWriteSetter() {
         return writeSetter;
-    }
-
-    public NioSetter<BioDatagramUdpChannel> getCloseSetter() {
-        return closeSetter;
     }
 
     public boolean flush() throws IOException {
@@ -245,7 +240,7 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
                 readable = false;
             }
             datagramSocket.close();
-            ChannelListeners.invokeChannelListener(this, getCloseSetter().get());
+            invokeCloseHandler();
             log.tracef("Closing channel %s", this);
         }
     }
@@ -476,10 +471,6 @@ class BioDatagramUdpChannel implements MulticastMessageChannel {
 
     public Key join(final InetAddress group, final NetworkInterface iface, final InetAddress source) throws IOException {
         throw new UnsupportedOptionException("Multicast not supported");
-    }
-
-    public XnioWorker getWorker() {
-        return worker;
     }
 
     private final class ReaderTask implements Runnable {

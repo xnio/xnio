@@ -27,9 +27,11 @@ import java.io.InterruptedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -50,14 +52,11 @@ import org.xnio.channels.UnsupportedOptionException;
 import static java.util.concurrent.locks.LockSupport.*;
 import static org.xnio.Bits.*;
 
-final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
+final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<NioTcpChannel> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
     private static final String FQCN = NioTcpServer.class.getName();
 
-    private final NioXnioWorker worker;
-
     private final ChannelListener.SimpleSetter<NioTcpServer> acceptSetter = new ChannelListener.SimpleSetter<NioTcpServer>();
-    private final ChannelListener.SimpleSetter<NioTcpServer> closeSetter = new ChannelListener.SimpleSetter<NioTcpServer>();
 
     private final List<NioHandle<NioTcpServer>> acceptHandles;
 
@@ -123,7 +122,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final AtomicReferenceFieldUpdater<NioTcpServer, Thread> waitingThreadUpdater = AtomicReferenceFieldUpdater.newUpdater(NioTcpServer.class, Thread.class, "waitingThread");
 
     NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
-        this.worker = worker;
+        super(worker);
         this.channel = channel;
         final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
         final int count = optionMap.get(Options.WORKER_ACCEPT_THREADS, 1);
@@ -482,10 +481,6 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         return acceptSetter;
     }
 
-    public ChannelListener.SimpleSetter<NioTcpServer> getCloseSetter() {
-        return closeSetter;
-    }
-
     public boolean isOpen() {
         return channel.isOpen();
     }
@@ -632,7 +627,22 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         }
     }
 
-    public XnioWorker getWorker() {
-        return worker;
+    void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
+        boolean ok = false;
+        final WorkerThread acceptThread = worker.choose(true);
+        try {
+            final List<NioHandle<NioTcpServer>> handles = acceptHandles;
+            for (int i = 0; i < handles.size(); i++) {
+                NioHandle<NioTcpServer> oldHandle = handles.get(i);
+                oldHandle.cancelKey();
+                handles.set(i, acceptThread.addChannel(channel, typed(), 0, acceptSetter));
+            }
+        } finally {
+            if (! ok) {
+                IoUtils.safeClose(this);
+            } else {
+                super.migrateTo(worker);
+            }
+        }
     }
 }

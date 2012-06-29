@@ -25,6 +25,7 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -39,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -704,6 +706,29 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             return null;
         }
     }
+
+    //==================================================
+    //
+    // Migration methods
+    //
+    //==================================================
+
+    /**
+     * Migrate the given channel to this worker.  Requires that the creating {@code Xnio} instance of the worker
+     * of the given channel matches this one.
+     *
+     * @param channel the channel
+     * @throws IOException if the source or destination worker is closed or the migration failed
+     * @throws IllegalArgumentException if the worker is incompatible
+     */
+    public void migrate(CloseableChannel channel) throws IOException, IllegalArgumentException {
+        if (channel.getWorker().getXnio() != xnio) {
+            throw new IllegalArgumentException("Cannot migrate channel (XNIO providers do not match)");
+        }
+        doMigration(channel);
+    }
+
+    protected abstract void doMigration(CloseableChannel channel) throws IOException;
 
     //==================================================
     //

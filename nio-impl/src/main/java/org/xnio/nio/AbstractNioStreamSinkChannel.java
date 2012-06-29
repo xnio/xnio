@@ -48,10 +48,9 @@ import org.xnio.channels.WriteTimeoutException;
 import static org.xnio.ChannelListener.SimpleSetter;
 import static org.xnio.nio.Log.log;
 
-abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChannel<C>> implements StreamSinkChannel {
+abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChannel<C>> extends AbstractNioChannel<C> implements StreamSinkChannel {
 
     private static final String FQCN = AbstractNioStreamSinkChannel.class.getName();
-    private final NioXnioWorker worker;
 
     private volatile NioHandle<C> writeHandle;
 
@@ -60,12 +59,11 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
     private volatile long lastWrite;
 
     private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
-    private final SimpleSetter<C> closeSetter = new SimpleSetter<C>();
 
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamSinkChannel> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamSinkChannel.class, "writeTimeout");
 
     AbstractNioStreamSinkChannel(final NioXnioWorker worker) throws ClosedChannelException {
-        this.worker = worker;
+        super(worker);
     }
 
     void start() throws ClosedChannelException {
@@ -76,20 +74,10 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     protected abstract GatheringByteChannel getWriteChannel();
 
-    // Basic
-
-    public XnioWorker getWorker() {
-        return worker;
-    }
-
     // Setters
 
     public final ChannelListener.Setter<? extends C> getWriteSetter() {
         return writeSetter;
-    }
-
-    public final ChannelListener.Setter<? extends C> getCloseSetter() {
-        return closeSetter;
     }
 
     // Suspend/resume
@@ -228,18 +216,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         return OPTIONS.contains(option);
     }
 
-    // Type-safety stuff
-
-    @SuppressWarnings("unchecked")
-    private C typed() {
-        return (C) this;
-    }
-
     // Utils for subclasses
-
-    protected void invokeCloseHandler() {
-        ChannelListeners.invokeChannelListener(typed(), closeSetter.get());
-    }
 
     protected void cancelWriteKey() {
         if (writeHandle != null) {
@@ -249,5 +226,22 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     NioHandle<C> getWriteHandle() {
         return writeHandle;
+    }
+
+    void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
+        boolean ok = false;
+        final WorkerThread writeThread = worker.choose(true);
+        final NioHandle<C> newWriteHandle = writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        try {
+            cancelWriteKey();
+            ok = true;
+        } finally {
+            if (! ok) {
+                newWriteHandle.cancelKey();
+            } else {
+                writeHandle = newWriteHandle;
+                super.migrateTo(worker);
+            }
+        }
     }
 }
