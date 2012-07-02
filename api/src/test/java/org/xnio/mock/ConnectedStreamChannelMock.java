@@ -108,8 +108,11 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
      * Feeds {@code readData} to read clients.
      * @param readData data that will be available for reading on this channel mock
      */
-    public synchronized void setReadData(String... readData) {
-        int totalLength = 0;
+    public void setReadData(String... readData) {
+        final Thread waiter;
+
+        synchronized (this) {
+            int totalLength = 0;
         for (String data: readData) {
             totalLength += data.length();
         }
@@ -140,117 +143,152 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         if (resetPosition) {
             readBuffer.position(position);
         }
-        if (readWaiter != null && totalLength > 0 && readEnabled) {
-            LockSupport.unpark(readWaiter);
+        
+        if (readWaiter == null || totalLength == 0 || !readEnabled) {
+            return;
         }
+        waiter = readWaiter;
+        readWaiter = null;
+        }
+        LockSupport.unpark(waiter);
     }
 
     /**
      * Feeds {@code readData} to read clients.
      * @param readData data that will be available for reading on this channel mock
      */
-    public synchronized void setReadDataWithLength(String... readData) {
-        int totalLength = 0;
-        for (String data: readData) {
-            totalLength += data.length();
-        }
-        int position = readBuffer.position();
-        boolean resetPosition = false;
-        if (!readBuffer.hasRemaining()) {
-            readBuffer.compact();
-        } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-            if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
-                if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
-                    readBuffer.compact();
+    public void setReadDataWithLength(String... readData) {
+        final Thread waiter;
+        synchronized (this) {
+            if (eof == true) {
+                throw new IllegalStateException("Cannot add read data once eof is set");
+            }
+            int totalLength = 0;
+            for (String data: readData) {
+                totalLength += data.length();
+            }
+            int position = readBuffer.position();
+            boolean resetPosition = false;
+            if (!readBuffer.hasRemaining()) {
+                readBuffer.compact();
+            } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
+                if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
+                    if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
+                        readBuffer.compact();
+                    }
+                    throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
                 }
-                throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
+                int limit = readBuffer.limit();
+                readBuffer.position(limit);
+                readBuffer.limit(limit += totalLength + 4);
+                resetPosition = true;
             }
-            int limit = readBuffer.limit();
-            readBuffer.position(limit);
-            readBuffer.limit(limit += totalLength + 4);
-            resetPosition = true;
-        }
-        readBuffer.putInt(totalLength);
-        for (String data: readData) {
-            try {
-                readBuffer.put(data.getBytes("UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
+            readBuffer.putInt(totalLength);
+            for (String data: readData) {
+                try {
+                    readBuffer.put(data.getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
             }
+            readBuffer.flip();
+            if (resetPosition) {
+                readBuffer.position(position);
+            }
+            if (readWaiter == null || totalLength == 0 || !readEnabled) {
+                return;
+            }
+            waiter = readWaiter;
         }
-        readBuffer.flip();
-        if (resetPosition) {
-            readBuffer.position(position);
-        }
-        if (readWaiter != null && totalLength > 0 && readEnabled) {
-            LockSupport.unpark(readWaiter);
-        }
+        LockSupport.unpark(waiter);
     }
 
     /**
      * Feeds {@code readData} to read clients.
      * @param readData data that will be available for reading on this channel mock
      */
-    public synchronized void setReadDataWithLength(int length, String... readData) {
-        int totalLength = 0;
-        for (String data: readData) {
-            totalLength += data.length();
-        }
-        int position = readBuffer.position();
-        boolean resetPosition = false;
-        if (!readBuffer.hasRemaining()) {
-            readBuffer.compact();
-        } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-            if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
-                if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
-                    readBuffer.compact();
+    public void setReadDataWithLength(int length, String... readData) {
+        final Thread waiter;
+        synchronized (this) {
+            if (eof == true) {
+                throw new IllegalStateException("Cannot add read data once eof is set");
+            }
+            int totalLength = 0;
+            for (String data: readData) {
+                totalLength += data.length();
+            }
+            int position = readBuffer.position();
+            boolean resetPosition = false;
+            if (!readBuffer.hasRemaining()) {
+                readBuffer.compact();
+            } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
+                if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
+                    if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
+                        readBuffer.compact();
+                    }
+                    throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
                 }
-                throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
+                int limit = readBuffer.limit();
+                readBuffer.position(limit);
+                readBuffer.limit(limit += totalLength + 4);
+                resetPosition = true;
             }
-            int limit = readBuffer.limit();
-            readBuffer.position(limit);
-            readBuffer.limit(limit += totalLength + 4);
-            resetPosition = true;
-        }
-        readBuffer.putInt(length);
-        for (String data: readData) {
-            try {
-                readBuffer.put(data.getBytes("UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
+            readBuffer.putInt(length);
+            for (String data: readData) {
+                try {
+                    readBuffer.put(data.getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
             }
+            readBuffer.flip();
+            if (resetPosition) {
+                readBuffer.position(position);
+            }
+            if (readWaiter == null || totalLength == 0 || !readEnabled) {
+                return;
+            }
+            waiter = readWaiter;
         }
-        readBuffer.flip();
-        if (resetPosition) {
-            readBuffer.position(position);
+        LockSupport.unpark(waiter);
+    }
+
+    public void setEof() {
+        final Thread waiter;
+        synchronized (this) {
+            eof = true;
+            if (readWaiter == null || !readEnabled) {
+                return;
+            }
+            waiter = readWaiter;
         }
-        if (readWaiter != null && totalLength > 0 && readEnabled) {
-            LockSupport.unpark(readWaiter);
+        LockSupport.unpark(waiter);
+    }
+
+    public void enableRead(boolean enable) {
+        final Thread waiter;
+        synchronized (this) {
+            readEnabled = enable;
+            if (readWaiter == null || !readEnabled || !((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
+                return;
+            }
+            waiter = readWaiter;
+        }
+        LockSupport.unpark(waiter);
+    }
+
+    public void enableWrite(boolean enable) {
+        final Thread waiter;
+        synchronized (this) {
+            writeEnabled = enable;
+            waiter = writeWaiter;
+        }
+        if (waiter != null) {
+            LockSupport.unpark(waiter);
         }
     }
 
-    public synchronized void setEof() {
-        eof = true;
-        if (readWaiter != null && readEnabled) {
-            LockSupport.unpark(readWaiter);
-        }
-    }
-
-    public synchronized void enableRead(boolean enable) {
-        readEnabled = enable;
-        if (readWaiter != null && readEnabled && ((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
-            LockSupport.unpark(readWaiter);
-        }
-    }
-
-    public synchronized void enableWrite(boolean enable) {
-        writeEnabled = enable;
-        if (writeWaiter != null) {
-            LockSupport.unpark(writeWaiter);
-        }
-    }
-
-    public synchronized void enableClosedChek(boolean enable) {
+    public synchronized void enableClosedCheck(boolean enable) {
         checkClosed = enable;
     }
 
@@ -364,7 +402,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
      * This mock supports only one read thread waiting at most.
      */
     @Override
-    public synchronized void awaitReadable(long time, TimeUnit timeUnit) throws IOException {
+    public void awaitReadable(long time, TimeUnit timeUnit) throws IOException {
         synchronized (this) {
             if (readWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
@@ -375,7 +413,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
             readWaiter = Thread.currentThread();
         }
         // FIXME assertSame("ConnectedStreamChannelMock.awaitReadable(long, TimeUnit) can be used only with TimeUnit.NANOSECONDS", TimeUnit.MILLISECONDS, timeUnit);
-        LockSupport.parkNanos(timeUnit.toNanos(time));
+        LockSupport.parkNanos(readWaiter, timeUnit.toNanos(time));
         synchronized (this) {
             readWaiter = null;
         }
@@ -443,7 +481,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
             writeWaiter = Thread.currentThread();
         }
         // FIXME assertSame("ConnectedStreamChannelMock.awaitWritable(long, TimeUnit) can be used only with TimeUnit.NANOSECONDS", TimeUnit.NANOSECONDS, timeUnit);
-        LockSupport.parkNanos(timeUnit.toNanos(time));
+        LockSupport.parkNanos(writeWaiter, timeUnit.toNanos(time));
         synchronized (this) {
             writeWaiter = null;
         }
@@ -466,7 +504,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         return flushed;
     }
 
-    public void enableFlush(boolean enable) {
+    public synchronized void enableFlush(boolean enable) {
         flushEnabled = enable;
     }
 
@@ -505,7 +543,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     }
 
     @Override
-    public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
+    public synchronized long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
@@ -523,7 +561,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     }
 
     @Override
-    public long write(ByteBuffer[] srcs) throws IOException {
+    public synchronized long write(ByteBuffer[] srcs) throws IOException {
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
@@ -575,7 +613,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     }
 
     @Override
-    public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
+    public synchronized long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
@@ -591,12 +629,12 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
         return 0;
     }
     
-    public boolean allReadDataConsumed() {
+    public synchronized boolean allReadDataConsumed() {
         return readBuffer.position() == readBuffer.limit();
     }
 
     @Override
-    public long read(ByteBuffer[] dsts) throws IOException {
+    public synchronized long read(ByteBuffer[] dsts) throws IOException {
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }

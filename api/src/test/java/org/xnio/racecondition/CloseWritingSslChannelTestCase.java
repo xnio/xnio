@@ -54,7 +54,7 @@ public class CloseWritingSslChannelTestCase extends AbstractJsseConnectedSslStre
 
     @Test
     public void testWithEngineClosedOnly() throws InterruptedException {
-        connectedChannelMock.enableClosedChek(false);
+        connectedChannelMock.enableClosedCheck(false);
         test();
     }
     

@@ -103,7 +103,7 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
 
     @Test
     public void writeBlocksWithTimeout1() throws Exception {
-        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 5000, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingWritableByteChannel(channelMock, Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         final Write writeRunnable = new Write(blockingChannel, "j");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
@@ -129,11 +129,11 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
 
     @Test
     public void writeBlocksUntilTimeout3() throws Exception {
-        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 30, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 30000000, TimeUnit.NANOSECONDS);
         final Write writeRunnable = new Write(blockingChannel, "write... this");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
-        Thread.sleep(500);
+        Thread.sleep(20);
         channelMock.enableWrite(true);
         writeThread.join();
         assertEquals(13, writeRunnable.getWriteResult());
@@ -161,7 +161,6 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
         final Write writeRunnable = new Write(blockingChannel, "try with 1 microsecond");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
-        Thread.sleep(50);
         channelMock.enableWrite(true);
         writeThread.join();
         assertEquals(22, writeRunnable.getWriteResult());
@@ -254,11 +253,11 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
 
     @Test
     public void writeBufferArrayBlocksWithTimeout1() throws Exception {
-        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 5000, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 50000, TimeUnit.SECONDS);
         final WriteBufferArray writeRunnable = new WriteBufferArray(blockingChannel, "a");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
-        Thread.sleep(50);
+        Thread.sleep(10);
         channelMock.enableWrite(true);
         writeThread.join();
         assertEquals(1, writeRunnable.getWriteResult());
@@ -280,11 +279,11 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
 
     @Test
     public void writeBufferArrayBlocksUntilTimeout3() throws Exception {
-        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 30, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 30, TimeUnit.MINUTES);
         final WriteBufferArray writeRunnable = new WriteBufferArray(blockingChannel, "write", "anything", "...", "like", "this");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
-        Thread.sleep(500);
+        Thread.sleep(5);
         channelMock.enableWrite(true);
         writeThread.join();
         assertEquals(24, writeRunnable.getWriteResult());
@@ -312,7 +311,6 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
         final WriteBufferArray writeRunnable = new WriteBufferArray(blockingChannel, "2", "microseconds");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
-        Thread.sleep(50);
         channelMock.enableWrite(true);
         writeThread.join();
         assertEquals(13, writeRunnable.getWriteResult());
@@ -402,7 +400,7 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
         channelMock.enableFlush(false);
         channelMock.enableWrite(true);
         final T blockingChannel = createBlockingWritableByteChannel(channelMock);
-        setWriteTimeout(blockingChannel, 20, TimeUnit.MICROSECONDS);
+        setWriteTimeout(blockingChannel, 1, TimeUnit.HOURS);
         final Write writeRunnable = new Write(blockingChannel, "test2", true);
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();

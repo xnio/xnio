@@ -81,7 +81,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksWithTimeout1() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 5000, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         final Read readRunnable = new Read(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -95,7 +95,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksUntilTimeout2() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 40, TimeUnit.MILLISECONDS, 300, TimeUnit.MINUTES);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 400, TimeUnit.MILLISECONDS, 300, TimeUnit.MINUTES);
         final Read readRunnable = new Read(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -108,11 +108,11 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksUntilTimeout3() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 400, TimeUnit.NANOSECONDS, 300, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 400000000, TimeUnit.NANOSECONDS, 300, TimeUnit.NANOSECONDS);
         final Read readRunnable = new Read(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
-        Thread.sleep(500);
+        Thread.sleep(50);
         channelMock.setReadData("read ");
         channelMock.setEof();
         readThread.join();
@@ -138,7 +138,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
     @Test
     public void readBlocksUntilTimeout5() throws Exception {
         final T blockingChannel = createBlockingReadableByteChannel(channelMock);
-        setReadTimeout(blockingChannel, 1, TimeUnit.NANOSECONDS);
+        setReadTimeout(blockingChannel, 1, TimeUnit.SECONDS);
         final Read readRunnable = new Read(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -207,7 +207,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksWithTimeout1WithByteArray() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 5, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 5, TimeUnit.DAYS);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -225,7 +225,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksUntilTimeoutWithByteArray2() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 4, TimeUnit.MICROSECONDS, 300, TimeUnit.MINUTES);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 509900, TimeUnit.MICROSECONDS, 300, TimeUnit.MINUTES);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -242,7 +242,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
 
     @Test
     public void readBlocksUntilTimeoutWithByteArray3() throws Exception {
-        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 100, TimeUnit.NANOSECONDS, 3, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingReadableByteChannel(channelMock, 100, TimeUnit.HOURS, 3, TimeUnit.NANOSECONDS);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
@@ -280,11 +280,11 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
     @Test
     public void readBlocksUntilTimeoutWithBytearray5() throws Exception {
         final T blockingChannel = createBlockingReadableByteChannel(channelMock);
-        setReadTimeout(blockingChannel, 3, TimeUnit.MICROSECONDS);
+        setReadTimeout(blockingChannel, 30000, TimeUnit.MICROSECONDS);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
-        Thread.sleep(50);
+        Thread.sleep(10);
         channelMock.setReadData("try with 3 microseconds");
         channelMock.setEof();
         readThread.join();
@@ -299,11 +299,10 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
     @Test
     public void readBlocksUntilTimeoutWithByteArray6() throws Exception {
         final T blockingChannel = createBlockingReadableByteChannel(channelMock);
-        setReadTimeout(blockingChannel, 10, TimeUnit.MILLISECONDS);
+        setReadTimeout(blockingChannel, 100, TimeUnit.MILLISECONDS);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();
-        Thread.sleep(100);
         channelMock.setReadData("wait a little longer now");
         channelMock.setEof();
         readThread.join();
