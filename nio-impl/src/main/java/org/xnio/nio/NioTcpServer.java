@@ -312,15 +312,15 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     }
 
     private static int getHighWater(final long value) {
-        return (int) (value & CONN_HIGH_MASK >> CONN_HIGH_BIT);
+        return (int) ((value & CONN_HIGH_MASK) >> CONN_HIGH_BIT);
     }
 
     private static int getLowWater(final long value) {
-        return (int) (value & CONN_LOW_MASK >> CONN_LOW_BIT);
+        return (int) ((value & CONN_LOW_MASK) >> CONN_LOW_BIT);
     }
 
     private static int getCount(final long value) {
-        return (int) (value & CONN_COUNT_MASK >> CONN_COUNT_BIT);
+        return (int) ((value & CONN_COUNT_MASK) >> CONN_COUNT_BIT);
     }
 
     private static long withHighWater(final long oldValue, final int highWater) {
