@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.xnio.Option;
 import org.xnio.Options;
-import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
@@ -41,7 +40,7 @@ import org.xnio.channels.UnsupportedOptionException;
 class BioMulticastUdpChannel extends BioDatagramUdpChannel implements MulticastMessageChannel {
     private final MulticastSocket multicastSocket;
 
-    BioMulticastUdpChannel(final XnioWorker worker, final int sendBufSize, final int recvBufSize, final MulticastSocket multicastSocket, final WorkerThread readThread, final WorkerThread writeThread) {
+    BioMulticastUdpChannel(final NioXnioWorker worker, final int sendBufSize, final int recvBufSize, final MulticastSocket multicastSocket, final WorkerThread readThread, final WorkerThread writeThread) {
         super(worker, sendBufSize, recvBufSize, multicastSocket, readThread, writeThread);
         this.multicastSocket = multicastSocket;
     }
