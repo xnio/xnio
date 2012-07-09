@@ -30,7 +30,7 @@ import org.xnio.ChannelListener;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public class AssembledConnectedStreamChannel extends AssembledStreamChannel implements ConnectedChannel {
+public class AssembledConnectedStreamChannel extends AssembledStreamChannel implements ConnectedStreamChannel {
     private final ConnectedChannel connection;
 
     /**
