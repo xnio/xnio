@@ -746,17 +746,36 @@ public final class Channels {
     }
 
     private static final FileChannel NULL_FILE_CHANNEL;
+    private static final ByteBuffer DRAIN_BUFFER = ByteBuffer.allocateDirect(16384);
 
     /**
      * Attempt to drain the given number of bytes from the stream source channel.
      *
      * @param channel the channel to drain
      * @param count the number of bytes
-     * @return the number of bytes drained, or 0 if reading the channel would block
+     * @return the number of bytes drained, 0 if reading the channel would block, or -1 if the EOF was reached
      * @throws IOException if an error occurs
      */
     public static long drain(StreamSourceChannel channel, long count) throws IOException {
-        return channel.transferTo(0, count, NULL_FILE_CHANNEL);
+        long total = 0L, lres;
+        int ires;
+        ByteBuffer buffer = null;
+        for (;;) {
+            if (NULL_FILE_CHANNEL != null) {
+                while ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) > 0L) {
+                    total += lres;
+                }
+                if (total > 0L) return total;
+            }
+            if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+            ires = channel.read(buffer);
+            buffer.clear();
+            switch (ires) {
+                case -1: return total == 0L ? -1L : total;
+                case 0: return total;
+                default: total += (long) ires;
+            }
+        }
     }
 
     /**
@@ -764,14 +783,26 @@ public final class Channels {
      *
      * @param channel the channel to drain
      * @param count the number of bytes
-     * @return the number of bytes drained, or 0 if reading the channel would block
+     * @return the number of bytes drained, 0 if reading the channel would block, or -1 if the EOF was reached
      * @throws IOException if an error occurs
      */
     public static long drain(ReadableByteChannel channel, long count) throws IOException {
         if (channel instanceof StreamSourceChannel) {
             return drain((StreamSourceChannel) channel, count);
         } else {
-            return NULL_FILE_CHANNEL.transferFrom(channel, 0, count);
+            long cnt, add = 0L;
+            for (;;) {
+                cnt = NULL_FILE_CHANNEL.transferFrom(channel, 0, count);
+                if (cnt == 0L) {
+                    switch (channel.read(DRAIN_BUFFER.duplicate())) {
+                        case -1: return -1L;
+                        case 0: return 0L;
+                        case 1: add++; break;
+                    }
+                } else {
+                    return cnt + add;
+                }
+            }
         }
     }
 
