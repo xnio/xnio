@@ -35,6 +35,10 @@ public interface StreamSinkChannel extends WritableByteChannel, GatheringByteCha
     /**
      * Transfer bytes into this channel from the given file.  Using this method in preference to {@link FileChannel#transferTo(long, long, WritableByteChannel)}
      * may provide a performance advantage on some platforms.
+     * <p>
+     * If the current thread is interrupted when this method is called, it may throw a {@link java.io.InterruptedIOException};
+     * however, if this exception is thrown, the {@link java.io.InterruptedIOException#bytesTransferred} field is
+     * guaranteed to be 0.
      *
      * @param src the file to read from
      * @param position the position within the file from which the transfer is to begin
@@ -52,6 +56,10 @@ public interface StreamSinkChannel extends WritableByteChannel, GatheringByteCha
      * {@code count}, then the remaining data in {@code throughBuffer} may contain data read from {@code source} which must
      * be written to this channel to complete the operation.  Note that using a direct buffer may provide an
      * intermediate performance gain on platforms without zero-copy facilities.
+     * <p>
+     * If the current thread is interrupted when this method is called, it may throw a {@link java.io.InterruptedIOException};
+     * however, if this exception is thrown, the {@link java.io.InterruptedIOException#bytesTransferred} field is
+     * guaranteed to be 0.
      *
      * @param source the source to read from
      * @param count the number of bytes to be transferred

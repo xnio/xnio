@@ -35,6 +35,10 @@ public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByte
     /**
      * Transfers bytes into the given file from this channel.  Using this method in preference to {@link FileChannel#transferFrom(ReadableByteChannel, long, long)}
      * may provide a performance advantage on some platforms.
+     * <p>
+     * If the current thread is interrupted when this method is called, it may throw a {@link java.io.InterruptedIOException};
+     * however, if this exception is thrown, the {@link java.io.InterruptedIOException#bytesTransferred} field is
+     * guaranteed to be 0.
      *
      * @param position the position within the file from which the transfer is to begin
      * @param count the number of bytes to be transferred
@@ -52,6 +56,10 @@ public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByte
      * {@code count}, then the remaining data in {@code throughBuffer} may contain data read from this channel which must
      * be written to {@code target} to complete the operation.  Note that using a direct buffer may provide an
      * intermediate performance gain on platforms without zero-copy facilities.
+     * <p>
+     * If the current thread is interrupted when this method is called, it may throw a {@link java.io.InterruptedIOException};
+     * however, if this exception is thrown, the {@link java.io.InterruptedIOException#bytesTransferred} field is
+     * guaranteed to be 0.
      *
      * @param count the number of bytes to be transferred
      * @param throughBuffer the buffer to copy through.
