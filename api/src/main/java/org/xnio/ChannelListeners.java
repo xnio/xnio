@@ -522,6 +522,19 @@ public final class ChannelListeners {
     }
 
     /**
+     * A delegating channel listener which passes an event to the listener stored in the given setter.
+     *
+     * @param channel the channel to pass in
+     * @param setter the channel listener setter
+     * @param <C> the listener channel type
+     * @param <T> the passed in channel type
+     * @return the listener
+     */
+    public static <C extends Channel, T extends Channel> ChannelListener<C> delegatingChannelListener(final T channel, final ChannelListener.SimpleSetter<T> setter) {
+        return new SetterDelegatingListener<C, T>(setter, channel);
+    }
+
+    /**
      * A write-suspending channel listener.  The returned listener will suspend writes when called.  Useful for chaining
      * writing listeners to a flush listener to this listener. The delegate listener should ensure that the channel write listener is appropriately set.
      *
@@ -822,6 +835,20 @@ public final class ChannelListeners {
         }
     }
 
+    /**
+     * Create a channel listener which automatically drains the given number of bytes from the channel and then calls
+     * a listener.
+     *
+     * @param bytes the number of bytes to drain, or {@code Long.MAX_VALUE} to drain the channel completely
+     * @param finishListener the listener to call when the drain is complete
+     * @param exceptionHandler the handler to call if the drain fails
+     * @param <T> the channel type
+     * @return the channel listener
+     */
+    public static <T extends StreamSourceChannel> ChannelListener<T> drainListener(long bytes, ChannelListener<? super T> finishListener, ChannelExceptionHandler<? super T> exceptionHandler) {
+        return new DrainListener<T>(finishListener, exceptionHandler, bytes);
+    }
+
     private static class DelegatingSetter<T extends Channel> implements ChannelListener.Setter<T> {
         private final ChannelListener.Setter<? extends Channel> setter;
         private final T realChannel;
@@ -851,9 +878,66 @@ public final class ChannelListeners {
         }
     }
 
+    private static class SetterDelegatingListener<C extends Channel, T extends Channel> implements ChannelListener<C> {
+
+        private final SimpleSetter<T> setter;
+        private final T channel;
+
+        public SetterDelegatingListener(final SimpleSetter<T> setter, final T channel) {
+            this.setter = setter;
+            this.channel = channel;
+        }
+
+        public void handleEvent(final C channel) {
+            invokeChannelListener(this.channel, setter.get());
+        }
+    }
+
     private static final ChannelExceptionHandler<Channel> CLOSING_HANDLER = new ChannelExceptionHandler<Channel>() {
         public void handleException(final Channel channel, final IOException exception) {
             IoUtils.safeClose(channel);
         }
     };
+
+    private static class DrainListener<T extends StreamSourceChannel> implements ChannelListener<T> {
+        private final ChannelListener<? super T> finishListener;
+        private final ChannelExceptionHandler<? super T> exceptionHandler;
+        private long count;
+
+        private DrainListener(final ChannelListener<? super T> finishListener, final ChannelExceptionHandler<? super T> exceptionHandler, final long count) {
+            this.finishListener = finishListener;
+            this.exceptionHandler = exceptionHandler;
+            this.count = count;
+        }
+
+        public void handleEvent(final T channel) {
+            try {
+                long count = this.count;
+                try {
+                    long res;
+                    for (;;) {
+                        res = Channels.drain(channel, count);
+                        if (res == -1 || res == count) {
+                            this.count = 0L;
+                            invokeChannelListener(channel, finishListener);
+                        } else if (res == 0) {
+                            return;
+                        } else if (count < Long.MAX_VALUE) {
+                            // MAX_VALUE means drain to EOF
+                            count -= res;
+                        }
+                    }
+                } finally {
+                    this.count = count;
+                }
+            } catch (IOException e) {
+                this.count = 0L;
+                if (exceptionHandler != null) {
+                    exceptionHandler.handleException(channel, e);
+                } else {
+                    IoUtils.safeShutdownReads(channel);
+                }
+            }
+        }
+    }
 }
