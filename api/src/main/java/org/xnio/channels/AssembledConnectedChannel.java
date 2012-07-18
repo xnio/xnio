@@ -38,13 +38,10 @@ public class AssembledConnectedChannel extends AssembledChannel implements Conne
      */
     public AssembledConnectedChannel(final SuspendableReadChannel readChannel, final SuspendableWriteChannel writeChannel) {
         super(readChannel, writeChannel);
-        if (readChannel instanceof ConnectedChannel) {
-            connection = (ConnectedChannel) readChannel;
-        } else if (writeChannel instanceof ConnectedChannel) {
-            connection = (ConnectedChannel) writeChannel;
-        } else {
-            throw new IllegalArgumentException("At least one specified channel must be a connected channel");
-        }
+        ConnectedChannel ch = Channels.unwrap(ConnectedChannel.class, readChannel);
+        if (ch == null) ch = Channels.unwrap(ConnectedChannel.class, writeChannel);
+        if (ch == null) throw new IllegalArgumentException("At least one specified channel must be a connected channel");
+        connection = ch;
     }
 
     public ChannelListener.Setter<? extends AssembledConnectedChannel> getCloseSetter() {
