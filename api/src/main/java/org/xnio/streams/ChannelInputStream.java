@@ -218,38 +218,28 @@ public class ChannelInputStream extends InputStream {
             long timeout;
             long start = System.nanoTime();
             long elapsed = 0L;
-            ByteBuffer tmp = null;
+            long res;
             for (;;) {
-                if ((total += Channels.drain(channel, n)) == 0L) {
-                    // the channel may be at EOF; fill the buffer to be sure.
-                    if (tmp == null) {
-                        tmp = ByteBuffer.allocate(1);
-                    }
-                    tmp.clear();
-                    int res = channel.read(tmp);
-                    if (res == -1) {
-                        return total;
-                    } else if (res == 1) {
-                        total ++;
-                    } else {
-                        timeout = this.timeout;
-                        try {
-                            if (timeout == 0L) {
-                                channel.awaitReadable();
-                            } else if (timeout < elapsed) {
-                                throw new ReadTimeoutException("Read timed out");
-                            } else {
-                                channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
-                            }
-                        } catch (InterruptedIOException e) {
-                            assert total < (long) Integer.MAX_VALUE;
-                            e.bytesTransferred = (int) total;
-                            throw e;
-                        }
-                        elapsed = System.nanoTime() - start;
-                    }
-                } else {
+                res = Channels.drain(channel, n);
+                if (res == -1) {
                     return total;
+                }
+                if (res == 0) {
+                    timeout = this.timeout;
+                    try {
+                        if (timeout == 0L) {
+                            channel.awaitReadable();
+                        } else if (timeout < elapsed) {
+                            throw new ReadTimeoutException("Read timed out");
+                        } else {
+                            channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
+                        }
+                    } catch (InterruptedIOException e) {
+                        assert total < (long) Integer.MAX_VALUE;
+                        e.bytesTransferred = (int) total;
+                        throw e;
+                    }
+                    elapsed = System.nanoTime() - start;
                 }
             }
         } finally {
