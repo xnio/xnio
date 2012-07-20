@@ -40,11 +40,12 @@ final class NioXnio extends Xnio {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio");
 
-    private interface SelectorCreator {
+    interface SelectorCreator {
         Selector open() throws IOException;
     }
 
-    private final SelectorCreator selectorCreator;
+    final SelectorCreator tempSelectorCreator;
+    final SelectorCreator mainSelectorCreator;
 
     static final boolean NIO2;
 
@@ -66,57 +67,48 @@ final class NioXnio extends Xnio {
      */
     NioXnio() {
         super("nio");
-        final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
-        if ("sun.nio.ch.PollSelectorProvider".equals(providerClassName)) {
-            log.warnf("The currently defined selector provider class (%s) is not supported for use with XNIO", providerClassName);
-        }
-        log.tracef("Starting up with selector provider %s", providerClassName);
-        selectorCreator = AccessController.doPrivileged(
-            new PrivilegedAction<SelectorCreator>() {
-                public SelectorCreator run() {
-                    try {
-                        // A Polling selector is most efficient on most platforms for one-off selectors.  Try to hack a way to get them on demand.
-                        final Class<? extends Selector> selectorImplClass = Class.forName("sun.nio.ch.PollSelectorImpl").asSubclass(Selector.class);
-                        final Constructor<? extends Selector> constructor = selectorImplClass.getDeclaredConstructor(SelectorProvider.class);
-                        // Usually package private.  So untrusting.
-                        constructor.setAccessible(true);
-                        log.trace("Using polling selector type for temporary selectors.");
-                        return new SelectorCreator() {
-                            public Selector open() throws IOException {
-                                try {
-                                    return constructor.newInstance(SelectorProvider.provider());
-                                } catch (InstantiationException e) {
-                                    return Selector.open();
-                                } catch (IllegalAccessException e) {
-                                    return Selector.open();
-                                } catch (InvocationTargetException e) {
-                                    try {
-                                        throw e.getTargetException();
-                                    } catch (IOException e2) {
-                                        throw e2;
-                                    } catch (RuntimeException e2) {
-                                        throw e2;
-                                    } catch (Error e2) {
-                                        throw e2;
-                                    } catch (Throwable t) {
-                                        throw new IllegalStateException("Unexpected invocation exception", t);
-                                    }
-                                }
-                            }
-                        };
-                    } catch (Exception e) {
-                        // ignore.
-                    }
-                    // Can't get our selector type?  That's OK, just use the default.
-                    log.trace("Using default selector type for temporary selectors.");
-                    return new SelectorCreator() {
-                        public Selector open() throws IOException {
-                            return Selector.open();
+        SelectorCreator[] creators = AccessController.doPrivileged(
+            new PrivilegedAction<SelectorCreator[]>() {
+                public SelectorCreator[] run() {
+                    final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
+                    log.tracef("Starting up with selector provider %s", providerClassName);
+                    final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(providerClassName);
+                    final SelectorCreator defaultSelectorCreator = new DefaultSelectorCreator();
+                    final SelectorCreator[] creators = new SelectorCreator[2];
+                    if (defaultIsPoll) {
+                        // default is fine for temp selectors; we should try to get kqueue/epoll for main though
+                        creators[0] = defaultSelectorCreator;
+                        try {
+                            creators[1] = new ConstructorSelectorCreator("sun.nio.ch.KQueueSelectorImpl");
+                        } catch (Exception e) {
+                            // not available
                         }
-                    };
+                        if (creators[1] == null) try {
+                            creators[1] = new ConstructorSelectorCreator("sun.nio.ch.EPollSelectorImpl");
+                        } catch (Exception e) {
+                            // not available
+                        }
+                        if (creators[1] == null) {
+                            creators[1] = defaultSelectorCreator;
+                        }
+                    } else {
+                        // default is fine for main selectors; we should try to get poll for temp though
+                        try {
+                            creators[0] = new ConstructorSelectorCreator("sun.nio.ch.PollSelectorImpl");
+                        } catch (Exception e) {
+                            // not available
+                        }
+                        if (creators[0] == null) {
+                            creators[0] = defaultSelectorCreator;
+                        }
+                        creators[1] = defaultSelectorCreator;
+                    }
+                    return creators;
                 }
             }
         );
+        tempSelectorCreator = creators[0];
+        mainSelectorCreator = creators[1];
     }
 
     public XnioWorker createWorker(final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException, IllegalArgumentException {
@@ -137,9 +129,50 @@ final class NioXnio extends Xnio {
         final ThreadLocal<Selector> threadLocal = selectorThreadLocal;
         Selector selector = threadLocal.get();
         if (selector == null) {
-            selector = selectorCreator.open();
+            selector = tempSelectorCreator.open();
             threadLocal.set(selector);
         }
         return selector;
+    }
+
+    private static class DefaultSelectorCreator implements SelectorCreator {
+
+        public Selector open() throws IOException {
+            return Selector.open();
+        }
+    }
+
+    private static class ConstructorSelectorCreator implements SelectorCreator {
+
+        private final Constructor<? extends Selector> constructor;
+
+        public ConstructorSelectorCreator(final String name) throws ClassNotFoundException, NoSuchMethodException {
+            final Class<? extends Selector> selectorImplClass = Class.forName(name, true, null).asSubclass(Selector.class);
+            final Constructor<? extends Selector> constructor = selectorImplClass.getDeclaredConstructor(SelectorProvider.class);
+            constructor.setAccessible(true);
+            this.constructor = constructor;
+        }
+
+        public Selector open() throws IOException {
+            try {
+                return constructor.newInstance(SelectorProvider.provider());
+            } catch (InstantiationException e) {
+                return Selector.open();
+            } catch (IllegalAccessException e) {
+                return Selector.open();
+            } catch (InvocationTargetException e) {
+                try {
+                    throw e.getTargetException();
+                } catch (IOException e2) {
+                    throw e2;
+                } catch (RuntimeException e2) {
+                    throw e2;
+                } catch (Error e2) {
+                    throw e2;
+                } catch (Throwable t) {
+                    throw new IllegalStateException("Unexpected invocation exception", t);
+                }
+            }
+        }
     }
 }
