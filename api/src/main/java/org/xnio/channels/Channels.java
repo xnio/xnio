@@ -761,13 +761,20 @@ public final class Channels {
         int ires;
         ByteBuffer buffer = null;
         for (;;) {
+            if (count == 0L) return total;
             if (NULL_FILE_CHANNEL != null) {
-                while ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) > 0L) {
+                while (count > 0) {
+                    if ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) == 0L) {
+                        break;
+                    }
                     total += lres;
+                    count -= lres;
                 }
+                // jump out quick if we drained the fast way
                 if (total > 0L) return total;
             }
             if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+            if ((long) buffer.limit() > count) buffer.limit((int) count);
             ires = channel.read(buffer);
             buffer.clear();
             switch (ires) {
@@ -790,17 +797,30 @@ public final class Channels {
         if (channel instanceof StreamSourceChannel) {
             return drain((StreamSourceChannel) channel, count);
         } else {
-            long cnt, add = 0L;
+            long total = 0L, lres;
+            int ires;
+            ByteBuffer buffer = null;
             for (;;) {
-                cnt = NULL_FILE_CHANNEL.transferFrom(channel, 0, count);
-                if (cnt == 0L) {
-                    switch (channel.read(DRAIN_BUFFER.duplicate())) {
-                        case -1: return -1L;
-                        case 0: return 0L;
-                        case 1: add++; break;
+                if (count == 0L) return total;
+                if (NULL_FILE_CHANNEL != null) {
+                    while (count > 0) {
+                        if ((lres = NULL_FILE_CHANNEL.transferFrom(channel, 0, count)) == 0L) {
+                            break;
+                        }
+                        total += lres;
+                        count -= lres;
                     }
-                } else {
-                    return cnt + add;
+                    // jump out quick if we drained the fast way
+                    if (total > 0L) return total;
+                }
+                if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+                if ((long) buffer.limit() > count) buffer.limit((int) count);
+                ires = channel.read(buffer);
+                buffer.clear();
+                switch (ires) {
+                    case -1: return total == 0L ? -1L : total;
+                    case 0: return total;
+                    default: total += (long) ires;
                 }
             }
         }

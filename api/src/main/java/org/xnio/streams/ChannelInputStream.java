@@ -223,8 +223,7 @@ public class ChannelInputStream extends InputStream {
                 res = Channels.drain(channel, n);
                 if (res == -1) {
                     return total;
-                }
-                if (res == 0) {
+                } else if (res == 0) {
                     timeout = this.timeout;
                     try {
                         if (timeout == 0L) {
@@ -240,6 +239,9 @@ public class ChannelInputStream extends InputStream {
                         throw e;
                     }
                     elapsed = System.nanoTime() - start;
+                } else {
+                    total += res;
+                    n -= res;
                 }
             }
         } finally {
