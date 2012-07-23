@@ -67,48 +67,81 @@ final class NioXnio extends Xnio {
      */
     NioXnio() {
         super("nio");
-        SelectorCreator[] creators = AccessController.doPrivileged(
-            new PrivilegedAction<SelectorCreator[]>() {
-                public SelectorCreator[] run() {
-                    final String providerClassName = SelectorProvider.provider().getClass().getCanonicalName();
-                    log.tracef("Starting up with selector provider %s", providerClassName);
+        final Object[] objects = AccessController.doPrivileged(
+            new PrivilegedAction<Object[]>() {
+                public Object[] run() {
+                    final SelectorProvider defaultProvider = SelectorProvider.provider();
+                    final String providerClassName = defaultProvider.getClass().getCanonicalName();
+                    final String chosenProvider = System.getProperty("xnio.nio.selector.provider");
+                    SelectorProvider provider = defaultProvider;
+                    if (chosenProvider != null) {
+                        try {
+                            provider = Class.forName(providerClassName, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                        } catch (Exception e) {
+                            log.warnf("Cannot instantiate selector provider '%s', falling back to '%s'", chosenProvider, providerClassName);
+                        }
+                    }
+                    log.tracef("Starting up with selector provider %s", provider.getClass().getCanonicalName());
                     final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(providerClassName);
+                    final String chosenMainSelector = System.getProperty("xnio.nio.selector.main");
+                    final String chosenTempSelector = System.getProperty("xnio.nio.selector.temp");
                     final SelectorCreator defaultSelectorCreator = new DefaultSelectorCreator();
-                    final SelectorCreator[] creators = new SelectorCreator[2];
+                    final Object[] objects = new Object[3];
+                    objects[0] = provider;
+                    if (chosenTempSelector != null) try {
+                        final ConstructorSelectorCreator creator = new ConstructorSelectorCreator(chosenTempSelector, provider);
+                        IoUtils.safeClose(creator.open());
+                        objects[1] = creator;
+                    } catch (Exception e) {
+                        // not available
+                    }
+                    if (chosenMainSelector != null) try {
+                        final ConstructorSelectorCreator creator = new ConstructorSelectorCreator(chosenMainSelector, provider);
+                        IoUtils.safeClose(creator.open());
+                        objects[2] = creator;
+                    } catch (Exception e) {
+                        // not available
+                    }
                     if (defaultIsPoll) {
                         // default is fine for temp selectors; we should try to get kqueue/epoll for main though
-                        creators[0] = defaultSelectorCreator;
-                        try {
-                            creators[1] = new ConstructorSelectorCreator("sun.nio.ch.KQueueSelectorImpl");
+                        if (objects[2] == null) try {
+                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.KQueueSelectorImpl", provider);
+                            IoUtils.safeClose(creator.open());
+                            objects[2] = creator;
                         } catch (Exception e) {
                             // not available
                         }
-                        if (creators[1] == null) try {
-                            creators[1] = new ConstructorSelectorCreator("sun.nio.ch.EPollSelectorImpl");
+                        if (objects[2] == null) try {
+                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.EPollSelectorImpl", provider);
+                            IoUtils.safeClose(creator.open());
+                            objects[2] = creator;
                         } catch (Exception e) {
                             // not available
-                        }
-                        if (creators[1] == null) {
-                            creators[1] = defaultSelectorCreator;
                         }
                     } else {
                         // default is fine for main selectors; we should try to get poll for temp though
-                        try {
-                            creators[0] = new ConstructorSelectorCreator("sun.nio.ch.PollSelectorImpl");
+                        if (objects[1] == null) try {
+                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.PollSelectorImpl", provider);
+                            IoUtils.safeClose(creator.open());
+                            objects[1] = creator;
                         } catch (Exception e) {
                             // not available
                         }
-                        if (creators[0] == null) {
-                            creators[0] = defaultSelectorCreator;
-                        }
-                        creators[1] = defaultSelectorCreator;
                     }
-                    return creators;
+                    if (objects[1] == null) {
+                        objects[1] = defaultSelectorCreator;
+                    }
+                    if (objects[2] == null) {
+                        objects[2] = defaultSelectorCreator;
+                    }
+                    return objects;
                 }
             }
         );
-        tempSelectorCreator = creators[0];
-        mainSelectorCreator = creators[1];
+        tempSelectorCreator = (SelectorCreator) objects[1];
+        mainSelectorCreator = (SelectorCreator) objects[2];
+        log.tracef("Using %s for main selectors", mainSelectorCreator);
+        log.tracef("Using %s for temp selectors", tempSelectorCreator);
     }
 
     public XnioWorker createWorker(final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException, IllegalArgumentException {
@@ -140,13 +173,19 @@ final class NioXnio extends Xnio {
         public Selector open() throws IOException {
             return Selector.open();
         }
+
+        public String toString() {
+            return "Default system selector creator";
+        }
     }
 
     private static class ConstructorSelectorCreator implements SelectorCreator {
 
         private final Constructor<? extends Selector> constructor;
+        private final SelectorProvider provider;
 
-        public ConstructorSelectorCreator(final String name) throws ClassNotFoundException, NoSuchMethodException {
+        public ConstructorSelectorCreator(final String name, final SelectorProvider provider) throws ClassNotFoundException, NoSuchMethodException {
+            this.provider = provider;
             final Class<? extends Selector> selectorImplClass = Class.forName(name, true, null).asSubclass(Selector.class);
             final Constructor<? extends Selector> constructor = selectorImplClass.getDeclaredConstructor(SelectorProvider.class);
             constructor.setAccessible(true);
@@ -155,7 +194,7 @@ final class NioXnio extends Xnio {
 
         public Selector open() throws IOException {
             try {
-                return constructor.newInstance(SelectorProvider.provider());
+                return constructor.newInstance(provider);
             } catch (InstantiationException e) {
                 return Selector.open();
             } catch (IllegalAccessException e) {
@@ -173,6 +212,10 @@ final class NioXnio extends Xnio {
                     throw new IllegalStateException("Unexpected invocation exception", t);
                 }
             }
+        }
+
+        public String toString() {
+            return String.format("Selector creator %s for provider %s", constructor.getDeclaringClass(), provider.getClass());
         }
     }
 }
