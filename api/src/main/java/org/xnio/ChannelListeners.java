@@ -116,6 +116,22 @@ public final class ChannelListeners {
     }
 
     /**
+     * Get a task which invokes the given channel listener on the given channel via its setter.
+     *
+     * @param channel the channel
+     * @param setter the setter for the channel listener
+     * @param <T> the channel type
+     * @return the runnable task
+     */
+    public static <T extends Channel> Runnable getChannelListenerTask(final T channel, final ChannelListener.SimpleSetter<T> setter) {
+        return new Runnable() {
+            public void run() {
+                invokeChannelListener(channel, setter.get());
+            }
+        };
+    }
+
+    /**
      * Get a channel listener which closes the channel when notified.
      *
      * @return the channel listener
