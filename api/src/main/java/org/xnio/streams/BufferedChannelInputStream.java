@@ -298,6 +298,7 @@ public class BufferedChannelInputStream extends InputStream {
             long elapsed = 0L;
             long res;
             for (;;) {
+                if (n == 0L) return total;
                 res = Channels.drain(channel, n);
                 if (res == -1) {
                     return total;
@@ -318,8 +319,8 @@ public class BufferedChannelInputStream extends InputStream {
                     }
                     elapsed = System.nanoTime() - start;
                 } else {
-                    n -= res;
                     total += res;
+                    n -= res;
                 }
             }
         } finally {

@@ -310,6 +310,8 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     @Override
     public void close() throws IOException {
         closed = true;
+        shutdownWrites();
+        shutdownReads();
     }
 
     @Override
@@ -370,6 +372,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     @Override
     public void shutdownReads() throws IOException {
         readsDown = true;
+        return;
     }
     
     public boolean isShutdownReads() {
@@ -440,9 +443,19 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
 
     @Override
     public synchronized void shutdownWrites() throws IOException {
-        if (allowShutdownWrites) {
-            writesDown = true;
+        if (!allowShutdownWrites) {
+            return;
         }
+        writesDown = true;
+        final Thread waiter;
+        synchronized (this) {
+            eof = true;
+            if (readWaiter == null) {
+                return;
+            }
+            waiter = readWaiter;
+        }
+        LockSupport.unpark(waiter);
         return;
     }
 

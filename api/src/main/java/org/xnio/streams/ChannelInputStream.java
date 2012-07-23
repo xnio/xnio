@@ -220,6 +220,7 @@ public class ChannelInputStream extends InputStream {
             long elapsed = 0L;
             long res;
             for (;;) {
+                if (n == 0L) return total;
                 res = Channels.drain(channel, n);
                 if (res == -1) {
                     return total;
