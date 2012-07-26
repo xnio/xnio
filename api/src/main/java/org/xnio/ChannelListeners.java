@@ -290,7 +290,7 @@ public final class ChannelListeners {
                 }
                 if (result) {
                     Channels.setWriteListener(channel, delegate);
-                    delegate.handleEvent(channel);
+                    invokeChannelListener(channel, delegate);
                 } else {
                     Channels.setWriteListener(channel, this);
                     channel.resumeWrites();
