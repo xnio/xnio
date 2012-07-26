@@ -19,6 +19,9 @@
     
     <properties>
         <test.level>INFO</test.level>
+        <xnio.nio.selector.main/>
+        <xnio.nio.selector.temp/>
+        <xnio.nio.selector.provider/>
     </properties>
 
     <dependencies>
@@ -65,6 +68,18 @@
                         <property>
                             <name>test.level</name>
                             <value>${test.level}</value>
+                        </property>
+                        <property>
+                            <name>xnio.nio.selector.main</name>
+                            <value>${xnio.nio.selector.main}</value>
+                        </property>
+                        <property>
+                            <name>xnio.nio.selector.temp</name>
+                            <value>${xnio.nio.selector.temp}</value>
+                        </property>
+                        <property>
+                            <name>xnio.nio.selector.provider</name>
+                            <value>${xnio.nio.selector.provider}</value>
                         </property>
                     </systemProperties>
                     <enableAssertions>true</enableAssertions>

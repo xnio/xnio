@@ -71,18 +71,34 @@ final class NioXnio extends Xnio {
             new PrivilegedAction<Object[]>() {
                 public Object[] run() {
                     final SelectorProvider defaultProvider = SelectorProvider.provider();
-                    final String providerClassName = defaultProvider.getClass().getCanonicalName();
                     final String chosenProvider = System.getProperty("xnio.nio.selector.provider");
                     SelectorProvider provider = defaultProvider;
                     if (chosenProvider != null) {
                         try {
-                            provider = Class.forName(providerClassName, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = Class.forName(chosenProvider, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
                         } catch (Exception e) {
-                            log.warnf("Cannot instantiate selector provider '%s', falling back to '%s'", chosenProvider, providerClassName);
+                            // not available
                         }
                     }
+                    if (provider == null) {
+                        try {
+                            provider = Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                        } catch (Exception e) {
+                            // not available
+                        }
+                    }
+                    if (provider == null) {
+                        try {
+                            provider = Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                        } catch (Exception e) {
+                            // not available
+                        }
+                    }
+                    if (provider == null) {
+                        provider = defaultProvider;
+                    }
                     log.tracef("Starting up with selector provider %s", provider.getClass().getCanonicalName());
-                    final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(providerClassName);
+                    final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(provider.getClass().getName());
                     final String chosenMainSelector = System.getProperty("xnio.nio.selector.main");
                     final String chosenTempSelector = System.getProperty("xnio.nio.selector.temp");
                     final SelectorCreator defaultSelectorCreator = new DefaultSelectorCreator();
@@ -102,23 +118,7 @@ final class NioXnio extends Xnio {
                     } catch (Exception e) {
                         // not available
                     }
-                    if (defaultIsPoll) {
-                        // default is fine for temp selectors; we should try to get kqueue/epoll for main though
-                        if (objects[2] == null) try {
-                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.KQueueSelectorImpl", provider);
-                            IoUtils.safeClose(creator.open());
-                            objects[2] = creator;
-                        } catch (Exception e) {
-                            // not available
-                        }
-                        if (objects[2] == null) try {
-                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.EPollSelectorImpl", provider);
-                            IoUtils.safeClose(creator.open());
-                            objects[2] = creator;
-                        } catch (Exception e) {
-                            // not available
-                        }
-                    } else {
+                    if (! defaultIsPoll) {
                         // default is fine for main selectors; we should try to get poll for temp though
                         if (objects[1] == null) try {
                             final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.PollSelectorImpl", provider);
