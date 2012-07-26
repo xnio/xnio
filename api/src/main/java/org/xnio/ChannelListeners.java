@@ -936,6 +936,7 @@ public final class ChannelListeners {
                         if (res == -1 || res == count) {
                             this.count = 0L;
                             invokeChannelListener(channel, finishListener);
+                            return;
                         } else if (res == 0) {
                             return;
                         } else if (count < Long.MAX_VALUE) {
