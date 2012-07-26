@@ -84,5 +84,9 @@ public interface ChannelListener<T extends Channel> extends EventListener {
         public ChannelListener<? super T> get() {
             return channelListener;
         }
+
+        public String toString() {
+            return "Simple channel listener setter (currently=" + channelListener + ")";
+        }
     }
 }

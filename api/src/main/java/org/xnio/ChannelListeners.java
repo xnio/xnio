@@ -49,15 +49,27 @@ public final class ChannelListeners {
     private static final ChannelListener<Channel> NULL_LISTENER = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
         }
+
+        public String toString() {
+            return "Null channel listener";
+        }
     };
     private static final ChannelListener.Setter<?> NULL_SETTER = new ChannelListener.Setter<Channel>() {
         public void set(final ChannelListener<? super Channel> channelListener) {
+        }
+
+        public String toString() {
+            return "Null channel listener setter";
         }
     };
     private static final Logger listenerLog = Logger.getLogger("org.xnio.listener");
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             IoUtils.safeClose(channel);
+        }
+
+        public String toString() {
+            return "Closing channel listener";
         }
     };
 
@@ -77,7 +89,7 @@ public final class ChannelListeners {
             listenerLog.tracef("Invoking listener %s on channel %s", channelListener, channel);
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
-            listenerLog.errorf(t, "A channel event listener threw an exception");
+            listenerLog.error("A channel event listener threw an exception", t);
             return false;
         }
         return true;
@@ -100,6 +112,22 @@ public final class ChannelListeners {
     }
 
     /**
+     * Safely invoke a channel exception handler, logging any errors.
+     *
+     * @param channel the channel
+     * @param exceptionHandler the exception handler
+     * @param exception the exception to pass in
+     * @param <T> the exception type
+     */
+    public static <T extends Channel> void invokeChannelExceptionHandler(final T channel, final ChannelExceptionHandler<? super T> exceptionHandler, final IOException exception) {
+        try {
+            exceptionHandler.handleException(channel, exception);
+        } catch (Throwable t) {
+            listenerLog.error("A channel exception handler threw an exception", t);
+        }
+    }
+
+    /**
      * Get a task which invokes the given channel listener on the given channel.
      *
      * @param channel the channel
@@ -109,6 +137,10 @@ public final class ChannelListeners {
      */
     public static <T extends Channel> Runnable getChannelListenerTask(final T channel, final ChannelListener<? super T> channelListener) {
         return new Runnable() {
+            public String toString() {
+                return "Channel listener task for " + channel + " -> " + channelListener;
+            }
+
             public void run() {
                 invokeChannelListener(channel, channelListener);
             }
@@ -125,6 +157,10 @@ public final class ChannelListeners {
      */
     public static <T extends Channel> Runnable getChannelListenerTask(final T channel, final ChannelListener.SimpleSetter<T> setter) {
         return new Runnable() {
+            public String toString() {
+                return "Channel listener task for " + channel + " -> " + setter;
+            }
+
             public void run() {
                 invokeChannelListener(channel, setter.get());
             }
@@ -196,11 +232,17 @@ public final class ChannelListeners {
      * @param <T> the channel type
      * @param <C> the holding class
      * @return the setter
+     * @deprecated Not recommended as a security manager will enforce unreasonable restrictions on the updater.
      */
+    @Deprecated
     public static <T extends Channel, C> ChannelListener.Setter<T> getSetter(final C channel, final AtomicReferenceFieldUpdater<C, ChannelListener> updater) {
         return new ChannelListener.Setter<T>() {
             public void set(final ChannelListener<? super T> channelListener) {
                 updater.set(channel, channelListener);
+            }
+
+            public String toString() {
+                return "Atomic reference field updater setter for " + updater;
             }
         };
     }
@@ -217,6 +259,10 @@ public final class ChannelListeners {
         return new ChannelListener.Setter<T>() {
             public void set(final ChannelListener<? super T> channelListener) {
                 atomicReference.set(channelListener);
+            }
+
+            public String toString() {
+                return "Atomic reference setter (currently=" + atomicReference.get() + ")";
             }
         };
     }
@@ -263,6 +309,10 @@ public final class ChannelListeners {
                     IoUtils.safeClose(channel);
                 }
             }
+
+            public String toString() {
+                return "Executor channel listener -> " + listener;
+            }
         };
     }
 
@@ -285,7 +335,7 @@ public final class ChannelListeners {
                     result = channel.flush();
                 } catch (IOException e) {
                     channel.suspendWrites();
-                    exceptionHandler.handleException(channel, e);
+                    invokeChannelExceptionHandler(channel, exceptionHandler, e);
                     return;
                 }
                 if (result) {
@@ -320,10 +370,14 @@ public final class ChannelListeners {
                 try {
                     channel.shutdownWrites();
                 } catch (IOException e) {
-                    exceptionHandler.handleException(channel, e);
+                    invokeChannelExceptionHandler(channel, exceptionHandler, e);
                     return;
                 }
-                flushingListener.handleEvent(channel);
+                invokeChannelListener(channel, flushingListener);
+            }
+
+            public String toString() {
+                return "Write shutdown channel listener -> " + delegate;
             }
         };
     }
@@ -353,7 +407,7 @@ public final class ChannelListeners {
                     } catch (IOException e) {
                         channel.suspendWrites();
                         pooled.free();
-                        exceptionHandler.handleException(channel, e);
+                        invokeChannelExceptionHandler(channel, exceptionHandler, e);
                         return;
                     } finally {
                         if (! ok) {
@@ -367,7 +421,7 @@ public final class ChannelListeners {
                     }
                 } while (buffer.hasRemaining());
                 pooled.free();
-                delegate.handleEvent(channel);
+                invokeChannelListener(channel, delegate);
             }
 
             public String toString() {
@@ -402,12 +456,12 @@ public final class ChannelListeners {
                 } catch (IOException e) {
                     channel.suspendWrites();
                     pooled.free();
-                    exceptionHandler.handleException(channel, e);
+                    invokeChannelExceptionHandler(channel, exceptionHandler, e);
                     return;
                 } finally {
                     if (free) pooled.free();
                 }
-                delegate.handleEvent(channel);
+                invokeChannelListener(channel, delegate);
             }
 
             public String toString() {
@@ -447,7 +501,7 @@ public final class ChannelListeners {
                         try {
                             result = channel.transferFrom(source, p, cnt);
                         } catch (IOException e) {
-                            exceptionHandler.handleException(channel, e);
+                            invokeChannelExceptionHandler(channel, exceptionHandler, e);
                             return;
                         }
                         if (result == 0L) {
@@ -459,12 +513,16 @@ public final class ChannelListeners {
                         cnt -= result;
                     } while (cnt > 0L);
                     // cnt is 0
-                    delegate.handleEvent(channel);
+                    invokeChannelListener(channel, delegate);
                     return;
                 } finally {
                     this.p = p;
                     this.cnt = cnt;
                 }
+            }
+
+            public String toString() {
+                return "File sending channel listener (" + source + ") -> " + delegate;
             }
         };
     }
@@ -500,7 +558,7 @@ public final class ChannelListeners {
                         try {
                             result = channel.transferTo(p, cnt, target);
                         } catch (IOException e) {
-                            exceptionHandler.handleException(channel, e);
+                            invokeChannelExceptionHandler(channel, exceptionHandler, e);
                             return;
                         }
                         if (result == 0L) {
@@ -512,12 +570,16 @@ public final class ChannelListeners {
                         cnt -= result;
                     } while (cnt > 0L);
                     // cnt = 0
-                    delegate.handleEvent(channel);
+                    invokeChannelListener(channel, delegate);
                     return;
                 } finally {
                     this.p = p;
                     this.cnt = cnt;
                 }
+            }
+
+            public String toString() {
+                return "File receiving channel listener (" + target + ") -> " + delegate;
             }
         };
     }
@@ -532,7 +594,11 @@ public final class ChannelListeners {
     public static <T extends Channel> ChannelListener<T> delegatingChannelListener(final ChannelListener<? super T> delegate) {
         return new ChannelListener<T>() {
             public void handleEvent(final T channel) {
-                delegate.handleEvent(channel);
+                invokeChannelListener(channel, delegate);
+            }
+
+            public String toString() {
+                return "Delegating channel listener -> " + delegate;
             }
         };
     }
@@ -561,7 +627,11 @@ public final class ChannelListeners {
         return new ChannelListener<T>() {
             public void handleEvent(final T channel) {
                 channel.suspendWrites();
-                delegate.handleEvent(channel);
+                invokeChannelListener(channel, delegate);
+            }
+
+            public String toString() {
+                return "Write-suspending channel listener -> " + delegate;
             }
         };
     }
@@ -577,7 +647,11 @@ public final class ChannelListeners {
         return new ChannelListener<T>() {
             public void handleEvent(final T channel) {
                 channel.suspendReads();
-                delegate.handleEvent(channel);
+                invokeChannelListener(channel, delegate);
+            }
+
+            public String toString() {
+                return "Read-suspending channel listener -> " + delegate;
             }
         };
     }
@@ -708,7 +782,7 @@ public final class ChannelListeners {
             try {
                 source.suspendReads();
                 sink.suspendWrites();
-                writeExceptionHandler.handleException(sink, e);
+                invokeChannelExceptionHandler(sink, writeExceptionHandler, e);
             } finally {
                 pooledBuffer.free();
             }
@@ -718,7 +792,7 @@ public final class ChannelListeners {
             try {
                 source.suspendReads();
                 sink.suspendWrites();
-                readExceptionHandler.handleException(source, e);
+                invokeChannelExceptionHandler(source, readExceptionHandler, e);
             } finally {
                 pooledBuffer.free();
             }
@@ -747,6 +821,10 @@ public final class ChannelListeners {
             } finally {
                 pooledBuffer.free();
             }
+        }
+
+        public String toString() {
+            return "Transfer channel listener (" + source + " to " + sink + ") -> (" + sourceListener + " and " + sinkListener + ")";
         }
     }
 
@@ -790,7 +868,7 @@ public final class ChannelListeners {
                 try {
                     transferred = source.transferTo(count, buffer, sink);
                 } catch (IOException e) {
-                    readExceptionHandler.handleException(source, e);
+                    invokeChannelExceptionHandler(source, readExceptionHandler, e);
                     return;
                 }
                 if (transferred == -1) {
@@ -811,7 +889,7 @@ public final class ChannelListeners {
                     } else {
                         source.suspendReads();
                         sink.suspendWrites();
-                        readExceptionHandler.handleException(source, new EOFException());
+                        invokeChannelExceptionHandler(source, readExceptionHandler, new EOFException());
                     }
                     return;
                 }
@@ -823,7 +901,7 @@ public final class ChannelListeners {
                     try {
                         res = sink.write(buffer);
                     } catch (IOException e) {
-                        writeExceptionHandler.handleException(sink, e);
+                        invokeChannelExceptionHandler(sink, writeExceptionHandler, e);
                         return;
                     }
                     if (res == 0) {
@@ -877,6 +955,10 @@ public final class ChannelListeners {
         public void set(final ChannelListener<? super T> channelListener) {
             setter.set(channelListener == null ? null : new DelegatingChannelListener<T>(channelListener, realChannel));
         }
+
+        public String toString() {
+            return "Delegating setter -> " + setter;
+        }
     }
 
     private static class DelegatingChannelListener<T extends Channel> implements ChannelListener<Channel> {
@@ -890,7 +972,11 @@ public final class ChannelListeners {
         }
 
         public void handleEvent(final Channel channel) {
-            channelListener.handleEvent(realChannel);
+            invokeChannelListener(realChannel, channelListener);
+        }
+
+        public String toString() {
+            return "Delegating channel listener -> " + channelListener;
         }
     }
 
@@ -906,6 +992,10 @@ public final class ChannelListeners {
 
         public void handleEvent(final C channel) {
             invokeChannelListener(this.channel, setter.get());
+        }
+
+        public String toString() {
+            return "Setter delegating channel listener -> " + setter;
         }
     }
 
@@ -950,11 +1040,15 @@ public final class ChannelListeners {
             } catch (IOException e) {
                 this.count = 0L;
                 if (exceptionHandler != null) {
-                    exceptionHandler.handleException(channel, e);
+                    invokeChannelExceptionHandler(channel, exceptionHandler, e);
                 } else {
                     IoUtils.safeShutdownReads(channel);
                 }
             }
+        }
+
+        public String toString() {
+            return "Draining channel listener (" + count + " bytes) -> " + finishListener;
         }
     }
 }
