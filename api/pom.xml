@@ -134,6 +134,9 @@
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
+                    <excludes>
+                        <exclude>java/**</exclude>
+                    </excludes>
                     <archive>
                         <manifest>
                             <mainClass>org.xnio.Version</mainClass>
