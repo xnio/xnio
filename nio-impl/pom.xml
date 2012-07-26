@@ -19,6 +19,7 @@
     
     <properties>
         <test.level>INFO</test.level>
+        <java6.home>${env.JAVA6_HOME}</java6.home>
     </properties>
 
     <dependencies>
@@ -47,6 +48,35 @@
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <source>1.6</source>
+                            <target>1.6</target>
+                            <compilerArguments>
+                                <bootclasspath>${java6.home}/jre/lib/rt.jar</bootclasspath>
+                            </compilerArguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>/java/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
@@ -54,6 +84,9 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <excludes>
+                        <exclude>/java/**</exclude>
+                    </excludes>
                     <systemProperties>
                         <property>
                             <name>java.util.logging.manager</name>
