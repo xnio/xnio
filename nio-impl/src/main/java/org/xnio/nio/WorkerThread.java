@@ -152,6 +152,9 @@ final class WorkerThread extends Thread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s (with timeout)", selector);
                         selector.select(millis);
                     }
+                } catch (CancelledKeyException ignored) {
+                    // Mac and other buggy implementations sometimes spits these out
+                    selectorLog.trace("Spurious cancelled key exception");
                 } catch (IOException e) {
                     selectorLog.warnf("Received an I/O error on selection: %s", e);
                     // hopefully transient; should never happen
