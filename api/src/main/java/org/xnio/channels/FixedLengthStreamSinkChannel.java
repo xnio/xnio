@@ -1,0 +1,525 @@
+/*
+ * JBoss, Home of Professional Open Source.
+ * Copyright 2012 Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.xnio.channels;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.xnio.ChannelListener;
+import org.xnio.ChannelListeners;
+import org.xnio.Option;
+import org.xnio.XnioExecutor;
+import org.xnio.XnioWorker;
+
+import static java.lang.Math.min;
+import static org.xnio.Bits.*;
+import static org.xnio.IoUtils.safeClose;
+
+/**
+ * A channel which writes a fixed amount of data.  A listener is called once the data has been written.
+ *
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ */
+public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, WrappedChannel<StreamSinkChannel> {
+    private final StreamSinkChannel delegate;
+    private final boolean configurable;
+    private final boolean propagateClose;
+
+    private final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener;
+    private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> writeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
+    private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> closeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
+
+    @SuppressWarnings("unused")
+    private volatile long state;
+
+    private static final long FLAG_WRITE_ENTERED = 1L << 63L;
+    private static final long FLAG_CLOSE_REQUESTED = 1L << 62L;
+    private static final long FLAG_CLOSE_COMPLETE = 1L << 61L;
+    private static final long FLAG_SUS_RES_SHUT_ENTERED = 1L << 60L;
+    private static final long FLAG_FINISHED = 1L << 59L;
+    private static final long MASK_COUNT = longBitMask(0, 58);
+
+    private static final AtomicLongFieldUpdater<FixedLengthStreamSinkChannel> stateUpdater = AtomicLongFieldUpdater.newUpdater(FixedLengthStreamSinkChannel.class, "state");
+
+    public FixedLengthStreamSinkChannel(final StreamSinkChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener) {
+        if (contentLength < 0L) {
+            throw new IllegalArgumentException("Content length must be greater than or equal to zero");
+        } else if (contentLength > MASK_COUNT) {
+            throw new IllegalArgumentException("Content length is too long");
+        }
+        this.delegate = delegate;
+        this.finishListener = finishListener;
+        this.configurable = configurable;
+        this.propagateClose = propagateClose;
+        this.state = contentLength;
+    }
+
+    public ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter() {
+        return writeSetter;
+    }
+
+    public ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter() {
+        return closeSetter;
+    }
+
+    public StreamSinkChannel getChannel() {
+        return delegate;
+    }
+
+    public XnioExecutor getWriteThread() {
+        return delegate.getWriteThread();
+    }
+
+    public XnioWorker getWorker() {
+        return delegate.getWorker();
+    }
+
+    public int write(final ByteBuffer src) throws IOException {
+        if (! src.hasRemaining()) {
+            return 0;
+        }
+        long val = enterWrite();
+        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
+        if (allAreSet(val, FLAG_FINISHED)) {
+            throw new FixedLengthOverflowException();
+        }
+        int res = 0;
+        final long remaining = val & MASK_COUNT;
+        try {
+            final int lim = src.limit();
+            final int pos = src.position();
+            if (lim - pos > remaining) {
+                src.limit((int) (remaining - (long) pos));
+                try {
+                    return res = delegate.write(src);
+                } finally {
+                    src.limit(lim);
+                }
+            } else {
+                return res = delegate.write(src);
+            }
+        } finally {
+            exitWrite(val, (long) res);
+        }
+    }
+
+    public long write(final ByteBuffer[] srcs) throws IOException {
+        return write(srcs, 0, srcs.length);
+    }
+
+    public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        if (length == 0) {
+            return 0L;
+        } else if (length == 1) {
+            return write(srcs[offset]);
+        }
+        long val = enterWrite();
+        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
+        if (allAreSet(val, FLAG_FINISHED)) {
+            throw new FixedLengthOverflowException();
+        }
+        long res = 0L;
+        try {
+            if ((val & MASK_COUNT) == 0L) {
+                return -1L;
+            }
+            int lim;
+            // The total amount of buffer space discovered so far.
+            long t = 0L;
+            for (int i = 0; i < length; i ++) {
+                final ByteBuffer buffer = srcs[i + offset];
+                // Grow the discovered buffer space by the remaining size of the current buffer.
+                // We want to capture the limit so we calculate "remaining" ourselves.
+                t += (lim = buffer.limit()) - buffer.position();
+                if (t > (val & MASK_COUNT)) {
+                    // only read up to this point, and trim the last buffer by the number of extra bytes
+                    buffer.limit(lim - (int) (t - (val & MASK_COUNT)));
+                    try {
+                        return res = delegate.write(srcs, offset, i + 1);
+                    } finally {
+                        // restore the original limit
+                        buffer.limit(lim);
+                    }
+                }
+            }
+            if (t == 0L) {
+                return 0L;
+            }
+            // the total buffer space is less than the remaining count.
+            return res = delegate.write(srcs, offset, length);
+        } finally {
+            exitWrite(val, res);
+        }
+    }
+
+    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
+        if (count == 0L) return 0L;
+        long val = enterWrite();
+        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
+        if (allAreSet(val, FLAG_FINISHED)) {
+            throw new FixedLengthOverflowException();
+        }
+        long res = 0L;
+        try {
+            return res = delegate.transferFrom(src, position, min(count, (val & MASK_COUNT)));
+        } finally {
+            exitWrite(val, res);
+        }
+    }
+
+    public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
+        if (count == 0L) return 0L;
+        long val = enterWrite();
+        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
+        if (allAreSet(val, FLAG_FINISHED)) {
+            throw new FixedLengthOverflowException();
+        }
+        long res = 0L;
+        try {
+            return res = delegate.transferFrom(source, min(count, (val & MASK_COUNT)), throughBuffer);
+        } finally {
+            exitWrite(val, res);
+        }
+    }
+
+    public boolean flush() throws IOException {
+        long val = enterFlush();
+        if (anyAreSet(val, FLAG_FINISHED | FLAG_CLOSE_COMPLETE)) {
+            return true;
+        }
+        if (anyAreSet(val, FLAG_WRITE_ENTERED)) {
+            return false;
+        }
+        boolean flushed = false;
+        try {
+            return flushed = delegate.flush();
+        } finally {
+            exitFlush(val, flushed);
+        }
+    }
+
+    public void suspendWrites() {
+        long val = enterSuspendResume();
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+            return;
+        }
+        try {
+            delegate.suspendWrites();
+        } finally {
+            exitSuspendResume(val);
+        }
+    }
+
+    public void resumeWrites() {
+        long val = enterSuspendResume();
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+            return;
+        }
+        try {
+            delegate.resumeWrites();
+        } finally {
+            exitSuspendResume(val);
+        }
+    }
+
+    public boolean isWriteResumed() {
+        // not perfect but not provably wrong either...
+        return allAreClear(state, FLAG_CLOSE_COMPLETE | FLAG_FINISHED) && delegate.isWriteResumed();
+    }
+
+    public void wakeupWrites() {
+        long val = enterSuspendResume();
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+            return;
+        }
+        try {
+            delegate.wakeupWrites();
+        } finally {
+            exitSuspendResume(val);
+        }
+    }
+
+    public void shutdownWrites() throws IOException {
+        final long val = enterShutdown();
+        try {
+            if (anyAreSet(val, MASK_COUNT)) try {
+                throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
+            } finally {
+                if (propagateClose) {
+                    safeClose(delegate);
+                }
+            } else if (propagateClose) {
+                delegate.shutdownWrites();
+            }
+        } finally {
+            exitShutdown(val);
+        }
+    }
+
+    public void awaitWritable() throws IOException {
+        delegate.awaitWritable();
+    }
+
+    public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
+        delegate.awaitWritable(time, timeUnit);
+    }
+
+    public boolean isOpen() {
+        return allAreClear(state, FLAG_CLOSE_REQUESTED);
+    }
+
+    public void close() throws IOException {
+        final long val = enterClose();
+        try {
+            if (anyAreSet(val, MASK_COUNT)) try {
+                throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
+            } finally {
+                if (propagateClose) {
+                    safeClose(delegate);
+                }
+            } else if (propagateClose) {
+                delegate.close();
+            }
+        } finally {
+            exitClose(val);
+        }
+    }
+
+    public boolean supportsOption(final Option<?> option) {
+        return configurable && delegate.supportsOption(option);
+    }
+
+    public <T> T getOption(final Option<T> option) throws IOException {
+        return configurable ? delegate.getOption(option) : null;
+    }
+
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        return configurable ? delegate.setOption(option, value) : null;
+    }
+
+    /**
+     * Get the number of remaining bytes in this fixed length channel.
+     *
+     * @return the number of remaining bytes
+     */
+    public long getRemaining() {
+        return state & MASK_COUNT;
+    }
+
+    private long enterWrite() {
+        long oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_CLOSE_COMPLETE) || allAreClear(oldVal, MASK_COUNT)) {
+                // do not swap
+                return oldVal;
+            }
+            if (allAreSet(oldVal, FLAG_WRITE_ENTERED)) {
+                throw new ConcurrentStreamChannelAccessException();
+            }
+            newVal = oldVal | FLAG_WRITE_ENTERED;
+        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
+        return oldVal;
+    }
+
+    private void exitWrite(long oldVal, long consumed) {
+        long newVal = oldVal - consumed;
+        if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
+        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+            oldVal = state;
+            newVal = oldVal & ~FLAG_WRITE_ENTERED - consumed;
+            if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
+        }
+        if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
+            // don't call listener while other shit is in flight
+            return;
+        }
+        if (allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
+            // closed while we were in flight.  Call the listener.
+            callClosed();
+        }
+        if (allAreClear(oldVal, FLAG_FINISHED) && allAreSet(newVal, FLAG_FINISHED)) {
+            callFinish();
+        }
+    }
+
+    private long enterFlush() {
+        long oldVal, newVal;
+        do {
+            oldVal = state;
+            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_WRITE_ENTERED | FLAG_FINISHED)) {
+                // do not swap
+                return oldVal;
+            }
+            newVal = oldVal | FLAG_WRITE_ENTERED;
+        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
+        return oldVal;
+    }
+
+    private void exitFlush(long oldVal, boolean flushed) {
+        long newVal = oldVal;
+        if (anyAreSet(oldVal, FLAG_CLOSE_REQUESTED)) {
+            newVal |= FLAG_CLOSE_COMPLETE;
+        }
+        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+            oldVal = state;
+            newVal = oldVal & ~FLAG_WRITE_ENTERED;
+            if (flushed && anyAreSet(oldVal, FLAG_CLOSE_REQUESTED)) {
+                newVal |= FLAG_CLOSE_COMPLETE;
+            }
+        }
+        if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
+            // don't call listener while other shit is in flight
+            return;
+        }
+        if (allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
+            // closed while we were in flight or by us.
+            callClosed();
+        }
+        if (anyAreSet(oldVal, MASK_COUNT) && allAreClear(newVal, MASK_COUNT)) {
+            callFinish();
+        }
+    }
+
+    private long enterSuspendResume() {
+        long oldVal, newVal;
+        do {
+            oldVal = state;
+            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
+                return oldVal;
+            }
+            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED;
+        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
+        return oldVal;
+    }
+
+    private void exitSuspendResume(long oldVal) {
+        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
+        final boolean wasClosed = allAreClear(oldVal, FLAG_CLOSE_COMPLETE);
+        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
+        long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+        if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
+        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+            oldVal = state;
+            newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+            if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
+        }
+        if (! wasEntered) {
+            if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
+                callFinish();
+            }
+            if (! wasClosed && allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
+                callClosed();
+            }
+        }
+    }
+
+    private long enterShutdown() {
+        long oldVal, newVal;
+        do {
+            oldVal = state;
+            if (anyAreSet(oldVal, FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE)) {
+                // no action necessary
+                return oldVal;
+            }
+            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_FINISHED;
+            if (allAreClear(oldVal, FLAG_FINISHED)) {
+                // error: channel not filled.  set both close flags.
+                newVal |= FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
+            }
+        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
+        return oldVal;
+    }
+
+    private void exitShutdown(long oldVal) {
+        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
+        final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
+        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
+        if (! wasInSusRes) {
+            long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+            while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+                oldVal = state;
+                newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+            }
+            if (! wasEntered) {
+                if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
+                    callFinish();
+                }
+                callClosed();
+            }
+        }
+        // else let exitSuspendResume/exitWrite handle this
+    }
+
+    private long enterClose() {
+        long oldVal, newVal;
+        do {
+            oldVal = state;
+            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE)) {
+                // no action necessary
+                return oldVal;
+            }
+            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
+            if (allAreClear(oldVal, FLAG_FINISHED)) {
+                // error: channel not filled.  set both close flags.
+                newVal |= FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
+            }
+        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
+        return oldVal;
+    }
+
+    private void exitClose(long oldVal) {
+        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
+        final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
+        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
+        if (! wasInSusRes) {
+            long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+            while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+                oldVal = state;
+                newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
+            }
+            if (! wasEntered) {
+                if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
+                    callFinish();
+                }
+                callClosed();
+            }
+        }
+        // else let exitSuspendResume/exitWrite handle this
+    }
+
+    private void callFinish() {
+        ChannelListeners.invokeChannelListener(this, finishListener);
+    }
+
+    private void callClosed() {
+        ChannelListeners.invokeChannelListener(this, closeSetter.get());
+    }
+}

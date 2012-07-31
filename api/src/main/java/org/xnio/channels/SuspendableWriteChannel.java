@@ -121,6 +121,14 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     boolean flush() throws IOException;
 
     /**
+     * Determine whether this channel is open.  This method will return {@code false} if all directions are shut down,
+     * even if there is unflushed write data pending.
+     *
+     * @return {@code true} if the channel is open, {@code false} otherwise
+     */
+    boolean isOpen();
+
+    /**
      * Close this channel.  If data has been written but not flushed, that data may be discarded, depending on the
      * channel implementation.  When a channel is closed, its close listener is invoked.  Invoking this method more than
      * once has no additional effect.
