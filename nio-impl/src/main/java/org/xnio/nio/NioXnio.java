@@ -72,7 +72,7 @@ final class NioXnio extends Xnio {
                 public Object[] run() {
                     final SelectorProvider defaultProvider = SelectorProvider.provider();
                     final String chosenProvider = System.getProperty("xnio.nio.selector.provider");
-                    SelectorProvider provider = defaultProvider;
+                    SelectorProvider provider = null;
                     if (chosenProvider != null) {
                         try {
                             provider = Class.forName(chosenProvider, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
