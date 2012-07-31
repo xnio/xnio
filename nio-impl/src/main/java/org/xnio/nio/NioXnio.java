@@ -101,7 +101,7 @@ final class NioXnio extends Xnio {
                     final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(provider.getClass().getName());
                     final String chosenMainSelector = System.getProperty("xnio.nio.selector.main");
                     final String chosenTempSelector = System.getProperty("xnio.nio.selector.temp");
-                    final SelectorCreator defaultSelectorCreator = new DefaultSelectorCreator();
+                    final SelectorCreator defaultSelectorCreator = new DefaultSelectorCreator(provider);
                     final Object[] objects = new Object[3];
                     objects[0] = provider;
                     if (chosenTempSelector != null) try {
@@ -169,13 +169,18 @@ final class NioXnio extends Xnio {
     }
 
     private static class DefaultSelectorCreator implements SelectorCreator {
+        private final SelectorProvider provider;
+
+        private DefaultSelectorCreator(final SelectorProvider provider) {
+            this.provider = provider;
+        }
 
         public Selector open() throws IOException {
-            return Selector.open();
+            return provider.openSelector();
         }
 
         public String toString() {
-            return "Default system selector creator";
+            return "Default system selector creator for provider " + provider.getClass();
         }
     }
 
