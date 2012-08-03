@@ -27,7 +27,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -41,7 +40,6 @@ import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
@@ -345,7 +343,14 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
         boolean wasSuspended = anyAreSet(oldVal, CONN_FULL) || allAreClear(oldVal, CONN_RESUMED);
         boolean doSuspend = ! wasSuspended && allAreClear(oldVal, CONN_SUSPENDING) && allAreSet(newVal, CONN_FULL | CONN_SUSPENDING);
-        final SocketChannel accepted = channel.accept();
+        final SocketChannel accepted;
+        try {
+            accepted = channel.accept();
+        } catch (IOException e) {
+            undoAccept(newVal, wasSuspended, doSuspend);
+            log.tracef("No connection accepted (%s)", e);
+            return null;
+        }
         final NioTcpChannel newChannel;
         if (accepted == null) {
             undoAccept(newVal, wasSuspended, doSuspend);
