@@ -26,7 +26,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
@@ -365,7 +364,7 @@ final class NioXnioWorker extends XnioWorker {
             final ServerSocketChannel channel = ServerSocketChannel.open();
             channel.configureBlocking(false);
             channel.socket().bind(destination);
-            final NioSetter<NioTcpChannel> closeSetter = new NioSetter<NioTcpChannel>();
+            final ChannelListener.SimpleSetter<NioTcpChannel> closeSetter = new ChannelListener.SimpleSetter<NioTcpChannel>();
             //noinspection unchecked
             ChannelListeners.invokeChannelListener(new BoundChannel() {
                 public XnioWorker getWorker() {

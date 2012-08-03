@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
+import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Options;
@@ -57,8 +58,8 @@ class BioDatagramUdpChannel extends AbstractNioChannel<BioDatagramUdpChannel> im
     private final ReadHandlerTask readHandlerTask = new ReadHandlerTask();
     private final WriteHandlerTask writeHandlerTask = new WriteHandlerTask();
 
-    private final NioSetter<BioDatagramUdpChannel> readSetter = new NioSetter<BioDatagramUdpChannel>();
-    private final NioSetter<BioDatagramUdpChannel> writeSetter = new NioSetter<BioDatagramUdpChannel>();
+    private final ChannelListener.SimpleSetter<BioDatagramUdpChannel> readSetter = new ChannelListener.SimpleSetter<BioDatagramUdpChannel>();
+    private final ChannelListener.SimpleSetter<BioDatagramUdpChannel> writeSetter = new ChannelListener.SimpleSetter<BioDatagramUdpChannel>();
 
     private final WorkerThread readThread;
     private final WorkerThread writeThread;
@@ -127,11 +128,11 @@ class BioDatagramUdpChannel extends AbstractNioChannel<BioDatagramUdpChannel> im
         log.tracef("Channel %s opened", this);
     }
 
-    public NioSetter<BioDatagramUdpChannel> getReadSetter() {
+    public ChannelListener.SimpleSetter<BioDatagramUdpChannel> getReadSetter() {
         return readSetter;
     }
 
-    public NioSetter<BioDatagramUdpChannel> getWriteSetter() {
+    public ChannelListener.SimpleSetter<BioDatagramUdpChannel> getWriteSetter() {
         return writeSetter;
     }
 
