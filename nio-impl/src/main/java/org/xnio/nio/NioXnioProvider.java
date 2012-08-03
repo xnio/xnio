@@ -18,8 +18,15 @@
 
 package org.xnio.nio;
 
+import java.io.IOException;
+import java.nio.channels.Pipe;
+import java.nio.channels.SocketChannel;
 import org.xnio.Xnio;
 import org.xnio.XnioProvider;
+import org.xnio.XnioWorker;
+import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 
 /**
  * The NIO XNIO provider.
@@ -38,4 +45,54 @@ public final class NioXnioProvider implements XnioProvider {
     public String getName() {
         return INSTANCE.getName();
     }
+
+    /**
+     * Adopt an NIO channel into an NIO XNIO channel.
+     *
+     * @param worker an XNIO worker created from this provider
+     * @param socketChannel the NIO socket channel
+     * @return the XNIO connected stream channel
+     * @throws IOException if the adoption failed
+     */
+    public ConnectedStreamChannel adopt(XnioWorker worker, SocketChannel socketChannel) throws IOException {
+        NioXnioWorker nioWorker = (NioXnioWorker) worker;
+        socketChannel.configureBlocking(false);
+        NioTcpChannel channel = new NioTcpChannel(nioWorker, null, socketChannel);
+        channel.start();
+        return channel;
+    }
+
+    /**
+     * Adopt an NIO channel into an NIO XNIO channel.
+     *
+     * @param worker an XNIO worker created from this provider
+     * @param pipeChannel the NIO pipe source channel
+     * @return the XNIO stream source channel
+     * @throws IOException if the adoption failed
+     */
+    public StreamSourceChannel adopt(XnioWorker worker, Pipe.SourceChannel pipeChannel) throws IOException {
+        NioXnioWorker nioWorker = (NioXnioWorker) worker;
+        pipeChannel.configureBlocking(false);
+        NioPipeSourceChannel channel = new NioPipeSourceChannel(nioWorker, pipeChannel);
+        channel.start();
+        return channel;
+    }
+
+    /**
+     * Adopt an NIO channel into an NIO XNIO channel.
+     *
+     * @param worker an XNIO worker created from this provider
+     * @param pipeChannel the NIO pipe sink channel
+     * @return the XNIO stream sink channel
+     * @throws IOException if the adoption failed
+     */
+    public StreamSinkChannel adopt(XnioWorker worker, Pipe.SinkChannel pipeChannel) throws IOException {
+        NioXnioWorker nioWorker = (NioXnioWorker) worker;
+        pipeChannel.configureBlocking(false);
+        NioPipeSinkChannel channel = new NioPipeSinkChannel(nioWorker, pipeChannel);
+        channel.start();
+        return channel;
+    }
+
+
 }
