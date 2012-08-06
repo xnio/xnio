@@ -41,8 +41,7 @@ import static org.xnio.IoUtils.safeClose;
  */
 public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, WrappedChannel<StreamSinkChannel> {
     private final StreamSinkChannel delegate;
-    private final boolean configurable;
-    private final boolean propagateClose;
+    private final int config;
 
     private final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener;
     private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> writeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
@@ -50,6 +49,9 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
 
     @SuppressWarnings("unused")
     private volatile long state;
+
+    private static final int CONF_FLAG_CONFIGURABLE = 1 << 0;
+    private static final int CONF_FLAG_PASS_CLOSE = 1 << 1;
 
     private static final long FLAG_WRITE_ENTERED = 1L << 63L;
     private static final long FLAG_CLOSE_REQUESTED = 1L << 62L;
@@ -68,8 +70,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
         }
         this.delegate = delegate;
         this.finishListener = finishListener;
-        this.configurable = configurable;
-        this.propagateClose = propagateClose;
+        config = (configurable ? CONF_FLAG_CONFIGURABLE : 0) | (propagateClose ? CONF_FLAG_PASS_CLOSE : 0);
         this.state = contentLength;
         delegate.getWriteSetter().set(ChannelListeners.delegatingChannelListener(this, writeSetter));
     }
@@ -273,10 +274,10 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
             if (anyAreSet(val, MASK_COUNT)) try {
                 throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
             } finally {
-                if (propagateClose) {
+                if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
                     safeClose(delegate);
                 }
-            } else if (propagateClose) {
+            } else if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
                 delegate.shutdownWrites();
             }
         } finally {
@@ -302,10 +303,10 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
             if (anyAreSet(val, MASK_COUNT)) try {
                 throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
             } finally {
-                if (propagateClose) {
+                if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
                     safeClose(delegate);
                 }
-            } else if (propagateClose) {
+            } else if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
                 delegate.close();
             }
         } finally {
@@ -314,15 +315,15 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return configurable && delegate.supportsOption(option);
+        return allAreSet(config, CONF_FLAG_CONFIGURABLE) && delegate.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return configurable ? delegate.getOption(option) : null;
+        return allAreSet(config, CONF_FLAG_CONFIGURABLE) ? delegate.getOption(option) : null;
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return configurable ? delegate.setOption(option, value) : null;
+        return allAreSet(config, CONF_FLAG_CONFIGURABLE) ? delegate.setOption(option, value) : null;
     }
 
     /**
