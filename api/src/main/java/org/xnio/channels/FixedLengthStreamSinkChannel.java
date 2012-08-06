@@ -71,6 +71,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
         this.configurable = configurable;
         this.propagateClose = propagateClose;
         this.state = contentLength;
+        delegate.getWriteSetter().set(ChannelListeners.delegatingChannelListener(this, writeSetter));
     }
 
     public ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter() {
