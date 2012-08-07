@@ -95,6 +95,13 @@ final class NioXnio extends Xnio {
                         }
                     }
                     if (provider == null) {
+                        try {
+                            provider = Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                        } catch (Exception e) {
+                            // not available
+                        }
+                    }
+                    if (provider == null) {
                         provider = defaultProvider;
                     }
                     log.tracef("Starting up with selector provider %s", provider.getClass().getCanonicalName());
