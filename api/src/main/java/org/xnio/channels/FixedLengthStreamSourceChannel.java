@@ -49,9 +49,10 @@ import static org.xnio.Bits.*;
  * the EOF -1 value is read or the channel is closed.  Since this is a half-duplex channel, shutting down reads is
  * identical to closing the channel.
  */
-public final class FixedLengthStreamSourceChannel implements StreamSourceChannel, WrappedChannel<StreamSourceChannel> {
+public final class FixedLengthStreamSourceChannel implements StreamSourceChannel, ProtectedWrappedChannel<StreamSourceChannel> {
     private final StreamSourceChannel delegate;
     private final boolean configurable;
+    private final Object guard;
 
     private final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener;
     private final ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel> readSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel>();
@@ -80,9 +81,10 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
      * @param delegate the stream source channel to read from
      * @param contentLength the amount of content to read
      * @param finishListener the listener to call once the stream is exhausted or closed
+     * @param guard the guard object to use
      */
-    public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener) {
-        this(delegate, contentLength, false, finishListener);
+    public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener, final Object guard) {
+        this(delegate, contentLength, false, finishListener, guard);
     }
 
     /**
@@ -98,8 +100,10 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
      * @param contentLength the amount of content to read
      * @param configurable {@code true} to allow options to pass through to the delegate, {@code false} otherwise
      * @param finishListener the listener to call once the stream is exhausted or closed
+     * @param guard the guard object to use
      */
-    public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final boolean configurable, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener) {
+    public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final boolean configurable, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener, final Object guard) {
+        this.guard = guard;
         this.finishListener = finishListener;
         if (contentLength < 0L) {
             throw new IllegalArgumentException("Content length must be greater than or equal to zero");
@@ -326,8 +330,13 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         return configurable ? delegate.setOption(option, value) : null;
     }
 
-    public StreamSourceChannel getChannel() {
-        return delegate;
+    public StreamSourceChannel getChannel(final Object guard) {
+        final Object ourGuard = this.guard;
+        if (ourGuard == null || guard == ourGuard) {
+            return delegate;
+        } else {
+            return null;
+        }
     }
 
     /**

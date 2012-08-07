@@ -39,9 +39,10 @@ import static org.xnio.IoUtils.safeClose;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, WrappedChannel<StreamSinkChannel> {
+public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, ProtectedWrappedChannel<StreamSinkChannel> {
     private final StreamSinkChannel delegate;
     private final int config;
+    private final Object guard;
 
     private final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener;
     private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> writeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
@@ -62,12 +63,23 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
 
     private static final AtomicLongFieldUpdater<FixedLengthStreamSinkChannel> stateUpdater = AtomicLongFieldUpdater.newUpdater(FixedLengthStreamSinkChannel.class, "state");
 
-    public FixedLengthStreamSinkChannel(final StreamSinkChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener) {
+    /**
+     * Construct a new instance.
+     *
+     * @param delegate the delegate channel
+     * @param contentLength the content length
+     * @param configurable {@code true} if this instance should pass configuration to the delegate
+     * @param propagateClose {@code true} if this instance should pass close to the delegate
+     * @param finishListener the listener to call when the channel is closed or the length is reached
+     * @param guard the guard object to use
+     */
+    public FixedLengthStreamSinkChannel(final StreamSinkChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener, final Object guard) {
         if (contentLength < 0L) {
             throw new IllegalArgumentException("Content length must be greater than or equal to zero");
         } else if (contentLength > MASK_COUNT) {
             throw new IllegalArgumentException("Content length is too long");
         }
+        this.guard = guard;
         this.delegate = delegate;
         this.finishListener = finishListener;
         config = (configurable ? CONF_FLAG_CONFIGURABLE : 0) | (propagateClose ? CONF_FLAG_PASS_CLOSE : 0);
@@ -83,8 +95,13 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Wr
         return closeSetter;
     }
 
-    public StreamSinkChannel getChannel() {
-        return delegate;
+    public StreamSinkChannel getChannel(final Object guard) {
+        final Object ourGuard = this.guard;
+        if (ourGuard == null || guard == ourGuard) {
+            return delegate;
+        } else {
+            return null;
+        }
     }
 
     public XnioExecutor getWriteThread() {
