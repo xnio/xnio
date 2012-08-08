@@ -22,7 +22,7 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -35,8 +35,13 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.Channels;
 import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
@@ -45,6 +50,8 @@ import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import org.xnio.streams.ChannelInputStream;
+import org.xnio.streams.ChannelOutputStream;
 
 /**
  * A worker for I/O channel notification.
@@ -535,6 +542,126 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
         //noinspection unchecked
         rightExec.execute(ChannelListeners.getChannelListenerTask(right, sinkListener));
+    }
+
+    //==================================================
+    //
+    // Compression methods
+    //
+    //==================================================
+
+    /**
+     * Create a stream channel that decompresses the source data according to the configuration in the given option map.
+     *
+     * @param delegate the compressed channel
+     * @param options the configuration options for the channel
+     * @return a decompressed channel
+     * @throws IOException if the channel could not be constructed
+     */
+    public StreamSourceChannel getInflatingChannel(final StreamSourceChannel delegate, OptionMap options) throws IOException {
+        final boolean nowrap;
+        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.ZLIB)) {
+            case ZLIB: nowrap = false; break;
+            case GZIP: nowrap = true; break;
+            default: throw new IllegalArgumentException("Compression format not supported");
+        }
+        return getInflatingChannel(delegate, new Inflater(nowrap));
+    }
+
+    /**
+     * Create a stream channel that decompresses the source data according to the configuration in the given inflater.
+     *
+     * @param delegate the compressed channel
+     * @param inflater the inflater to use
+     * @return a decompressed channel
+     * @throws IOException if the channel could not be constructed
+     */
+    protected StreamSourceChannel getInflatingChannel(final StreamSourceChannel delegate, final Inflater inflater) throws IOException {
+        final ChannelPipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
+        final StreamSourceChannel source = pipe.getLeftSide();
+        final StreamSinkChannel sink = pipe.getRightSide();
+        execute(new Runnable() {
+            public void run() {
+                final InflaterInputStream inputStream = new InflaterInputStream(new ChannelInputStream(delegate), inflater);
+                final byte[] buf = new byte[16384];
+                final ByteBuffer byteBuffer = ByteBuffer.wrap(buf);
+                int res;
+                try {
+                    for (;;) {
+                        res = inputStream.read(buf);
+                        if (res == -1) {
+                            sink.shutdownWrites();
+                            Channels.flushBlocking(sink);
+                            return;
+                        }
+                        byteBuffer.limit(res);
+                        Channels.writeBlocking(sink, byteBuffer);
+                    }
+                } catch (IOException e) {
+                    // todo: push this to the stream source somehow
+                } finally {
+                    IoUtils.safeClose(inputStream);
+                    IoUtils.safeClose(sink);
+                }
+            }
+        });
+        return source;
+    }
+
+    /**
+     * Create a stream channel that compresses to the destination according to the configuration in the given option map.
+     *
+     * @param delegate the channel to compress to
+     * @param options the configuration options for the channel
+     * @return a compressed channel
+     * @throws IOException if the channel could not be constructed
+     */
+    public StreamSinkChannel getDeflatingChannel(final StreamSinkChannel delegate, final OptionMap options) throws IOException {
+        final int level = options.get(Options.COMPRESSION_LEVEL, -1);
+        final boolean nowrap;
+        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.ZLIB)) {
+            case ZLIB: nowrap = false; break;
+            case GZIP: nowrap = true; break;
+            default: throw new IllegalArgumentException("Compression format not supported");
+        }
+        return getDeflatingChannel(delegate, new Deflater(level, nowrap));
+    }
+
+    /**
+     * Create a stream channel that compresses to the destination according to the configuration in the given inflater.
+     *
+     * @param delegate the channel to compress to
+     * @param deflater the deflater to use
+     * @return a compressed channel
+     * @throws IOException if the channel could not be constructed
+     */
+    protected StreamSinkChannel getDeflatingChannel(final StreamSinkChannel delegate, final Deflater deflater) throws IOException {
+        final ChannelPipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
+        final StreamSourceChannel source = pipe.getLeftSide();
+        final StreamSinkChannel sink = pipe.getRightSide();
+        execute(new Runnable() {
+            public void run() {
+                final DeflaterOutputStream outputStream = new DeflaterOutputStream(new ChannelOutputStream(delegate), deflater);
+                final byte[] buf = new byte[16384];
+                final ByteBuffer byteBuffer = ByteBuffer.wrap(buf);
+                int res;
+                try {
+                    for (;;) {
+                        if (Channels.readBlocking(source, byteBuffer) == -1) {
+                            outputStream.close();
+                            return;
+                        }
+                        outputStream.write(buf, 0, byteBuffer.position());
+                    }
+                } catch (IOException e) {
+                    // todo: push this to the stream source somehow
+                } finally {
+                    IoUtils.safeClose(outputStream);
+                    IoUtils.safeClose(source);
+                }
+            }
+        });
+        return sink;
     }
 
     /**

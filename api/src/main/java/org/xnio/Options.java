@@ -490,4 +490,8 @@ public final class Options {
      * number, accepts can be resumed for that server.
      */
     public static final Option<Integer> CONNECTION_LOW_WATER = Option.simple(Options.class, "CONNECTION_LOW_WATER", Integer.class);
+
+    public static final Option<Integer> COMPRESSION_LEVEL = Option.simple(Options.class, "COMPRESSION_LEVEL", Integer.class);
+
+    public static final Option<CompressionType> COMPRESSION_TYPE = Option.simple(Options.class, "COMPRESSION_TYPE", CompressionType.class);
 }
