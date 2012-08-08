@@ -19,6 +19,7 @@
 
 package org.xnio;
 
+import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -174,6 +175,44 @@ public final class ChannelListeners {
      */
     public static ChannelListener<Channel> closingChannelListener() {
         return CLOSING_CHANNEL_LISTENER;
+    }
+
+    /**
+     * Get a channel listener which closes the given resource when notified.
+     *
+     * @param resource the resource to close
+     * @return the channel listener
+     */
+    public static ChannelListener<Channel> closingChannelListener(final Closeable resource) {
+        return new ChannelListener<Channel>() {
+            public void handleEvent(final Channel channel) {
+                IoUtils.safeClose(resource);
+            }
+
+            public String toString() {
+                return "Closing channel listener for " + resource;
+            }
+        };
+    }
+
+    /**
+     * Get a channel listener which closes the given resource when notified.
+     *
+     * @param resource the resource to close
+     * @param delegate the listener to call next
+     * @return the channel listener
+     */
+    public static <T extends Channel> ChannelListener<T> closingChannelListener(final Closeable resource, final ChannelListener<T> delegate) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                IoUtils.safeClose(resource);
+                delegate.handleEvent(channel);
+            }
+
+            public String toString() {
+                return "Closing channel listener for " + resource + " -> " + delegate;
+            }
+        };
     }
 
     /**
