@@ -196,13 +196,31 @@ public final class ChannelListeners {
     }
 
     /**
-     * Get a channel listener which closes the given resource when notified.
+     * Get a channel listener which closes the given resources when notified.
      *
-     * @param resource the resource to close
-     * @param delegate the listener to call next
+     * @param resources the resources to close
      * @return the channel listener
      */
-    public static <T extends Channel> ChannelListener<T> closingChannelListener(final Closeable resource, final ChannelListener<T> delegate) {
+    public static ChannelListener<Channel> closingChannelListener(final Closeable... resources) {
+        return new ChannelListener<Channel>() {
+            public void handleEvent(final Channel channel) {
+                IoUtils.safeClose(resources);
+            }
+
+            public String toString() {
+                return "Closing channel listener for " + resources.length + " items";
+            }
+        };
+    }
+
+    /**
+     * Get a channel listener which closes the given resource when notified.
+     *
+     * @param delegate the listener to call next
+     * @param resource the resource to close
+     * @return the channel listener
+     */
+    public static <T extends Channel> ChannelListener<T> closingChannelListener(final ChannelListener<T> delegate, final Closeable resource) {
         return new ChannelListener<T>() {
             public void handleEvent(final T channel) {
                 IoUtils.safeClose(resource);
@@ -211,6 +229,26 @@ public final class ChannelListeners {
 
             public String toString() {
                 return "Closing channel listener for " + resource + " -> " + delegate;
+            }
+        };
+    }
+
+    /**
+     * Get a channel listener which closes the given resource when notified.
+     *
+     * @param delegate the listener to call next
+     * @param resources the resource to close
+     * @return the channel listener
+     */
+    public static <T extends Channel> ChannelListener<T> closingChannelListener(final ChannelListener<T> delegate, final Closeable... resources) {
+        return new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                IoUtils.safeClose(resources);
+                delegate.handleEvent(channel);
+            }
+
+            public String toString() {
+                return "Closing channel listener for " + resources.length + " items -> " + delegate;
             }
         };
     }

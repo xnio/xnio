@@ -139,6 +139,17 @@ public final class IoUtils {
     }
 
     /**
+     * Close a series of resources, logging errors if they occur.
+     *
+     * @param resources the resources to close
+     */
+    public static void safeClose(final Closeable... resources) {
+        for (Closeable resource : resources) {
+            safeClose(resource);
+        }
+    }
+
+    /**
      * Close a resource, logging an error if an error occurs.
      *
      * @param resource the resource to close
