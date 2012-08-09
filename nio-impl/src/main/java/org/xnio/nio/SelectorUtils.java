@@ -43,10 +43,15 @@ final class SelectorUtils {
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op, long time, TimeUnit unit) throws IOException {
+        if (time == 0) {
+            await(nioXnio, channel, op);
+            return;
+        }
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey = channel.register(selector, op);
-        selector.select(unit.toMillis(time));
+        long timeoutInMillis = unit.toMillis(time);
+        selector.select(timeoutInMillis == 0 ? 1: timeoutInMillis);
         selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();
