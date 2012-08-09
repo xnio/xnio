@@ -35,6 +35,7 @@ final class SelectorUtils {
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey = channel.register(selector, op);
         selector.select();
+        selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();
         }
@@ -46,6 +47,7 @@ final class SelectorUtils {
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey = channel.register(selector, op);
         selector.select(unit.toMillis(time));
+        selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();
         }
