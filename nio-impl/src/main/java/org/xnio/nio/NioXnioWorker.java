@@ -493,8 +493,12 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         final Pipe in = Pipe.open();
         try {
+            in.source().configureBlocking(false);
+            in.sink().configureBlocking(false);
             final Pipe out = Pipe.open();
             try {
+                out.source().configureBlocking(false);
+                out.sink().configureBlocking(false);
                 final NioPipeChannel left = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
                 final NioPipeChannel right = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
                 final ChannelPipe<StreamChannel, StreamChannel> result = new ChannelPipe<StreamChannel, StreamChannel>(left, right);
@@ -518,6 +522,8 @@ final class NioXnioWorker extends XnioWorker {
         final Pipe pipe = Pipe.open();
         boolean ok = false;
         try {
+            pipe.source().configureBlocking(false);
+            pipe.sink().configureBlocking(false);
             final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(new NioPipeSourceChannel(this, pipe.source()), new NioPipeSinkChannel(this, pipe.sink()));
             ok = true;
             return result;
