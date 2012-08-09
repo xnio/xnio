@@ -305,6 +305,11 @@ final class NioXnioWorker extends XnioWorker {
             final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, channel);
             tcpChannel.start();
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
+            if (connectHandle == null) {
+                throw new IllegalArgumentException("Wrong value for option " + Options. WORKER_ESTABLISH_WRITING +
+                        ". This NioWorker has no " + (optionMap.get(Options.WORKER_ESTABLISH_WRITING, false)? "write": "read")
+                        + " thread.");
+            }
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
                 // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
