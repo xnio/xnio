@@ -27,7 +27,7 @@ public enum CompressionType {
     /**
      * ZLIB compatible compression.
      */
-    ZLIB,
+    DEFLATE,
     /**
      * GZIP compatible compression.
      */

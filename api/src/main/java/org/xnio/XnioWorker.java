@@ -560,8 +560,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public StreamSourceChannel getInflatingChannel(final StreamSourceChannel delegate, OptionMap options) throws IOException {
         final boolean nowrap;
-        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.ZLIB)) {
-            case ZLIB: nowrap = false; break;
+        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.DEFLATE)) {
+            case DEFLATE: nowrap = false; break;
             case GZIP: nowrap = true; break;
             default: throw new IllegalArgumentException("Compression format not supported");
         }
@@ -619,8 +619,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     public StreamSinkChannel getDeflatingChannel(final StreamSinkChannel delegate, final OptionMap options) throws IOException {
         final int level = options.get(Options.COMPRESSION_LEVEL, -1);
         final boolean nowrap;
-        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.ZLIB)) {
-            case ZLIB: nowrap = false; break;
+        switch (options.get(Options.COMPRESSION_TYPE, CompressionType.DEFLATE)) {
+            case DEFLATE: nowrap = false; break;
             case GZIP: nowrap = true; break;
             default: throw new IllegalArgumentException("Compression format not supported");
         }
