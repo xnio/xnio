@@ -245,7 +245,7 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         final Object old;
         if (option == Options.CLOSE_ABORT) {
-            old = Boolean.valueOf(socket.getSoLinger() != 0);
+            old = Boolean.valueOf(socket.getSoLinger() != -1);
             socket.setSoLinger(((Boolean) value).booleanValue(), 0);
         } else if (option == Options.KEEP_ALIVE) {
             old = Boolean.valueOf(socket.getKeepAlive());
