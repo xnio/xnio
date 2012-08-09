@@ -51,7 +51,7 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
     }
 
     public void shutdownReads() throws IOException {
-        final int old = setBits(this, 0x01);
+        final int old = setBits(this, 0x02);
         if ((old & 2) == 0) {
             try {
                 sourceChannel.close();
