@@ -639,6 +639,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 oldHandle.cancelKey();
                 handles.set(i, acceptThread.addChannel(channel, typed(), 0, acceptSetter));
             }
+            ok = true;
         } finally {
             if (! ok) {
                 IoUtils.safeClose(this);
