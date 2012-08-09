@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.spi.AbstractInterruptibleChannel;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
 
 /**
  * Compatibility stub.
@@ -29,6 +31,7 @@ import java.nio.channels.spi.AbstractInterruptibleChannel;
 public abstract class FileChannel extends AbstractInterruptibleChannel implements GatheringByteChannel, ScatteringByteChannel {
     protected FileChannel() {}
 
+    public static FileChannel open(Path path, OpenOption... options) throws IOException {return null;};
     public abstract int read(ByteBuffer dst) throws IOException;
     public abstract long read(ByteBuffer[] dsts, int offset, int length) throws IOException;
     public final long read(ByteBuffer[] dsts) throws IOException { return 0L; }

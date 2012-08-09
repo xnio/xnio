@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
 import java.security.PrivilegedAction;
@@ -230,10 +231,18 @@ public abstract class Xnio {
      * @throws IOException if an I/O error occurs
      */
     public FileChannel openFile(File file, OptionMap options) throws IOException {
-        switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
-            case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
-            case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
-            default: throw new IllegalStateException();
+        try {
+            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
+                case READ_ONLY: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ));
+                case READ_WRITE: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE));
+                default: throw new IllegalStateException();
+            }
+        } catch (Error e) {
+            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
+                case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
+                case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
+                default: throw new IllegalStateException();
+            }
         }
     }
 
