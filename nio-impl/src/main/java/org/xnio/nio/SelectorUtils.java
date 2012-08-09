@@ -18,12 +18,14 @@
 
 package org.xnio.nio;
 
-import java.nio.channels.SelectableChannel;
-import java.nio.channels.Selector;
-import java.nio.channels.SelectionKey;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.util.concurrent.TimeUnit;
+
 import org.xnio.Xnio;
 
 final class SelectorUtils {
@@ -33,7 +35,12 @@ final class SelectorUtils {
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op) throws IOException {
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
-        final SelectionKey selectionKey = channel.register(selector, op);
+        final SelectionKey selectionKey;
+        try {
+            selectionKey = channel.register(selector, op);
+        } catch (ClosedChannelException e) {
+            return;
+        }
         selector.select();
         selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
@@ -49,7 +56,12 @@ final class SelectorUtils {
         }
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
-        final SelectionKey selectionKey = channel.register(selector, op);
+        final SelectionKey selectionKey;
+        try {
+            selectionKey = channel.register(selector, op);
+        } catch (ClosedChannelException e) {
+            return;
+        }
         long timeoutInMillis = unit.toMillis(time);
         selector.select(timeoutInMillis == 0 ? 1: timeoutInMillis);
         selector.selectedKeys().clear();
