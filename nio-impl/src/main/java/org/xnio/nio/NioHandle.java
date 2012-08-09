@@ -43,10 +43,6 @@ final class NioHandle<C extends Channel> implements Runnable {
         this.channel = channel;
     }
 
-    SelectionKey getSelectionKey() {
-        return selectionKey;
-    }
-
     WorkerThread getWorkerThread() {
         return workerThread;
     }

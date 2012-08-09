@@ -255,18 +255,14 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     public void wakeupReads() {
         resumeReads();
         final NioHandle<NioUdpChannel> readHandle = this.readHandle;
-        if (readHandle == null) {
-            throw new IllegalArgumentException("No thread configured");
-        }
+        assert readHandle != null;
         readHandle.execute();
     }
 
     public void wakeupWrites() {
         resumeWrites();
         final NioHandle<NioUdpChannel> writeHandle = this.writeHandle;
-        if (writeHandle == null) {
-            throw new IllegalArgumentException("No thread configured");
-        }
+        assert writeHandle != null;
         writeHandle.execute();
     }
 

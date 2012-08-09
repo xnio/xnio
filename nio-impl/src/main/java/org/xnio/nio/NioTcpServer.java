@@ -341,7 +341,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 newVal |= CONN_SUSPENDING | CONN_FULL;
             }
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
-        boolean wasSuspended = anyAreSet(oldVal, CONN_FULL) || allAreClear(oldVal, CONN_RESUMED);
+        boolean wasSuspended = allAreClear(oldVal, CONN_RESUMED);
         boolean doSuspend = ! wasSuspended && allAreClear(oldVal, CONN_SUSPENDING) && allAreSet(newVal, CONN_FULL | CONN_SUSPENDING);
         final SocketChannel accepted;
         try {
@@ -382,10 +382,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         }
         if (doSuspend) {
             // handle suspend
-            if (allAreSet(oldVal, CONN_RESUMED)) {
-                // we were previously resumed, so stop calling accept handlers for now
-                doResume(0);
-            }
+            assert allAreSet(oldVal, CONN_RESUMED);
+            // we were previously resumed, so stop calling accept handlers for now
+            doResume(0);
             // now attempt to synchronize the connection state with the new suspend state
             synchronizeConnectionState(oldVal, doSuspend);
         }

@@ -150,22 +150,6 @@ final class NioXnioWorker extends XnioWorker {
 
     private static final WorkerThread[] NO_WORKERS = new WorkerThread[0];
 
-    WorkerThread choose() {
-        final WorkerThread[] write = writeWorkers;
-        final WorkerThread[] read = readWorkers;
-        final int writeLength = write.length;
-        final int readLength = read.length;
-        if (writeLength == 0) {
-            return choose(false);
-        }
-        if (readLength == 0) {
-            return choose(true);
-        }
-        final Random random = IoUtils.getThreadLocalRandom();
-        final int idx = random.nextInt(writeLength + readLength);
-        return idx >= readLength ? write[idx - readLength] : read[idx];
-    }
-
     WorkerThread chooseOptional(final boolean write) {
         final WorkerThread[] orig = write ? writeWorkers : readWorkers;
         final int length = orig.length;
@@ -568,23 +552,6 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    /**
-     * Open a resource.  Must be matched with a corresponding {@code closeResource()}.
-     *
-     * @throws ClosedWorkerException if the worker is closed
-     */
-    void openResource() throws ClosedWorkerException {
-        int oldState;
-        do {
-            oldState = state;
-            if ((oldState & CLOSE_REQ) != 0) {
-                throw new ClosedWorkerException("Worker is shutting down");
-            }
-        } while (! stateUpdater.compareAndSet(this, oldState, oldState + 1));
-        if (log.isTraceEnabled()) {
-            log.tracef("CAS %s %08x -> %08x", this, Integer.valueOf(oldState), Integer.valueOf(oldState + 1));
-        }
-    }
 
     void closeResource() {
         int oldState = stateUpdater.decrementAndGet(this);

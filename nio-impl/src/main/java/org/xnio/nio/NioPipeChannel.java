@@ -110,10 +110,13 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
                 sourceChannel.close();
             } finally {
                 cancelReadKey();
-            } else if (old == 0x02) try {
-                sinkChannel.close();
-            } finally {
-                cancelWriteKey();
+            } else {
+                assert old == 0x02;
+                try {
+                    sinkChannel.close();
+                } finally {
+                    cancelWriteKey();
+                }
             }
         } finally {
             invokeCloseHandler();
