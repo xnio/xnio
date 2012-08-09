@@ -279,10 +279,10 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             newVal = withLowWater(withHighWater(oldVal, newHighWater), newLowWater);
             // determine if we need to suspend because the high water line dropped below count
             //    ...or if we need to resume because the low water line rose above count
-            if (allAreClear(oldVal, CONN_FULL) && oldHighWater > connCount && newHighWater < connCount) {
+            if (allAreClear(oldVal, CONN_FULL) && oldHighWater > connCount && newHighWater <= connCount) {
                 newVal |= CONN_FULL | CONN_SUSPENDING;
-            } else if (allAreSet(oldVal, CONN_FULL) && oldLowWater < connCount && newLowWater > connCount) {
-                newVal &= CONN_FULL;
+            } else if (allAreSet(oldVal, CONN_FULL) && oldLowWater < connCount && newLowWater >= connCount) {
+                newVal &= ~CONN_FULL;
                 newVal |= CONN_SUSPENDING;
             }
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
@@ -302,7 +302,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 synchronizeConnectionState(newVal, false);
             }
         }
-        return newVal;
+        return oldVal;
     }
 
     private static int getHighWater(final long value) {
@@ -337,7 +337,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 return null;
             }
             newVal = oldVal + CONN_COUNT_ONE;
-            if (getCount(newVal) > getHighWater(newVal)) {
+            if (getCount(newVal) >= getHighWater(newVal)) {
                 newVal |= CONN_SUSPENDING | CONN_FULL;
             }
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
