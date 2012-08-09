@@ -360,11 +360,11 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
 
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
-        final WorkerThread writeThread = worker.choose(true);
-        final WorkerThread readThread = worker.choose(false);
-        final NioHandle<C> newWriteHandle = writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        final WorkerThread writeThread = worker.chooseOptional(true);
+        final WorkerThread readThread = worker.chooseOptional(false);
+        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
         try {
-            final NioHandle<C> newReadHandle = readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
+            final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
             try {
                 cancelReadKey();
                 cancelWriteKey();
@@ -374,10 +374,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
                     readHandle = newReadHandle;
                     writeHandle = newWriteHandle;
                     super.migrateTo(worker);
+                } else if (newReadHandle != null) {
+                    newReadHandle.cancelKey();
                 }
             }
         } finally {
-            if (! ok) {
+            if (! ok && newWriteHandle != null) {
                 newWriteHandle.cancelKey();
             }
         }

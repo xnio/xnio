@@ -437,11 +437,11 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
-        final WorkerThread writeThread = worker.choose(true);
-        final WorkerThread readThread = worker.choose(false);
-        final NioHandle<NioUdpChannel> newWriteHandle = writeThread.addChannel(datagramChannel, this, 0, writeSetter);
+        final WorkerThread writeThread = worker.chooseOptional(true);
+        final WorkerThread readThread = worker.chooseOptional(false);
+        final NioHandle<NioUdpChannel> newWriteHandle = writeThread == null? null: writeThread.addChannel(datagramChannel, this, 0, writeSetter);
         try {
-            final NioHandle<NioUdpChannel> newReadHandle = readThread.addChannel(datagramChannel, this, 0, readSetter);
+            final NioHandle<NioUdpChannel> newReadHandle = readThread == null? null: readThread.addChannel(datagramChannel, this, 0, readSetter);
             try {
                 cancelReadKey();
                 cancelWriteKey();
@@ -451,10 +451,12 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
                     readHandle = newReadHandle;
                     writeHandle = newWriteHandle;
                     super.migrateTo(worker);
+                } else if (newReadHandle != null) {
+                    newReadHandle.cancelKey();
                 }
             }
         } finally {
-            if (! ok) {
+            if (! ok & newWriteHandle != null) {
                 newWriteHandle.cancelKey();
             }
         }

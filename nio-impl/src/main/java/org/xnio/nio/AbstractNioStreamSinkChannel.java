@@ -219,23 +219,20 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         }
     }
 
-    NioHandle<C> getWriteHandle() {
-        return writeHandle;
-    }
-
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
-        final WorkerThread writeThread = worker.choose(true);
-        final NioHandle<C> newWriteHandle = writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        final WorkerThread writeThread = worker.chooseOptional(true);
+        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
         try {
             cancelWriteKey();
             ok = true;
         } finally {
-            if (! ok) {
-                newWriteHandle.cancelKey();
-            } else {
+            if (ok) {
                 writeHandle = newWriteHandle;
                 super.migrateTo(worker);
+            }
+            else if (newWriteHandle != null) {
+                newWriteHandle.cancelKey();
             }
         }
     }

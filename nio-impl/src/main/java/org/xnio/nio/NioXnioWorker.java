@@ -675,6 +675,9 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected void doMigration(final CloseableChannel channel) throws ClosedChannelException {
+        if (channel.getWorker() == this) {
+            return;
+        }
         ((AbstractNioChannel<?>)channel).migrateTo(this);
     }
 

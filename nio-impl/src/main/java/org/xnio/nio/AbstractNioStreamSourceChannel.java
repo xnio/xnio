@@ -220,23 +220,19 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         }
     }
 
-    NioHandle<C> getReadHandle() {
-        return readHandle;
-    }
-
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
-        final WorkerThread readThread = worker.choose(false);
-        final NioHandle<C> newReadHandle = readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
+        final WorkerThread readThread = worker.chooseOptional(false);
+        final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
         try {
             cancelReadKey();
             ok = true;
         } finally {
-            if (! ok) {
-                newReadHandle.cancelKey();
-            } else {
+            if (ok) {
                 readHandle = newReadHandle;
                 super.migrateTo(worker);
+            } else if (newReadHandle != null) {
+                newReadHandle.cancelKey();
             }
         }
     }
