@@ -368,6 +368,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             final int sendBuffer = this.sendBuffer;
             if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
             newChannel = new NioTcpChannel(worker, this, accepted);
+            newChannel.start();
             newChannel.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
             newChannel.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
             ok = true;

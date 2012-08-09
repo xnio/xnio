@@ -39,7 +39,6 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
         super(worker);
         this.sinkChannel = sinkChannel;
         this.sourceChannel = sourceChannel;
-        start();
     }
 
     protected ScatteringByteChannel getReadChannel() {

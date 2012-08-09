@@ -66,11 +66,14 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     NioUdpChannel(final NioXnioWorker worker, final DatagramChannel datagramChannel) throws ClosedChannelException {
         super(worker);
+        this.datagramChannel = datagramChannel;
+    }
+
+    void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
         readHandle = readThread == null ? null : readThread.addChannel(datagramChannel, this, 0, readSetter);
         writeHandle = writeThread == null ? null : writeThread.addChannel(datagramChannel, this, 0, writeSetter);
-        this.datagramChannel = datagramChannel;
     }
 
     public SocketAddress getLocalAddress() {

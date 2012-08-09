@@ -66,7 +66,6 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         this.socketChannel = socketChannel;
         this.server = server;
         socket = socketChannel.socket();
-        start();
     }
 
     void configureFrom(final OptionMap optionMap) throws IOException {

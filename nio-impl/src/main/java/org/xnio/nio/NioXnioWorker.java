@@ -303,6 +303,7 @@ final class NioXnioWorker extends XnioWorker {
             channel.configureBlocking(false);
             channel.socket().bind(bindAddress);
             final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, channel);
+            tcpChannel.start();
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
@@ -412,6 +413,7 @@ final class NioXnioWorker extends XnioWorker {
             if (accepted != null) {
                 IoUtils.safeClose(channel);
                 final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, accepted);
+                tcpChannel.start();
                 tcpChannel.configureFrom(optionMap);
                 //noinspection unchecked
                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
@@ -442,6 +444,7 @@ final class NioXnioWorker extends XnioWorker {
                             accepted.configureBlocking(false);
                             final NioTcpChannel tcpChannel;
                             tcpChannel = new NioTcpChannel(NioXnioWorker.this, null, accepted);
+                            tcpChannel.start();
                             tcpChannel.configureFrom(optionMap);
                             futureResult.setResult(tcpChannel);
                             ok = true;
@@ -483,6 +486,7 @@ final class NioXnioWorker extends XnioWorker {
             channel.configureBlocking(false);
             channel.socket().bind(bindAddress);
             final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
+            udpChannel.start();
             //noinspection unchecked
             ChannelListeners.invokeChannelListener(udpChannel, bindListener);
             return udpChannel;
@@ -500,7 +504,9 @@ final class NioXnioWorker extends XnioWorker {
                 out.source().configureBlocking(false);
                 out.sink().configureBlocking(false);
                 final NioPipeChannel left = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
+                left.start();
                 final NioPipeChannel right = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
+                right.start();
                 final ChannelPipe<StreamChannel, StreamChannel> result = new ChannelPipe<StreamChannel, StreamChannel>(left, right);
                 ok = true;
                 return result;
@@ -524,7 +530,11 @@ final class NioXnioWorker extends XnioWorker {
         try {
             pipe.source().configureBlocking(false);
             pipe.sink().configureBlocking(false);
-            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(new NioPipeSourceChannel(this, pipe.source()), new NioPipeSinkChannel(this, pipe.sink()));
+            final NioPipeSourceChannel sourceChannel = new NioPipeSourceChannel(this, pipe.source());
+            sourceChannel.start();
+            final NioPipeSinkChannel sinkChannel = new NioPipeSinkChannel(this, pipe.sink());
+            sinkChannel.start();
+            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(sourceChannel, sinkChannel);
             ok = true;
             return result;
         } finally {
