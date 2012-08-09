@@ -58,7 +58,6 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     private static final long FLAG_CLOSE_REQUESTED = 1L << 62L;
     private static final long FLAG_CLOSE_COMPLETE = 1L << 61L;
     private static final long FLAG_SUS_RES_SHUT_ENTERED = 1L << 60L;
-    private static final long FLAG_FINISHED = 1L << 59L;
     private static final long MASK_COUNT = longBitMask(0, 58);
 
     private static final AtomicLongFieldUpdater<FixedLengthStreamSinkChannel> stateUpdater = AtomicLongFieldUpdater.newUpdater(FixedLengthStreamSinkChannel.class, "state");
@@ -120,7 +119,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreSet(val, FLAG_FINISHED)) {
+        if (allAreClear(val, MASK_COUNT)) {
             throw new FixedLengthOverflowException();
         }
         int res = 0;
@@ -157,7 +156,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreSet(val, FLAG_FINISHED)) {
+        if (allAreClear(val, MASK_COUNT)) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
@@ -200,7 +199,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreSet(val, FLAG_FINISHED)) {
+        if (allAreClear(val, MASK_COUNT)) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
@@ -217,7 +216,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreSet(val, FLAG_FINISHED)) {
+        if (allAreClear(val, MASK_COUNT)) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
@@ -230,7 +229,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
 
     public boolean flush() throws IOException {
         long val = enterFlush();
-        if (anyAreSet(val, FLAG_FINISHED | FLAG_CLOSE_COMPLETE)) {
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE)) {
             return true;
         }
         if (anyAreSet(val, FLAG_WRITE_ENTERED)) {
@@ -246,7 +245,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
 
     public void suspendWrites() {
         long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
             return;
         }
         try {
@@ -258,7 +257,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
 
     public void resumeWrites() {
         long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
             return;
         }
         try {
@@ -270,12 +269,12 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
 
     public boolean isWriteResumed() {
         // not perfect but not provably wrong either...
-        return allAreClear(state, FLAG_CLOSE_COMPLETE | FLAG_FINISHED) && delegate.isWriteResumed();
+        return allAreClear(state, FLAG_CLOSE_COMPLETE) && delegate.isWriteResumed();
     }
 
     public void wakeupWrites() {
         long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED | FLAG_FINISHED)) {
+        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
             return;
         }
         try {
@@ -370,11 +369,9 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
 
     private void exitWrite(long oldVal, long consumed) {
         long newVal = oldVal - consumed;
-        if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
         while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
             oldVal = state;
             newVal = oldVal & ~FLAG_WRITE_ENTERED - consumed;
-            if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
         }
         if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
             // don't call listener while other shit is in flight
@@ -383,8 +380,6 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
             // closed while we were in flight.  Call the listener.
             callClosed();
-        }
-        if (allAreClear(oldVal, FLAG_FINISHED) && allAreSet(newVal, FLAG_FINISHED)) {
             callFinish();
         }
     }
@@ -393,7 +388,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         long oldVal, newVal;
         do {
             oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_WRITE_ENTERED | FLAG_FINISHED)) {
+            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_WRITE_ENTERED)) {
                 // do not swap
                 return oldVal;
             }
@@ -440,21 +435,16 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     private void exitSuspendResume(long oldVal) {
-        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
         final boolean wasClosed = allAreClear(oldVal, FLAG_CLOSE_COMPLETE);
         final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
         long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-        if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
         while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
             oldVal = state;
             newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-            if (allAreClear(newVal, MASK_COUNT)) newVal |= FLAG_FINISHED;
         }
         if (! wasEntered) {
-            if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
-                callFinish();
-            }
             if (! wasClosed && allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
+                callFinish();
                 callClosed();
             }
         }
@@ -468,17 +458,16 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 // no action necessary
                 return oldVal;
             }
-            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_FINISHED;
-            if (allAreClear(oldVal, FLAG_FINISHED)) {
+            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED;
+            if (anyAreSet(oldVal, MASK_COUNT)) {
                 // error: channel not filled.  set both close flags.
-                newVal |= FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
+                newVal |= FLAG_CLOSE_COMPLETE;
             }
         } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
         return oldVal;
     }
 
     private void exitShutdown(long oldVal) {
-        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
         final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
         final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
         if (! wasInSusRes) {
@@ -488,9 +477,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
             }
             if (! wasEntered) {
-                if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
-                    callFinish();
-                }
+                callFinish();
                 callClosed();
             }
         }
@@ -505,17 +492,16 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 // no action necessary
                 return oldVal;
             }
-            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
-            if (allAreClear(oldVal, FLAG_FINISHED)) {
+            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE;
+            if (anyAreSet(oldVal, MASK_COUNT)) {
                 // error: channel not filled.  set both close flags.
-                newVal |= FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE | FLAG_FINISHED;
+                newVal |= FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE;
             }
         } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
         return oldVal;
     }
 
     private void exitClose(long oldVal) {
-        final boolean wasFinished = allAreSet(oldVal, FLAG_FINISHED);
         final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
         final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
         if (! wasInSusRes) {
@@ -525,9 +511,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
             }
             if (! wasEntered) {
-                if (! wasFinished && allAreSet(newVal, FLAG_FINISHED)) {
-                    callFinish();
-                }
+                callFinish();
                 callClosed();
             }
         }
