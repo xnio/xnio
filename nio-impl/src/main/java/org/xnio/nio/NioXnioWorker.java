@@ -589,8 +589,7 @@ final class NioXnioWorker extends XnioWorker {
         while (oldState == CLOSE_REQ) {
             if (stateUpdater.compareAndSet(this, CLOSE_REQ, CLOSE_REQ | CLOSE_COMP)) {
                 log.tracef("CAS %s %08x -> %08x (close complete)", this, Integer.valueOf(CLOSE_REQ), Integer.valueOf(CLOSE_REQ | CLOSE_COMP));
-                final Thread waiter = shutdownWaiterUpdater.getAndSet(this, null);
-                if (waiter != null) LockSupport.unpark(waiter);
+                safeUnpark(shutdownWaiterUpdater.getAndSet(this, null));
                 final Runnable task = getTerminationTask();
                 if (task != null) try {
                     task.run();
@@ -638,10 +637,12 @@ final class NioXnioWorker extends XnioWorker {
         long then = System.nanoTime();
         long duration = unit.toNanos(timeout);
         final Thread myThread = Thread.currentThread();
-        final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
-        boolean completed = false;
-        try {
-            while (Bits.allAreClear(oldState = state, CLOSE_COMP)) {
+        while (Bits.allAreClear(oldState = state, CLOSE_COMP)) {
+            final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
+            try {
+                if (Bits.allAreSet(oldState = state, CLOSE_COMP)) {
+                    break;
+                }
                 LockSupport.parkNanos(this, duration);
                 if (Thread.interrupted()) {
                     throw new InterruptedException();
@@ -652,13 +653,11 @@ final class NioXnioWorker extends XnioWorker {
                     oldState = state;
                     break;
                 }
-            }
-            return completed = Bits.allAreSet(oldState, CLOSE_COMP);
-        } finally {
-            if (oldThread != null && (completed || ! shutdownWaiterUpdater.compareAndSet(this, myThread, oldThread))) {
-                LockSupport.unpark(oldThread);
+            } finally {
+                safeUnpark(oldThread);
             }
         }
+        return Bits.allAreSet(oldState, CLOSE_COMP);
     }
 
     public void awaitTermination() throws InterruptedException {
@@ -667,21 +666,24 @@ final class NioXnioWorker extends XnioWorker {
             return;
         }
         final Thread myThread = Thread.currentThread();
-        final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
-        boolean completed = false;
-        try {
-            while (Bits.allAreClear(state, CLOSE_COMP)) {
+        while (Bits.allAreClear(state, CLOSE_COMP)) {
+            final Thread oldThread = shutdownWaiterUpdater.getAndSet(this, myThread);
+            try {
+                if (Bits.allAreSet(state, CLOSE_COMP)) {
+                    break;
+                }
                 LockSupport.park(this);
                 if (Thread.interrupted()) {
                     throw new InterruptedException();
                 }
-            }
-            completed = true;
-        } finally {
-            if (oldThread != null && (completed || ! shutdownWaiterUpdater.compareAndSet(this, myThread, oldThread))) {
-                LockSupport.unpark(oldThread);
+            } finally {
+                safeUnpark(oldThread);
             }
         }
+    }
+
+    private static void safeUnpark(final Thread waiter) {
+        if (waiter != null) LockSupport.unpark(waiter);
     }
 
     protected void doMigration(final CloseableChannel channel) throws ClosedChannelException {
