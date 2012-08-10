@@ -46,6 +46,7 @@ final class NioPipeSourceChannel extends AbstractNioStreamSourceChannel<NioPipeS
 
     public void shutdownReads() throws IOException {
         if (closedUpdater.compareAndSet(this, 0, 1)) try {
+            try { cancelReadKey(); } catch (Throwable ignored) {}
             sourceChannel.close();
         } finally {
             invokeCloseHandler();

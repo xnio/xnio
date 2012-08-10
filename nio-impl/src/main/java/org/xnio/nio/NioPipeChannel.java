@@ -53,9 +53,9 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
         final int old = setBits(this, 0x02);
         if ((old & 2) == 0) {
             try {
+                try { cancelReadKey(); } catch (Throwable ignored) {}
                 sourceChannel.close();
             } finally {
-                cancelReadKey();
                 if (old == 0x01) {
                     invokeCloseHandler();
                 }
@@ -67,9 +67,9 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
         final int old = setBits(this, 0x01);
         if ((old & 1) == 0) {
             try {
+                try { cancelWriteKey(); } catch (Throwable ignored) {}
                 sinkChannel.close();
             } finally {
-                cancelWriteKey();
                 if (old == 0x02) {
                     invokeCloseHandler();
                 }
@@ -99,24 +99,17 @@ final class NioPipeChannel extends AbstractNioStreamChannel<NioPipeChannel> {
         if (old != 0x03) try {
             if (old == 0) {
                 // since we've got two channels, only rethrow a failure on the WRITE side, since that's the side that stands to lose data
+                try { cancelReadKey(); } catch (Throwable ignored) {}
+                try { cancelWriteKey(); } catch (Throwable ignored) {}
                 IoUtils.safeClose(sourceChannel);
-                try {
-                    sinkChannel.close();
-                } finally {
-                    cancelWriteKey();
-                    cancelReadKey();
-                }
-            } else if (old == 0x01) try {
+                sinkChannel.close();
+            } else if (old == 0x01) {
+                try { cancelReadKey(); } catch (Throwable ignored) {}
                 sourceChannel.close();
-            } finally {
-                cancelReadKey();
             } else {
                 assert old == 0x02;
-                try {
-                    sinkChannel.close();
-                } finally {
-                    cancelWriteKey();
-                }
+                try { cancelWriteKey(); } catch (Throwable ignored) {}
+                sinkChannel.close();
             }
         } finally {
             invokeCloseHandler();

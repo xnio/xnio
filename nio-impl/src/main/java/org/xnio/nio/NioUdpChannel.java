@@ -182,10 +182,10 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     public void close() throws IOException {
         if (!callFlag.getAndSet(true)) {
             log.tracef("Closing %s", this);
+            try { cancelKeys(); } catch (Throwable ignored) {}
             try {
                 datagramChannel.close();
             } finally {
-                cancelKeys();
                 invokeCloseHandler();
             }
         }
@@ -193,10 +193,10 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     private void cancelKeys() {
         if (readHandle != null) {
-            readHandle.cancelKey();
+            try { readHandle.cancelKey(); } catch (Throwable ignored) {}
         }
         if (writeHandle != null) {
-            writeHandle.cancelKey();
+            try { writeHandle.cancelKey(); } catch (Throwable ignored) {}
         }
     }
 

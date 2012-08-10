@@ -150,11 +150,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         if (setBits(this, 0x03) != 0x03) {
             log.tracef("Closing %s", this);
             try {
+                try { cancelReadKey(); } catch (Throwable ignored) {}
+                try { cancelWriteKey(); } catch (Throwable ignored) {}
                 socketChannel.close();
-                if (server != null) server.channelClosed();
             } finally {
-                cancelReadKey();
-                cancelWriteKey();
+                if (server != null) server.channelClosed();
                 invokeCloseHandler();
             }
         }
@@ -163,12 +163,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     public void shutdownReads() throws IOException {
         final int old = setBits(this, 0x02);
         if ((old & 0x02) == 0) {
+            log.tracef("Shutting down reads on %s", this);
             try {
-                log.tracef("Shutting down reads on %s", this);
-                socket.shutdownInput();
-            } catch (IOException ignored) {
+                try { cancelReadKey(); } catch (Throwable ignored) {}
+                try { socket.shutdownInput(); } catch (IOException ignored) {}
             } finally {
-                cancelReadKey();
                 if (old == 0x01) {
                     try {
                         socketChannel.close();
@@ -183,12 +182,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     public void shutdownWrites() throws IOException {
         final int old = setBits(this, 0x01);
         if ((old & 0x01) == 0) {
+            log.tracef("Shutting down writes on %s", this);
             try {
-                log.tracef("Shutting down writes on %s", this);
-                socket.shutdownOutput();
-            } catch (IOException ignored) {
+                try { cancelWriteKey(); } catch (Throwable ignored) {}
+                try { socket.shutdownOutput(); } catch (Throwable ignored) {}
             } finally {
-                cancelWriteKey();
                 if (old == 0x02) {
                     try {
                         socketChannel.close();

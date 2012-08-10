@@ -47,6 +47,7 @@ final class NioPipeSinkChannel extends AbstractNioStreamSinkChannel<NioPipeSinkC
 
     public void shutdownWrites() throws IOException {
         if (closedUpdater.compareAndSet(this, 0, 1)) try {
+            try { cancelWriteKey(); } catch (Throwable ignored) {}
             sinkChannel.close();
         } finally {
             invokeCloseHandler();
