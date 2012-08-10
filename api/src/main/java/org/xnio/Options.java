@@ -61,7 +61,11 @@ public final class Options {
 
     /**
      * The receive buffer size.  The value type for this option is {@code int}.  This may be used by an XNIO provider
-     * directly, or it may be passed to the underlying operating system, depending on the channel type.
+     * directly, or it may be passed to the underlying operating system, depending on the channel type.  Buffer
+     * sizes must always be greater than 0.  Note that this value is just a hint; if the application needs to know
+     * what value was actually stored for this option, it must call {@code getOption(Options.RECEIVE_BUFFER)} on the
+     * channel to verify.  On most operating systems, the receive buffer size may not be changed on a socket after
+     * it is connected; in these cases, calling {@code setOption(Options.RECEIVE_BUFFER, val)} will return {@code null}.
      */
     public static final Option<Integer> RECEIVE_BUFFER = Option.simple(Options.class, "RECEIVE_BUFFER", Integer.class);
 
@@ -72,7 +76,10 @@ public final class Options {
 
     /**
      * The send buffer size.  The value type for this option is {@code int}.  This may be used by an XNIO provider
-     * directly, or it may be passed to the underlying operating system, depending on the channel type.
+     * directly, or it may be passed to the underlying operating system, depending on the channel type.  Buffer
+     * sizes must always be greater than 0.  Note that this value is just a hint; if the application needs to know
+     * what value was actually stored for this option, it must call {@code getOption(Options.SEND_BUFFER)} on the
+     * channel to verify.
      */
     public static final Option<Integer> SEND_BUFFER = Option.simple(Options.class, "SEND_BUFFER", Integer.class);
 
