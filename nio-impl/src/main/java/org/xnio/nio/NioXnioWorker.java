@@ -262,6 +262,7 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
+        checkShutdown();
         boolean ok = false;
         final ServerSocketChannel channel = ServerSocketChannel.open();
         try {
@@ -282,6 +283,11 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected IoFuture<ConnectedStreamChannel> connectTcpStream(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            checkShutdown();
+        } catch (ClosedWorkerException e) {
+            return new FailedIoFuture<ConnectedStreamChannel>(e);
+        }
         try {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
@@ -349,6 +355,11 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected IoFuture<ConnectedStreamChannel> acceptTcpStream(final InetSocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            checkShutdown();
+        } catch (ClosedWorkerException e) {
+            return new FailedIoFuture<ConnectedStreamChannel>(e);
+        }
         final WorkerThread connectThread = choose(optionMap.get(Options.WORKER_ESTABLISH_WRITING, false));
         try {
             final ServerSocketChannel channel = ServerSocketChannel.open();
@@ -463,6 +474,7 @@ final class NioXnioWorker extends XnioWorker {
 
     /** {@inheritDoc} */
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
+        checkShutdown();
         if (!NioXnio.NIO2 && optionMap.get(Options.MULTICAST, false)) {
             final MulticastSocket socket = new MulticastSocket(bindAddress);
             final BioMulticastUdpChannel channel = new BioMulticastUdpChannel(this, optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), socket, chooseOptional(false), chooseOptional(true));
@@ -483,6 +495,7 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+        checkShutdown();
         boolean ok = false;
         final Pipe in = Pipe.open();
         try {
@@ -514,6 +527,7 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
+        checkShutdown();
         final Pipe pipe = Pipe.open();
         boolean ok = false;
         try {
@@ -552,6 +566,9 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
+    void checkShutdown() throws ClosedWorkerException {
+        if (isShutdown()) throw new ClosedWorkerException("Worker is shut down");
+    }
 
     void closeResource() {
         int oldState = stateUpdater.decrementAndGet(this);
