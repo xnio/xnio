@@ -45,7 +45,6 @@ import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static org.xnio.ChannelListener.SimpleSetter;
-import static org.xnio.nio.Log.log;
 
 /**
  *
@@ -155,7 +154,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         final long o = Buffers.remaining(buffers, offset, length);
         if (o > 65535L) {
             // there will never be enough room
-            throw new IllegalArgumentException("Too may bytes written");
+            throw new IllegalArgumentException("Too many bytes written");
         }
         final ByteBuffer buffer = ByteBuffer.allocate((int) o);
         Buffers.copy(buffer, buffers, offset, length);
@@ -221,7 +220,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     public void resumeReads() {
         final NioHandle<NioUdpChannel> handle = readHandle;
         if (handle == null) {
-            throw new IllegalArgumentException("No read thread configured");
+            throw new UnsupportedOperationException("No read thread configured");
         }
         try {
             handle.resume(SelectionKey.OP_READ);
@@ -233,7 +232,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     public void resumeWrites() {
         final NioHandle<NioUdpChannel> handle = writeHandle;
         if (handle == null) {
-            throw new IllegalArgumentException("No read thread configured");
+            throw new UnsupportedOperationException("No read thread configured");
         }
         try {
             handle.resume(SelectionKey.OP_WRITE);

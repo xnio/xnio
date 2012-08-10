@@ -1,0 +1,68 @@
+#
+# JBoss, Home of Professional Open Source.
+# Copyright 2012, Red Hat, Inc., and individual contributors
+# as indicated by the @author tags. See the copyright.txt file in the
+# distribution for a full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+#
+
+RULE awaitAcceptable checks CONN_FULL is not set
+CLASS org.xnio.nio.NioTcpServer
+METHOD awaitAcceptable
+AFTER INVOKE org.xnio.nio.SelectorUtils.await
+IF incrementCounter("run 'awaitAcceptable checks CONN_FULL' not set once") == 1
+DO
+    debug("AwaitWritable checked that connection is not full, waiting for CONN_FULL to be set before performing last check"),
+    signalWake("CONN_FULL not set is verified", true),
+    waitFor("CONN_FULL is set"),
+    debug("Proceeding with the last check for CONN_FULL")
+ENDRULE
+
+RULE clear counters
+CLASS org.xnio.nio.test.racecondition.SetConnFullDuringAwaitTestCase
+METHOD afterTest
+AT ENTRY
+IF TRUE
+DO
+    debug("Clearing counters"),
+    deleteCounter("run 'awaitAcceptable checks CONN_FULL' not set once"),
+    deleteCounter("wait for waiter on first accept only")
+ENDRULE
+
+
+RULE NioTcpServer sets CONN_FULL
+CLASS org.xnio.nio.NioTcpServer
+METHOD accept
+HELPER org.xnio.nio.test.racecondition.NullHelper
+AT EXIT
+IF isNull($!)
+DO
+    debug("Connection limit is reached, waking awaitAcceptable"),
+    signalWake("CONN_FULL is set", true),
+    debug("Proceeding...")
+ENDRULE
+
+RULE NioTcpServer accept
+CLASS org.xnio.nio.NioTcpServer
+METHOD accept
+HELPER org.xnio.nio.test.racecondition.NullHelper
+AT ENTRY
+IF incrementCounter("wait for waiter on first accept only") == 1
+DO
+    debug("Holding first accept..."),
+    waitFor("CONN_FULL not set is verified")
+ENDRULE

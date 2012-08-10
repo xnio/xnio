@@ -14,7 +14,6 @@
 
     <properties>
         <skip.enforcer>false</skip.enforcer>
-        <byteman-version>2.0.0</byteman-version>
     </properties>
 
     <parent>
@@ -53,13 +52,11 @@
         <dependency>
             <groupId>org.jboss.byteman</groupId>
             <artifactId>byteman</artifactId>
-            <version>${byteman-version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.byteman</groupId>
             <artifactId>byteman-bmunit</artifactId>
-            <version>${byteman-version}</version>
             <scope>test</scope>
              <exclusions>
                 <exclusion>
@@ -71,7 +68,6 @@
         <dependency>
             <groupId>org.jboss.byteman</groupId>
             <artifactId>byteman-install</artifactId>
-            <version>${byteman-version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
