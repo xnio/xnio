@@ -120,6 +120,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         this.channel = channel;
         final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
         final int count = optionMap.get(Options.WORKER_ACCEPT_THREADS, 1);
+        if (count < 0) {
+            throw new IllegalArgumentException("Total of worker accept threads must be greater than or equal to 0");
+        }
         final WorkerThread[] threads = worker.choose(count, write);
         @SuppressWarnings("unchecked")
         final NioHandle<NioTcpServer>[] handles = new NioHandle[threads.length];
@@ -132,12 +135,16 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         if (optionMap.contains(Options.REUSE_ADDRESSES)) {
             socket.setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
         }
-        if (optionMap.contains(Options.RECEIVE_BUFFER)) {
-            socket.setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
+        final int receiveBufferSize = optionMap.get(Options.RECEIVE_BUFFER, DEFAULT_BUFFER_SIZE);
+        if (receiveBufferSize < 1) {
+            throw new IllegalArgumentException("Receive buffer size must be greater than 0");
         }
-        if (optionMap.contains(Options.SEND_BUFFER)) {
-            sendBufferUpdater.set(this, optionMap.get(Options.SEND_BUFFER, 0));
+        socket.setReceiveBufferSize(receiveBufferSize);
+        final int sendBufferSize = optionMap.get(Options.SEND_BUFFER, DEFAULT_BUFFER_SIZE);
+        if (sendBufferSize < 1) {
+            throw new IllegalArgumentException("Send buffer size must be greater than 0");
         }
+        sendBufferUpdater.set(this, sendBufferSize);
         if (optionMap.contains(Options.KEEP_ALIVE)) {
             keepAliveUpdater.set(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
         }
@@ -220,31 +227,35 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         final Object old;
         if (option == Options.REUSE_ADDRESSES) {
             old = Boolean.valueOf(socket.getReuseAddress());
-            socket.setReuseAddress(Options.REUSE_ADDRESSES.cast(value).booleanValue());
-        } else if (option == Options.RECEIVE_BUFFER) {
+            socket.setReuseAddress(Options.REUSE_ADDRESSES.cast(value, false).booleanValue());
+        } else if (option == Options.RECEIVE_BUFFER) { 
             old = Integer.valueOf(socket.getReceiveBufferSize());
-            socket.setReceiveBufferSize(Options.RECEIVE_BUFFER.cast(value).intValue());
+            final int newValue = Options.RECEIVE_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            if (newValue < 1) {
+                throw new IllegalArgumentException("Receive buffer size must be greater than 0");
+            }
+            socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
-            final int newValue = value == null ? -1 : Options.SEND_BUFFER.cast(value).intValue();
-            if (value != null && newValue < 1) {
-                throw new IllegalArgumentException("Bad send buffer size specified");
+            final int newValue = Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            if (newValue < 1) {
+                throw new IllegalArgumentException("Send buffer size must be greater than 0");
             }
             final int oldValue = sendBufferUpdater.getAndSet(this, newValue);
             old = oldValue == -1 ? null : Integer.valueOf(oldValue);
         } else if (option == Options.KEEP_ALIVE) {
-            old = Boolean.valueOf(keepAliveUpdater.getAndSet(this, Options.KEEP_ALIVE.cast(value).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(keepAliveUpdater.getAndSet(this, Options.KEEP_ALIVE.cast(value, false).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.TCP_OOB_INLINE) {
-            old = Boolean.valueOf(oobInlineUpdater.getAndSet(this, Options.TCP_OOB_INLINE.cast(value).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(oobInlineUpdater.getAndSet(this, Options.TCP_OOB_INLINE.cast(value, false).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.TCP_NODELAY) {
-            old = Boolean.valueOf(tcpNoDelayUpdater.getAndSet(this, Options.TCP_NODELAY.cast(value).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(tcpNoDelayUpdater.getAndSet(this, Options.TCP_NODELAY.cast(value, false).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.READ_TIMEOUT) {
-            old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value).intValue()));
+            old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value, 0).intValue()));
         } else if (option == Options.WRITE_TIMEOUT) {
-            old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value).intValue()));
+            old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value, 0).intValue()));
         } else if (option == Options.CONNECTION_HIGH_WATER) {
-            old = Integer.valueOf(getHighWater(updateWaterMark(-1, Options.CONNECTION_LOW_WATER.cast(value).intValue())));
+            old = Integer.valueOf(getHighWater(updateWaterMark(-1, Options.CONNECTION_HIGH_WATER.cast(value,  (int) (CONN_HIGH_MASK >> CONN_HIGH_BIT)).intValue())));
         } else if (option == Options.CONNECTION_LOW_WATER) {
-            old = Integer.valueOf(getLowWater(updateWaterMark(Options.CONNECTION_LOW_WATER.cast(value).intValue(), -1)));
+            old = Integer.valueOf(getLowWater(updateWaterMark(Options.CONNECTION_LOW_WATER.cast(value, (int) (CONN_LOW_MASK >> CONN_LOW_BIT)).intValue(), -1)));
         } else {
             return null;
         }

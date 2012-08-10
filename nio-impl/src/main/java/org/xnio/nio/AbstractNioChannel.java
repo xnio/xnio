@@ -26,6 +26,9 @@ import org.xnio.channels.CloseableChannel;
 
 abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements CloseableChannel {
 
+    // default buffer size used by subclasses
+    protected static final int DEFAULT_BUFFER_SIZE = 0x10000;
+
     private final ChannelListener.SimpleSetter<C> closeSetter = new ChannelListener.SimpleSetter<C>();
 
     protected volatile NioXnioWorker worker;

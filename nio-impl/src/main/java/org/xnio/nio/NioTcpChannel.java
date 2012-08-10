@@ -244,25 +244,26 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
         final Object old;
         if (option == Options.CLOSE_ABORT) {
             old = Boolean.valueOf(socket.getSoLinger() != -1);
-            socket.setSoLinger(((Boolean) value).booleanValue(), 0);
+            socket.setSoLinger(Options.CLOSE_ABORT.cast(value, false).booleanValue(), 0);
         } else if (option == Options.KEEP_ALIVE) {
             old = Boolean.valueOf(socket.getKeepAlive());
-            socket.setKeepAlive(((Boolean) value).booleanValue());
+            socket.setKeepAlive(Options.KEEP_ALIVE.cast(value, false).booleanValue());
         } else if (option == Options.TCP_OOB_INLINE) {
             old = Boolean.valueOf(socket.getOOBInline());
-            socket.setOOBInline(((Boolean) value).booleanValue());
-        } else if (option == Options.RECEIVE_BUFFER) {
-            old = Integer.valueOf(socket.getReceiveBufferSize());
-            socket.setReceiveBufferSize(((Integer) value).intValue());
+            socket.setOOBInline(Options.TCP_OOB_INLINE.cast(value, false).booleanValue());
         } else if (option == Options.SEND_BUFFER) {
             old = Integer.valueOf(socket.getSendBufferSize());
-            socket.setSendBufferSize(((Integer) value).intValue());
+            final int newValue = Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            if (newValue < 1) {
+                throw new IllegalArgumentException("Buffer size must be larger than 1");
+            }
+            socket.setSendBufferSize(Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue());
         } else if (option == Options.TCP_NODELAY) {
             old = Boolean.valueOf(socket.getTcpNoDelay());
-            socket.setTcpNoDelay(((Boolean) value).booleanValue());
+            socket.setTcpNoDelay(Options.TCP_NODELAY.cast(value, false).booleanValue());
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             old = Integer.valueOf(socket.getTrafficClass());
-            socket.setTrafficClass(((Integer) value).intValue());
+            socket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value, 0).intValue());
         } else {
             return super.setOption(option, value);
         }

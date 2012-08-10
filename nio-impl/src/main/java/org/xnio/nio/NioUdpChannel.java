@@ -313,6 +313,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             .add(Options.RECEIVE_BUFFER)
             .add(Options.SEND_BUFFER)
             .add(Options.IP_TRAFFIC_CLASS)
+            .add(Options.MULTICAST_TTL)
             .create();
 
     public boolean supportsOption(final Option<?> option) {
@@ -349,16 +350,24 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         final Object old;
         if (option == Options.RECEIVE_BUFFER) {
             old = Integer.valueOf(socket.getReceiveBufferSize());
-            socket.setReceiveBufferSize(((Integer) value).intValue());
+            int newValue = Options.RECEIVE_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            if (newValue < 1) {
+                throw new IllegalArgumentException("Receive buffer size must be greater than 0");
+            }
+            socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
             old = Integer.valueOf(socket.getSendBufferSize());
-            socket.setSendBufferSize(((Integer) value).intValue());
+            int newValue = Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            if (newValue < 1) {
+                throw new IllegalArgumentException("Send buffer size must be greater than 0");
+            }
+            socket.setSendBufferSize(newValue);
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             old = Integer.valueOf(socket.getTrafficClass());
-            socket.setTrafficClass(((Integer) value).intValue());
+            socket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value, 0).intValue());
         } else if (option == Options.BROADCAST) {
             old = Boolean.valueOf(socket.getBroadcast());
-            socket.setBroadcast(((Boolean) value).booleanValue());
+            socket.setBroadcast(Options.BROADCAST.cast(value, false).booleanValue());
         } else {
             if (NioXnio.NIO2) {
                 if (option == Options.MULTICAST_TTL) {
