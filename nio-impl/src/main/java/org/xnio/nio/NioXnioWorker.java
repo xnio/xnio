@@ -20,7 +20,6 @@ package org.xnio.nio;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.MulticastSocket;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -475,23 +474,14 @@ final class NioXnioWorker extends XnioWorker {
     /** {@inheritDoc} */
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
         checkShutdown();
-        if (!NioXnio.NIO2 && optionMap.get(Options.MULTICAST, false)) {
-            final MulticastSocket socket = new MulticastSocket(bindAddress);
-            final BioMulticastUdpChannel channel = new BioMulticastUdpChannel(this, optionMap.get(Options.SEND_BUFFER, 8192), optionMap.get(Options.RECEIVE_BUFFER, 8192), socket, chooseOptional(false), chooseOptional(true));
-            channel.open();
-            //noinspection unchecked
-            ChannelListeners.invokeChannelListener(channel, bindListener);
-            return channel;
-        } else {
-            final DatagramChannel channel = DatagramChannel.open();
-            channel.configureBlocking(false);
-            channel.socket().bind(bindAddress);
-            final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
-            udpChannel.start();
-            //noinspection unchecked
-            ChannelListeners.invokeChannelListener(udpChannel, bindListener);
-            return udpChannel;
-        }
+        final DatagramChannel channel = DatagramChannel.open();
+        channel.configureBlocking(false);
+        channel.socket().bind(bindAddress);
+        final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
+        udpChannel.start();
+        //noinspection unchecked
+        ChannelListeners.invokeChannelListener(udpChannel, bindListener);
+        return udpChannel;
     }
 
     public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
