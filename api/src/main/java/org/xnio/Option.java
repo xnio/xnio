@@ -175,6 +175,20 @@ public abstract class Option<T> implements Serializable {
     public abstract T cast(Object o) throws ClassCastException;
 
     /**
+     * Return the given object as the type of this option.  If the cast could not be completed, an exception is thrown.
+     *
+     * @param o the object to cast
+     * @param defaultVal the value to return if {@code o} is {@code null}
+     *
+     * @return the cast object
+     *
+     * @throws ClassCastException if the object is not of a compatible type
+     */
+    public final T cast(Object o, T defaultVal) throws ClassCastException {
+        return o == null ? defaultVal : cast(o);
+    }
+
+    /**
      * Parse a string value for this option.
      *
      * @param string the string
