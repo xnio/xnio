@@ -556,6 +556,45 @@ public final class Channels {
     }
 
     /**
+     * Transfer bytes between two channels efficiently, blocking if necessary.
+     *
+     * @param destination the destination channel
+     * @param source the source channel
+     * @param throughBuffer the buffer to transfer through,
+     * @param count the number of bytes to transfer
+     * @return the number of bytes actually transferred (will be fewer than {@code count} if EOF was reached)
+     * @throws IOException if the transfer fails
+     */
+    public static long transferBlocking(StreamSinkChannel destination, StreamSourceChannel source, ByteBuffer throughBuffer, long count) throws IOException {
+        long t = 0L;
+        long res;
+        while (count > 0L) {
+            try {
+                while ((res = source.transferTo(count, throughBuffer, destination)) == 0L) {
+                    if (throughBuffer.hasRemaining()) {
+                        writeBlocking(destination, throughBuffer);
+                    } else {
+                        source.awaitReadable();
+                    }
+                }
+            } catch (InterruptedIOException e) {
+                int transferred = e.bytesTransferred;
+                t += transferred;
+                if (transferred < 0 || t > (long) Integer.MAX_VALUE) {
+                    e.bytesTransferred = -1;
+                } else {
+                    e.bytesTransferred = (int) t;
+                }
+                throw e;
+            }
+            if (res == -1L) {
+                return t == 0L ? -1L : t;
+            }
+        }
+        return t;
+    }
+
+    /**
      * Set the close listener for a channel (type-safe).
      *
      * @param channel the channel
