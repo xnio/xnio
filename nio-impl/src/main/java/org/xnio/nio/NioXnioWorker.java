@@ -266,7 +266,11 @@ final class NioXnioWorker extends XnioWorker {
         final ServerSocketChannel channel = ServerSocketChannel.open();
         try {
             channel.configureBlocking(false);
-            channel.socket().bind(bindAddress);
+            if (optionMap.contains(Options.BACKLOG)) {
+                channel.socket().bind(bindAddress, optionMap.get(Options.BACKLOG, 128));
+            } else {
+                channel.socket().bind(bindAddress);
+            }
             final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
             final ChannelListener.SimpleSetter<NioTcpServer> setter = server.getAcceptSetter();
             // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
