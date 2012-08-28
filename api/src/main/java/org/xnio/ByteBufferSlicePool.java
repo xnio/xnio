@@ -191,7 +191,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
 
         public void run() {
-            try {
+            for (;;) try {
                 final Ref reference = (Ref) REFERENCE_QUEUE.remove();
                 reference.free();
             } catch (InterruptedException e) {
