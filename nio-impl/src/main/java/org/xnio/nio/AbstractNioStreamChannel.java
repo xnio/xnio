@@ -71,8 +71,8 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
-        readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter);
-        writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
+        readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
+        writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
         lastRead = lastWrite = System.nanoTime();
     }
 
@@ -103,12 +103,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.resume(SelectionKey.OP_READ);
+        readHandle.resume();
     }
 
     public boolean isReadResumed() {
         final NioHandle<C> readHandle = this.readHandle;
-        return readHandle != null && readHandle.isResumed(SelectionKey.OP_READ);
+        return readHandle != null && readHandle.isResumed();
     }
 
     public void wakeupReads() {
@@ -117,7 +117,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.resume(SelectionKey.OP_READ);
+        readHandle.resume();
         readHandle.execute();
     }
 
@@ -125,7 +125,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         log.logf(FQCN, Logger.Level.TRACE, null, "Suspend writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<C> writeHandle = this.writeHandle;
-        if (writeHandle != null) writeHandle.resume(0);
+        if (writeHandle != null) writeHandle.suspend();
     }
 
     public final void resumeWrites() {
@@ -135,12 +135,12 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.resume(SelectionKey.OP_WRITE);
+        writeHandle.resume();
     }
 
     public boolean isWriteResumed() {
         final NioHandle<C> writeHandle = this.writeHandle;
-        return writeHandle != null && writeHandle.isResumed(SelectionKey.OP_WRITE);
+        return writeHandle != null && writeHandle.isResumed();
     }
 
     public void wakeupWrites() {
@@ -149,7 +149,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.resume(SelectionKey.OP_WRITE);
+        writeHandle.resume();
         writeHandle.execute();
     }
 
@@ -362,9 +362,9 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         boolean ok = false;
         final WorkerThread writeThread = worker.chooseOptional(true);
         final WorkerThread readThread = worker.chooseOptional(false);
-        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
         try {
-            final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
+            final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
             try {
                 cancelReadKey();
                 cancelWriteKey();

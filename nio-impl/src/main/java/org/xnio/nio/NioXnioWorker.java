@@ -298,6 +298,7 @@ final class NioXnioWorker extends XnioWorker {
             final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, channel);
             tcpChannel.start();
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
+            final int oldOps = connectHandle.setOps(SelectionKey.OP_CONNECT);
             if (connectHandle == null) {
                 throw new IllegalArgumentException("Wrong value for option " + Options. WORKER_ESTABLISH_WRITING +
                         ". This NioWorker has no " + (optionMap.get(Options.WORKER_ESTABLISH_WRITING, false)? "write": "read")
@@ -319,6 +320,7 @@ final class NioXnioWorker extends XnioWorker {
                         if (socketChannel.finishConnect()) {
                             connectHandle.suspend();
                             connectHandle.getHandlerSetter().set(null);
+                            connectHandle.setOps(oldOps);
                             if (!futureResult.setResult(tcpChannel)) {
                                 // if futureResult is canceled, close channel
                                 IoUtils.safeClose(channel);
@@ -350,7 +352,7 @@ final class NioXnioWorker extends XnioWorker {
                     return "Cancel handler for " + channel;
                 }
             });
-            connectHandle.resume(SelectionKey.OP_CONNECT);
+            connectHandle.resume();
             return futureResult.getIoFuture();
         } catch (IOException e) {
             return new FailedIoFuture<ConnectedStreamChannel>(e);
@@ -424,7 +426,7 @@ final class NioXnioWorker extends XnioWorker {
             }
             final SimpleSetter<ServerSocketChannel> setter = new SimpleSetter<ServerSocketChannel>();
             final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-            final NioHandle<ServerSocketChannel> handle = connectThread.addChannel(channel, channel, 0, setter);
+            final NioHandle<ServerSocketChannel> handle = connectThread.addChannel(channel, channel, SelectionKey.OP_ACCEPT, setter);
             setter.set(new ChannelListener<ServerSocketChannel>() {
                 public void handleEvent(final ServerSocketChannel channel) {
                     final SocketChannel accepted;
@@ -468,7 +470,7 @@ final class NioXnioWorker extends XnioWorker {
                     return "Accepting finisher for " + channel;
                 }
             });
-            handle.resume(SelectionKey.OP_ACCEPT);
+            handle.resume();
             return futureResult.getIoFuture();
         } catch (IOException e) {
             return new FailedIoFuture<ConnectedStreamChannel>(e);

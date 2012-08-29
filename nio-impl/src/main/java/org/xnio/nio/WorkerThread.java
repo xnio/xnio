@@ -258,9 +258,8 @@ final class WorkerThread extends Thread implements XnioExecutor {
         if (currentThread() == this) {
             log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (same thread)", channel, this, xnioChannel);
             final SelectionKey key = channel.register(selector, 0);
-            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel);
+            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel, ops);
             key.attach(handle);
-            if (ops != 0) key.interestOps(ops);
             return handle;
         } else {
             log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (other thread)", channel, this, xnioChannel);
@@ -274,9 +273,8 @@ final class WorkerThread extends Thread implements XnioExecutor {
             } finally {
                 task.done();
             }
-            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel);
+            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel, ops);
             key.attach(handle);
-            if (ops != 0) key.interestOps(ops);
             return handle;
         }
     }

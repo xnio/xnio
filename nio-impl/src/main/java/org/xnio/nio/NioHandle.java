@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 
+import static org.xnio.Bits.*;
 import static org.xnio.nio.Log.log;
 
 final class NioHandle<C extends Channel> implements Runnable {
@@ -32,15 +33,22 @@ final class NioHandle<C extends Channel> implements Runnable {
     private final ChannelListener.SimpleSetter<C> handlerSetter;
     private final C channel;
     @SuppressWarnings("unused")
-    private volatile int scheduled;
+    private volatile int state;
 
-    private static final AtomicIntegerFieldUpdater<NioHandle> scheduledUpdater = AtomicIntegerFieldUpdater.newUpdater(NioHandle.class, "scheduled");
+    private static final int FLAG_SCHEDULED = 1 << 5;
+    private static final int FLAG_SUS_RES = 1 << 6;
+    private static final int FLAG_RESUMED = 1 << 7;
+    private static final int MASK_OPS = intBitMask(0, 4); // NIO uses five bits; 1 << 1 is unused
 
-    NioHandle(final SelectionKey selectionKey, final WorkerThread workerThread, final ChannelListener.SimpleSetter<C> handlerSetter, final C channel) {
+    @SuppressWarnings({ "raw", "rawtypes" })
+    private static final AtomicIntegerFieldUpdater<NioHandle> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioHandle.class, "state");
+
+    NioHandle(final SelectionKey selectionKey, final WorkerThread workerThread, final ChannelListener.SimpleSetter<C> handlerSetter, final C channel, final int ops) {
         this.selectionKey = selectionKey;
         this.workerThread = workerThread;
         this.handlerSetter = handlerSetter;
         this.channel = channel;
+        this.state = ops & MASK_OPS;
     }
 
     WorkerThread getWorkerThread() {
@@ -52,19 +60,81 @@ final class NioHandle<C extends Channel> implements Runnable {
     }
 
     void cancelKey() {
+        suspend();
         workerThread.cancelKey(selectionKey);
     }
 
-    void resume(final int op) {
-        workerThread.setOps(selectionKey, op);
+    int setOps(int newOps) {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if ((oldVal & MASK_OPS) == newOps) {
+                return newOps;
+            }
+            newVal = oldVal & ~MASK_OPS | newOps;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        return oldVal & MASK_OPS;
+    }
+
+    void resume() {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_RESUMED)) {
+                return;
+            }
+            newVal = oldVal | FLAG_RESUMED | FLAG_SUS_RES;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(oldVal, FLAG_SUS_RES)) {
+            return;
+        }
+        oldVal = newVal;
+        newVal = oldVal & ~FLAG_SUS_RES;
+        workerThread.setOps(selectionKey, oldVal & MASK_OPS);
+        if (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+            boolean resume = true;
+            do {
+                oldVal = state;
+                newVal = oldVal & ~FLAG_SUS_RES;
+                if (allAreSet(oldVal, FLAG_RESUMED) != resume || (oldVal & MASK_OPS) != (newVal & MASK_OPS)) {
+                    resume = !resume;
+                    workerThread.setOps(selectionKey, resume ? oldVal & MASK_OPS : 0);
+                }
+            } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        }
     }
 
     void suspend() {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreClear(oldVal, FLAG_RESUMED)) {
+                return;
+            }
+            newVal = oldVal & ~FLAG_RESUMED | FLAG_SUS_RES;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(oldVal, FLAG_SUS_RES)) {
+            return;
+        }
+        oldVal = newVal;
+        newVal = oldVal & ~FLAG_SUS_RES;
         workerThread.setOps(selectionKey, 0);
+        if (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+            final int ops = oldVal & MASK_OPS;
+            boolean resume = false;
+            do {
+                if (allAreSet(oldVal, FLAG_RESUMED) != resume) {
+                    resume = !resume;
+                    workerThread.setOps(selectionKey, resume ? ops : 0);
+                }
+                oldVal = state;
+                newVal = oldVal & ~FLAG_SUS_RES;
+            } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        }
     }
 
-    boolean isResumed(final int op) {
-        return (workerThread.getOps(selectionKey) & op) == op;
+    boolean isResumed() {
+        return allAreSet(state, FLAG_RESUMED);
     }
 
     C getChannel() {
@@ -72,7 +142,11 @@ final class NioHandle<C extends Channel> implements Runnable {
     }
 
     public void run() {
-        scheduled = 0;
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            newVal = oldVal & ~FLAG_SCHEDULED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         final ChannelListener<? super C> listener = handlerSetter.get();
         if (listener == null) {
             log.tracef("Null listener; suspending %s to prevent runaway", this);
@@ -84,8 +158,14 @@ final class NioHandle<C extends Channel> implements Runnable {
     }
 
     void execute() {
-        if (scheduledUpdater.compareAndSet(this, 0, 1)) {
-            workerThread.execute(this);
-        }
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_SCHEDULED)) {
+                return;
+            }
+            newVal = oldVal | FLAG_SCHEDULED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        workerThread.execute(this);
     }
 }

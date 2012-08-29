@@ -71,8 +71,8 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
-        readHandle = readThread == null ? null : readThread.addChannel(datagramChannel, this, 0, readSetter);
-        writeHandle = writeThread == null ? null : writeThread.addChannel(datagramChannel, this, 0, writeSetter);
+        readHandle = readThread == null ? null : readThread.addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
+        writeHandle = writeThread == null ? null : writeThread.addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
     }
 
     public SocketAddress getLocalAddress() {
@@ -223,7 +223,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             throw new UnsupportedOperationException("No read thread configured");
         }
         try {
-            handle.resume(SelectionKey.OP_READ);
+            handle.resume();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -235,7 +235,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             throw new UnsupportedOperationException("No read thread configured");
         }
         try {
-            handle.resume(SelectionKey.OP_WRITE);
+            handle.resume();
         } catch (CancelledKeyException ex) {
             // ignore
         }
@@ -243,12 +243,12 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     public boolean isReadResumed() {
         final NioHandle<NioUdpChannel> handle = readHandle;
-        return handle != null && handle.isResumed(SelectionKey.OP_READ);
+        return handle != null && handle.isResumed();
     }
 
     public boolean isWriteResumed() {
         final NioHandle<NioUdpChannel> handle = writeHandle;
-        return handle != null && handle.isResumed(SelectionKey.OP_WRITE);
+        return handle != null && handle.isResumed();
     }
 
     public void wakeupReads() {
@@ -446,9 +446,9 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         boolean ok = false;
         final WorkerThread writeThread = worker.chooseOptional(true);
         final WorkerThread readThread = worker.chooseOptional(false);
-        final NioHandle<NioUdpChannel> newWriteHandle = writeThread == null? null: writeThread.addChannel(datagramChannel, this, 0, writeSetter);
+        final NioHandle<NioUdpChannel> newWriteHandle = writeThread == null? null: writeThread.addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
         try {
-            final NioHandle<NioUdpChannel> newReadHandle = readThread == null? null: readThread.addChannel(datagramChannel, this, 0, readSetter);
+            final NioHandle<NioUdpChannel> newReadHandle = readThread == null? null: readThread.addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
             try {
                 cancelReadKey();
                 cancelWriteKey();

@@ -127,7 +127,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         @SuppressWarnings("unchecked")
         final NioHandle<NioTcpServer>[] handles = new NioHandle[threads.length];
         for (int i = 0, length = threads.length; i < length; i++) {
-            handles[i] = threads[i].addChannel(channel, this, 0, acceptSetter);
+            handles[i] = threads[i].addChannel(channel, this, SelectionKey.OP_ACCEPT, acceptSetter);
         }
         //noinspection unchecked
         acceptHandles = Arrays.asList(handles);
@@ -552,8 +552,14 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     }
 
     private void doResume(final int op) {
-        for (NioHandle<NioTcpServer> handle : acceptHandles) {
-            handle.resume(op);
+        if (op == 0) {
+            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+                handle.suspend();
+            }
+        } else {
+            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+                handle.resume();
+            }
         }
     }
 
@@ -647,7 +653,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             for (int i = 0; i < handles.size(); i++) {
                 NioHandle<NioTcpServer> oldHandle = handles.get(i);
                 oldHandle.cancelKey();
-                handles.set(i, acceptThread.addChannel(channel, typed(), 0, acceptSetter));
+                handles.set(i, acceptThread.addChannel(channel, typed(), SelectionKey.OP_ACCEPT, acceptSetter));
             }
             ok = true;
         } finally {

@@ -63,7 +63,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     void start() throws ClosedChannelException {
         final WorkerThread writeThread = worker.chooseOptional(true);
-        writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), 0, writeSetter);
+        writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
         lastWrite = System.nanoTime();
     }
 
@@ -81,7 +81,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         log.logf(FQCN, Logger.Level.TRACE, null, "Suspend writes on %s", this);
         @SuppressWarnings("unchecked")
         final NioHandle<C> writeHandle = this.writeHandle;
-        if (writeHandle != null) writeHandle.resume(0);
+        if (writeHandle != null) writeHandle.suspend();
     }
 
     public final void resumeWrites() {
@@ -91,12 +91,12 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.resume(SelectionKey.OP_WRITE);
+        writeHandle.resume();
     }
 
     public boolean isWriteResumed() {
         final NioHandle<C> writeHandle = this.writeHandle;
-        return writeHandle != null && writeHandle.isResumed(SelectionKey.OP_WRITE);
+        return writeHandle != null && writeHandle.isResumed();
     }
 
     public void wakeupWrites() {
@@ -105,7 +105,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         if (writeHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        writeHandle.resume(SelectionKey.OP_WRITE);
+        writeHandle.resume();
         writeHandle.execute();
     }
 
@@ -222,7 +222,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
         final WorkerThread writeThread = worker.chooseOptional(true);
-        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), 0, writeSetter);
+        final NioHandle<C> newWriteHandle = writeThread == null? null: writeThread.addChannel((AbstractSelectableChannel) this.getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
         try {
             cancelWriteKey();
             ok = true;

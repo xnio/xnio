@@ -62,7 +62,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
 
     void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
-        readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), 0, readSetter);
+        readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
         lastRead = System.nanoTime();
     }
 
@@ -88,12 +88,12 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.resume(SelectionKey.OP_READ);
+        readHandle.resume();
     }
 
     public boolean isReadResumed() {
         final NioHandle<C> readHandle = this.readHandle;
-        return readHandle != null && readHandle.isResumed(SelectionKey.OP_READ);
+        return readHandle != null && readHandle.isResumed();
     }
 
     public void wakeupReads() {
@@ -102,7 +102,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         if (readHandle == null) {
             throw new IllegalArgumentException("No thread configured");
         }
-        readHandle.resume(SelectionKey.OP_READ);
+        readHandle.resume();
         readHandle.execute();
     }
 
@@ -223,7 +223,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
     void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
         boolean ok = false;
         final WorkerThread readThread = worker.chooseOptional(false);
-        final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), 0, readSetter);
+        final NioHandle<C> newReadHandle = readThread == null? null: readThread.addChannel((AbstractSelectableChannel) this.getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
         try {
             cancelReadKey();
             ok = true;
