@@ -14,7 +14,6 @@ public interface Pool<T> {
      * Allocate a resource from the pool.
      *
      * @return the resource
-     * @throws PoolDepletedException if no resources are available
      */
-    Pooled<T> allocate() throws PoolDepletedException;
+    Pooled<T> allocate();
 }

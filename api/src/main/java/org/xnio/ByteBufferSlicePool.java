@@ -85,22 +85,19 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     public Pooled<ByteBuffer> allocate() {
         final Queue<Slice> sliceQueue = this.sliceQueue;
         final Slice slice = sliceQueue.poll();
-        if (slice == null) {
-            final int bufferSize = this.bufferSize;
-            final int buffersPerRegion = this.buffersPerRegion;
-            final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
-            int idx = bufferSize;
-            for (int i = 1; i < buffersPerRegion; i ++) {
-                sliceQueue.add(new Slice(region, idx, bufferSize));
-                idx += bufferSize;
-            }
-            final Slice newSlice = new Slice(region, 0, bufferSize);
-            return new PooledByteBuffer(newSlice, newSlice.slice());
+        if (slice != null) {
+            return new PooledByteBuffer(slice, slice.slice());
         }
-        if (slice == null) {
-            throw new PoolDepletedException("Pool is empty");
+        final int bufferSize = this.bufferSize;
+        final int buffersPerRegion = this.buffersPerRegion;
+        final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
+        int idx = bufferSize;
+        for (int i = 1; i < buffersPerRegion; i ++) {
+            sliceQueue.add(new Slice(region, idx, bufferSize));
+            idx += bufferSize;
         }
-        return new PooledByteBuffer(slice, slice.slice());
+        final Slice newSlice = new Slice(region, 0, bufferSize);
+        return new PooledByteBuffer(newSlice, newSlice.slice());
     }
 
     private void doFree(Slice region) {
