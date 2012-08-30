@@ -28,6 +28,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedTransferQueue;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
@@ -39,11 +40,15 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  */
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
+    private static AtomicIntegerFieldUpdater regionUpdater = AtomicIntegerFieldUpdater.newUpdater(ByteBufferSlicePool.class, "regionsUsed");
+
     private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<Ref>());
     private final Queue<Slice> sliceQueue;
     private final BufferAllocator<ByteBuffer> allocator;
     private final int bufferSize;
     private final int buffersPerRegion;
+    private final int maxRegions;
+    private volatile int regionsUsed;
 
     /**
      * Construct a new instance.
@@ -51,8 +56,9 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
      * @param allocator the buffer allocator to use
      * @param bufferSize the size of each buffer
      * @param maxRegionSize the maximum region size for each backing buffer
+     * @param maxRegions the maximum regions to create, zero for unlimited
      */
-    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize) {
+    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize, final int maxRegions) {
         if (bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer size must be greater than zero");
         }
@@ -69,7 +75,20 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             queue = new ConcurrentLinkedQueue<Slice>();
         }
         sliceQueue = queue;
+        this.maxRegions = maxRegions;
     }
+
+     /**
+     * Construct a new instance.
+     *
+     * @param allocator the buffer allocator to use
+     * @param bufferSize the size of each buffer
+     * @param maxRegionSize the maximum region size for each backing buffer
+     */
+    public ByteBufferSlicePool(BufferAllocator<ByteBuffer> allocator, int bufferSize, int maxRegionSize) {
+        this(allocator, bufferSize, maxRegionSize, 0);
+    }
+
 
     /**
      * Construct a new instance, using a direct buffer allocator.
@@ -81,11 +100,12 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         this(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, bufferSize, maxRegionSize);
     }
 
+
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
         final Queue<Slice> sliceQueue = this.sliceQueue;
         final Slice slice = sliceQueue.poll();
-        if (slice == null) {
+        if (slice == null && (maxRegions <= 0 || regionUpdater.getAndIncrement(this) < maxRegions)) {
             final int bufferSize = this.bufferSize;
             final int buffersPerRegion = this.buffersPerRegion;
             final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
