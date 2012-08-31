@@ -554,7 +554,7 @@ public class XnioWorkerTestCase {
         assertEquals(optionMap, channelMock.getOptionMap());
     }
 
-    @Ignore @Test 
+    @Test
     public void executeCommandsAndShutdownTaskPool() throws InterruptedException {
         final TestCommand command1 = new TestCommand();
         final TestCommand command2 = new TestCommand();
@@ -568,7 +568,6 @@ public class XnioWorkerTestCase {
 
         xnioWorker.shutDownTaskPool();
 
-        // FIXME this does not work
         RejectedExecutionException expected = null;
         try {
             xnioWorker.execute(command4);
@@ -596,8 +595,13 @@ public class XnioWorkerTestCase {
     public void shutdownTaskPoolNow() throws InterruptedException {
         final TestCommand command = new TestCommand();
         xnioWorker.shutDownTaskPoolNow();
-        xnioWorker.execute(command);
-        assertFalse(command.waitCompletion(300));
+        RejectedExecutionException expected = null;
+        try {
+            xnioWorker.execute(command);
+        } catch (RejectedExecutionException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
     }
 
     @Test

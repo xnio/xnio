@@ -35,6 +35,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
@@ -68,8 +69,17 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     private final String name;
     private final Runnable terminationTask;
 
-    private final AtomicInteger taskSeq = new AtomicInteger(1);
+    private volatile int taskSeq;
+    private volatile int coreSize;
+
+    private static final AtomicIntegerFieldUpdater<XnioWorker> taskSeqUpdater = AtomicIntegerFieldUpdater.newUpdater(XnioWorker.class, "taskSeq");
+    private static final AtomicIntegerFieldUpdater<XnioWorker> coreSizeUpdater = AtomicIntegerFieldUpdater.newUpdater(XnioWorker.class, "coreSize");
+
     private static final AtomicInteger seq = new AtomicInteger(1);
+
+    private int getNextSeq() {
+        return taskSeqUpdater.incrementAndGet(this);
+    }
 
     /**
      * Construct a new instance.  Intended to be called only from implementations.  To construct an XNIO worker,
@@ -94,6 +104,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         } catch (Throwable t) {
             taskQueue = new LinkedBlockingQueue<Runnable>();
         }
+        this.coreSize = optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4);
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         taskPool = new TaskPool(
             optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16), // ignore core threads setting, always fill to max
@@ -102,7 +113,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             taskQueue,
             new ThreadFactory() {
                 public Thread newThread(final Runnable r) {
-                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + taskSeq.getAndIncrement(), optionMap.get(Options.STACK_SIZE, 0L));
+                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
                     // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
                     if (markThreadAsDaemon) {
                         taskThread.setDaemon(true);
@@ -800,7 +811,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
     public <T> T getOption(final Option<T> option) throws IOException {
         if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
+            return option.cast(Integer.valueOf(coreSize));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
@@ -812,12 +823,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            final int old = taskPool.getCorePoolSize();
-            taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
-            return option.cast(Integer.valueOf(old));
+            return option.cast(Integer.valueOf(coreSizeUpdater.getAndSet(this, Options.WORKER_TASK_CORE_THREADS.cast(value).intValue())));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             final int old = taskPool.getMaximumPoolSize();
-            taskPool.setMaximumPoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
+            taskPool.setCorePoolSize(Options.WORKER_TASK_MAX_THREADS.cast(value).intValue());
+            taskPool.setMaximumPoolSize(Options.WORKER_TASK_MAX_THREADS.cast(value).intValue());
             return option.cast(Integer.valueOf(old));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
             final long old = taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS);
