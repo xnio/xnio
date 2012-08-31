@@ -29,7 +29,7 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -88,11 +88,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
-        final int taskLimit = optionMap.get(Options.WORKER_TASK_LIMIT, 0x4000);
-        final LimitedBlockingQueue<Runnable> taskQueue = new LimitedBlockingQueue<Runnable>(new LinkedBlockingQueue<Runnable>(taskLimit), taskLimit >> 2);
+        BlockingQueue<Runnable> taskQueue;
+        try {
+            taskQueue = new LinkedTransferQueue<Runnable>();
+        } catch (Throwable t) {
+            taskQueue = new LinkedBlockingQueue<Runnable>();
+        }
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         taskPool = new TaskPool(
-            optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4),
+            optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16), // ignore core threads setting, always fill to max
             optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
             optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60), TimeUnit.MILLISECONDS,
             taskQueue,
@@ -105,14 +109,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                     }
                     return taskThread;
                 }
-            }, new RejectedExecutionHandler() {
-                public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor) {
-                    if (! taskQueue.offerUnchecked(r)) {
-                        throw new RejectedExecutionException("Task limit exceeded (server may be too busy to handle request)");
-                    }
-                }
-            }
-        );
+            }, new ThreadPoolExecutor.AbortPolicy());
     }
 
     //==================================================
