@@ -71,6 +71,23 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
+        start(readThread, writeThread);
+    }
+
+    void start(WorkerThread acceptThread, boolean acceptWriting) throws ClosedChannelException {
+        final WorkerThread readThread;
+        final WorkerThread writeThread;
+        if (acceptWriting) {
+            readThread = worker.chooseOptional(false);
+            writeThread = acceptThread;
+        } else {
+            readThread = acceptThread;
+            writeThread = worker.chooseOptional(true);
+        }
+        start(readThread, writeThread);
+    }
+
+    private void start(final WorkerThread readThread, final WorkerThread writeThread) throws ClosedChannelException {
         readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
         writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
         lastRead = lastWrite = System.nanoTime();

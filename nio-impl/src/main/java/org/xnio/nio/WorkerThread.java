@@ -59,6 +59,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
     private final Selector selector;
     private final Object workLock = new Object();
 
+    private final boolean writeThread;
     private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
     private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
 
@@ -68,10 +69,20 @@ final class WorkerThread extends Thread implements XnioExecutor {
 
     private static final AtomicIntegerFieldUpdater<WorkerThread> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(WorkerThread.class, "state");
 
-    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize) {
+    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final boolean writeThread) {
         super(group, null, name, stackSize);
         this.selector = selector;
         this.worker = worker;
+        this.writeThread = writeThread;
+    }
+
+    static WorkerThread getCurrent() {
+        final Thread thread = currentThread();
+        return thread instanceof WorkerThread ? (WorkerThread) thread : null;
+    }
+
+    boolean isWriteThread() {
+        return writeThread;
     }
 
     public void run() {
