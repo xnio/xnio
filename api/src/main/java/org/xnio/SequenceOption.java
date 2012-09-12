@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static org.xnio.Messages.msg;
+
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
@@ -36,7 +38,7 @@ final class SequenceOption<T> extends Option<Sequence<T>> {
     SequenceOption(final Class<?> declClass, final String name, final Class<T> elementType) {
         super(declClass, name);
         if (elementType == null) {
-            throw new IllegalArgumentException("elementType is null");
+            throw msg.nullParameter("elementType");
         }
         this.elementType = elementType;
         parser = Option.getParser(elementType);

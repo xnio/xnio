@@ -116,7 +116,7 @@ public class XnioWorkerTestCase {
         try {
             xnioWorker.createStreamServer(new SocketAddress() {private static final long serialVersionUID = 1L;},
                     acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         
@@ -193,7 +193,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.connectStream(unknownSocketAddress, channelListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -209,7 +209,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.connectStream(unknownSocketAddress, channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -257,7 +257,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.connectStream(unknownSocketAddress, unknownSocketAddress, channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -335,7 +335,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.acceptStream(unknownSocketAddress, openListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -418,7 +418,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.connectDatagram(unknownSocketAddress, channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);

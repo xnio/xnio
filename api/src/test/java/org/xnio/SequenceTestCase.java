@@ -173,10 +173,10 @@ public class SequenceTestCase {
 
     @Test
     public void invalidSequence() {
-        NullPointerException expected = null;
+        IllegalArgumentException expected = null;
         try {
             Sequence.of((Object) null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -184,7 +184,7 @@ public class SequenceTestCase {
         expected = null;
         try {
             Sequence.of(new Object(), new Object(), null, new Object());
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -196,7 +196,7 @@ public class SequenceTestCase {
         list.add("c");
         try {
             Sequence.of(list);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);

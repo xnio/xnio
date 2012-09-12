@@ -54,6 +54,8 @@ import org.xnio.channels.StreamSourceChannel;
 import org.xnio.streams.ChannelInputStream;
 import org.xnio.streams.ChannelOutputStream;
 
+import static org.xnio.Messages.msg;
+
 /**
  * A worker for I/O channel notification.
  *
@@ -142,14 +144,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public AcceptingChannel<? extends ConnectedStreamChannel> createStreamServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
         if (bindAddress == null) {
-            throw new IllegalArgumentException("bindAddress is null");
+            throw msg.nullParameter("bindAddress");
         }
         if (bindAddress instanceof InetSocketAddress) {
             return createTcpServer((InetSocketAddress) bindAddress, acceptListener, optionMap);
         } else if (bindAddress instanceof LocalSocketAddress) {
             return createLocalStreamServer((LocalSocketAddress) bindAddress, acceptListener, optionMap);
         } else {
-            throw new UnsupportedOperationException("Unsupported socket address " + bindAddress.getClass());
+            throw msg.badSockType(bindAddress.getClass());
         }
     }
 
@@ -191,14 +193,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, OptionMap optionMap) {
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (destination instanceof InetSocketAddress) {
             return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, null, optionMap);
         } else {
-            throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
+            throw msg.badSockType(destination.getClass());
         }
     }
 
@@ -213,14 +215,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (destination instanceof InetSocketAddress) {
             return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
-            throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
+            throw msg.badSockType(destination.getClass());
         }
     }
 
@@ -237,20 +239,20 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (bindAddress == null) {
-            throw new IllegalArgumentException("bindAddress is null");
+            throw msg.nullParameter("bindAddress");
         }
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (bindAddress.getClass() != destination.getClass()) {
-            throw new IllegalArgumentException("Bind address " + bindAddress.getClass() + " is not the same type as destination address " + destination.getClass());
+            throw msg.mismatchSockType(bindAddress.getClass(), destination.getClass());
         }
         if (destination instanceof InetSocketAddress) {
             return connectTcpStream((InetSocketAddress) bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectLocalStream((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
-            throw new UnsupportedOperationException("Connect to stream server with socket address " + destination.getClass());
+            throw msg.badSockType(destination.getClass());
         }
     }
 
@@ -296,14 +298,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public IoFuture<ConnectedStreamChannel> acceptStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (destination instanceof InetSocketAddress) {
             return acceptTcpStream((InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return acceptLocalStream((LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
-            throw new UnsupportedOperationException("Accept a connection to socket address " + destination.getClass());
+            throw msg.badSockType(destination.getClass());
         }
     }
 
@@ -352,14 +354,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (destination instanceof InetSocketAddress) {
             return connectUdpDatagram(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return connectLocalDatagram(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
-            throw new UnsupportedOperationException("Connect to datagram server with socket address " + destination.getClass());
+            throw msg.badSockType(destination.getClass());
         }
     }
 

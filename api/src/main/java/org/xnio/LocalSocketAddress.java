@@ -21,6 +21,8 @@ package org.xnio;
 
 import java.net.SocketAddress;
 
+import static org.xnio.Messages.msg;
+
 /**
  * A socket address which is a local (UNIX domain) socket.
  *
@@ -39,7 +41,7 @@ public final class LocalSocketAddress extends SocketAddress {
      */
     public LocalSocketAddress(final String name) {
         if (name == null) {
-            throw new IllegalArgumentException("name is null");
+            throw msg.nullParameter("name");
         }
         this.name = name;
     }

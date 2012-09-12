@@ -39,6 +39,8 @@ import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import static org.xnio.Messages.msg;
+
 /**
  * Buffer utility methods.
  *
@@ -364,7 +366,7 @@ public final class Buffers {
             final int oldLimit = source.limit();
             if (count < 0) {
                 // count from end (count is NEGATIVE)
-                throw new UnsupportedOperationException("Copy with negative count is not supported");
+                throw msg.copyNegative();
             } else {
                 try {
                     source.limit(source.position() + count);
@@ -392,7 +394,7 @@ public final class Buffers {
         if (destination.remaining() > count) {
             if (count < 0) {
                 // count from end (count is NEGATIVE)
-                throw new UnsupportedOperationException("Copy with negative count is not supported");
+                throw msg.copyNegative();
             } else {
                 final int oldLimit = destination.limit();
                 try {
@@ -424,7 +426,7 @@ public final class Buffers {
         int s = 0, d = 0;
         if (count < 0) {
             // count from end (count is NEGATIVE)
-            throw new UnsupportedOperationException("Copy with negative count is not supported");
+            throw msg.copyNegative();
         }
         if (destLength == 0 || srcLength == 0 || count == 0L) {
             return 0L;
@@ -821,7 +823,7 @@ public final class Buffers {
      */
     public static byte[] take(ByteBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException("cnt cannot be negative");
+            throw new IllegalArgumentException();
         }
         final byte[] bytes = new byte[cnt];
         buffer.get(bytes);
@@ -837,7 +839,7 @@ public final class Buffers {
      */
     public static char[] take(CharBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException("cnt cannot be negative");
+            throw new IllegalArgumentException();
         }
         final char[] chars = new char[cnt];
         buffer.get(chars);
@@ -853,7 +855,7 @@ public final class Buffers {
      */
     public static short[] take(ShortBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException("cnt cannot be negative");
+            throw new IllegalArgumentException();
         }
         final short[] shorts = new short[cnt];
         buffer.get(shorts);
@@ -869,7 +871,7 @@ public final class Buffers {
      */
     public static int[] take(IntBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException("cnt cannot be negative");
+            throw new IllegalArgumentException();
         }
         final int[] ints = new int[cnt];
         buffer.get(ints);
@@ -885,7 +887,7 @@ public final class Buffers {
      */
     public static long[] take(LongBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException("cnt cannot be negative");
+            throw new IllegalArgumentException();
         }
         final long[] longs = new long[cnt];
         buffer.get(longs);

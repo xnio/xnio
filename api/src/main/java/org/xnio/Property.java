@@ -21,6 +21,8 @@ package org.xnio;
 
 import java.io.Serializable;
 
+import static org.xnio.Messages.msg;
+
 /**
  * An immutable property represented by a key and value.
  *
@@ -35,10 +37,10 @@ public final class Property implements Serializable {
 
     private Property(final String key, final String value) {
         if (key == null)
-            throw new IllegalArgumentException("key must not be null.");
+            throw msg.nullParameter("key");
 
         if (value == null)
-            throw new IllegalArgumentException("value must not be null.");
+            throw msg.nullParameter("value");
 
         this.key = key;
         this.value = value;

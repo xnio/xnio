@@ -40,6 +40,8 @@ import org.xnio.ssl.XnioSsl;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 
+import static org.xnio.Messages.msg;
+
 /**
  * The XNIO provider class.
  *
@@ -90,7 +92,7 @@ public abstract class Xnio {
      */
     protected Xnio(String name) {
         if (name == null) {
-            throw new IllegalArgumentException("name is null");
+            throw msg.nullParameter("name");
         }
         this.name = name;
     }
@@ -138,7 +140,7 @@ public abstract class Xnio {
      */
     public static void checkBlockingAllowed() throws IllegalStateException {
         if (! BLOCKING.get().booleanValue()) {
-            throw new IllegalStateException("Blocking I/O is not allowed on the current thread");
+            throw msg.blockingNotAllowed();
         }
     }
 
@@ -198,7 +200,7 @@ public abstract class Xnio {
                 return xnioProvider.getInstance();
             }
         } catch (Throwable ignored) {}
-        throw new IllegalArgumentException("No matching XNIO provider found");
+        throw msg.noProviderFound();
     }
 
     //==================================================
@@ -383,7 +385,7 @@ public abstract class Xnio {
      */
     protected String getProperty(final String name) {
         if (! name.startsWith("xnio.")) {
-            throw new SecurityException("Not allowed to read non-XNIO properties");
+            throw msg.propReadForbidden();
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
@@ -403,7 +405,7 @@ public abstract class Xnio {
      */
     protected String getProperty(final String name, final String defaultValue) {
         if (! name.startsWith("xnio.")) {
-            throw new SecurityException("Not allowed to read non-XNIO properties");
+            throw msg.propReadForbidden();
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {

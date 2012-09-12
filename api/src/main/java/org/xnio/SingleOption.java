@@ -19,6 +19,8 @@
 
 package org.xnio;
 
+import static org.xnio.Messages.msg;
+
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
@@ -32,7 +34,7 @@ final class SingleOption<T> extends Option<T> {
     SingleOption(final Class<?> declClass, final String name, final Class<T> type) {
         super(declClass, name);
         if (type == null) {
-            throw new IllegalArgumentException("type is null");
+            throw msg.nullParameter("type");
         }
         this.type = type;
         parser = Option.getParser(type);

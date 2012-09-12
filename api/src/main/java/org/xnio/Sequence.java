@@ -26,6 +26,8 @@ import java.util.AbstractList;
 import java.util.List;
 import java.util.RandomAccess;
 
+import static org.xnio.Messages.msg;
+
 /**
  * An immutable sequence of elements.  Though this class implements {@link java.util.List}, it is in fact
  * immutable.
@@ -43,9 +45,9 @@ public final class Sequence<T> extends AbstractList<T> implements List<T>, Rando
     private Sequence(final Object[] values) {
         final Object[] realValues = values.clone();
         this.values = realValues;
-        for (Object realValue : realValues) {
-            if (realValue == null) {
-                throw new NullPointerException("value member is null");
+        for (int i = 0, length = realValues.length; i < length; i++) {
+            if (realValues[i] == null) {
+                throw msg.nullArrayIndex("option", i);
             }
         }
     }

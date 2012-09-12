@@ -38,10 +38,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipFile;
-import org.jboss.logging.Logger;
 import org.xnio.channels.SuspendableReadChannel;
 
 import java.util.logging.Handler;
+
+import static org.xnio.Messages.closeMsg;
+import static org.xnio.Messages.msg;
 
 /**
  * General I/O utility methods.
@@ -87,6 +89,7 @@ public final class IoUtils {
             return this;
         }
     };
+    @SuppressWarnings("rawtypes")
     private static final IoUtils.ResultNotifier RESULT_NOTIFIER = new IoUtils.ResultNotifier();
 
     private IoUtils() {}
@@ -119,8 +122,6 @@ public final class IoUtils {
         return NULL_CLOSEABLE;
     }
 
-    private static final Logger closeLog = Logger.getLogger("org.xnio.safe-close");
-
     /**
      * Close a resource, logging an error if an error occurs.
      *
@@ -129,12 +130,12 @@ public final class IoUtils {
     public static void safeClose(final Closeable resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -157,12 +158,12 @@ public final class IoUtils {
     public static void safeClose(final Socket resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -174,11 +175,11 @@ public final class IoUtils {
     public static void safeClose(final DatagramSocket resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -190,12 +191,12 @@ public final class IoUtils {
     public static void safeClose(final Selector resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -207,12 +208,12 @@ public final class IoUtils {
     public static void safeClose(final ServerSocket resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (ClosedChannelException ignored) {
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -224,11 +225,11 @@ public final class IoUtils {
     public static void safeClose(final ZipFile resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -240,11 +241,11 @@ public final class IoUtils {
     public static void safeClose(final Handler resource) {
         try {
             if (resource != null) {
-                closeLog.tracef("Closing resource %s", resource);
+                closeMsg.closingResource(resource);
                 resource.close();
             }
         } catch (Throwable t) {
-            closeLog.tracef(t, "Closing resource failed");
+            closeMsg.resourceCloseFailed(t, resource);
         }
     }
 
@@ -328,6 +329,7 @@ public final class IoUtils {
         return CHANNEL_LISTENER_NOTIFIER;
     }
 
+    @SuppressWarnings("rawtypes")
     private static final IoFuture.Notifier CHANNEL_LISTENER_NOTIFIER = new IoFuture.HandlingNotifier<Channel, ChannelListener<? super Channel>>() {
         @SuppressWarnings({ "unchecked" })
         public void handleDone(final Channel channel, final ChannelListener channelListener) {
@@ -367,7 +369,7 @@ public final class IoUtils {
             public T get(final long timeout, final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
                 try {
                     if (ioFuture.awaitInterruptibly(timeout, unit) == IoFuture.Status.WAITING) {
-                        throw new TimeoutException("Operation timed out");
+                        throw msg.opTimedOut();
                     }
                     return ioFuture.getInterruptibly();
                 } catch (IOException e) {
@@ -452,7 +454,7 @@ public final class IoUtils {
             try {
                 channel.shutdownReads();
             } catch (IOException e) {
-                closeLog.tracef(e, "Shutdown reads failed");
+                closeMsg.resourceReadShutdownFailed(null, null);
             }
         }
     }
@@ -548,9 +550,9 @@ public final class IoUtils {
         }
 
         public <A> IoFuture<O> addNotifier(final Notifier<? super O, A> notifier, final A attachment) {
-            parent.<A>addNotifier(new Notifier<I, A>() {
+            parent.addNotifier(new Notifier<I, A>() {
                 public void notify(final IoFuture<? extends I> future, final A attachment) {
-                    notifier.notify((IoFuture<O>)CastingIoFuture.this, attachment);
+                    notifier.notify(CastingIoFuture.this, attachment);
                 }
             }, attachment);
             return this;
@@ -568,6 +570,7 @@ public final class IoUtils {
         return MANAGER_NOTIFIER;
     }
 
+    @SuppressWarnings("rawtypes")
     private static final ManagerNotifier MANAGER_NOTIFIER = new ManagerNotifier();
 
     private static class ManagerNotifier<T extends Channel> extends IoFuture.HandlingNotifier<T, FutureResult<T>> {
@@ -593,9 +596,9 @@ public final class IoUtils {
      * @param <T> the channel type
      * @return the retrying channel source
      */
-    public static <T extends Channel> ChannelSource<T> getRetryingChannelSource(final ChannelSource<T> delegate, final int maxTries) {
+    public static <T extends Channel> ChannelSource<T> getRetryingChannelSource(final ChannelSource<T> delegate, final int maxTries) throws IllegalArgumentException {
         if (maxTries < 1) {
-            throw new IllegalArgumentException("maxTries must be at least 1");
+            throw msg.minRange("maxTries", 1);
         }
         return new RetryingChannelSource<T>(maxTries, delegate);
     }

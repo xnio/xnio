@@ -28,6 +28,9 @@ import java.util.Properties;
 import java.io.Serializable;
 import org.jboss.logging.Logger;
 
+import static org.xnio.Messages.msg;
+import static org.xnio.Messages.optionParseMsg;
+
 /**
  * An immutable map of options to option values.  No {@code null} keys or values are permitted.
  */
@@ -155,10 +158,10 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
      */
     public static <T> OptionMap create(Option<T> option, T value) {
         if (option == null) {
-            throw new IllegalArgumentException("option is null");
+            throw msg.nullParameter("option");
         }
         if (value == null) {
-            throw new IllegalArgumentException("value is null");
+            throw msg.nullParameter("value");
         }
         return new OptionMap(Collections.<Option<?>, Object>singletonMap(option, option.cast(value)));
     }
@@ -179,16 +182,16 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
      */
     public static <T1, T2> OptionMap create(Option<T1> option1, T1 value1, Option<T2> option2, T2 value2) {
         if (option1 == null) {
-            throw new IllegalArgumentException("option1 is null");
+            throw msg.nullParameter("option1");
         }
         if (value1 == null) {
-            throw new IllegalArgumentException("value1 is null");
+            throw msg.nullParameter("value1");
         }
         if (option2 == null) {
-            throw new IllegalArgumentException("option2 is null");
+            throw msg.nullParameter("option2");
         }
         if (value2 == null) {
-            throw new IllegalArgumentException("value2 is null");
+            throw msg.nullParameter("value2");
         }
         if (option1 == option2) {
             return create(option2, value2);
@@ -313,7 +316,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, optionClassLoader);
                         parse(option, props.getProperty(name), optionClassLoader);
                     } catch (IllegalArgumentException e) {
-                        log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
+                        optionParseMsg.invalidOptionInProperty(optionName, name, e);
                     }
                 }
             }
@@ -340,7 +343,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
                         final Option<?> option = Option.fromString(optionName, getClass().getClassLoader());
                         parse(option, props.getProperty(name));
                     } catch (IllegalArgumentException e) {
-                        log.warnf("Invalid option '%s' in property '%s': %s", optionName, name, e);
+                        optionParseMsg.invalidOptionInProperty(optionName, name, e);
                     }
                 }
             }
@@ -357,10 +360,10 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public <T> Builder set(Option<T> key, T value) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             if (value == null) {
-                throw new IllegalArgumentException("value is null");
+                throw msg.nullParameter("value");
             }
             list.add(new OVPair<T>(key, value));
             return this;
@@ -375,7 +378,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder set(Option<Integer> key, int value) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             list.add(new OVPair<Integer>(key, Integer.valueOf(value)));
             return this;
@@ -390,7 +393,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder setSequence(Option<Sequence<Integer>> key, int... values) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             Integer[] a = new Integer[values.length];
             for (int i = 0; i < values.length; i++) {
@@ -409,7 +412,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder set(Option<Long> key, long value) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             list.add(new OVPair<Long>(key, Long.valueOf(value)));
             return this;
@@ -424,7 +427,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder setSequence(Option<Sequence<Long>> key, long... values) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             Long[] a = new Long[values.length];
             for (int i = 0; i < values.length; i++) {
@@ -443,7 +446,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder set(Option<Boolean> key, boolean value) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             list.add(new OVPair<Boolean>(key, Boolean.valueOf(value)));
             return this;
@@ -459,7 +462,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public Builder setSequence(Option<Sequence<Boolean>> key, boolean... values) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             Boolean[] a = new Boolean[values.length];
             for (int i = 0; i < values.length; i++) {
@@ -479,7 +482,7 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
          */
         public <T> Builder setSequence(Option<Sequence<T>> key, T... values) {
             if (key == null) {
-                throw new IllegalArgumentException("key is null");
+                throw msg.nullParameter("key");
             }
             list.add(new OVPair<Sequence<T>>(key, Sequence.of(values)));
             return this;

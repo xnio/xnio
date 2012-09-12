@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static org.xnio.Messages.msg;
+
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
@@ -36,7 +38,7 @@ final class TypeSequenceOption<T> extends Option<Sequence<Class<? extends T>>> {
     TypeSequenceOption(final Class<?> declClass, final String name, final Class<T> elementDeclType) {
         super(declClass, name);
         if (elementDeclType == null) {
-            throw new IllegalArgumentException("elementDeclType is null");
+            throw msg.nullParameter("elementDeclType");
         }
         this.elementDeclType = elementDeclType;
         parser = Option.getClassParser(elementDeclType);

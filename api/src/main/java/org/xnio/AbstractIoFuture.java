@@ -25,7 +25,8 @@ import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
-import org.jboss.logging.Logger;
+
+import static org.xnio.Messages.futureMsg;
 
 /**
  * An abstract base class for {@code IoFuture} objects.  Used to easily produce implementations.
@@ -33,8 +34,6 @@ import org.jboss.logging.Logger;
  * @param <T> the type of result that this operation produces
  */
 public abstract class AbstractIoFuture<T> implements IoFuture<T> {
-    private static final Logger log = Logger.getLogger("org.xnio.future");
-
     private final Object lock = new Object();
     private Status status = Status.WAITING;
     private Object result;
@@ -152,8 +151,8 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             switch (await()) {
                 case DONE: return (T) result;
                 case FAILED: throw (IOException) result;
-                case CANCELLED: throw new CancellationException("Operation was cancelled");
-                default: throw new IllegalStateException("Unexpected state " + status);
+                case CANCELLED: throw futureMsg.opCancelled();
+                default: throw new IllegalStateException();
             }
         }
     }
@@ -167,8 +166,8 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             switch (awaitInterruptibly()) {
                 case DONE: return (T) result;
                 case FAILED: throw (IOException) result;
-                case CANCELLED: throw new CancellationException("Operation was cancelled");
-                default: throw new IllegalStateException("Unexpected state " + status);
+                case CANCELLED: throw futureMsg.opCancelled();
+                default: throw new IllegalStateException();
             }
         }
     }
@@ -181,7 +180,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             if (status == Status.FAILED) {
                 return (IOException) result;
             } else {
-                throw new IllegalStateException("getException() when state is not FAILED");
+                throw new IllegalStateException();
             }
         }
     }
@@ -195,7 +194,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
                 try {
                     notifier.notify(AbstractIoFuture.this, attachment);
                 } catch (Throwable t) {
-                    log.warnf(t, "Running notifier failed");
+                    futureMsg.notifierFailed(t, notifier);
                 }
             }
         };

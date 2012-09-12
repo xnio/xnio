@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.xnio.Messages.msg;
+
 /**
  * A strongly-typed option to configure an aspect of a service or connection.  Options are immutable and use identity comparisons
  * and hash codes.  Options should always be declared as <code>public static final</code> members in order to support serialization.
@@ -142,27 +144,35 @@ public abstract class Option<T> implements Serializable {
         }
         final String fieldName = name.substring(lastDot + 1);
         final String className = name.substring(0, lastDot);
+        final Class<?> clazz;
         try {
-            final Field field = Class.forName(className, true, classLoader).getField(fieldName);
-            final int modifiers = field.getModifiers();
-            if (! Modifier.isPublic(modifiers)) {
-                throw new IllegalArgumentException("Invalid Option instance (the field is not public)");
-            }
-            if (! Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException("Invalid Option instance (the field is not static)");
-            }
-            final Option<?> option = (Option<?>) field.get(null);
-            if (option == null) {
-                throw new IllegalArgumentException("Invalid null Option");
-            }
-            return option;
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException("No such field");
-        } catch (IllegalAccessException e) {
-            throw new IllegalArgumentException("Illegal access", e);
+            clazz = Class.forName(className, true, classLoader);
         } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("Class '" + className + "' not found");
+            throw msg.optionClassNotFound(className, classLoader);
         }
+        final Field field;
+        try {
+            field = clazz.getField(fieldName);
+        } catch (NoSuchFieldException e) {
+            throw msg.noField(fieldName, clazz);
+        }
+        final int modifiers = field.getModifiers();
+        if (! Modifier.isPublic(modifiers)) {
+            throw msg.fieldNotAccessible(fieldName, clazz);
+        }
+        if (! Modifier.isStatic(modifiers)) {
+            throw msg.fieldNotStatic(fieldName, clazz);
+        }
+        final Option<?> option;
+        try {
+            option = (Option<?>) field.get(null);
+        } catch (IllegalAccessException e) {
+            throw msg.fieldNotAccessible(fieldName, clazz);
+        }
+        if (option == null) {
+            throw new IllegalArgumentException("Invalid null Option");
+        }
+        return option;
     }
 
     /**
