@@ -19,10 +19,12 @@
 package org.xnio;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
@@ -53,7 +55,20 @@ public abstract class Xnio {
 
     private static final RuntimePermission ALLOW_BLOCKING_SETTING = new RuntimePermission("changeThreadBlockingSetting");
 
+    /**
+     * A flag indicating the presence of NIO.2 (JDK 7).
+     */
+    public static final boolean NIO2;
+
     static {
+        boolean nio2 = false;
+        try {
+            // try to find an NIO.2 interface on the system class path
+            Class.forName("java.nio.channels.MulticastChannel", false, null);
+            nio2 = true;
+        } catch (Throwable t) {
+        }
+        NIO2 = nio2;
         Logger.getLogger("org.xnio").info("XNIO Version " + Version.VERSION);
         final EnumMap<FileAccess, OptionMap> map = new EnumMap<FileAccess, OptionMap>(FileAccess.class);
         for (FileAccess access : FileAccess.values()) {
@@ -231,13 +246,17 @@ public abstract class Xnio {
      * @throws IOException if an I/O error occurs
      */
     public FileChannel openFile(File file, OptionMap options) throws IOException {
-        try {
-            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
-                case READ_ONLY: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ));
-                case READ_WRITE: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE));
-                default: throw new IllegalStateException();
+        if (NIO2) {
+            try {
+                switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
+                    case READ_ONLY: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ));
+                    case READ_WRITE: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE));
+                    default: throw new IllegalStateException();
+                }
+            } catch (NoSuchFileException e) {
+                throw new FileNotFoundException(e.getMessage());
             }
-        } catch (Error e) {
+        } else {
             switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
                 case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
                 case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());

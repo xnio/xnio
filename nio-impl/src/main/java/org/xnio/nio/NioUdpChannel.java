@@ -39,12 +39,14 @@ import org.xnio.Buffers;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
+import org.xnio.Xnio;
 import org.xnio.XnioExecutor;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static org.xnio.ChannelListener.SimpleSetter;
+import static org.xnio.Xnio.NIO2;
 
 /**
  *
@@ -331,7 +333,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             return option.cast(Integer.valueOf(socket.getTrafficClass()));
         } else {
-            if (NioXnio.NIO2) {
+            if (NIO2) {
                 if (option == Options.MULTICAST_TTL) {
                     return option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
                 } else {
@@ -368,7 +370,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             old = Boolean.valueOf(socket.getBroadcast());
             socket.setBroadcast(Options.BROADCAST.cast(value, false).booleanValue());
         } else {
-            if (NioXnio.NIO2) {
+            if (NIO2) {
                 if (option == Options.MULTICAST_TTL) {
                     old = option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
                     channel.setOption(StandardSocketOptions.IP_MULTICAST_TTL, (Integer) value);

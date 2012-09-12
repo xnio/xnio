@@ -47,19 +47,8 @@ final class NioXnio extends Xnio {
     final SelectorCreator tempSelectorCreator;
     final SelectorCreator mainSelectorCreator;
 
-    static final boolean NIO2;
-
     static {
         log.info("XNIO NIO Implementation Version " + Version.VERSION);
-        boolean nio2 = false;
-        try {
-            // try to find an NIO.2 interface on the system class path
-            Class.forName("java.nio.channels.MulticastChannel", false, null);
-            log.trace("NIO.2 detected");
-            nio2 = true;
-        } catch (Throwable t) {
-        }
-        NIO2 = nio2;
     }
 
     /**
