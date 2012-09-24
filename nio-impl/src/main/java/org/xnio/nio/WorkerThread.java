@@ -27,10 +27,10 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.ArrayDeque;
-import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.Delayed;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -61,7 +61,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
 
     private final boolean writeThread;
     private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
-    private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
+    private final DelayQueue<TimeKey> delayWorkQueue = new DelayQueue<TimeKey>();
 
     private volatile int state;
 
@@ -91,10 +91,9 @@ final class WorkerThread extends Thread implements XnioExecutor {
             log.tracef("Starting worker thread %s", this);
             final Object lock = workLock;
             final Queue<Runnable> workQueue = selectorWorkQueue;
-            final Set<TimeKey> delayQueue = delayWorkQueue;
+            final DelayQueue<TimeKey> delayQueue = delayWorkQueue;
             log.debugf("Started channel thread '%s', selector %s", currentThread().getName(), selector);
             Runnable task;
-            Iterator<TimeKey> iterator;
             long delayTime = Long.MAX_VALUE;
             Set<SelectionKey> selectedKeys;
             Object[] keys;
@@ -106,23 +105,20 @@ final class WorkerThread extends Thread implements XnioExecutor {
                     synchronized (lock) {
                         task = workQueue.poll();
                         if (task == null) {
-                            iterator = delayQueue.iterator();
-                            delayTime = Long.MAX_VALUE;
-                            if (iterator.hasNext()) {
-                                final long now = nanoTime();
-                                do {
-                                    final TimeKey key = iterator.next();
-                                    if (key.deadline <= now) {
-                                        workQueue.add(key.command);
-                                        iterator.remove();
-                                    } else {
-                                        delayTime = key.deadline - now;
-                                        // the rest are in the future
-                                        break;
+                            TimeKey key = delayQueue.poll();
+                            if (key != null) {
+                                task = key.command;
+                            } else {
+                                final TimeKey next = delayQueue.peek();
+                                if (next == null) {
+                                    delayTime = Long.MAX_VALUE;
+                                } else {
+                                    delayTime = next.deadline - System.nanoTime();
+                                    if (delayTime < 0L) {
+                                        delayTime = 1L;
                                     }
-                                } while (iterator.hasNext());
+                                }
                             }
-                            task = workQueue.poll();
                         }
                     }
                     safeRun(task);
@@ -255,7 +251,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
         final long deadline = nanoTime() + Math.min(time, LONGEST_DELAY) * 1000000L;
         final TimeKey key = new TimeKey(deadline, command);
         synchronized (workLock) {
-            final Set<TimeKey> queue = delayWorkQueue;
+            final DelayQueue<TimeKey> queue = delayWorkQueue;
             queue.add(key);
             if (queue.iterator().next() == key) {
                 // we're the next one up; poke the selector to update its delay time
@@ -365,7 +361,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
         return identityHashCode(this);
     }
 
-    final class TimeKey implements XnioExecutor.Key, Comparable<TimeKey> {
+    final class TimeKey implements XnioExecutor.Key, Delayed {
         private final long deadline;
         private final Runnable command;
 
@@ -380,13 +376,25 @@ final class WorkerThread extends Thread implements XnioExecutor {
             }
         }
 
+        public long getDelay(final TimeUnit unit) {
+            return unit.convert(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);
+        }
+
+        public int compareTo(final Delayed o) {
+            if (o instanceof TimeKey) {
+                return compareTo((TimeKey) o);
+            } else {
+                throw new IllegalStateException();
+            }
+        }
+
         public int compareTo(final TimeKey o) {
             return (int) Math.signum(deadline - o.deadline);
         }
     }
 
     final class SynchTask implements Runnable {
-        volatile boolean done = false;
+        volatile boolean done;
 
         public void run() {
             while (! done) {
