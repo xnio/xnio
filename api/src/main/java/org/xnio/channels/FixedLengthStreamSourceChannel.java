@@ -125,7 +125,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         try {
             return res = delegate.transferTo(position, min(count, val), target);
         } finally {
-            exitRead(val, res);
+            exitRead(res);
         }
     }
 
@@ -144,7 +144,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
             }
             return res = delegate.transferTo(min(count, val), throughBuffer, target);
         } finally {
-            exitRead(val, res == -1L ? val & MASK_COUNT : res);
+            exitRead(res == -1L ? val & MASK_COUNT : res);
         }
     }
 
@@ -193,7 +193,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
             // the total buffer space is less than the remaining count.
             return res = delegate.read(dsts, offset, length);
         } finally {
-            exitRead(val, res == -1L ? val & MASK_COUNT : res);
+            exitRead(res == -1L ? val & MASK_COUNT : res);
         }
     }
 
@@ -222,7 +222,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
                 return res = delegate.read(dst);
             }
         } finally {
-            exitRead(val, res == -1 ? remaining : (long) res);
+            exitRead(res == -1 ? remaining : (long) res);
         }
     }
 
@@ -436,14 +436,14 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
     /**
      * Exit a read method.
      *
-     * @param oldVal the original state
      * @param consumed the number of bytes consumed by this call (may be 0)
      */
-    private void exitRead(long oldVal, long consumed) {
-        long newVal = oldVal - consumed;
+    private void exitRead(long consumed) {
+        long oldVal = state;
+        long newVal = (oldVal & ~FLAG_READ_ENTERED) - consumed;
         while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
             oldVal = state;
-            newVal = oldVal & ~FLAG_READ_ENTERED - consumed;
+            newVal = (oldVal & ~FLAG_READ_ENTERED) - consumed;
         }
         if (allAreSet(newVal, FLAG_CLOSED)) {
             // closed while we were in flight.  Call the listener.
