@@ -266,6 +266,7 @@ public class BufferPipeInputStream extends InputStream {
             if (! eof) {
                 clearQueue();
                 eof = true;
+                failure = null;
                 notifyAll();
                 inputHandler.close();
             }
@@ -280,10 +281,8 @@ public class BufferPipeInputStream extends InputStream {
             try {
                 throw failure;
             } finally {
-                eof = true;
                 clearQueue();
                 notifyAll();
-                this.failure = null;
             }
         }
     }
