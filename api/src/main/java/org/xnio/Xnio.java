@@ -239,16 +239,24 @@ public abstract class Xnio {
     //
     //==================================================
 
-    /**
-     * Open a file on the filesystem.
-     *
-     * @param file the file to open
-     * @param options the file-open options
-     * @return the file channel
-     * @throws IOException if an I/O error occurs
-     */
-    public FileChannel openFile(File file, OptionMap options) throws IOException {
-        if (NIO2) {
+    private interface Opener {
+        FileChannel openFile(File file, OptionMap options) throws IOException;
+    }
+
+    private static final Opener OPENER = NIO2 ? new Nio2Opener() : new Nio1Opener();
+
+    private static final class Nio1Opener implements Opener {
+        public FileChannel openFile(final File file, final OptionMap options) throws IOException {
+            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
+                case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
+                case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
+                default: throw new IllegalStateException();
+            }
+        }
+    }
+
+    private static final class Nio2Opener implements Opener {
+        public FileChannel openFile(final File file, final OptionMap options) throws IOException {
             try {
                 switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
                     case READ_ONLY: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ));
@@ -258,13 +266,19 @@ public abstract class Xnio {
             } catch (NoSuchFileException e) {
                 throw new FileNotFoundException(e.getMessage());
             }
-        } else {
-            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
-                case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
-                case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
-                default: throw new IllegalStateException();
-            }
         }
+    }
+
+    /**
+     * Open a file on the filesystem.
+     *
+     * @param file the file to open
+     * @param options the file-open options
+     * @return the file channel
+     * @throws IOException if an I/O error occurs
+     */
+    public FileChannel openFile(File file, OptionMap options) throws IOException {
+        return OPENER.openFile(file, options);
     }
 
     /**
