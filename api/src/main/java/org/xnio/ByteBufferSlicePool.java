@@ -22,6 +22,8 @@ package org.xnio;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
+import java.security.AccessController;
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Queue;
@@ -39,11 +41,46 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  */
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
+    private static final int LOCAL_LENGTH;
+
+    static {
+        String value = AccessController.doPrivileged(new ReadPropertyAction("xnio.bufferpool.threadlocal.size", "12"));
+        int val;
+        try {
+            val = Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            val = 12;
+        }
+        LOCAL_LENGTH = val;
+    }
+
     private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<Ref>());
     private final Queue<Slice> sliceQueue;
     private final BufferAllocator<ByteBuffer> allocator;
     private final int bufferSize;
     private final int buffersPerRegion;
+    private final int threadLocalQueueSize;
+    private final ThreadLocal<ArrayDeque<Slice>> localQueueHolder = new ThreadLocal<ArrayDeque<Slice>>() {
+        protected ArrayDeque<Slice> initialValue() {
+            return new ArrayDeque<Slice>(threadLocalQueueSize);
+        }
+
+        /**
+         * This sucks but there's no other way to ensure these buffers are returned to the pool.
+         */
+        protected void finalize() {
+            remove();
+        }
+
+        public void remove() {
+            final ArrayDeque<Slice> deque = get();
+            Slice slice = deque.poll();
+            while (slice != null) {
+                doFree(slice);
+                slice = deque.poll();
+            }
+        }
+    };
 
     /**
      * Construct a new instance.
@@ -51,8 +88,9 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
      * @param allocator the buffer allocator to use
      * @param bufferSize the size of each buffer
      * @param maxRegionSize the maximum region size for each backing buffer
+     * @param threadLocalQueueSize the number of buffers to cache on each thread
      */
-    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize) {
+    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize, final int threadLocalQueueSize) {
         if (bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer size must be greater than zero");
         }
@@ -69,6 +107,18 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             queue = new ConcurrentLinkedQueue<Slice>();
         }
         sliceQueue = queue;
+        this.threadLocalQueueSize = threadLocalQueueSize;
+    }
+
+    /**
+     * Construct a new instance.
+     *
+     * @param allocator the buffer allocator to use
+     * @param bufferSize the size of each buffer
+     * @param maxRegionSize the maximum region size for each backing buffer
+     */
+    public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize) {
+        this(allocator, bufferSize, maxRegionSize, LOCAL_LENGTH);
     }
 
     /**
@@ -83,8 +133,12 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
+        Slice slice = localQueueHolder.get().poll();
+        if (slice != null) {
+            return new PooledByteBuffer(slice, slice.slice());
+        }
         final Queue<Slice> sliceQueue = this.sliceQueue;
-        final Slice slice = sliceQueue.poll();
+        slice = sliceQueue.poll();
         if (slice != null) {
             return new PooledByteBuffer(slice, slice.slice());
         }
@@ -101,7 +155,12 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     }
 
     private void doFree(Slice region) {
-        sliceQueue.add(region);
+        final ArrayDeque<Slice> localQueue = localQueueHolder.get();
+        if (localQueue.size() == LOCAL_LENGTH) {
+            sliceQueue.add(region);
+        } else {
+            localQueue.add(region);
+        }
     }
 
     private static final AtomicReferenceFieldUpdater<PooledByteBuffer, ByteBuffer> bufferUpdater = AtomicReferenceFieldUpdater.newUpdater(PooledByteBuffer.class, ByteBuffer.class, "buffer");

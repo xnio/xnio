@@ -28,7 +28,6 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
-import java.security.PrivilegedAction;
 import java.util.EnumMap;
 import java.util.ServiceLoader;
 
@@ -403,7 +402,7 @@ public abstract class Xnio {
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
-            return AccessController.doPrivileged(new GetPropertyAction(name, null));
+            return AccessController.doPrivileged(new ReadPropertyAction(name, null));
         } else {
             return System.getProperty(name);
         }
@@ -423,23 +422,9 @@ public abstract class Xnio {
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
-            return AccessController.doPrivileged(new GetPropertyAction(name, defaultValue));
+            return AccessController.doPrivileged(new ReadPropertyAction(name, defaultValue));
         } else {
             return System.getProperty(name, defaultValue);
-        }
-    }
-
-    private static final class GetPropertyAction implements PrivilegedAction<String> {
-        private final String propertyName;
-        private final String defaultValue;
-
-        private GetPropertyAction(final String propertyName, final String defaultValue) {
-            this.propertyName = propertyName;
-            this.defaultValue = defaultValue;
-        }
-
-        public String run() {
-            return System.getProperty(propertyName, defaultValue);
         }
     }
 }
