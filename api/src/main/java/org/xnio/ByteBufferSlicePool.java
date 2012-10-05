@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
@@ -100,13 +99,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         buffersPerRegion = maxRegionSize / bufferSize;
         this.bufferSize = bufferSize;
         this.allocator = allocator;
-        Queue<Slice> queue;
-        try {
-            queue = new LinkedTransferQueue<Slice>();
-        } catch (Throwable ignored) {
-            queue = new ConcurrentLinkedQueue<Slice>();
-        }
-        sliceQueue = queue;
+        sliceQueue = new ConcurrentLinkedQueue<Slice>();
         this.threadLocalQueueSize = threadLocalQueueSize;
     }
 
