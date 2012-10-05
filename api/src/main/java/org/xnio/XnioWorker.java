@@ -99,7 +99,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
-        BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<Runnable>();
+        BlockingQueue<Runnable> taskQueue = new LinkedTransferQueue<Runnable>();
         this.coreSize = optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4);
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         taskPool = new TaskPool(
