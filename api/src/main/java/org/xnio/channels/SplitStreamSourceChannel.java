@@ -36,18 +36,18 @@ import static org.xnio.ChannelListeners.invokeChannelListener;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class SpiltStreamSourceChannel implements StreamSourceChannel {
+public final class SplitStreamSourceChannel implements StreamSourceChannel {
     private final StreamSourceChannel delegate;
 
     private volatile int state;
 
-    private volatile ChannelListener<? super SpiltStreamSourceChannel> readListener;
-    private volatile ChannelListener<? super SpiltStreamSourceChannel> closeListener;
+    private volatile ChannelListener<? super SplitStreamSourceChannel> readListener;
+    private volatile ChannelListener<? super SplitStreamSourceChannel> closeListener;
 
     private static final int FLAG_DELEGATE_CONFIG = 1 << 0;
     private static final int FLAG_CLOSED = 1 << 1;
 
-    private static final AtomicIntegerFieldUpdater<SpiltStreamSourceChannel> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(SpiltStreamSourceChannel.class, "state");
+    private static final AtomicIntegerFieldUpdater<SplitStreamSourceChannel> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(SplitStreamSourceChannel.class, "state");
 
     /**
      * Construct a new instance.
@@ -55,11 +55,11 @@ public final class SpiltStreamSourceChannel implements StreamSourceChannel {
      * @param delegate the delegate channel
      * @param delegateConfig {@code true} to delegate configuration, {@code false} otherwise
      */
-    public SpiltStreamSourceChannel(final StreamSourceChannel delegate, boolean delegateConfig) {
+    public SplitStreamSourceChannel(final StreamSourceChannel delegate, boolean delegateConfig) {
         this.delegate = delegate;
         delegate.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
             public void handleEvent(final StreamSourceChannel channel) {
-                invokeChannelListener(SpiltStreamSourceChannel.this, readListener);
+                invokeChannelListener(SplitStreamSourceChannel.this, readListener);
             }
         });
         state = delegateConfig ? FLAG_DELEGATE_CONFIG : 0;
@@ -70,7 +70,7 @@ public final class SpiltStreamSourceChannel implements StreamSourceChannel {
      *
      * @param delegate the delegate channel
      */
-    public SpiltStreamSourceChannel(final StreamSourceChannel delegate) {
+    public SplitStreamSourceChannel(final StreamSourceChannel delegate) {
         this(delegate, false);
     }
 
@@ -79,7 +79,7 @@ public final class SpiltStreamSourceChannel implements StreamSourceChannel {
      *
      * @param readListener the read listener
      */
-    public void setReadListener(final ChannelListener<? super SpiltStreamSourceChannel> readListener) {
+    public void setReadListener(final ChannelListener<? super SplitStreamSourceChannel> readListener) {
         this.readListener = readListener;
     }
 
@@ -88,21 +88,21 @@ public final class SpiltStreamSourceChannel implements StreamSourceChannel {
      *
      * @param closeListener the close listener
      */
-    public void setCloseListener(final ChannelListener<? super SpiltStreamSourceChannel> closeListener) {
+    public void setCloseListener(final ChannelListener<? super SplitStreamSourceChannel> closeListener) {
         this.closeListener = closeListener;
     }
 
-    public ChannelListener.Setter<? extends SpiltStreamSourceChannel> getReadSetter() {
-        return new ChannelListener.Setter<SpiltStreamSourceChannel>() {
-            public void set(final ChannelListener<? super SpiltStreamSourceChannel> listener) {
+    public ChannelListener.Setter<? extends SplitStreamSourceChannel> getReadSetter() {
+        return new ChannelListener.Setter<SplitStreamSourceChannel>() {
+            public void set(final ChannelListener<? super SplitStreamSourceChannel> listener) {
                 setReadListener(listener);
             }
         };
     }
 
-    public ChannelListener.Setter<? extends SpiltStreamSourceChannel> getCloseSetter() {
-        return new ChannelListener.Setter<SpiltStreamSourceChannel>() {
-            public void set(final ChannelListener<? super SpiltStreamSourceChannel> listener) {
+    public ChannelListener.Setter<? extends SplitStreamSourceChannel> getCloseSetter() {
+        return new ChannelListener.Setter<SplitStreamSourceChannel>() {
+            public void set(final ChannelListener<? super SplitStreamSourceChannel> listener) {
                 setCloseListener(listener);
             }
         };
