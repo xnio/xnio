@@ -49,6 +49,13 @@ final class NioXnio extends Xnio {
 
     static {
         log.info("XNIO NIO Implementation Version " + Version.VERSION);
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            public Void run() {
+                final String bugLevel = System.getProperty("sun.nio.ch.bugLevel");
+                if (bugLevel == null) System.setProperty("sun.nio.ch.bugLevel", "");
+                return null;
+            }
+        });
     }
 
     /**
