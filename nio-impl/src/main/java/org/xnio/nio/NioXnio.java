@@ -62,6 +62,13 @@ final class NioXnio extends Xnio {
         } catch (Throwable t) {
         }
         NIO2 = nio2;
+        AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            public Void run() {
+                final String bugLevel = System.getProperty("sun.nio.ch.bugLevel");
+                if (bugLevel == null) System.setProperty("sun.nio.ch.bugLevel", "");
+                return null;
+            }
+        });
     }
 
     /**
