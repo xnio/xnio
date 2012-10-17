@@ -102,7 +102,8 @@ public final class Options {
     public static final Option<Boolean> TCP_OOB_INLINE = Option.simple(Options.class, "TCP_OOB_INLINE", Boolean.class);
 
     /**
-     * Configure a channel to send a periodic heartbeat of some sort.  The value type for this option is {@code boolean}.
+     * Configure a channel to send TCP keep-alive messages in an implementation-dependent manner. The value type for
+     * this option is {@code boolean}.
      */
     public static final Option<Boolean> KEEP_ALIVE = Option.simple(Options.class, "KEEP_ALIVE", Boolean.class);
 
