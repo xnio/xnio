@@ -160,7 +160,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private final class PooledByteBuffer implements Pooled<ByteBuffer> {
         private final Slice region;
-        volatile ByteBuffer buffer;
+        private final ByteBuffer buffer;
 
         PooledByteBuffer(final Slice region, final ByteBuffer buffer) {
             this.region = region;
@@ -183,10 +183,6 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
 
         public ByteBuffer getResource() {
-            final ByteBuffer buffer = this.buffer;
-            if (buffer == null) {
-                throw new IllegalStateException();
-            }
             return buffer;
         }
 
