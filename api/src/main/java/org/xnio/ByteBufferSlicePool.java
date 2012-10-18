@@ -99,7 +99,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         buffersPerRegion = maxRegionSize / bufferSize;
         this.bufferSize = bufferSize;
         this.allocator = allocator;
-        sliceQueue = new LinkedTransferQueue<Slice>();
+        sliceQueue = new ConcurrentLinkedQueue<Slice>();
         this.threadLocalQueueSize = threadLocalQueueSize;
     }
 
