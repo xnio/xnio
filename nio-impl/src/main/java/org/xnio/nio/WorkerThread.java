@@ -30,6 +30,8 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Queue;
@@ -57,6 +59,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
     private static final long LONGEST_DELAY = 9223372036853L;
     private static final String FQCN = WorkerThread.class.getName();
     private static final String NH_FQCN = NioHandle.class.getName();
+    private static final boolean OLD_LOCKING;
 
     private final NioXnioWorker worker;
 
@@ -71,6 +74,14 @@ final class WorkerThread extends Thread implements XnioExecutor {
     private static final int SHUTDOWN = (1 << 31);
 
     private static final AtomicIntegerFieldUpdater<WorkerThread> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(WorkerThread.class, "state");
+
+    static {
+        OLD_LOCKING = Boolean.parseBoolean(AccessController.doPrivileged(new PrivilegedAction<String>() {
+            public String run() {
+                return System.getProperty("xnio.nio.old-locking", "false");
+            }
+        }));
+    }
 
     WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize) {
         super(group, null, name, stackSize);
@@ -306,6 +317,17 @@ final class WorkerThread extends Thread implements XnioExecutor {
             } catch (Throwable t) {
                 log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (same thread)", key, channel);
             }
+        } else if (OLD_LOCKING) {
+            log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
+            final SynchTask task = new SynchTask();
+            queueTask(task);
+            try {
+                // Prevent selector from sleeping until we're done!
+                selector.wakeup();
+                cancelKey(key);
+            } finally {
+                task.done();
+            }
         } else {
             log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
             try {
@@ -327,6 +349,20 @@ final class WorkerThread extends Thread implements XnioExecutor {
             try {
                 key.interestOps(ops);
             } catch (CancelledKeyException ignored) {}
+        } else if (OLD_LOCKING) {
+            if (log.isTraceEnabled()) {
+                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, Integer.valueOf(ops));
+            }
+            final SynchTask task = new SynchTask();
+            queueTask(task);
+            try {
+                // Prevent selector from sleeping until we're done!
+                selector.wakeup();
+                key.interestOps(ops);
+            } catch (CancelledKeyException ignored) {
+            } finally {
+                task.done();
+            }
         } else {
             if (log.isTraceEnabled()) {
                 log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, Integer.valueOf(ops));
@@ -336,15 +372,6 @@ final class WorkerThread extends Thread implements XnioExecutor {
                 selector.wakeup();
             } catch (CancelledKeyException ignored) {
             }
-        }
-    }
-
-    int getOps(final SelectionKey key) {
-        assert key.selector() == selector;
-        try {
-            return key.interestOps();
-        } catch (CancelledKeyException ignored) {
-            return 0;
         }
     }
 
@@ -381,7 +408,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
     }
 
     final class SynchTask implements Runnable {
-        volatile boolean done = false;
+        volatile boolean done;
 
         public void run() {
             while (! done) {
