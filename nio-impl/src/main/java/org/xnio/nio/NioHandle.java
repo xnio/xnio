@@ -86,7 +86,7 @@ final class NioHandle<C extends Channel> implements Runnable {
             log.tracef("Null listener; suspending %s to prevent runaway", this);
             // prevent runaway
             suspend();
-        } else if (allAreSet(oldVal, FLAG_RESUMED)) {
+        } else if (workerThread.getOps(selectionKey) != 0) {
             ChannelListeners.invokeChannelListener(channel, listener);
         }
     }

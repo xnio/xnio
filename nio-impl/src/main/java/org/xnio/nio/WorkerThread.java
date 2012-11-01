@@ -375,6 +375,15 @@ final class WorkerThread extends Thread implements XnioExecutor {
         }
     }
 
+    int getOps(final SelectionKey key) {
+        assert key.selector() == selector;
+        try {
+            return key.interestOps();
+        } catch (CancelledKeyException ignored) {
+            return 0;
+        }
+    }
+
     Selector getSelector() {
         return selector;
     }
