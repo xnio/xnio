@@ -39,6 +39,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
+import java.nio.channels.Channels;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -798,6 +799,14 @@ public final class IoUtilsTestCase extends TestCase {
         assertNotNull(deserializedRandom);
     }
 
+    public void testTransferThroughBuffer() throws IOException{
+        byte[] bytes = "This bytes".getBytes();
+        ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        assertEquals(bytes.length, IoUtils.transfer(Channels.newChannel(in), bytes.length, buffer, Channels.newChannel(out)));
+        assertFalse(buffer.hasRemaining());
+    }
     private static abstract class TestSelector extends Selector {
         @Override
         public boolean isOpen() {

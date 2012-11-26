@@ -495,7 +495,12 @@ public final class IoUtils {
                 return total;
             }
             total += res;
-            throughBuffer.compact();
+            if (total < count) {
+                // only compact if nothing is left otherwise we may
+                // end up with a buffer that has a lim == cap even
+                // if it not contain data that we are interested in
+                throughBuffer.compact();
+            }
         }
         return total;
     }
