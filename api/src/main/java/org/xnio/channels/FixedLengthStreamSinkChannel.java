@@ -138,7 +138,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 return res = delegate.write(src);
             }
         } finally {
-            exitWrite(val, (long) res);
+            exitWrite((long) res);
         }
     }
 
@@ -189,7 +189,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
             // the total buffer space is less than the remaining count.
             return res = delegate.write(srcs, offset, length);
         } finally {
-            exitWrite(val, res);
+            exitWrite(res);
         }
     }
 
@@ -206,7 +206,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         try {
             return res = delegate.transferFrom(src, position, min(count, (val & MASK_COUNT)));
         } finally {
-            exitWrite(val, res);
+            exitWrite(res);
         }
     }
 
@@ -223,7 +223,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         try {
             return res = delegate.transferFrom(source, min(count, (val & MASK_COUNT)), throughBuffer);
         } finally {
-            exitWrite(val, res);
+            exitWrite(res);
         }
     }
 
@@ -367,12 +367,12 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         return oldVal;
     }
 
-    private void exitWrite(long oldVal, long consumed) {
-        long newVal = oldVal - consumed;
-        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
+    private void exitWrite(long consumed) {
+        long newVal, oldVal;
+        do {
             oldVal = state;
-            newVal = oldVal & ~FLAG_WRITE_ENTERED - consumed;
-        }
+            newVal = (oldVal & ~FLAG_WRITE_ENTERED) - consumed;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
             // don't call listener while other shit is in flight
             return;
