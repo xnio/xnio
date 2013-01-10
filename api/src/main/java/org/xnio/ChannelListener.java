@@ -68,7 +68,7 @@ public interface ChannelListener<T extends Channel> extends EventListener {
 
         private static final Logger log = Logger.getLogger("org.xnio.listener");
 
-        private volatile ChannelListener<? super T> channelListener;
+        private ChannelListener<? super T> channelListener;
 
         /** {@inheritDoc} */
         public void set(final ChannelListener<? super T> listener) {

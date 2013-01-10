@@ -41,8 +41,8 @@ public final class SplitStreamSinkChannel implements StreamSinkChannel {
 
     private volatile int state;
 
-    private volatile ChannelListener<? super SplitStreamSinkChannel> writeListener;
-    private volatile ChannelListener<? super SplitStreamSinkChannel> closeListener;
+    private ChannelListener<? super SplitStreamSinkChannel> writeListener;
+    private ChannelListener<? super SplitStreamSinkChannel> closeListener;
 
     private static final int FLAG_DELEGATE_CONFIG = 1 << 0;
     private static final int FLAG_CLOSE_REQ = 1 << 1;

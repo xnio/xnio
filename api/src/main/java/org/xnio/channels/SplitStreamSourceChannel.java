@@ -41,8 +41,8 @@ public final class SplitStreamSourceChannel implements StreamSourceChannel {
 
     private volatile int state;
 
-    private volatile ChannelListener<? super SplitStreamSourceChannel> readListener;
-    private volatile ChannelListener<? super SplitStreamSourceChannel> closeListener;
+    private ChannelListener<? super SplitStreamSourceChannel> readListener;
+    private ChannelListener<? super SplitStreamSourceChannel> closeListener;
 
     private static final int FLAG_DELEGATE_CONFIG = 1 << 0;
     private static final int FLAG_CLOSED = 1 << 1;
