@@ -48,12 +48,15 @@ import static org.xnio.nio.Log.log;
 abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> extends AbstractNioChannel<C> implements StreamChannel {
 
     private static final String FQCN = AbstractNioStreamChannel.class.getName();
+    private static final Integer ZERO = Integer.valueOf(0);
 
     private volatile NioHandle<C> readHandle;
     private volatile NioHandle<C> writeHandle;
 
-    private volatile int readTimeout = 0;
-    private volatile int writeTimeout = 0;
+    @SuppressWarnings("unused")
+    private volatile int readTimeout;
+    @SuppressWarnings("unused")
+    private volatile int writeTimeout;
 
     private volatile long lastRead;
     private volatile long lastWrite;
@@ -61,7 +64,9 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     private final SimpleSetter<C> readSetter = new SimpleSetter<C>();
     private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> readTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "readTimeout");
+    @SuppressWarnings("rawtypes")
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamChannel> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamChannel.class, "writeTimeout");
 
     AbstractNioStreamChannel(final NioXnioWorker worker) throws ClosedChannelException {
@@ -90,13 +95,11 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     private void start(final WorkerThread readThread, final WorkerThread writeThread) throws ClosedChannelException {
         readHandle = readThread == null ? null : readThread.addChannel((AbstractSelectableChannel) getReadChannel(), typed(), SelectionKey.OP_READ, readSetter);
         writeHandle = writeThread == null ? null : writeThread.addChannel((AbstractSelectableChannel) getWriteChannel(), typed(), SelectionKey.OP_WRITE, writeSetter);
-        lastRead = lastWrite = System.nanoTime();
     }
 
     protected abstract ScatteringByteChannel getReadChannel();
     protected abstract GatheringByteChannel getWriteChannel();
 
-    // Basic
     // Setters
 
     public final ChannelListener.Setter<? extends C> getReadSetter() {
@@ -106,6 +109,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     public final ChannelListener.Setter<? extends C> getWriteSetter() {
         return writeSetter;
     }
+
     // Suspend/resume
 
     public final void suspendReads() {
@@ -198,31 +202,45 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         return handle == null ? null : handle.getWorkerThread();
     }
 
+    private void checkReadTimeout(final boolean xfer) throws ReadTimeoutException {
+        int timeout = readTimeout;
+        if (timeout > 0) {
+            if (xfer) {
+                lastRead = System.nanoTime();
+            } else {
+                long lastRead = this.lastRead;
+                if (lastRead > 0L && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
+                    throw new ReadTimeoutException("Read timed out");
+                }
+            }
+        }
+    }
+
+    private void checkWriteTimeout(final boolean xfer) throws WriteTimeoutException {
+        int timeout = writeTimeout;
+        if (timeout > 0) {
+            if (xfer) {
+                lastWrite = System.nanoTime();
+            } else {
+                long lastWrite = this.lastWrite;
+                if (lastWrite > 0L && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
+                    throw new WriteTimeoutException("Write timed out");
+                }
+            }
+        }
+    }
+
     // Transfer bytes
 
     public final long transferTo(final long position, final long count, final FileChannel target) throws IOException {
         long res = target.transferFrom(getReadChannel(), position, count);
-        if (res > 0L) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        checkReadTimeout(res > 0L);
         return res;
     }
 
     public final long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
         long res = src.transferTo(position, count, getWriteChannel());
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0L);
         return res;
     }
 
@@ -249,14 +267,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         } catch (ClosedChannelException e) {
             return -1;
         }
-        if (res > 0) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        if (res != -1) checkReadTimeout(res > 0);
         return res;
     }
 
@@ -274,14 +285,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
         } catch (ClosedChannelException e) {
             return -1L;
         }
-        if (res > 0L) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        if (res != -1L) checkReadTimeout(res > 0L);
         return res;
     }
 
@@ -289,14 +293,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
 
     public int write(final ByteBuffer src) throws IOException {
         int res = getWriteChannel().write(src);
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0);
         return res;
     }
 
@@ -309,14 +306,7 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
             return write(srcs[offset]);
         }
         long res = getWriteChannel().write(srcs, offset, length);
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0L);
         return res;
     }
 
@@ -329,10 +319,10 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == Options.READ_TIMEOUT) {
-            int newValue = Options.READ_TIMEOUT.cast(value, 0).intValue();
+            int newValue = Options.READ_TIMEOUT.cast(value, ZERO).intValue();
             return option.cast(Integer.valueOf(readTimeoutUpdater.getAndSet(this, newValue)));
         } else if (option == Options.WRITE_TIMEOUT) {
-            int newValue = Options.WRITE_TIMEOUT.cast(value, 0).intValue();
+            int newValue = Options.WRITE_TIMEOUT.cast(value, ZERO).intValue();
             return option.cast(Integer.valueOf(writeTimeoutUpdater.getAndSet(this, newValue)));
         } else {
             return null;
