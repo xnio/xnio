@@ -320,9 +320,15 @@ abstract class AbstractNioStreamChannel<C extends AbstractNioStreamChannel<C>> e
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == Options.READ_TIMEOUT) {
             int newValue = Options.READ_TIMEOUT.cast(value, ZERO).intValue();
+            if (newValue != 0 && lastRead == 0) {
+                lastRead = System.nanoTime();
+            }
             return option.cast(Integer.valueOf(readTimeoutUpdater.getAndSet(this, newValue)));
         } else if (option == Options.WRITE_TIMEOUT) {
             int newValue = Options.WRITE_TIMEOUT.cast(value, ZERO).intValue();
+            if (newValue != 0 && lastWrite == 0) {
+                lastWrite = System.nanoTime();
+            }
             return option.cast(Integer.valueOf(writeTimeoutUpdater.getAndSet(this, newValue)));
         } else {
             return null;
