@@ -45,15 +45,18 @@ import static org.xnio.nio.Log.log;
 abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceChannel<C>> extends AbstractNioChannel<C> implements StreamSourceChannel {
 
     private static final String FQCN = AbstractNioStreamSourceChannel.class.getName();
+    private static final Integer ZERO = Integer.valueOf(0);
 
     private volatile NioHandle<C> readHandle;
 
-    private volatile int readTimeout = 0;
+    @SuppressWarnings("unused")
+    private volatile int readTimeout;
 
     private volatile long lastRead;
 
     private final SimpleSetter<C> readSetter = new SimpleSetter<C>();
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamSourceChannel> readTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamSourceChannel.class, "readTimeout");
 
     AbstractNioStreamSourceChannel(final NioXnioWorker worker) throws ClosedChannelException {
@@ -121,18 +124,25 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         return handle == null ? null : handle.getWorkerThread();
     }
 
+    private void checkReadTimeout(final boolean xfer) throws ReadTimeoutException {
+        int timeout = readTimeout;
+        if (timeout > 0) {
+            if (xfer) {
+                lastRead = System.nanoTime();
+            } else {
+                long lastRead = this.lastRead;
+                if (lastRead > 0L && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
+                    throw new ReadTimeoutException("Read timed out");
+                }
+            }
+        }
+    }
+
     // Transfer bytes
 
     public final long transferTo(final long position, final long count, final FileChannel target) throws IOException {
         long res = target.transferFrom(getReadChannel(), position, count);
-        if (res > 0L) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        checkReadTimeout(res > 0L);
         return res;
     }
 
@@ -149,14 +159,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         } catch (ClosedChannelException e) {
             return -1;
         }
-        if (res > 0) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        if (res != -1) checkReadTimeout(res > 0);
         return res;
     }
 
@@ -174,14 +177,7 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
         } catch (ClosedChannelException e) {
             return -1L;
         }
-        if (res > 0L) {
-            lastRead = System.nanoTime();
-        } else {
-            int timeout = readTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                throw new ReadTimeoutException("Read timed out");
-            }
-        }
+        if (res != -1L) checkReadTimeout(res > 0L);
         return res;
     }
 
@@ -193,7 +189,10 @@ abstract class AbstractNioStreamSourceChannel<C extends AbstractNioStreamSourceC
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == Options.READ_TIMEOUT) {
-            int newValue = Options.READ_TIMEOUT.cast(value, 0).intValue();
+            int newValue = Options.READ_TIMEOUT.cast(value, ZERO).intValue();
+            if (newValue != 0 && lastRead == 0) {
+                lastRead = System.nanoTime();
+            }
             return option.cast(Integer.valueOf(readTimeoutUpdater.getAndSet(this, newValue)));
         } else {
             return null;

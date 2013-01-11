@@ -46,15 +46,18 @@ import static org.xnio.nio.Log.log;
 abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChannel<C>> extends AbstractNioChannel<C> implements StreamSinkChannel {
 
     private static final String FQCN = AbstractNioStreamSinkChannel.class.getName();
+    private static final Integer ZERO = Integer.valueOf(0);
 
     private volatile NioHandle<C> writeHandle;
 
-    private volatile int writeTimeout = 0;
+    @SuppressWarnings("unused")
+    private volatile int writeTimeout;
 
     private volatile long lastWrite;
 
     private final SimpleSetter<C> writeSetter = new SimpleSetter<C>();
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicIntegerFieldUpdater<AbstractNioStreamSinkChannel> writeTimeoutUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioStreamSinkChannel.class, "writeTimeout");
 
     AbstractNioStreamSinkChannel(final NioXnioWorker worker) throws ClosedChannelException {
@@ -124,18 +127,25 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
         return handle == null ? null : handle.getWorkerThread();
     }
 
+    private void checkWriteTimeout(final boolean xfer) throws WriteTimeoutException {
+        int timeout = writeTimeout;
+        if (timeout > 0) {
+            if (xfer) {
+                lastWrite = System.nanoTime();
+            } else {
+                long lastWrite = this.lastWrite;
+                if (lastWrite > 0L && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
+                    throw new WriteTimeoutException("Write timed out");
+                }
+            }
+        }
+    }
+
     // Transfer bytes
 
     public final long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
         long res = src.transferTo(position, count, getWriteChannel());
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0L);
         return res;
     }
 
@@ -153,14 +163,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     public int write(final ByteBuffer src) throws IOException {
         int res = getWriteChannel().write(src);
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0);
         return res;
     }
 
@@ -173,14 +176,7 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
             return write(srcs[offset]);
         }
         long res = getWriteChannel().write(srcs, offset, length);
-        if (res > 0L) {
-            lastWrite = System.nanoTime();
-        } else {
-            int timeout = writeTimeout;
-            if (timeout > 0 && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
-                throw new WriteTimeoutException("Write timed out");
-            }
-        }
+        checkWriteTimeout(res > 0L);
         return res;
     }
 
@@ -192,7 +188,10 @@ abstract class AbstractNioStreamSinkChannel<C extends AbstractNioStreamSinkChann
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option == Options.WRITE_TIMEOUT) {
-            int newValue = Options.WRITE_TIMEOUT.cast(value, 0).intValue();
+            int newValue = Options.WRITE_TIMEOUT.cast(value, ZERO).intValue();
+            if (newValue != 0 && lastWrite == 0) {
+                lastWrite = System.nanoTime();
+            }
             return option.cast(Integer.valueOf(writeTimeoutUpdater.getAndSet(this, newValue)));
         } else {
             return null;
