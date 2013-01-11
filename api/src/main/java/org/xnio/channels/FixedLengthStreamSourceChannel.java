@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
@@ -40,34 +39,21 @@ import static org.xnio.Bits.*;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-/*
- * Implementation notes
- * --------------------
- * The {@code exhausted} flag is set once a method returns -1 and signifies that the read listener should no longer be
- * called.  The {@code finishListener} is called when remaining is reduced to 0 or when the channel is closed explicitly.
- * If there are 0 remaining bytes but {@code FLAG_FINISHED} has not yet been set, the channel is considered "ready" until
- * the EOF -1 value is read or the channel is closed.  Since this is a half-duplex channel, shutting down reads is
- * identical to closing the channel.
- */
 public final class FixedLengthStreamSourceChannel implements StreamSourceChannel, ProtectedWrappedChannel<StreamSourceChannel> {
     private final StreamSourceChannel delegate;
-    private final boolean configurable;
     private final Object guard;
 
     private final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener;
-    private final ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel> readSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel>();
-    private final ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel> closeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSourceChannel>();
+    private ChannelListener<? super FixedLengthStreamSourceChannel> readListener;
+    private ChannelListener<? super FixedLengthStreamSourceChannel> closeListener;
 
-    @SuppressWarnings("unused")
-    private volatile long state;
+    private int state;
+    private long remaining;
 
-    private static final long FLAG_READ_ENTERED = 1L << 63L;
-    private static final long FLAG_CLOSED = 1L << 62L;
-    private static final long FLAG_SUS_RES_SHUT = 1L << 61L;
-    private static final long FLAG_FINISHED = 1L << 60L;
-    private static final long MASK_COUNT = longBitMask(0, 59);
-
-    private static final AtomicLongFieldUpdater<FixedLengthStreamSourceChannel> stateUpdater = AtomicLongFieldUpdater.newUpdater(FixedLengthStreamSourceChannel.class, "state");
+    private static final int FLAG_CLOSED = 1 << 0;
+    private static final int FLAG_FINISHED = 1 << 1;
+    private static final int FLAG_CONFIGURABLE = 1 << 2;
+    private static final int FLAG_PASS_CLOSE = 1 << 3;
 
     /**
      * Construct a new instance.  The given listener is called once all the bytes are read from the stream
@@ -103,74 +89,116 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
      * @param guard the guard object to use
      */
     public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final boolean configurable, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener, final Object guard) {
+        this(delegate, contentLength, configurable, false, finishListener, guard);
+    }
+
+    /**
+     * Construct a new instance.  The given listener is called once all the bytes are read from the stream
+     * <b>or</b> the stream is closed.  This listener should cause the remaining data to be drained from the
+     * underlying stream via the {@link #drain()} method if the underlying stream is to be reused.
+     * <p>
+     * Calling this constructor will replace the read listener of the underlying channel.  The listener should be
+     * restored from the {@code finishListener} object.  The underlying stream should not be closed while this wrapper
+     * stream is active.
+     *
+     * @param delegate the stream source channel to read from
+     * @param contentLength the amount of content to read
+     * @param configurable {@code true} to allow options to pass through to the delegate, {@code false} otherwise
+     * @param propagateClose {@code true} to propagate close/shutdown to the delegate, {@code false} otherwise
+     * @param finishListener the listener to call once the stream is exhausted or closed
+     * @param guard the guard object to use
+     */
+    public FixedLengthStreamSourceChannel(final StreamSourceChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSourceChannel> finishListener, final Object guard) {
         this.guard = guard;
         this.finishListener = finishListener;
         if (contentLength < 0L) {
             throw new IllegalArgumentException("Content length must be greater than or equal to zero");
-        } else if (contentLength > MASK_COUNT) {
-            throw new IllegalArgumentException("Content length is too long");
         }
         this.delegate = delegate;
-        stateUpdater.lazySet(this, contentLength);
-        delegate.getReadSetter().set(ChannelListeners.delegatingChannelListener(FixedLengthStreamSourceChannel.this, readSetter));
-        this.configurable = configurable;
+        remaining = contentLength;
+        delegate.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
+                ChannelListeners.invokeChannelListener(FixedLengthStreamSourceChannel.this, readListener);
+            }
+        });
+        state = (configurable ? FLAG_CONFIGURABLE : 0) | (propagateClose ? FLAG_PASS_CLOSE : 0);
+    }
+
+    public void setReadListener(final ChannelListener<? super FixedLengthStreamSourceChannel> readListener) {
+        this.readListener = readListener;
+    }
+
+    public void setCloseListener(final ChannelListener<? super FixedLengthStreamSourceChannel> closeListener) {
+        this.closeListener = closeListener;
+    }
+
+    public ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter() {
+        return new ChannelListener.Setter<StreamSourceChannel>() {
+            public void set(final ChannelListener<? super StreamSourceChannel> listener) {
+                setReadListener(listener);
+            }
+        };
+    }
+
+    public ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter() {
+        return new ChannelListener.Setter<StreamSourceChannel>() {
+            public void set(final ChannelListener<? super StreamSourceChannel> listener) {
+                setCloseListener(listener);
+            }
+        };
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
-        long val = enterRead();
-        if (anyAreSet(val, FLAG_CLOSED | FLAG_FINISHED) || allAreClear(val, MASK_COUNT)) {
+        final long remaining = this.remaining;
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED) || remaining == 0L || count == 0L) {
             return 0L;
         }
         long res = 0L;
         try {
-            return res = delegate.transferTo(position, min(count, val), target);
+            return res = delegate.transferTo(position, min(count, remaining), target);
         } finally {
-            exitRead(res);
+            if (res > 0L) {
+                if ((this.remaining = remaining - res) == 0L) {
+                    state |= FLAG_FINISHED;
+                    callFinish();
+                }
+            }
         }
     }
 
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
+        final long remaining = this.remaining;
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED) || remaining == 0L) {
+            return -1L;
+        }
         if (count == 0L) {
             return 0L;
         }
-        long val = enterRead();
-        if (anyAreSet(val, FLAG_CLOSED | FLAG_FINISHED) || allAreClear(val, MASK_COUNT)) {
-            return -1;
-        }
         long res = 0L;
         try {
-            if (allAreSet(val, FLAG_CLOSED) || val == 0L) {
-                return -1L;
-            }
-            return res = delegate.transferTo(min(count, val), throughBuffer, target);
+            return res = delegate.transferTo(min(count, remaining), throughBuffer, target);
         } finally {
-            exitRead(res == -1L ? val & MASK_COUNT : res);
+            if (res > 0L) {
+                if ((this.remaining = remaining - res) == 0L) {
+                    state |= FLAG_FINISHED;
+                    callFinish();
+                }
+            }
         }
-    }
-
-    public ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter() {
-        return readSetter;
-    }
-
-    public ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter() {
-        return closeSetter;
     }
 
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
+        final long remaining = this.remaining;
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED) || remaining == 0L) {
+            return -1L;
+        }
         if (length == 0) {
             return 0L;
         } else if (length == 1) {
             return read(dsts[offset]);
         }
-        long val = enterRead();
-        if (allAreSet(val, FLAG_CLOSED) || allAreClear(val, MASK_COUNT)) {
-            return -1;
-        }
         long res = 0L;
         try {
-            if ((val & MASK_COUNT) == 0L) {
-                return -1L;
-            }
             int lim;
             // The total amount of buffer space discovered so far.
             long t = 0L;
@@ -179,9 +207,9 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
                 // Grow the discovered buffer space by the remaining size of the current buffer.
                 // We want to capture the limit so we calculate "remaining" ourselves.
                 t += (lim = buffer.limit()) - buffer.position();
-                if (t > (val & MASK_COUNT)) {
+                if (t > remaining) {
                     // only read up to this point, and trim the last buffer by the number of extra bytes
-                    buffer.limit(lim - (int) (t - (val & MASK_COUNT)));
+                    buffer.limit(lim - (int) (t - remaining));
                     try {
                         return res = delegate.read(dsts, offset, i + 1);
                     } finally {
@@ -191,9 +219,14 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
                 }
             }
             // the total buffer space is less than the remaining count.
-            return res = delegate.read(dsts, offset, length);
+            return res = t == 0L ? 0L : delegate.read(dsts, offset, length);
         } finally {
-            exitRead(res == -1L ? val & MASK_COUNT : res);
+            if (res > 0L) {
+                if ((this.remaining = remaining - res) == 0L) {
+                    state |= FLAG_FINISHED;
+                    callFinish();
+                }
+            }
         }
     }
 
@@ -202,12 +235,11 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
     }
 
     public int read(final ByteBuffer dst) throws IOException {
-        long val = enterRead();
-        if (allAreSet(val, FLAG_CLOSED) || allAreClear(val, MASK_COUNT)) {
+        final long remaining = this.remaining;
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED) || remaining == 0L) {
             return -1;
         }
         int res = 0;
-        final long remaining = val & MASK_COUNT;
         try {
             final int lim = dst.limit();
             final int pos = dst.position();
@@ -222,81 +254,59 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
                 return res = delegate.read(dst);
             }
         } finally {
-            exitRead(res == -1 ? remaining : (long) res);
+            if (res > 0) {
+                if ((this.remaining = remaining - res) == 0L) {
+                    state |= FLAG_FINISHED;
+                    callFinish();
+                }
+            }
         }
     }
 
     public void suspendReads() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSED | FLAG_SUS_RES_SHUT | FLAG_FINISHED) || allAreClear(val, MASK_COUNT)) {
-            return;
-        }
-        try {
+        if (allAreClear(state, FLAG_CLOSED | FLAG_FINISHED)) {
             delegate.suspendReads();
-        } finally {
-            exitSuspendResume(val);
         }
     }
 
     public void resumeReads() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSED | FLAG_SUS_RES_SHUT | FLAG_FINISHED) || allAreClear(val, MASK_COUNT)) {
-            return;
-        }
-        try {
-            if (val == 0L) {
-                delegate.wakeupReads();
-            } else {
-                delegate.resumeReads();
-            }
-        } finally {
-            exitSuspendResume(val);
+        if (allAreClear(state, FLAG_CLOSED | FLAG_FINISHED)) {
+            delegate.resumeReads();
+        } else {
+            delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
         }
     }
 
     public boolean isReadResumed() {
-        return allAreClear(state, FLAG_CLOSED) && delegate.isReadResumed();
+        return allAreClear(state, FLAG_CLOSED | FLAG_FINISHED) && delegate.isReadResumed();
     }
 
     public void wakeupReads() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSED | FLAG_SUS_RES_SHUT | FLAG_FINISHED) || allAreClear(val, MASK_COUNT)) {
-            return;
-        }
-        try {
-            delegate.wakeupReads();
-        } finally {
-            exitSuspendResume(val);
-        }
+        delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
     }
 
     public void shutdownReads() throws IOException {
-        long val = enterShutdownReads();
-        if (allAreSet(val, FLAG_CLOSED)) {
-            return;
-        }
-        try {
-            if (false) {
-                // propagate close if configured to do so
+        final int state = this.state;
+        if (allAreClear(state, FLAG_CLOSED)) try {
+            this.state = state | FLAG_CLOSED | FLAG_FINISHED;
+            if (allAreSet(state, FLAG_PASS_CLOSE)) {
                 delegate.shutdownReads();
             }
         } finally {
-            // listener(s) called from here
-            exitShutdownReads(val);
+            if (allAreClear(state, FLAG_FINISHED)) callFinish();
+            callClosed();
         }
     }
 
     public void awaitReadable() throws IOException {
-        final long val = state;
-        if (allAreSet(val, FLAG_CLOSED) || val == 0L) {
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED)) {
             return;
         }
         delegate.awaitReadable();
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
-        final long val = state;
-        if (allAreSet(val, FLAG_CLOSED) || val == 0L) {
+        if (anyAreSet(state, FLAG_CLOSED | FLAG_FINISHED)) {
             return;
         }
         delegate.awaitReadable(time, timeUnit);
@@ -319,15 +329,15 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return configurable && delegate.supportsOption(option);
+        return allAreSet(state, FLAG_CONFIGURABLE) && delegate.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return configurable ? delegate.getOption(option) : null;
+        return allAreSet(state, FLAG_CONFIGURABLE) ? delegate.getOption(option) : null;
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return configurable ? delegate.setOption(option, value) : null;
+        return allAreSet(state, FLAG_CONFIGURABLE) ? delegate.setOption(option, value) : null;
     }
 
     public StreamSourceChannel getChannel(final Object guard) {
@@ -345,113 +355,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
      * @return the number of remaining bytes
      */
     public long getRemaining() {
-        return state & MASK_COUNT;
-    }
-
-    private long enterShutdownReads() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSED)) {
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_CLOSED | FLAG_SUS_RES_SHUT;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitShutdownReads(long oldVal) {
-        final boolean wasFinished = allAreClear(oldVal, MASK_COUNT);
-        final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT);
-        final boolean wasEntered = allAreSet(oldVal, FLAG_READ_ENTERED);
-        if (! wasInSusRes) {
-            long newVal = oldVal & ~FLAG_SUS_RES_SHUT;
-            while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-                oldVal = state;
-                newVal = oldVal & ~FLAG_SUS_RES_SHUT;
-            }
-            if (! wasEntered) {
-                if (! wasFinished && allAreClear(newVal, MASK_COUNT)) {
-                    callFinish();
-                }
-                callClosed();
-            }
-        }
-        // else let exitSuspendResume/exitReads handle this
-    }
-
-    private long enterSuspendResume() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSED | FLAG_SUS_RES_SHUT)) {
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_SUS_RES_SHUT;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitSuspendResume(long oldVal) {
-        final boolean wasFinished = allAreClear(oldVal, MASK_COUNT);
-        final boolean wasClosed = allAreClear(oldVal, FLAG_CLOSED);
-        final boolean wasEntered = allAreSet(oldVal, FLAG_READ_ENTERED);
-        long newVal = oldVal & ~FLAG_SUS_RES_SHUT;
-        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-            oldVal = state;
-            newVal = oldVal & ~FLAG_SUS_RES_SHUT;
-        }
-        if (! wasEntered) {
-            if (! wasFinished && allAreClear(newVal, MASK_COUNT)) {
-                callFinish();
-            }
-            if (! wasClosed && allAreSet(newVal, FLAG_CLOSED)) {
-                callClosed();
-            }
-        }
-    }
-
-    /**
-     * Enter the method.  Does not set entered flag if the channel is closed so
-     * the caller must return immediately in this case.
-     *
-     * @return the original state
-     */
-    private long enterRead() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (allAreSet(oldVal, FLAG_CLOSED) || allAreClear(oldVal, MASK_COUNT)) {
-                // do not swap
-                return oldVal;
-            }
-            if (allAreSet(oldVal, FLAG_READ_ENTERED)) {
-                throw new ConcurrentStreamChannelAccessException();
-            }
-            newVal = oldVal | FLAG_READ_ENTERED;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    /**
-     * Exit a read method.
-     *
-     * @param consumed the number of bytes consumed by this call (may be 0)
-     */
-    private void exitRead(long consumed) {
-        long oldVal = state;
-        long newVal = (oldVal & ~FLAG_READ_ENTERED) - consumed;
-        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-            oldVal = state;
-            newVal = (oldVal & ~FLAG_READ_ENTERED) - consumed;
-        }
-        if (allAreSet(newVal, FLAG_CLOSED)) {
-            // closed while we were in flight.  Call the listener.
-            callClosed();
-        }
-        if (anyAreSet(oldVal, MASK_COUNT) && allAreClear(newVal, MASK_COUNT)) {
-            callFinish();
-        }
+        return remaining;
     }
 
     private void callFinish() {
@@ -459,6 +363,6 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
     }
 
     private void callClosed() {
-        ChannelListeners.invokeChannelListener(this, closeSetter.get());
+        ChannelListeners.invokeChannelListener(this, closeListener);
     }
 }
