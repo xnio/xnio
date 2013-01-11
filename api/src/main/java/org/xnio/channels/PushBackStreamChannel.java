@@ -23,8 +23,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -39,20 +37,13 @@ import org.xnio.XnioWorker;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public class PushBackStreamChannel implements StreamSourceChannel, WrappedChannel<StreamSourceChannel> {
+public final class PushBackStreamChannel implements StreamSourceChannel, WrappedChannel<StreamSourceChannel> {
 
     private final StreamSourceChannel firstChannel;
-    private volatile StreamSourceChannel channel;
-    @SuppressWarnings("unused")
-    private volatile int flags;
+    private StreamSourceChannel channel;
 
-    private final ChannelListener.Setter<PushBackStreamChannel> readSetter;
-    private final ChannelListener.Setter<PushBackStreamChannel> closeSetter;
-
-    private static final AtomicReferenceFieldUpdater<PushBackStreamChannel, StreamSourceChannel> channelUpdater = AtomicReferenceFieldUpdater.newUpdater(PushBackStreamChannel.class, StreamSourceChannel.class, "channel");
-    private static final AtomicIntegerFieldUpdater<PushBackStreamChannel> flagsUpdater = AtomicIntegerFieldUpdater.newUpdater(PushBackStreamChannel.class, "flags");
-
-    private static final int FLAG_ENTERED = 1;
+    private ChannelListener<? super PushBackStreamChannel> readListener;
+    private ChannelListener<? super PushBackStreamChannel> closeListener;
 
     /**
      * Construct a new instance.
@@ -61,18 +52,40 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
      */
     public PushBackStreamChannel(final StreamSourceChannel channel) {
         this.channel = firstChannel = channel;
-        readSetter = ChannelListeners.getDelegatingSetter(firstChannel.getReadSetter(), this);
-        closeSetter = ChannelListeners.getDelegatingSetter(firstChannel.getCloseSetter(), this);
+        firstChannel.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
+                ChannelListeners.invokeChannelListener(PushBackStreamChannel.this, readListener);
+            }
+        });
+        firstChannel.getCloseSetter().set(new ChannelListener<StreamSourceChannel>() {
+            public void handleEvent(final StreamSourceChannel channel) {
+                ChannelListeners.invokeChannelListener(PushBackStreamChannel.this, closeListener);
+            }
+        });
     }
 
-    private void enter() {
-        if (! flagsUpdater.compareAndSet(this, 0, FLAG_ENTERED)) {
-            throw new ConcurrentStreamChannelAccessException();
-        }
+    public void setReadListener(final ChannelListener<? super PushBackStreamChannel> readListener) {
+        this.readListener = readListener;
     }
 
-    private void exit() {
-        flagsUpdater.set(this, 0);
+    public void setCloseListener(final ChannelListener<? super PushBackStreamChannel> closeListener) {
+        this.closeListener = closeListener;
+    }
+
+    public ChannelListener.Setter<? extends PushBackStreamChannel> getReadSetter() {
+        return new ChannelListener.Setter<PushBackStreamChannel>() {
+            public void set(final ChannelListener<? super PushBackStreamChannel> listener) {
+                setReadListener(listener);
+            }
+        };
+    }
+
+    public ChannelListener.Setter<? extends PushBackStreamChannel> getCloseSetter() {
+        return new ChannelListener.Setter<PushBackStreamChannel>() {
+            public void set(final ChannelListener<? super PushBackStreamChannel> listener) {
+                setCloseListener(listener);
+            }
+        };
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
@@ -86,7 +99,7 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
         final StreamSourceChannel channel = this.channel;
         if (channel == null) {
-            return 0;
+            return -1L;
         }
         return channel.transferTo(count, throughBuffer, target);
     }
@@ -102,7 +115,7 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     public long read(final ByteBuffer[] dsts) throws IOException {
         final StreamSourceChannel channel = this.channel;
         if (channel == null) {
-            return -1;
+            return -1L;
         }
         return channel.read(dsts);
     }
@@ -110,7 +123,7 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         final StreamSourceChannel channel = this.channel;
         if (channel == null) {
-            return -1;
+            return -1L;
         }
         return channel.read(dsts, offset, length);
     }
@@ -123,21 +136,12 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
      */
     public void unget(Pooled<ByteBuffer> buffer) {
         StreamSourceChannel old;
-        do {
-            old = channel;
-            if (old == null) {
-                buffer.free();
-                return;
-            }
-        } while (! channelUpdater.compareAndSet(this, old, new BufferHolder(old, buffer)));
-    }
-
-    public ChannelListener.Setter<? extends PushBackStreamChannel> getReadSetter() {
-        return readSetter;
-    }
-
-    public ChannelListener.Setter<? extends PushBackStreamChannel> getCloseSetter() {
-        return closeSetter;
+        old = channel;
+        if (old == null) {
+            buffer.free();
+            return;
+        }
+        channel = new BufferHolder(old, buffer);
     }
 
     public void suspendReads() {
@@ -160,8 +164,9 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     }
 
     public void shutdownReads() throws IOException {
-        final StreamSourceChannel old = channelUpdater.getAndSet(this, null);
+        final StreamSourceChannel old = channel;
         if (old != null) {
+            channel = null;
             old.shutdownReads();
         }
     }
@@ -193,8 +198,9 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
     }
 
     public void close() throws IOException {
-        final StreamSourceChannel old = channelUpdater.getAndSet(this, null);
+        final StreamSourceChannel old = channel;
         if (old != null) {
+            channel = null;
             old.close();
         }
     }
@@ -226,76 +232,66 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
 
         public long transferTo(long position, long count, FileChannel target) throws IOException {
             long cnt;
-            enter();
+            final ByteBuffer src;
             try {
-                final ByteBuffer src;
-                try {
-                    src = buffer.getResource();
-                    final int pos = src.position();
-                    final int rem = src.remaining();
-                    if (rem > count) try {
-                        // partial empty of our buffer
-                        src.limit(pos + (int) count);
-                        return target.write(src, position);
-                    } finally {
-                        src.limit(pos + rem);
+                src = buffer.getResource();
+                final int pos = src.position();
+                final int rem = src.remaining();
+                if (rem > count) try {
+                    // partial empty of our buffer
+                    src.limit(pos + (int) count);
+                    return target.write(src, position);
+                } finally {
+                    src.limit(pos + rem);
+                } else {
+                    // full empty of our buffer
+                    cnt = target.write(src, position);
+                    if (cnt == rem) {
+                        // we emptied our buffer
+                        channel = next;
+                        buffer.free();
                     } else {
-                        // full empty of our buffer
-                        cnt = target.write(src, position);
-                        if (cnt == rem) {
-                            // we emptied our buffer
-                            channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                            buffer.free();
-                        } else {
-                            return cnt;
-                        }
-                        position += cnt;
-                        count -= cnt;
+                        return cnt;
                     }
-                } catch (IllegalStateException ignored) {
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    cnt = 0L;
+                    position += cnt;
+                    count -= cnt;
                 }
-            } finally {
-                exit();
+            } catch (IllegalStateException ignored) {
+                channel = next;
+                cnt = 0L;
             }
             return cnt + next.transferTo(position, count, target);
         }
 
         public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
             long cnt;
-            enter();
+            throughBuffer.clear();
+            final ByteBuffer src;
             try {
-                throughBuffer.clear();
-                final ByteBuffer src;
-                try {
-                    src = buffer.getResource();
-                    final int pos = src.position();
-                    final int rem = src.remaining();
-                    if (rem > count) try {
-                        // partial empty of our buffer
-                        src.limit(pos + (int) count);
-                        throughBuffer.limit(0);
-                        return target.write(src);
-                    } finally {
-                        src.limit(pos + rem);
+                src = buffer.getResource();
+                final int pos = src.position();
+                final int rem = src.remaining();
+                if (rem > count) try {
+                    // partial empty of our buffer
+                    src.limit(pos + (int) count);
+                    throughBuffer.limit(0);
+                    return target.write(src);
+                } finally {
+                    src.limit(pos + rem);
+                } else {
+                    // full empty of our buffer
+                    cnt = target.write(src);
+                    if (cnt == rem) {
+                        // we emptied our buffer
+                        channel = next;
+                        buffer.free();
                     } else {
-                        // full empty of our buffer
-                        cnt = target.write(src);
-                        if (cnt == rem) {
-                            // we emptied our buffer
-                            channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                            buffer.free();
-                        } else {
-                            return cnt;
-                        }
+                        return cnt;
                     }
-                } catch (IllegalStateException ignored) {
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    cnt = 0L;
                 }
-            } finally {
-                exit();
+            } catch (IllegalStateException ignored) {
+                channel = next;
+                cnt = 0L;
             }
             final long res = next.transferTo(count - cnt, throughBuffer, target);
             return res > 0L ? cnt + res : cnt > 0L ? cnt : res;
@@ -303,26 +299,21 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
 
         public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
             long cnt;
-            if (! Buffers.hasRemaining(dsts, offset, length)) {
-                return 0L;
-            }
-            enter();
             try {
-                final ByteBuffer src;
-                try {
-                    src = buffer.getResource();
-                    cnt = Buffers.copy(dsts, offset, length, src);
-                    if (src.hasRemaining()) {
-                        return cnt;
-                    }
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    buffer.free();
-                } catch (IllegalStateException ignored) {
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    cnt = 0;
+                final ByteBuffer src = buffer.getResource();
+                cnt = Buffers.copy(dsts, offset, length, src);
+                if (src.hasRemaining()) {
+                    return cnt;
                 }
-            } finally {
-                exit();
+                final StreamSourceChannel next = channel = this.next;
+                buffer.free();
+                if (cnt > 0L && next == firstChannel) {
+                    // don't hit the main channel until the user wants to
+                    return cnt;
+                }
+            } catch (IllegalStateException ignored) {
+                channel = next;
+                cnt = 0;
             }
             final long res = next.read(dsts, offset, length);
             return res > 0 ? res + cnt : cnt > 0 ? cnt : res;
@@ -337,35 +328,28 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
             if (! dst.hasRemaining()) {
                 return 0;
             }
-            enter();
             try {
-                final ByteBuffer src;
-                try {
-                    src = buffer.getResource();
-                    cnt = Buffers.copy(dst, src);
-                    if (src.hasRemaining()) {
-                        return cnt;
-                    }
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    buffer.free();
-                } catch (IllegalStateException ignored) {
-                    channelUpdater.compareAndSet(PushBackStreamChannel.this, this, next);
-                    cnt = 0;
+                final ByteBuffer src = buffer.getResource();
+                cnt = Buffers.copy(dst, src);
+                if (src.hasRemaining()) {
+                    return cnt;
                 }
-            } finally {
-                exit();
+                final StreamSourceChannel next = channel = this.next;
+                buffer.free();
+                if (cnt > 0 && next == firstChannel) {
+                    // don't hit the main channel until the user wants to
+                    return cnt;
+                }
+            } catch (IllegalStateException ignored) {
+                channel = next;
+                cnt = 0;
             }
             final int res = next.read(dst);
             return res > 0 ? res + cnt : cnt > 0 ? cnt : res;
         }
 
         public void close() throws IOException {
-            enter();
-            try {
-                buffer.free();
-            } finally {
-                exit();
-            }
+            buffer.free();
             next.close();
         }
 
@@ -375,12 +359,7 @@ public class PushBackStreamChannel implements StreamSourceChannel, WrappedChanne
         }
 
         public void shutdownReads() throws IOException {
-            enter();
-            try {
-                buffer.free();
-            } finally {
-                exit();
-            }
+            buffer.free();
             next.shutdownReads();
         }
 

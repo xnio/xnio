@@ -110,7 +110,9 @@ public class PushBackStreamChannelTestCase {
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("2");
         channel.unget(messageBuffer);
-        assertEquals(3, channel.read(buffer));
+        assertEquals(2, channel.read(buffer));
+        assertEquals(1, channel.read(buffer));
+        assertEquals(0, channel.read(buffer));
         assertReadMessage(buffer, "E=mc2");
     }
 
@@ -128,7 +130,8 @@ public class PushBackStreamChannelTestCase {
         firstChannel.setReadData("2");
         channel.unget(messageBuffer1);
         channel.unget(messageBuffer2);
-        assertEquals(3, channel.read(buffer));
+        assertEquals(2, channel.read(buffer));
+        assertEquals(1, channel.read(buffer));
         assertReadMessage(buffer, "E=mc2");
     }
 
@@ -187,7 +190,8 @@ public class PushBackStreamChannelTestCase {
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("Api");
         channel.unget(messageBuffer);
-        assertEquals(7, channel.read(buffer));
+        assertEquals(4, channel.read(buffer));
+        assertEquals(3, channel.read(buffer));
         assertReadMessage(buffer[0], "JBo");
         assertReadMessage(buffer[1], "ss", "Xnio", "Api");
     }
@@ -206,7 +210,8 @@ public class PushBackStreamChannelTestCase {
         firstChannel.setReadData("Api");
         channel.unget(messageBuffer1);
         channel.unget(messageBuffer2);
-        assertEquals(7, channel.read(buffer));
+        assertEquals(4, channel.read(buffer));
+        assertEquals(3, channel.read(buffer));
         assertReadMessage(buffer[0], "JBo");
         assertReadMessage(buffer[1], "ss", "Xnio", "Api");
     }
@@ -245,7 +250,8 @@ public class PushBackStreamChannelTestCase {
         assertEquals(0, channel.read(buffer, 1, 2));
         firstChannel.setReadData("20212223242526272829");
         channel.unget(messageBuffer);
-        assertEquals(31, channel.read(buffer, 1, 2));
+        assertEquals(20, channel.read(buffer, 1, 2));
+        assertEquals(11, channel.read(buffer, 1, 2));
         assertReadMessage(buffer[0]);
         assertReadMessage(buffer[1], "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "1");
         assertReadMessage(buffer[2], "5", "16", "17", "18", "19", "20", "21", "22", "23", "24", "2");
@@ -267,7 +273,8 @@ public class PushBackStreamChannelTestCase {
         firstChannel.setReadData("20212223242526272829");
         channel.unget(messageBuffer1);
         channel.unget(messageBuffer2);
-        assertEquals(31, channel.read(buffer, 1, 2));
+        assertEquals(20, channel.read(buffer, 1, 2));
+        assertEquals(11, channel.read(buffer, 1, 2));
         assertReadMessage(buffer[0]);
         assertReadMessage(buffer[1], "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "1");
         assertReadMessage(buffer[2], "5", "16", "17", "18", "19", "20", "21", "22", "23", "24", "2");
@@ -499,7 +506,7 @@ public class PushBackStreamChannelTestCase {
         } finally {
             fileChannel.close();
         }
-        assertEquals(0, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
+        assertEquals(-1L, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
     }
 
     @Test
@@ -540,7 +547,7 @@ public class PushBackStreamChannelTestCase {
         } finally {
             fileChannel.close();
         }
-        assertEquals(0, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
+        assertEquals(-1L, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
     }
 
     @Test
@@ -582,7 +589,7 @@ public class PushBackStreamChannelTestCase {
         } finally {
             fileChannel.close();
         }
-        assertEquals(0, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
+        assertEquals(-1L, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
         // await readable does nothing
         channel.awaitReadable();
         channel.awaitReadable(1, TimeUnit.DAYS);
@@ -629,7 +636,7 @@ public class PushBackStreamChannelTestCase {
         } finally {
             fileChannel.close();
         }
-        assertEquals(0, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
+        assertEquals(-1L, channel.transferTo(10, ByteBuffer.allocate(10), new ConnectedStreamChannelMock()));
         // await readable does nothing
         channel.awaitReadable();
         channel.awaitReadable(1, TimeUnit.DAYS);
