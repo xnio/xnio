@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
@@ -41,26 +40,19 @@ import static org.xnio.IoUtils.safeClose;
  */
 public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, ProtectedWrappedChannel<StreamSinkChannel> {
     private final StreamSinkChannel delegate;
-    private final int config;
     private final Object guard;
 
     private final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener;
-    private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> writeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
-    private final ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel> closeSetter = new ChannelListener.SimpleSetter<FixedLengthStreamSinkChannel>();
+    private ChannelListener<? super FixedLengthStreamSinkChannel> writeListener;
+    private ChannelListener<? super FixedLengthStreamSinkChannel> closeListener;
 
-    @SuppressWarnings("unused")
-    private volatile long state;
+    private int state;
+    private long count;
 
-    private static final int CONF_FLAG_CONFIGURABLE = 1 << 0;
-    private static final int CONF_FLAG_PASS_CLOSE = 1 << 1;
-
-    private static final long FLAG_WRITE_ENTERED = 1L << 63L;
-    private static final long FLAG_CLOSE_REQUESTED = 1L << 62L;
-    private static final long FLAG_CLOSE_COMPLETE = 1L << 61L;
-    private static final long FLAG_SUS_RES_SHUT_ENTERED = 1L << 60L;
-    private static final long MASK_COUNT = longBitMask(0, 58);
-
-    private static final AtomicLongFieldUpdater<FixedLengthStreamSinkChannel> stateUpdater = AtomicLongFieldUpdater.newUpdater(FixedLengthStreamSinkChannel.class, "state");
+    private static final int FLAG_CLOSE_REQUESTED = 1 << 0;
+    private static final int FLAG_CLOSE_COMPLETE = 1 << 1;
+    private static final int FLAG_CONFIGURABLE = 1 << 2;
+    private static final int FLAG_PASS_CLOSE = 1 << 3;
 
     /**
      * Construct a new instance.
@@ -75,23 +67,44 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     public FixedLengthStreamSinkChannel(final StreamSinkChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener, final Object guard) {
         if (contentLength < 0L) {
             throw new IllegalArgumentException("Content length must be greater than or equal to zero");
-        } else if (contentLength > MASK_COUNT) {
-            throw new IllegalArgumentException("Content length is too long");
+        }
+        if (delegate == null) {
+            throw new IllegalArgumentException("delegate is null");
         }
         this.guard = guard;
         this.delegate = delegate;
         this.finishListener = finishListener;
-        config = (configurable ? CONF_FLAG_CONFIGURABLE : 0) | (propagateClose ? CONF_FLAG_PASS_CLOSE : 0);
-        this.state = contentLength;
-        delegate.getWriteSetter().set(ChannelListeners.delegatingChannelListener(this, writeSetter));
+        state = (configurable ? FLAG_CONFIGURABLE : 0) | (propagateClose ? FLAG_PASS_CLOSE : 0);
+        count = contentLength;
+        delegate.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
+            public void handleEvent(final StreamSinkChannel channel) {
+                ChannelListeners.invokeChannelListener(FixedLengthStreamSinkChannel.this, writeListener);
+            }
+        });
+    }
+
+    public void setWriteListener(final ChannelListener<? super FixedLengthStreamSinkChannel> listener) {
+        this.writeListener = listener;
+    }
+
+    public void setCloseListener(final ChannelListener<? super FixedLengthStreamSinkChannel> listener) {
+        this.closeListener = listener;
     }
 
     public ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter() {
-        return writeSetter;
+        return new ChannelListener.Setter<StreamSinkChannel>() {
+            public void set(final ChannelListener<? super StreamSinkChannel> listener) {
+                setWriteListener(listener);
+            }
+        };
     }
 
     public ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter() {
-        return closeSetter;
+        return new ChannelListener.Setter<StreamSinkChannel>() {
+            public void set(final ChannelListener<? super StreamSinkChannel> listener) {
+                setCloseListener(listener);
+            }
+        };
     }
 
     public StreamSinkChannel getChannel(final Object guard) {
@@ -112,18 +125,17 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     public int write(final ByteBuffer src) throws IOException {
+        if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
         if (! src.hasRemaining()) {
             return 0;
         }
-        long val = enterWrite();
-        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
-            throw new ClosedChannelException();
-        }
-        if (allAreClear(val, MASK_COUNT)) {
+        int res = 0;
+        final long remaining = count;
+        if (remaining == 0L) {
             throw new FixedLengthOverflowException();
         }
-        int res = 0;
-        final long remaining = val & MASK_COUNT;
         try {
             final int lim = src.limit();
             final int pos = src.position();
@@ -138,7 +150,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 return res = delegate.write(src);
             }
         } finally {
-            exitWrite((long) res);
+            count = remaining - res;
         }
     }
 
@@ -147,23 +159,20 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
+            throw new ClosedChannelException();
+        }
         if (length == 0) {
             return 0L;
         } else if (length == 1) {
             return write(srcs[offset]);
         }
-        long val = enterWrite();
-        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
-            throw new ClosedChannelException();
-        }
-        if (allAreClear(val, MASK_COUNT)) {
+        final long remaining = count;
+        if (remaining == 0L) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
         try {
-            if ((val & MASK_COUNT) == 0L) {
-                return -1L;
-            }
             int lim;
             // The total amount of buffer space discovered so far.
             long t = 0L;
@@ -172,9 +181,9 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 // Grow the discovered buffer space by the remaining size of the current buffer.
                 // We want to capture the limit so we calculate "remaining" ourselves.
                 t += (lim = buffer.limit()) - buffer.position();
-                if (t > (val & MASK_COUNT)) {
+                if (t > remaining) {
                     // only read up to this point, and trim the last buffer by the number of extra bytes
-                    buffer.limit(lim - (int) (t - (val & MASK_COUNT)));
+                    buffer.limit(lim - (int) (t - (remaining)));
                     try {
                         return res = delegate.write(srcs, offset, i + 1);
                     } finally {
@@ -189,115 +198,94 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
             // the total buffer space is less than the remaining count.
             return res = delegate.write(srcs, offset, length);
         } finally {
-            exitWrite(res);
+            count = remaining - res;
         }
     }
 
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        if (count == 0L) return 0L;
-        long val = enterWrite();
-        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+        if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreClear(val, MASK_COUNT)) {
+        if (count == 0L) return 0L;
+        final long remaining = this.count;
+        if (remaining == 0L) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
         try {
-            return res = delegate.transferFrom(src, position, min(count, (val & MASK_COUNT)));
+            return res = delegate.transferFrom(src, position, min(count, remaining));
         } finally {
-            exitWrite(res);
+            this.count = remaining - res;
         }
     }
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        if (count == 0L) return 0L;
-        long val = enterWrite();
-        if (allAreSet(val, FLAG_CLOSE_REQUESTED)) {
+        if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
-        if (allAreClear(val, MASK_COUNT)) {
+        if (count == 0L) return 0L;
+        final long remaining = this.count;
+        if (remaining == 0L) {
             throw new FixedLengthOverflowException();
         }
         long res = 0L;
         try {
-            return res = delegate.transferFrom(source, min(count, (val & MASK_COUNT)), throughBuffer);
+            return res = delegate.transferFrom(source, min(count, remaining), throughBuffer);
         } finally {
-            exitWrite(res);
+            this.count = remaining - res;
         }
     }
 
     public boolean flush() throws IOException {
-        long val = enterFlush();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE)) {
+        int state = this.state;
+        if (anyAreSet(state, FLAG_CLOSE_COMPLETE)) {
             return true;
-        }
-        if (anyAreSet(val, FLAG_WRITE_ENTERED)) {
-            return false;
         }
         boolean flushed = false;
         try {
             return flushed = delegate.flush();
         } finally {
-            exitFlush(val, flushed);
+            if (flushed && allAreSet(state, FLAG_CLOSE_REQUESTED)) {
+                this.state = state | FLAG_CLOSE_COMPLETE;
+                callFinish();
+                callClosed();
+                if (count != 0) {
+                    throw new FixedLengthUnderflowException(count + " bytes remaining");
+                }
+            }
         }
     }
 
     public void suspendWrites() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
-            return;
-        }
-        try {
+        if (allAreClear(state, FLAG_CLOSE_COMPLETE)) {
             delegate.suspendWrites();
-        } finally {
-            exitSuspendResume(val);
         }
     }
 
     public void resumeWrites() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
-            return;
-        }
-        try {
+        if (allAreClear(state, FLAG_CLOSE_COMPLETE)) {
             delegate.resumeWrites();
-        } finally {
-            exitSuspendResume(val);
         }
     }
 
     public boolean isWriteResumed() {
-        // not perfect but not provably wrong either...
         return allAreClear(state, FLAG_CLOSE_COMPLETE) && delegate.isWriteResumed();
     }
 
     public void wakeupWrites() {
-        long val = enterSuspendResume();
-        if (anyAreSet(val, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
-            return;
-        }
-        try {
+        if (allAreClear(state, FLAG_CLOSE_COMPLETE)) {
             delegate.wakeupWrites();
-        } finally {
-            exitSuspendResume(val);
         }
     }
 
     public void shutdownWrites() throws IOException {
-        final long val = enterShutdown();
-        try {
-            if (anyAreSet(val, MASK_COUNT)) try {
-                throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
-            } finally {
-                if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
-                    safeClose(delegate);
-                }
-            } else if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
-                delegate.shutdownWrites();
-            }
-        } finally {
-            exitShutdown(val);
+        final int state = this.state;
+        if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
+            return; // idempotent
+        }
+        this.state = state | FLAG_CLOSE_REQUESTED;
+        if (allAreSet(state, FLAG_PASS_CLOSE)) {
+            delegate.shutdownWrites();
         }
     }
 
@@ -314,32 +302,38 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     public void close() throws IOException {
-        final long val = enterClose();
+        final int state = this.state;
+        if (allAreSet(state, FLAG_CLOSE_COMPLETE)) {
+            return; // idempotent
+        }
+        this.state = state | FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE;
         try {
-            if (anyAreSet(val, MASK_COUNT)) try {
-                throw new FixedLengthUnderflowException((val & MASK_COUNT) + " bytes remaining");
-            } finally {
-                if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
+            final long count = this.count;
+            if (count != 0) {
+                if (allAreSet(state, FLAG_PASS_CLOSE)) {
                     safeClose(delegate);
                 }
-            } else if (allAreSet(config, CONF_FLAG_PASS_CLOSE)) {
+                throw new FixedLengthUnderflowException(count + " bytes remaining");
+            }
+            if (allAreSet(state, FLAG_PASS_CLOSE)) {
                 delegate.close();
             }
         } finally {
-            exitClose(val);
+            callClosed();
+            callFinish();
         }
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return allAreSet(config, CONF_FLAG_CONFIGURABLE) && delegate.supportsOption(option);
+        return allAreSet(state, FLAG_CONFIGURABLE) && delegate.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return allAreSet(config, CONF_FLAG_CONFIGURABLE) ? delegate.getOption(option) : null;
+        return allAreSet(state, FLAG_CONFIGURABLE) ? delegate.getOption(option) : null;
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return allAreSet(config, CONF_FLAG_CONFIGURABLE) ? delegate.setOption(option, value) : null;
+        return allAreSet(state, FLAG_CONFIGURABLE) ? delegate.setOption(option, value) : null;
     }
 
     /**
@@ -348,174 +342,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
      * @return the number of remaining bytes
      */
     public long getRemaining() {
-        return state & MASK_COUNT;
-    }
-
-    private long enterWrite() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (allAreSet(oldVal, FLAG_CLOSE_COMPLETE) || allAreClear(oldVal, MASK_COUNT)) {
-                // do not swap
-                return oldVal;
-            }
-            if (allAreSet(oldVal, FLAG_WRITE_ENTERED)) {
-                throw new ConcurrentStreamChannelAccessException();
-            }
-            newVal = oldVal | FLAG_WRITE_ENTERED;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitWrite(long consumed) {
-        long newVal, oldVal;
-        do {
-            oldVal = state;
-            newVal = (oldVal & ~FLAG_WRITE_ENTERED) - consumed;
-        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
-            // don't call listener while other shit is in flight
-            return;
-        }
-        if (allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
-            // closed while we were in flight.  Call the listener.
-            callClosed();
-            callFinish();
-        }
-    }
-
-    private long enterFlush() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_WRITE_ENTERED)) {
-                // do not swap
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_WRITE_ENTERED;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitFlush(long oldVal, boolean flushed) {
-        long newVal = oldVal;
-        if (anyAreSet(oldVal, FLAG_CLOSE_REQUESTED)) {
-            newVal |= FLAG_CLOSE_COMPLETE;
-        }
-        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-            oldVal = state;
-            newVal = oldVal & ~FLAG_WRITE_ENTERED;
-            if (flushed && anyAreSet(oldVal, FLAG_CLOSE_REQUESTED)) {
-                newVal |= FLAG_CLOSE_COMPLETE;
-            }
-        }
-        if (allAreSet(newVal, FLAG_SUS_RES_SHUT_ENTERED)) {
-            // don't call listener while other shit is in flight
-            return;
-        }
-        if (allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
-            // closed while we were in flight or by us.
-            callClosed();
-        }
-        if (anyAreSet(oldVal, MASK_COUNT) && allAreClear(newVal, MASK_COUNT)) {
-            callFinish();
-        }
-    }
-
-    private long enterSuspendResume() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE | FLAG_SUS_RES_SHUT_ENTERED)) {
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED;
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitSuspendResume(long oldVal) {
-        final boolean wasClosed = allAreClear(oldVal, FLAG_CLOSE_COMPLETE);
-        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
-        long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-        while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-            oldVal = state;
-            newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-        }
-        if (! wasEntered) {
-            if (! wasClosed && allAreSet(newVal, FLAG_CLOSE_COMPLETE)) {
-                callFinish();
-                callClosed();
-            }
-        }
-    }
-
-    private long enterShutdown() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE)) {
-                // no action necessary
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED;
-            if (anyAreSet(oldVal, MASK_COUNT)) {
-                // error: channel not filled.  set both close flags.
-                newVal |= FLAG_CLOSE_COMPLETE;
-            }
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitShutdown(long oldVal) {
-        final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
-        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
-        if (! wasInSusRes) {
-            long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-            while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-                oldVal = state;
-                newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-            }
-            if (! wasEntered) {
-                callFinish();
-                callClosed();
-            }
-        }
-        // else let exitSuspendResume/exitWrite handle this
-    }
-
-    private long enterClose() {
-        long oldVal, newVal;
-        do {
-            oldVal = state;
-            if (anyAreSet(oldVal, FLAG_CLOSE_COMPLETE)) {
-                // no action necessary
-                return oldVal;
-            }
-            newVal = oldVal | FLAG_SUS_RES_SHUT_ENTERED | FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE;
-            if (anyAreSet(oldVal, MASK_COUNT)) {
-                // error: channel not filled.  set both close flags.
-                newVal |= FLAG_CLOSE_REQUESTED | FLAG_CLOSE_COMPLETE;
-            }
-        } while (! stateUpdater.weakCompareAndSet(this, oldVal, newVal));
-        return oldVal;
-    }
-
-    private void exitClose(long oldVal) {
-        final boolean wasInSusRes = allAreSet(oldVal, FLAG_SUS_RES_SHUT_ENTERED);
-        final boolean wasEntered = allAreSet(oldVal, FLAG_WRITE_ENTERED);
-        if (! wasInSusRes) {
-            long newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-            while (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
-                oldVal = state;
-                newVal = oldVal & ~FLAG_SUS_RES_SHUT_ENTERED;
-            }
-            if (! wasEntered) {
-                callFinish();
-                callClosed();
-            }
-        }
-        // else let exitSuspendResume/exitWrite handle this
+        return count;
     }
 
     private void callFinish() {
@@ -523,6 +350,6 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     private void callClosed() {
-        ChannelListeners.invokeChannelListener(this, closeSetter.get());
+        ChannelListeners.invokeChannelListener(this, closeListener);
     }
 }
