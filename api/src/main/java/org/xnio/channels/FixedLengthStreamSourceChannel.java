@@ -283,9 +283,10 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
 
     public void wakeupReads() {
         if (allAreClear(state, FLAG_CLOSED | FLAG_FINISHED)) {
-            delegate.resumeReads();
+            delegate.wakeupReads();
+        } else {
+            delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
         }
-        delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
     }
 
     public void shutdownReads() throws IOException {
