@@ -22,7 +22,6 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -36,22 +35,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.Channels;
 import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.InflateStreamSourceChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
-import org.xnio.streams.ChannelInputStream;
-import org.xnio.streams.ChannelOutputStream;
 
 import static org.xnio.Messages.msg;
 
@@ -581,35 +576,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @throws IOException if the channel could not be constructed
      */
     protected StreamSourceChannel getInflatingChannel(final StreamSourceChannel delegate, final Inflater inflater) throws IOException {
-        final ChannelPipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
-        final StreamSourceChannel source = pipe.getLeftSide();
-        final StreamSinkChannel sink = pipe.getRightSide();
-        execute(new Runnable() {
-            public void run() {
-                final InflaterInputStream inputStream = new InflaterInputStream(new ChannelInputStream(delegate), inflater);
-                final byte[] buf = new byte[16384];
-                final ByteBuffer byteBuffer = ByteBuffer.wrap(buf);
-                int res;
-                try {
-                    for (;;) {
-                        res = inputStream.read(buf);
-                        if (res == -1) {
-                            sink.shutdownWrites();
-                            Channels.flushBlocking(sink);
-                            return;
-                        }
-                        byteBuffer.limit(res);
-                        Channels.writeBlocking(sink, byteBuffer);
-                    }
-                } catch (IOException e) {
-                    // todo: push this to the stream source somehow
-                } finally {
-                    IoUtils.safeClose(inputStream);
-                    IoUtils.safeClose(sink);
-                }
-            }
-        });
-        return source;
+        return new InflateStreamSourceChannel(delegate, inflater);
     }
 
     /**
@@ -640,32 +607,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @throws IOException if the channel could not be constructed
      */
     protected StreamSinkChannel getDeflatingChannel(final StreamSinkChannel delegate, final Deflater deflater) throws IOException {
-        final ChannelPipe<StreamSourceChannel, StreamSinkChannel> pipe = createHalfDuplexPipe();
-        final StreamSourceChannel source = pipe.getLeftSide();
-        final StreamSinkChannel sink = pipe.getRightSide();
-        execute(new Runnable() {
-            public void run() {
-                final DeflaterOutputStream outputStream = new DeflaterOutputStream(new ChannelOutputStream(delegate), deflater);
-                final byte[] buf = new byte[16384];
-                final ByteBuffer byteBuffer = ByteBuffer.wrap(buf);
-                int res;
-                try {
-                    for (;;) {
-                        if (Channels.readBlocking(source, byteBuffer) == -1) {
-                            outputStream.close();
-                            return;
-                        }
-                        outputStream.write(buf, 0, byteBuffer.position());
-                    }
-                } catch (IOException e) {
-                    // todo: push this to the stream source somehow
-                } finally {
-                    IoUtils.safeClose(outputStream);
-                    IoUtils.safeClose(source);
-                }
-            }
-        });
-        return sink;
+        return new DeflateStreamSinkChannel(delegate, deflater);
     }
 
     /**
