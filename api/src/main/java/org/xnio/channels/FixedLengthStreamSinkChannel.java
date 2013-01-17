@@ -38,7 +38,7 @@ import static org.xnio.IoUtils.safeClose;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, ProtectedWrappedChannel<StreamSinkChannel> {
+public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, ProtectedWrappedChannel<StreamSinkChannel>, WriteListenerSettable<FixedLengthStreamSinkChannel>, CloseListenerSettable<FixedLengthStreamSinkChannel> {
     private final StreamSinkChannel delegate;
     private final Object guard;
 
@@ -91,20 +91,12 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         this.closeListener = listener;
     }
 
-    public ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter() {
-        return new ChannelListener.Setter<StreamSinkChannel>() {
-            public void set(final ChannelListener<? super StreamSinkChannel> listener) {
-                setWriteListener(listener);
-            }
-        };
+    public ChannelListener.Setter<FixedLengthStreamSinkChannel> getWriteSetter() {
+        return new WriteListenerSettable.Setter<FixedLengthStreamSinkChannel>(this);
     }
 
-    public ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter() {
-        return new ChannelListener.Setter<StreamSinkChannel>() {
-            public void set(final ChannelListener<? super StreamSinkChannel> listener) {
-                setCloseListener(listener);
-            }
-        };
+    public ChannelListener.Setter<FixedLengthStreamSinkChannel> getCloseSetter() {
+        return new CloseListenerSettable.Setter<FixedLengthStreamSinkChannel>(this);
     }
 
     public StreamSinkChannel getChannel(final Object guard) {

@@ -19,7 +19,6 @@
 
 package org.xnio.channels;
 
-import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.locks.LockSupport.park;
 import static java.util.concurrent.locks.LockSupport.parkNanos;
@@ -51,25 +50,30 @@ import org.xnio.XnioWorker;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-@SuppressWarnings("unused")
-public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel, WrappedChannel<W> {
+public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel, WrappedChannel<W>, ReadListenerSettable<C>, WriteListenerSettable<C>, CloseListenerSettable<C> {
 
     /**
      * The wrapped channel.
      */
     protected final W channel;
 
-    private final ChannelListener.SimpleSetter<C> readSetter = new ChannelListener.SimpleSetter<C>();
-    private final ChannelListener.SimpleSetter<C> writeSetter = new ChannelListener.SimpleSetter<C>();
-    private final ChannelListener.SimpleSetter<C> closeSetter = new ChannelListener.SimpleSetter<C>();
+    private ChannelListener<? super C> readListener;
+    private ChannelListener<? super C> writeListener;
+    private ChannelListener<? super C> closeListener;
 
+    @SuppressWarnings("unused")
     private volatile int state;
+    @SuppressWarnings("unused")
     private volatile Thread readWaiter;
+    @SuppressWarnings("unused")
     private volatile Thread writeWaiter;
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicIntegerFieldUpdater<TranslatingSuspendableChannel> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, "state");
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread> readWaiterUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread.class, "readWaiter");
+    @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<TranslatingSuspendableChannel, Thread> writeWaiterUpdater = AtomicReferenceFieldUpdater.newUpdater(TranslatingSuspendableChannel.class, Thread.class, "writeWaiter");
 
     // read-side
@@ -82,6 +86,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int READ_REQUIRES_EXT      = intBitMask(0x0B, 0x0F); // channel cannot be read until external event completes, up to 31 events
     private static final int READ_SINGLE_EXT        = 1 << 0x0B; // one external event count value
 
+    @SuppressWarnings("unused")
     private static final int READ_FLAGS             = intBitMask(0x00, 0x0F);
 
     // write-side
@@ -95,9 +100,10 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     private static final int WRITE_REQUIRES_EXT     = intBitMask(0x1B, 0x1F); // up to 32 events
     private static final int WRITE_SINGLE_EXT       = 1 << 0x1B;
 
+    @SuppressWarnings("unused")
     private static final int WRITE_FLAGS            = intBitMask(0x10, 0x1F);
 
-    private final ChannelListener<Channel> readListener = new ChannelListener<Channel>() {
+    private final ChannelListener<Channel> delegateReadListener = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             handleReadable();
         }
@@ -107,7 +113,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     };
 
-    private final ChannelListener<Channel> writeListener = new ChannelListener<Channel>() {
+    private final ChannelListener<Channel> delegateWriteListener = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             handleWritable();
         }
@@ -117,7 +123,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     };
 
-    private final ChannelListener<Channel> closeListener = new ChannelListener<Channel>() {
+    private final ChannelListener<Channel> delegateCloseListener = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             IoUtils.safeClose(TranslatingSuspendableChannel.this);
         }
@@ -137,9 +143,9 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             throw new IllegalArgumentException("channel is null");
         }
         this.channel = channel;
-        channel.getReadSetter().set(readListener);
-        channel.getWriteSetter().set(writeListener);
-        channel.getCloseSetter().set(closeListener);
+        channel.getReadSetter().set(delegateReadListener);
+        channel.getWriteSetter().set(delegateWriteListener);
+        channel.getCloseSetter().set(delegateCloseListener);
     }
 
     /**
@@ -180,12 +186,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             }
             unparkReadWaiters();
-            final ChannelListener<? super C> listener = readSetter.get();
+            final ChannelListener<? super C> listener = readListener;
             if (listener == null) {
                 // damage control
                 oldState = clearFlag(READ_REQUESTED | WRITE_REQUIRES_READ) & ~READ_REQUESTED;
             } else {
-                ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+                ChannelListeners.invokeChannelListener(thisTyped(), listener);
                 oldState = clearFlags(WRITE_REQUIRES_READ);
             }
             if (allAreSet(oldState, WRITE_REQUIRES_READ)) {
@@ -234,12 +240,12 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 }
             }
             unparkWriteWaiters();
-            final ChannelListener<? super C> listener = writeSetter.get();
+            final ChannelListener<? super C> listener = writeListener;
             if (listener == null) {
                 // damage control
                 oldState = clearFlags(WRITE_REQUESTED | READ_REQUIRES_WRITE) & ~WRITE_REQUESTED;
             } else {
-                ChannelListeners.<C>invokeChannelListener(thisTyped(), listener);
+                ChannelListeners.invokeChannelListener(thisTyped(), listener);
                 oldState = clearFlags(READ_REQUIRES_WRITE);
             }
             if (allAreSet(oldState, READ_REQUIRES_WRITE)) {
@@ -255,7 +261,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      *
      */
     protected void handleClosed() {
-        ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+        ChannelListeners.invokeChannelListener(thisTyped(), closeListener);
     }
 
     // --- read ---
@@ -479,19 +485,31 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         return (C) this;
     }
 
+    public void setReadListener(final ChannelListener<? super C> readListener) {
+        this.readListener = readListener;
+    }
+
+    public void setWriteListener(final ChannelListener<? super C> writeListener) {
+        this.writeListener = writeListener;
+    }
+
+    public void setCloseListener(final ChannelListener<? super C> closeListener) {
+        this.closeListener = closeListener;
+    }
+
     /** {@inheritDoc} */
     public ChannelListener.Setter<C> getCloseSetter() {
-        return closeSetter;
+        return new CloseListenerSettable.Setter<C>(this);
     }
 
     /** {@inheritDoc} */
     public ChannelListener.Setter<C> getReadSetter() {
-        return readSetter;
+        return new ReadListenerSettable.Setter<C>(this) ;
     }
 
     /** {@inheritDoc} */
     public ChannelListener.Setter<C> getWriteSetter() {
-        return writeSetter;
+        return new WriteListenerSettable.Setter<C>(this);
     }
 
     /** {@inheritDoc} */
@@ -530,7 +548,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(state, READ_SHUT_DOWN)) {
             return;
         }
-        final int oldState = setFlags(READ_REQUESTED);
+        setFlags(READ_REQUESTED);
         channel.wakeupReads();
     }
 
@@ -570,7 +588,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (anyAreSet(state, WRITE_SHUT_DOWN)) {
             return;
         }
-        final int oldState = setFlags(WRITE_REQUESTED);
+        setFlags(WRITE_REQUESTED);
         channel.wakeupWrites();
         unparkWriteWaiters();
     }
@@ -621,7 +639,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         try {
             shutdownWritesComplete(readShutDown);
         } finally {
-            if (readShutDown) ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+            if (readShutDown) ChannelListeners.invokeChannelListener(thisTyped(), closeListener);
         }
         return channel.flush();
     }
@@ -663,7 +681,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
                 shutdownReadsAction(writeComplete);
             } finally {
                 if (writeComplete) {
-                    ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+                    ChannelListeners.invokeChannelListener(thisTyped(), closeListener);
                 }
             }
         }
@@ -758,8 +776,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
         final Thread thread = currentThread();
         final Thread next = readWaiterUpdater.getAndSet(this, thread);
-        long then = nanoTime();
-        long now;
         long duration = timeUnit.toNanos(time);
         try {
             if (anyAreSet(oldState = state, READ_READY | READ_SHUT_DOWN)) {
@@ -819,8 +835,6 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
         final Thread thread = currentThread();
         final Thread next = writeWaiterUpdater.getAndSet(this, thread);
-        long then = nanoTime();
-        long now;
         long duration = timeUnit.toNanos(time);
         try {
             if (anyAreSet(oldState = state, WRITE_READY | WRITE_SHUT_DOWN)) {
@@ -870,7 +884,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         if (! (readShutDown && writeShutDown)) try {
             closeAction(readShutDown, writeShutDown);
         } finally {
-            ChannelListeners.<C>invokeChannelListener(thisTyped(), closeSetter.get());
+            ChannelListeners.invokeChannelListener(thisTyped(), closeListener);
         }
     }
 

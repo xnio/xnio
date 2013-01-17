@@ -36,7 +36,7 @@ import static org.xnio.ChannelListeners.invokeChannelListener;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class SplitStreamSinkChannel implements StreamSinkChannel {
+public final class SplitStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<SplitStreamSinkChannel>, CloseListenerSettable<SplitStreamSinkChannel> {
     private final StreamSinkChannel delegate;
 
     private volatile int state;
@@ -94,19 +94,11 @@ public final class SplitStreamSinkChannel implements StreamSinkChannel {
     }
 
     public ChannelListener.Setter<? extends SplitStreamSinkChannel> getCloseSetter() {
-        return new ChannelListener.Setter<SplitStreamSinkChannel>() {
-            public void set(final ChannelListener<? super SplitStreamSinkChannel> listener) {
-                setCloseListener(listener);
-            }
-        };
+        return new CloseListenerSettable.Setter<SplitStreamSinkChannel>(this);
     }
 
     public ChannelListener.Setter<? extends SplitStreamSinkChannel> getWriteSetter() {
-        return new ChannelListener.Setter<SplitStreamSinkChannel>() {
-            public void set(final ChannelListener<? super SplitStreamSinkChannel> listener) {
-                setWriteListener(listener);
-            }
-        };
+        return new WriteListenerSettable.Setter<SplitStreamSinkChannel>(this);
     }
 
     public void shutdownWrites() throws IOException {

@@ -37,15 +37,15 @@ import static org.xnio.Bits.*;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class NullStreamSinkChannel implements StreamSinkChannel {
+public final class NullStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<NullStreamSinkChannel>, CloseListenerSettable<NullStreamSinkChannel> {
     private final XnioWorker worker;
     private final XnioExecutor executor;
 
     @SuppressWarnings("unused")
     private volatile int state;
 
-    private final ChannelListener.SimpleSetter<NullStreamSinkChannel> writeSetter = new ChannelListener.SimpleSetter<NullStreamSinkChannel>();
-    private final ChannelListener.SimpleSetter<NullStreamSinkChannel> closeSetter = new ChannelListener.SimpleSetter<NullStreamSinkChannel>();
+    private ChannelListener<? super NullStreamSinkChannel> writeListener;
+    private ChannelListener<? super NullStreamSinkChannel> closeListener;
 
     private static final AtomicIntegerFieldUpdater<NullStreamSinkChannel> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NullStreamSinkChannel.class, "state");
 
@@ -92,12 +92,20 @@ public final class NullStreamSinkChannel implements StreamSinkChannel {
         }
     }
 
-    public ChannelListener.Setter<? extends StreamSinkChannel> getWriteSetter() {
-        return writeSetter;
+    public void setWriteListener(final ChannelListener<? super NullStreamSinkChannel> writeListener) {
+        this.writeListener = writeListener;
     }
 
-    public ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter() {
-        return closeSetter;
+    public void setCloseListener(final ChannelListener<? super NullStreamSinkChannel> closeListener) {
+        this.closeListener = closeListener;
+    }
+
+    public ChannelListener.Setter<NullStreamSinkChannel> getWriteSetter() {
+        return new WriteListenerSettable.Setter<NullStreamSinkChannel>(this);
+    }
+
+    public ChannelListener.Setter<NullStreamSinkChannel> getCloseSetter() {
+        return new CloseListenerSettable.Setter<NullStreamSinkChannel>(this) ;
     }
 
     public int write(final ByteBuffer src) throws IOException {
@@ -153,7 +161,7 @@ public final class NullStreamSinkChannel implements StreamSinkChannel {
             }
             newVal = oldVal | FLAG_RESUMED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        executor.execute(ChannelListeners.getChannelListenerTask(this, writeSetter));
+        executor.execute(ChannelListeners.getChannelListenerTask(this, writeListener));
     }
 
     public void wakeupWrites() {
@@ -174,8 +182,8 @@ public final class NullStreamSinkChannel implements StreamSinkChannel {
             }
             newVal = oldVal | FLAG_CLOSED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        writeSetter.set(null);
-        ChannelListeners.invokeChannelListener(this, closeSetter.get());
+        writeListener = null;
+        ChannelListeners.invokeChannelListener(this, closeListener);
     }
 
     public void awaitWritable() throws IOException {

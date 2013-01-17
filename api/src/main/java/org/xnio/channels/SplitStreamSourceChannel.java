@@ -36,7 +36,7 @@ import static org.xnio.ChannelListeners.invokeChannelListener;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class SplitStreamSourceChannel implements StreamSourceChannel {
+public final class SplitStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<SplitStreamSourceChannel>, CloseListenerSettable<SplitStreamSourceChannel> {
     private final StreamSourceChannel delegate;
 
     private volatile int state;
@@ -93,19 +93,11 @@ public final class SplitStreamSourceChannel implements StreamSourceChannel {
     }
 
     public ChannelListener.Setter<? extends SplitStreamSourceChannel> getReadSetter() {
-        return new ChannelListener.Setter<SplitStreamSourceChannel>() {
-            public void set(final ChannelListener<? super SplitStreamSourceChannel> listener) {
-                setReadListener(listener);
-            }
-        };
+        return new ReadListenerSettable.Setter<SplitStreamSourceChannel>(this);
     }
 
     public ChannelListener.Setter<? extends SplitStreamSourceChannel> getCloseSetter() {
-        return new ChannelListener.Setter<SplitStreamSourceChannel>() {
-            public void set(final ChannelListener<? super SplitStreamSourceChannel> listener) {
-                setCloseListener(listener);
-            }
-        };
+        return new CloseListenerSettable.Setter<SplitStreamSourceChannel>(this);
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {

@@ -39,7 +39,7 @@ import static org.xnio.Bits.*;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class FixedLengthStreamSourceChannel implements StreamSourceChannel, ProtectedWrappedChannel<StreamSourceChannel> {
+public final class FixedLengthStreamSourceChannel implements StreamSourceChannel, ProtectedWrappedChannel<StreamSourceChannel>, ReadListenerSettable<FixedLengthStreamSourceChannel>, CloseListenerSettable<FixedLengthStreamSourceChannel> {
     private final StreamSourceChannel delegate;
     private final Object guard;
 
@@ -132,20 +132,12 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         this.closeListener = closeListener;
     }
 
-    public ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter() {
-        return new ChannelListener.Setter<StreamSourceChannel>() {
-            public void set(final ChannelListener<? super StreamSourceChannel> listener) {
-                setReadListener(listener);
-            }
-        };
+    public ChannelListener.Setter<FixedLengthStreamSourceChannel> getReadSetter() {
+        return new ReadListenerSettable.Setter<FixedLengthStreamSourceChannel>(this);
     }
 
-    public ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter() {
-        return new ChannelListener.Setter<StreamSourceChannel>() {
-            public void set(final ChannelListener<? super StreamSourceChannel> listener) {
-                setCloseListener(listener);
-            }
-        };
+    public ChannelListener.Setter<FixedLengthStreamSourceChannel> getCloseSetter() {
+        return new CloseListenerSettable.Setter<FixedLengthStreamSourceChannel>(this);
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {

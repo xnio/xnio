@@ -39,14 +39,12 @@ import static org.xnio.Bits.anyAreSet;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public class EmptyStreamSourceChannel implements StreamSourceChannel {
+public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<EmptyStreamSourceChannel>, CloseListenerSettable<EmptyStreamSourceChannel> {
     private final XnioWorker worker;
     private final XnioExecutor executor;
-    private final ChannelListener.SimpleSetter<EmptyStreamSourceChannel> readSetter = new ChannelListener.SimpleSetter<EmptyStreamSourceChannel>();
-    private final ChannelListener.SimpleSetter<EmptyStreamSourceChannel> closeSetter = new ChannelListener.SimpleSetter<EmptyStreamSourceChannel>();
     private final Runnable readRunnable = new Runnable() {
         public void run() {
-            ChannelListener<? super EmptyStreamSourceChannel> listener = readSetter.get();
+            ChannelListener<? super EmptyStreamSourceChannel> listener = readListener;
             if (listener == null) {
                 suspendReads();
                 return;
@@ -61,6 +59,9 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel {
 
     @SuppressWarnings("unused")
     private volatile int state;
+
+    private ChannelListener<? super EmptyStreamSourceChannel> readListener;
+    private ChannelListener<? super EmptyStreamSourceChannel> closeListener;
 
     private static final int CLOSED = 1 << 0;
     private static final int EMPTIED = 1 << 1;
@@ -87,12 +88,20 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel {
         return -1;
     }
 
-    public ChannelListener.Setter<? extends StreamSourceChannel> getReadSetter() {
-        return readSetter;
+    public void setReadListener(final ChannelListener<? super EmptyStreamSourceChannel> readListener) {
+        this.readListener = readListener;
     }
 
-    public ChannelListener.Setter<? extends StreamSourceChannel> getCloseSetter() {
-        return closeSetter;
+    public void setCloseListener(final ChannelListener<? super EmptyStreamSourceChannel> closeListener) {
+        this.closeListener = closeListener;
+    }
+
+    public ChannelListener.Setter<? extends EmptyStreamSourceChannel> getReadSetter() {
+        return new ReadListenerSettable.Setter<EmptyStreamSourceChannel>(this);
+    }
+
+    public ChannelListener.Setter<? extends EmptyStreamSourceChannel> getCloseSetter() {
+        return new CloseListenerSettable.Setter<EmptyStreamSourceChannel>(this);
     }
 
     private void emptied() {
@@ -165,7 +174,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel {
     public void shutdownReads() throws IOException {
         final int oldVal = stateUpdater.getAndSet(this, EMPTIED | CLOSED);
         if (allAreClear(oldVal, CLOSED)) {
-            executor.execute(ChannelListeners.getChannelListenerTask(this, closeSetter.get()));
+            executor.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
         }
     }
 
@@ -192,7 +201,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel {
     public void close() throws IOException {
         final int oldVal = stateUpdater.getAndSet(this, EMPTIED | CLOSED);
         if (allAreClear(oldVal, CLOSED)) {
-            executor.execute(ChannelListeners.getChannelListenerTask(this, closeSetter.get()));
+            executor.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
         }
     }
 
