@@ -35,6 +35,13 @@ public interface WriteListenerSettable<C extends Channel> {
     void setWriteListener(ChannelListener<? super C> listener);
 
     /**
+     * Get the write listener.
+     *
+     * @return the write listener
+     */
+    ChannelListener<? super C> getWriteListener();
+
+    /**
      * A channel listener setter implementation which delegates to the appropriate setter method.
      *
      * @param <C> the channel type

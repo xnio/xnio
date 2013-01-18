@@ -52,8 +52,17 @@ public abstract class SaslWrapper {
      * @throws SaslException if a problem occurs
      */
     public final byte[] wrap(byte[] bytes) throws SaslException {
-        return wrap(bytes, 0, bytes.length);
+        return unwrap(bytes, 0, bytes.length);
     }
+
+    /**
+     * Wrap a message.
+     *
+     * @param source the buffer from which bytes should be read
+     * @return the wrap result
+     * @throws SaslException if a problem occurs
+     */
+    public abstract byte[] wrap(ByteBuffer source) throws SaslException;
 
     /**
      * Unwrap a message.
@@ -78,19 +87,31 @@ public abstract class SaslWrapper {
     }
 
     /**
+     * Unwrap a message.
+     *
+     * @param source the buffer from which bytes should be read
+     * @return the unwrap result
+     * @throws SaslException if a problem occurs
+     */
+    public abstract byte[] unwrap(ByteBuffer source) throws SaslException;
+
+    /**
      * Wrap a message.  Wrapping occurs from the source buffer to the destination idea.
-     * <p>
-     * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL
-     * message (without the length field).  The SASL message itself does not encode any length information so it is up
-     * to the protocol implementer to ensure that the message is properly framed.
+     * <p/>
+     * The {@code source} buffer should have its position and remaining length set to encompass exactly one SASL message
+     * (without the length field).  The SASL message itself does not encode any length information so it is up to the
+     * protocol implementer to ensure that the message is properly framed.
      *
      * @param destination the buffer into which bytes should be written
      * @param source the buffers from which bytes should be read
+     *
      * @throws SaslException if a SASL error occurs
      * @see SaslClient#wrap(byte[], int, int)
      * @see SaslServer#wrap(byte[], int, int)
      */
-    public abstract void wrap(ByteBuffer destination, ByteBuffer source) throws SaslException;
+    public final void wrap(ByteBuffer destination, ByteBuffer source) throws SaslException {
+        destination.put(wrap(source));
+    }
 
     /**
      * Unwrap a message.  Unwrapping occurs from the source buffer to the destination idea.
@@ -104,7 +125,9 @@ public abstract class SaslWrapper {
      * @throws SaslException if a SASL error occurs
      * @see SaslClient#unwrap(byte[], int, int)
      */
-    public abstract void unwrap(ByteBuffer destination, ByteBuffer source) throws SaslException;
+    public final void unwrap(ByteBuffer destination, ByteBuffer source) throws SaslException {
+        destination.put(wrap(source));
+    }
 
     /**
      * Create a SASL wrapper for a SASL client.
@@ -142,12 +165,12 @@ final class SaslClientWrapper extends SaslWrapper {
         return saslClient.unwrap(bytes, off, len);
     }
 
-    public void wrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
-        SaslUtils.wrap(saslClient, destination, source);
+    public byte[] wrap(final ByteBuffer source) throws SaslException {
+        return SaslUtils.wrap(saslClient, source);
     }
 
-    public void unwrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
-        SaslUtils.unwrap(saslClient, destination, source);
+    public byte[] unwrap(final ByteBuffer source) throws SaslException {
+        return SaslUtils.unwrap(saslClient, source);
     }
 }
 
@@ -166,11 +189,11 @@ final class SaslServerWrapper extends SaslWrapper {
         return saslServer.unwrap(bytes, off, len);
     }
 
-    public void wrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
-        SaslUtils.wrap(saslServer, destination, source);
+    public byte[] wrap(final ByteBuffer source) throws SaslException {
+        return SaslUtils.wrap(saslServer, source);
     }
 
-    public void unwrap(final ByteBuffer destination, final ByteBuffer source) throws SaslException {
-        SaslUtils.unwrap(saslServer, destination, source);
+    public byte[] unwrap(final ByteBuffer source) throws SaslException {
+        return SaslUtils.unwrap(saslServer, source);
     }
 }

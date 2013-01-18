@@ -87,8 +87,16 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         this.writeListener = listener;
     }
 
+    public ChannelListener<? super FixedLengthStreamSinkChannel> getWriteListener() {
+        return writeListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super FixedLengthStreamSinkChannel> listener) {
         this.closeListener = listener;
+    }
+
+    public ChannelListener<? super FixedLengthStreamSinkChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<FixedLengthStreamSinkChannel> getWriteSetter() {

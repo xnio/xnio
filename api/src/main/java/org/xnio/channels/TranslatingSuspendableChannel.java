@@ -489,12 +489,24 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         this.readListener = readListener;
     }
 
+    public ChannelListener<? super C> getReadListener() {
+        return readListener;
+    }
+
     public void setWriteListener(final ChannelListener<? super C> writeListener) {
         this.writeListener = writeListener;
     }
 
+    public ChannelListener<? super C> getWriteListener() {
+        return writeListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super C> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super C> getCloseListener() {
+        return closeListener;
     }
 
     /** {@inheritDoc} */

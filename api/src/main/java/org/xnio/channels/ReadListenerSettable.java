@@ -35,6 +35,13 @@ public interface ReadListenerSettable<C extends Channel> {
     void setReadListener(ChannelListener<? super C> listener);
 
     /**
+     * Get the read listener.
+     *
+     * @return the read listener
+     */
+    ChannelListener<? super C> getReadListener();
+
+    /**
      * A channel listener setter implementation which delegates to the appropriate setter method.
      *
      * @param <C> the channel type

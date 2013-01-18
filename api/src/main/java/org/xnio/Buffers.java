@@ -894,6 +894,8 @@ public final class Buffers {
         return longs;
     }
 
+    private static final byte[] NO_BYTES = new byte[0];
+
     /**
      * Take all of the remaining bytes from the buffer and return them in an array.
      *
@@ -901,8 +903,36 @@ public final class Buffers {
      * @return the bytes
      */
     public static byte[] take(ByteBuffer buffer) {
-        final byte[] bytes = new byte[buffer.remaining()];
+        final int remaining = buffer.remaining();
+        if (remaining == 0) return NO_BYTES;
+        final byte[] bytes = new byte[remaining];
         buffer.get(bytes);
+        return bytes;
+    }
+
+    /**
+     * Take all of the remaining bytes from the buffers and return them in an array.
+     *
+     * @param buffers the buffer to read
+     * @param offs the offset into the array
+     * @param len the number of buffers
+     * @return the bytes
+     */
+    public static byte[] take(final ByteBuffer[] buffers, final int offs, final int len) {
+        if (len == 1) return take(buffers[offs]);
+        final long remaining = Buffers.remaining(buffers, offs, len);
+        if (remaining == 0L) return NO_BYTES;
+        if (remaining > Integer.MAX_VALUE) throw new OutOfMemoryError("Array too large");
+        final byte[] bytes = new byte[(int) remaining];
+        int o = 0;
+        int rem;
+        ByteBuffer buffer;
+        for (int i = 0; i < len; i ++) {
+            buffer = buffers[i + offs];
+            rem = buffer.remaining();
+            buffer.get(bytes, o, rem);
+            o += rem;
+        }
         return bytes;
     }
 

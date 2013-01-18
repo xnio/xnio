@@ -96,8 +96,16 @@ public final class NullStreamSinkChannel implements StreamSinkChannel, WriteList
         this.writeListener = writeListener;
     }
 
+    public ChannelListener<? super NullStreamSinkChannel> getWriteListener() {
+        return writeListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super NullStreamSinkChannel> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super NullStreamSinkChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<NullStreamSinkChannel> getWriteSetter() {

@@ -74,22 +74,20 @@ public final class SplitStreamSourceChannel implements StreamSourceChannel, Read
         this(delegate, false);
     }
 
-    /**
-     * Set the read listener.
-     *
-     * @param readListener the read listener
-     */
     public void setReadListener(final ChannelListener<? super SplitStreamSourceChannel> readListener) {
         this.readListener = readListener;
     }
 
-    /**
-     * Set the close listener.
-     *
-     * @param closeListener the close listener
-     */
+    public ChannelListener<? super SplitStreamSourceChannel> getReadListener() {
+        return readListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super SplitStreamSourceChannel> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super SplitStreamSourceChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<? extends SplitStreamSourceChannel> getReadSetter() {

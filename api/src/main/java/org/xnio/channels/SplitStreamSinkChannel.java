@@ -75,22 +75,20 @@ public final class SplitStreamSinkChannel implements StreamSinkChannel, WriteLis
         this(delegate, false);
     }
 
-    /**
-     * Set the write listener.
-     *
-     * @param writeListener the write listener
-     */
     public void setWriteListener(final ChannelListener<? super SplitStreamSinkChannel> writeListener) {
         this.writeListener = writeListener;
     }
 
-    /**
-     * Set the close listener.
-     *
-     * @param closeListener the close listener
-     */
+    public ChannelListener<? super SplitStreamSinkChannel> getWriteListener() {
+        return writeListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super SplitStreamSinkChannel> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super SplitStreamSinkChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<? extends SplitStreamSinkChannel> getCloseSetter() {

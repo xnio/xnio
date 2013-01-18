@@ -30,7 +30,6 @@ import org.jmock.integration.junit4.JUnit4Mockery;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.ChannelListener;
-import org.xnio.ChannelListener.Setter;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
@@ -148,9 +147,9 @@ public class SetWriteListenerOnHandlingWritableChannelTestCase {
                 public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {}
                 public XnioExecutor getWriteThread() { return null; }
                 public boolean flush() throws IOException { return true; }
-                public Setter<? extends SuspendableChannel> getCloseSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
-                public Setter<? extends SuspendableChannel> getReadSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
-                public Setter<? extends SuspendableChannel> getWriteSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
+                public ChannelListener.Setter<? extends SuspendableChannel> getCloseSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
+                public ChannelListener.Setter<? extends SuspendableChannel> getReadSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
+                public ChannelListener.Setter<? extends SuspendableChannel> getWriteSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
             });
         }
         

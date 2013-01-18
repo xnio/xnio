@@ -128,8 +128,16 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         this.readListener = readListener;
     }
 
+    public ChannelListener<? super FixedLengthStreamSourceChannel> getReadListener() {
+        return readListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super FixedLengthStreamSourceChannel> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super FixedLengthStreamSourceChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<FixedLengthStreamSourceChannel> getReadSetter() {

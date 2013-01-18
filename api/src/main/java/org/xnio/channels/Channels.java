@@ -865,6 +865,49 @@ public final class Channels {
         }
     }
 
+    /**
+     * Attempt to drain the given number of bytes from the file channel.  This does nothing more than force a
+     * read of bytes in the file.
+     *
+     * @param channel the channel to drain
+     * @param position the position to drain from
+     * @param count the number of bytes
+     * @return the number of bytes drained, 0 if reading the channel would block, or -1 if the EOF was reached
+     * @throws IOException if an error occurs
+     */
+    public static long drain(FileChannel channel, long position, long count) throws IOException {
+        if (channel instanceof StreamSourceChannel) {
+            return drain((StreamSourceChannel) channel, count);
+        } else {
+            long total = 0L, lres;
+            int ires;
+            ByteBuffer buffer = null;
+            for (;;) {
+                if (count == 0L) return total;
+                if (NULL_FILE_CHANNEL != null) {
+                    while (count > 0) {
+                        if ((lres = channel.transferTo(position, count, NULL_FILE_CHANNEL)) == 0L) {
+                            break;
+                        }
+                        total += lres;
+                        count -= lres;
+                    }
+                    // jump out quick if we drained the fast way
+                    if (total > 0L) return total;
+                }
+                if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+                if ((long) buffer.limit() > count) buffer.limit((int) count);
+                ires = channel.read(buffer);
+                buffer.clear();
+                switch (ires) {
+                    case -1: return total == 0L ? -1L : total;
+                    case 0: return total;
+                    default: total += (long) ires;
+                }
+            }
+        }
+    }
+
     static {
         NULL_FILE_CHANNEL = AccessController.doPrivileged(new PrivilegedAction<FileChannel>() {
             public FileChannel run() {

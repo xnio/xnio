@@ -35,6 +35,13 @@ public interface CloseListenerSettable<C extends Channel> {
     void setCloseListener(ChannelListener<? super C> listener);
 
     /**
+     * Get the close listener.
+     *
+     * @return the close listener
+     */
+    ChannelListener<? super C> getCloseListener();
+
+    /**
      * A channel listener setter implementation which delegates to the appropriate setter method.
      *
      * @param <C> the channel type

@@ -92,8 +92,16 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
         this.readListener = readListener;
     }
 
+    public ChannelListener<? super EmptyStreamSourceChannel> getReadListener() {
+        return readListener;
+    }
+
     public void setCloseListener(final ChannelListener<? super EmptyStreamSourceChannel> closeListener) {
         this.closeListener = closeListener;
+    }
+
+    public ChannelListener<? super EmptyStreamSourceChannel> getCloseListener() {
+        return closeListener;
     }
 
     public ChannelListener.Setter<? extends EmptyStreamSourceChannel> getReadSetter() {
