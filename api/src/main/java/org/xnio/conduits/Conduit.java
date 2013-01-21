@@ -19,14 +19,13 @@
 package org.xnio.conduits;
 
 import org.xnio.XnioWorker;
-import org.xnio.channels.Configurable;
 
 /**
  * A conduit, or stage which data transfer is processed by or provided by.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface Conduit extends Configurable {
+public interface Conduit {
 
     /**
      * Get the XNIO worker associated with this conduit.

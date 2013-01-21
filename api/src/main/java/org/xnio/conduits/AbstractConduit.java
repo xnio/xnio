@@ -18,8 +18,6 @@
 
 package org.xnio.conduits;
 
-import java.io.IOException;
-import org.xnio.Option;
 import org.xnio.XnioWorker;
 
 /**
@@ -45,17 +43,5 @@ public abstract class AbstractConduit<D extends Conduit> implements Conduit {
 
     public XnioWorker getWorker() {
         return next.getWorker();
-    }
-
-    public boolean supportsOption(final Option<?> option) {
-        return next.supportsOption(option);
-    }
-
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return next.getOption(option);
-    }
-
-    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return next.setOption(option, value);
     }
 }
