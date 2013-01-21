@@ -127,8 +127,8 @@ public final class JsseXnioSsl extends XnioSsl {
         return futureResult.getIoFuture();
     }
 
-    private StreamConnection createWrappedConnection(final StreamConnection original) {
-        throw new UnsupportedOperationException();
+    private StreamConnection createWrappedConnection(final StreamConnection original, final InetSocketAddress destination, final OptionMap optionMap) {
+        return SslConnectionWrapper.wrap(original, JsseSslUtils.createSSLEngine(sslContext, optionMap, destination), socketBufferPool, applicationBufferPool);
     }
 
     public IoFuture<StreamConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
@@ -146,7 +146,7 @@ public final class JsseXnioSsl extends XnioSsl {
         futureResult.addCancelHandler(connection);
         worker.openStreamConnection(bindAddress, destination, new ChannelListener<StreamConnection>() {
             public void handleEvent(final StreamConnection channel) {
-                final StreamConnection wrappedConnection = createWrappedConnection(channel);
+                final StreamConnection wrappedConnection = createWrappedConnection(channel, destination, optionMap);
                 if (! futureResult.setResult(wrappedConnection)) {
                     IoUtils.safeClose(channel);
                 } else {
@@ -164,7 +164,9 @@ public final class JsseXnioSsl extends XnioSsl {
     }
 
     public AcceptingChannel<StreamConnection> createSslConnectionServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, final OptionMap optionMap) throws IOException {
-        return null;
+       final JsseAcceptingSslStreamConnection server = new JsseAcceptingSslStreamConnection(sslContext, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, socketBufferPool, applicationBufferPool);
+        if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
+        return server;
     }
 
     ConnectedSslStreamChannel createSslConnectedStreamChannel(final SSLContext sslContext, final ConnectedStreamChannel tcpChannel, final OptionMap optionMap) {

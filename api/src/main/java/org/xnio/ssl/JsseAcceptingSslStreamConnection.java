@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source
  *
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,24 +25,23 @@ import javax.net.ssl.SSLEngine;
 
 import org.xnio.OptionMap;
 import org.xnio.Pool;
+import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.channels.ConnectedSslStreamChannel;
-import org.xnio.channels.ConnectedStreamChannel;
 
 /**
- * Accepting channel for ConnectedSslStreamChannels
+ * Accepting channel for StreamConnections with SSL.
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  *
  */
-final class JsseAcceptingSslStreamChannel extends AbstractAcceptingSslChannel<ConnectedSslStreamChannel, ConnectedStreamChannel> {
+final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel<StreamConnection, StreamConnection> {
 
-    JsseAcceptingSslStreamChannel(final SSLContext sslContext, final AcceptingChannel<? extends ConnectedStreamChannel> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
-        super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, startTls);
+    JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+        super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, false);
     }
 
     @Override
-    public ConnectedSslStreamChannel accept(ConnectedStreamChannel tcpChannel, SSLEngine engine) {
-            return new JsseConnectedSslStreamChannel(tcpChannel, engine, socketBufferPool, applicationBufferPool, startTls);
+    public StreamConnection accept(StreamConnection tcpConnection, SSLEngine engine) {
+        return SslConnectionWrapper.wrap(tcpConnection, engine, socketBufferPool, applicationBufferPool);
     }
 }
