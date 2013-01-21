@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
  */
 public interface MessageSinkConduit extends SinkConduit {
 
-    int send(ByteBuffer src) throws IOException;
+    boolean send(ByteBuffer src) throws IOException;
 
-    long send(ByteBuffer[] srcs, int offs, int len) throws IOException;
+    boolean send(ByteBuffer[] srcs, int offs, int len) throws IOException;
 }

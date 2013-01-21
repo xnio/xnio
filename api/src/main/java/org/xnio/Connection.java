@@ -20,48 +20,29 @@ package org.xnio;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedChannel;
-import org.xnio.conduits.StreamSinkConduit;
-import org.xnio.conduits.StreamSourceConduit;
 
 /**
- * A connection between peers.
+ * The base for all connections.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public abstract class Connection implements CloseableChannel, ConnectedChannel, CloseListenerSettable<Connection> {
+public abstract class Connection implements CloseableChannel, ConnectedChannel {
 
-    private final XnioWorker worker;
-    private final StreamSourceConduit sourceConduit;
-    private final StreamSinkConduit sinkConduit;
-    private ChannelListener<? super Connection> closeListener;
+    protected final XnioWorker worker;
 
-    protected Connection(final XnioWorker worker, final StreamSourceConduit sourceConduit, final StreamSinkConduit sinkConduit) {
+    /**
+     * Construct a new instance.
+     *
+     * @param worker the connection's worker
+     */
+    protected Connection(final XnioWorker worker) {
         this.worker = worker;
-        this.sourceConduit = sourceConduit;
-        this.sinkConduit = sinkConduit;
     }
 
-    public void setCloseListener(final ChannelListener<? super Connection> listener) {
-        this.closeListener = listener;
-    }
-
-    public ChannelListener<? super Connection> getCloseListener() {
-        return closeListener;
-    }
-
-    public ChannelListener.Setter<Connection> getCloseSetter() {
-        return new Setter<Connection>(this);
-    }
-
-    public StreamSourceConduit getSourceConduit() {
-        return sourceConduit;
-    }
-
-    public StreamSinkConduit getSinkConduit() {
-        return sinkConduit;
+    private static <A extends SocketAddress> A castAddress(final Class<A> type, SocketAddress address) {
+        return type.isInstance(address) ? type.cast(address) : null;
     }
 
     public final <A extends SocketAddress> A getPeerAddress(final Class<A> type) {
@@ -70,10 +51,6 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel, 
 
     public final <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
         return castAddress(type, getLocalAddress());
-    }
-
-    private static <A extends SocketAddress> A castAddress(final Class<A> type, SocketAddress address) {
-        return type.isInstance(address) ? type.cast(address) : null;
     }
 
     public final XnioWorker getWorker() {
@@ -89,6 +66,19 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel, 
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        return null;
+    }
+
+    /**
+     * Get a strongly-typed attachment of the given type.  If more than one attachment
+     * matches the type, only the first is returned.  If no attachment matches, {@code null} is
+     * returned.
+     *
+     * @param type the attachment case class instance
+     * @param <T> the attachment type
+     * @return the attachment, or {@code null} if none matches
+     */
+    public <T> T getAttachment(final Class<T> type) {
         return null;
     }
 }

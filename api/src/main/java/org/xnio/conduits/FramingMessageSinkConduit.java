@@ -37,11 +37,11 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         this.transmitBuffer = transmitBuffer;
     }
 
-    public int send(final ByteBuffer src) throws IOException {
+    public boolean send(final ByteBuffer src) throws IOException {
         final ByteBuffer buffer = transmitBuffer.getResource();
         if (!buffer.hasRemaining()) {
             // no zero messages
-            return 0;
+            return false;
         }
         final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         final int remaining = buffer.remaining();
@@ -51,7 +51,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
             throw new IOException("Transmitted message is too large");
         }
         if (transmitBuffer.remaining() < lengthFieldSize + remaining && ! writeBuffer()) {
-            return 0;
+            return false;
         }
         if (longLengths) {
             transmitBuffer.putInt(remaining);
@@ -60,14 +60,14 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         }
         transmitBuffer.put(buffer);
         writeBuffer();
-        return remaining;
+        return true;
     }
 
-    public long send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+    public boolean send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
         if (len == 1) {
             return send(srcs[offs]);
         } else if (! Buffers.hasRemaining(srcs, offs, len)) {
-            return 0;
+            return false;
         }
         final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
         final long remaining = Buffers.remaining(srcs, offs, len);
@@ -77,7 +77,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
             throw new IOException("Transmitted message is too large");
         }
         if (transmitBuffer.remaining() < lengthFieldSize + remaining && ! writeBuffer()) {
-            return 0;
+            return false;
         }
         if (longLengths) {
             transmitBuffer.putInt((int) remaining);
@@ -86,7 +86,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         }
         Buffers.copy(transmitBuffer, srcs, offs, len);
         writeBuffer();
-        return remaining;
+        return true;
     }
 
     private boolean writeBuffer() throws IOException {

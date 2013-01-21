@@ -30,11 +30,11 @@ public abstract class AbstractMessageSinkConduit<D extends MessageSinkConduit> e
         super(next);
     }
 
-    public int send(final ByteBuffer src) throws IOException {
+    public boolean send(final ByteBuffer src) throws IOException {
         return next.send(src);
     }
 
-    public long send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+    public boolean send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
         return next.send(srcs, offs, len);
     }
 }

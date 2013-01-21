@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import org.xnio.Buffers;
 import org.xnio.conduits.AbstractMessageSinkConduit;
 import org.xnio.conduits.MessageSinkConduit;
-import org.xnio.sasl.SaslWrapper;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -37,33 +36,32 @@ public final class SaslUnwrappingConduit extends AbstractMessageSinkConduit<Mess
         this.wrapper = wrapper;
     }
 
-    public int send(final ByteBuffer src) throws IOException {
+    public boolean send(final ByteBuffer src) throws IOException {
         if (! doSend()) {
-            return 0;
+            return false;
         }
-        final int remaining = src.remaining();
         ByteBuffer wrapped = ByteBuffer.wrap(wrapper.unwrap(src));
-        if (next.send(wrapped) == 0) {
+        if (! next.send(wrapped)) {
             buffer = wrapped;
         }
-        return remaining;
+        return true;
     }
 
-    public long send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+    public boolean send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
         if (! doSend()) {
-            return 0;
+            return false;
         }
         final byte[] bytes = Buffers.take(srcs, offs, len);
         final ByteBuffer wrapped = ByteBuffer.wrap(wrapper.unwrap(bytes));
-        if (next.send(wrapped) == 0) {
+        if (! next.send(wrapped)) {
             this.buffer = wrapped;
         }
-        return bytes.length;
+        return true;
     }
 
     private boolean doSend() throws IOException {
         final ByteBuffer buffer = this.buffer;
-        if (buffer != null && next.send(buffer) != 0) {
+        if (buffer != null && next.send(buffer)) {
             this.buffer = null;
             return true;
         }

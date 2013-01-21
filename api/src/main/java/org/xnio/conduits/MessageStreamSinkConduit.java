@@ -21,6 +21,7 @@ package org.xnio.conduits;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import org.xnio.Buffers;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
@@ -41,10 +42,12 @@ public final class MessageStreamSinkConduit extends AbstractSinkConduit<MessageS
     }
 
     public int write(final ByteBuffer src) throws IOException {
-        return next.send(src);
+        final int remaining = src.remaining();
+        return next.send(src) ? remaining : 0;
     }
 
     public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
-        return next.send(srcs, offs, len);
+        final long remaining = Buffers.remaining(srcs, offs, len);
+        return next.send(srcs, offs, len) ? remaining : 0L;
     }
 }
