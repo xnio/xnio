@@ -21,7 +21,6 @@ package org.xnio.conduits;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.WritableByteChannel;
 import java.util.zip.Deflater;
 import org.xnio.Buffers;
 import org.xnio.channels.StreamSourceChannel;
@@ -40,20 +39,9 @@ public final class DeflatingStreamSinkConduit extends AbstractStreamSinkConduit<
         this.deflater = deflater;
         outBuffer = ByteBuffer.allocate(16384);
     }
+
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        return src.transferTo(position, count, new WritableByteChannel() {
-            public int write(final ByteBuffer src) throws IOException {
-                return DeflatingStreamSinkConduit.this.write(src);
-            }
-
-            public boolean isOpen() {
-                return ! isWriteShutdown();
-            }
-
-            public void close() throws IOException {
-                terminateWrites();
-            }
-        });
+        return src.transferTo(position, count, new ConduitWritableByteChannel(this));
     }
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {

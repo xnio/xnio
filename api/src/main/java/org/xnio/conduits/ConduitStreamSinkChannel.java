@@ -27,6 +27,7 @@ import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.CloseListenerSettable;
+import org.xnio.channels.Configurable;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.WriteListenerSettable;
@@ -35,12 +36,14 @@ import org.xnio.channels.WriteListenerSettable;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<ConduitStreamSinkChannel>, CloseListenerSettable<ConduitStreamSinkChannel>, Cloneable {
+    private final Configurable configurable;
     private final StreamSinkConduit conduit;
 
     private ChannelListener<? super ConduitStreamSinkChannel> writeListener;
     private ChannelListener<? super ConduitStreamSinkChannel> closeListener;
 
-    public ConduitStreamSinkChannel(final StreamSinkConduit conduit) {
+    public ConduitStreamSinkChannel(final Configurable configurable, final StreamSinkConduit conduit) {
+        this.configurable = configurable;
         this.conduit = conduit;
         conduit.setWriteReadyHandler(new WriteReadyHandler.ChannelListenerHandler<ConduitStreamSinkChannel>(this));
     }
@@ -122,15 +125,15 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return conduit.supportsOption(option);
+        return configurable.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return conduit.getOption(option);
+        return configurable.getOption(option);
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return conduit.setOption(option, value);
+        return configurable.setOption(option, value);
     }
 
     public void shutdownWrites() throws IOException {

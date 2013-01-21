@@ -27,6 +27,7 @@ import org.xnio.Option;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.CloseListenerSettable;
+import org.xnio.channels.Configurable;
 import org.xnio.channels.ReadListenerSettable;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -35,12 +36,14 @@ import org.xnio.channels.StreamSourceChannel;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class ConduitStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<ConduitStreamSourceChannel>, CloseListenerSettable<ConduitStreamSourceChannel>, Cloneable {
+    private final Configurable configurable;
     private final StreamSourceConduit conduit;
 
     private ChannelListener<? super ConduitStreamSourceChannel> readListener;
     private ChannelListener<? super ConduitStreamSourceChannel> closeListener;
 
-    public ConduitStreamSourceChannel(final StreamSourceConduit conduit) {
+    public ConduitStreamSourceChannel(final Configurable configurable, final StreamSourceConduit conduit) {
+        this.configurable = configurable;
         this.conduit = conduit;
         conduit.setReadReadyHandler(new ReadReadyHandler.ChannelListenerHandler<ConduitStreamSourceChannel>(this));
     }
@@ -138,15 +141,15 @@ public final class ConduitStreamSourceChannel implements StreamSourceChannel, Re
     }
 
     public boolean supportsOption(final Option<?> option) {
-        return conduit.supportsOption(option);
+        return configurable.supportsOption(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        return conduit.getOption(option);
+        return configurable.getOption(option);
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return conduit.setOption(option, value);
+        return configurable.setOption(option, value);
     }
 
     public ConduitStreamSourceChannel clone() {

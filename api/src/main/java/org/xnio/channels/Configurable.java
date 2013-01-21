@@ -57,4 +57,21 @@ public interface Configurable {
      * @throws IOException if an I/O error occurred when modifying the option
      */
     <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException;
+
+    /**
+     * An empty configurable instance.
+     */
+    Configurable EMPTY = new Configurable() {
+        public boolean supportsOption(final Option<?> option) {
+            return false;
+        }
+
+        public <T> T getOption(final Option<T> option) throws IOException {
+            return null;
+        }
+
+        public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+            return null;
+        }
+    };
 }
