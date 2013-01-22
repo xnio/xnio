@@ -20,6 +20,7 @@ package org.xnio.conduits;
 
 import java.nio.channels.Channel;
 import org.xnio.ChannelListeners;
+import org.xnio.IoUtils;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.WriteListenerSettable;
 
@@ -34,6 +35,10 @@ public interface WriteReadyHandler extends TerminateHandler {
 
         public ChannelListenerHandler(final C channel) {
             this.channel = channel;
+        }
+
+        public void forceTermination() {
+            IoUtils.safeClose(channel);
         }
 
         public void writeReady() {

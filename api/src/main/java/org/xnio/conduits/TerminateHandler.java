@@ -20,12 +20,15 @@ package org.xnio.conduits;
 
 import java.nio.channels.Channel;
 import org.xnio.ChannelListeners;
+import org.xnio.IoUtils;
 import org.xnio.channels.CloseListenerSettable;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface TerminateHandler {
+
+    void forceTermination();
 
     void terminated();
 
@@ -34,6 +37,10 @@ public interface TerminateHandler {
 
         public ChannelListenerHandler(final C channel) {
             this.channel = channel;
+        }
+
+        public void forceTermination() {
+            IoUtils.safeClose(channel);
         }
 
         public void terminated() {
