@@ -20,6 +20,9 @@
     <properties>
         <version.surefire.plugin>2.8</version.surefire.plugin>
         <byteman-version>2.0.4</byteman-version>
+
+        <!-- tools.jar location, this needs to be overriden on OSX -->
+        <com.sun.tools.path>${java.home}/../lib/tools.jar</com.sun.tools.path>
     </properties>
 
     <parent>
@@ -117,6 +120,29 @@
                 <version>${byteman-version}</version>
                 <scope>test</scope>
             </dependency>
+            <!-- The dependency is pull in indirectly from byteman -->
+            <!-- We override it here to allow it to work correctly on osx -->
+            <dependency>
+                <groupId>com.sun</groupId>
+                <artifactId>tools</artifactId>
+                <scope>system</scope>
+                <version>1.6</version>
+                <systemPath>${com.sun.tools.path}</systemPath>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>os-x</id>
+            <activation>
+                <file>
+                    <exists>${java.home}/bundle/Classes/classes.jar</exists>
+                </file>
+            </activation>
+            <properties>
+                <com.sun.tools.path>${java.home}/bundle/Classes/classes.jar</com.sun.tools.path>
+            </properties>
+        </profile>
+    </profiles>
 </project>
