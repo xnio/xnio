@@ -37,11 +37,9 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.FramedMessageChannel;
@@ -745,10 +743,6 @@ public class XnioWorkerTestCase {
             @Override
             public void awaitTermination() throws InterruptedException {
                 
-            }
-
-            @Override
-            protected void doMigration(final CloseableChannel channel) throws IOException {
             }
         };
         UnsupportedOperationException expected = null;

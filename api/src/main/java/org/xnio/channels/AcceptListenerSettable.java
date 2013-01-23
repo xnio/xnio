@@ -28,6 +28,13 @@ import org.xnio.ChannelListener;
  */
 public interface AcceptListenerSettable<C extends Channel> {
     /**
+     * Get the accept listener.
+     *
+     * @return the accept listener
+     */
+    ChannelListener<? super C> getAcceptListener();
+
+    /**
      * Set the accept listener.
      *
      * @param listener the accept listener

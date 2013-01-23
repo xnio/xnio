@@ -21,7 +21,6 @@ package org.xnio.nio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.Pipe;
 import java.nio.channels.SelectionKey;
@@ -49,18 +48,21 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.AssembledConnectedStreamChannel;
+import org.xnio.channels.AssembledStreamChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import org.xnio.conduits.ReadReadyHandler;
+import org.xnio.conduits.WriteReadyHandler;
 
 import static org.xnio.IoUtils.safeClose;
-import static org.xnio.ChannelListener.SimpleSetter;
 import static org.xnio.nio.Log.log;
 
 /**
@@ -70,6 +72,7 @@ final class NioXnioWorker extends XnioWorker {
 
     private static final int CLOSE_REQ = (1 << 31);
     private static final int CLOSE_COMP = (1 << 30);
+    private static final WrappingHandler WRAPPING_HANDLER = new WrappingHandler();
 
     // start at 1 for the provided thread pool
     private volatile int state = 1;
@@ -261,6 +264,76 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
+        final AcceptingChannel<StreamConnection> server = createTcpConnectionServer(bindAddress, null, optionMap);
+        return new AcceptingChannel<ConnectedStreamChannel>() {
+            public ConnectedStreamChannel accept() throws IOException {
+                final StreamConnection connection = server.accept();
+                return connection == null ? null : new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            }
+
+            public ChannelListener.Setter<? extends AcceptingChannel<ConnectedStreamChannel>> getAcceptSetter() {
+                return ChannelListeners.getDelegatingSetter(server.getAcceptSetter(), this);
+            }
+
+            public ChannelListener.Setter<? extends AcceptingChannel<ConnectedStreamChannel>> getCloseSetter() {
+                return ChannelListeners.getDelegatingSetter(server.getCloseSetter(), this);
+            }
+
+            public SocketAddress getLocalAddress() {
+                return server.getLocalAddress();
+            }
+
+            public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                return server.getLocalAddress(type);
+            }
+
+            public void suspendAccepts() {
+                server.suspendAccepts();
+            }
+
+            public void resumeAccepts() {
+                server.resumeAccepts();
+            }
+
+            public void wakeupAccepts() {
+                server.wakeupAccepts();
+            }
+
+            public void awaitAcceptable() throws IOException {
+                server.awaitAcceptable();
+            }
+
+            public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
+                server.awaitAcceptable(time, timeUnit);
+            }
+
+            public XnioWorker getWorker() {
+                return server.getWorker();
+            }
+
+            public void close() throws IOException {
+                server.close();
+            }
+
+            public boolean isOpen() {
+                return server.isOpen();
+            }
+
+            public boolean supportsOption(final Option<?> option) {
+                return server.supportsOption(option);
+            }
+
+            public <T> T getOption(final Option<T> option) throws IOException {
+                return server.getOption(option);
+            }
+
+            public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                return server.setOption(option, value);
+            }
+        };
+    }
+
+    protected AcceptingChannel<StreamConnection> createTcpConnectionServer(final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, final OptionMap optionMap) throws IOException {
         checkShutdown();
         boolean ok = false;
         final ServerSocketChannel channel = ServerSocketChannel.open();
@@ -272,10 +345,7 @@ final class NioXnioWorker extends XnioWorker {
                 channel.socket().bind(bindAddress);
             }
             final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
-            final ChannelListener.SimpleSetter<NioTcpServer> setter = server.getAcceptSetter();
-            // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
-            //noinspection unchecked
-            setter.set((ChannelListener<? super NioTcpServer>) acceptListener);
+            server.setAcceptListener(acceptListener);
             ok = true;
             return server;
         } finally {
@@ -285,196 +355,129 @@ final class NioXnioWorker extends XnioWorker {
         }
     }
 
-    protected IoFuture<ConnectedStreamChannel> connectTcpStream(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
-        try {
-            checkShutdown();
-        } catch (ClosedWorkerException e) {
-            return new FailedIoFuture<ConnectedStreamChannel>(e);
+    static class CompleteHandler implements WriteReadyHandler, ReadReadyHandler {
+        private final NioSocketSourceConduit sourceConduit;
+        private final NioSocketSinkConduit sinkConduit;
+        private final NioSocketStreamConnection connection;
+        private final FutureResult<StreamConnection> futureResult;
+        private final ChannelListener<? super StreamConnection> openListener;
+
+        CompleteHandler(final FutureResult<StreamConnection> futureResult, final NioSocketStreamConnection connection, final NioSocketSinkConduit sinkConduit, final NioSocketSourceConduit sourceConduit, final ChannelListener<? super StreamConnection> openListener) {
+            this.futureResult = futureResult;
+            this.connection = connection;
+            this.sinkConduit = sinkConduit;
+            this.sourceConduit = sourceConduit;
+            this.openListener = openListener;
         }
-        try {
-            final SocketChannel channel = SocketChannel.open();
-            channel.configureBlocking(false);
-            channel.socket().bind(bindAddress);
-            final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, channel);
-            tcpChannel.start();
-            final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
-            final int oldOps = connectHandle.setOps(SelectionKey.OP_CONNECT);
-            if (connectHandle == null) {
-                throw new IllegalArgumentException("Wrong value for option " + Options. WORKER_ESTABLISH_WRITING +
-                        ". This NioWorker has no " + (optionMap.get(Options.WORKER_ESTABLISH_WRITING, false)? "write": "read")
-                        + " thread.");
-            }
-            ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
-            if (channel.connect(destinationAddress)) {
-                // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
-                //noinspection unchecked
-                connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
-                return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
-            }
-            final SimpleSetter<NioTcpChannel> setter = connectHandle.getHandlerSetter();
-            final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-            setter.set(new ChannelListener<NioTcpChannel>() {
-                public void handleEvent(final NioTcpChannel channel) {
-                    final SocketChannel socketChannel = channel.getReadChannel();
-                    try {
-                        if (socketChannel.finishConnect()) {
-                            connectHandle.suspend();
-                            connectHandle.getHandlerSetter().set(null);
-                            connectHandle.setOps(oldOps);
-                            if (!futureResult.setResult(tcpChannel)) {
-                                // if futureResult is canceled, close channel
-                                IoUtils.safeClose(channel);
-                            } else {
-                                channel.configureFrom(optionMap);
-                                //noinspection unchecked
-                                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
-                            }
-                        }
-                    } catch (IOException e) {
-                        IoUtils.safeClose(channel);
-                        futureResult.setException(e);
-                    }
-                }
 
-                public String toString() {
-                    return "Connection finisher for " + channel;
-                }
-            });
-            futureResult.addCancelHandler(new Cancellable() {
-                public Cancellable cancel() {
-                    if (futureResult.setCancelled()) {
-                        IoUtils.safeClose(tcpChannel);
-                    }
-                    return this;
-                }
+        public void readReady() {
+            ready();
+        }
 
-                public String toString() {
-                    return "Cancel handler for " + channel;
+        public void writeReady() {
+            ready();
+        }
+
+        private void ready() {
+            final SocketChannel channel = connection.getChannel();
+            boolean ok = false;
+            try {
+                if (channel.finishConnect()) {
+                    sinkConduit.suspend();
+                    sourceConduit.suspend();
+                    sinkConduit.setOps(SelectionKey.OP_WRITE);
+                    sourceConduit.setOps(SelectionKey.OP_READ);
+                    connection.setSourceConduit(sourceConduit);
+                    connection.setSinkConduit(sinkConduit);
+                    ok = futureResult.setResult(connection);
+                    ChannelListeners.invokeChannelListener(connection, openListener);
                 }
-            });
-            connectHandle.resume();
-            return futureResult.getIoFuture();
-        } catch (IOException e) {
-            return new FailedIoFuture<ConnectedStreamChannel>(e);
+            } catch (IOException e) {
+                futureResult.setException(e);
+            } finally {
+                if (! ok) safeClose(connection);
+            }
+        }
+
+        public void forceTermination() {
+        }
+
+        public void terminated() {
         }
     }
 
-    protected IoFuture<ConnectedStreamChannel> acceptTcpStream(final InetSocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    protected IoFuture<StreamConnection> openTcpStreamConnection(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         try {
             checkShutdown();
         } catch (ClosedWorkerException e) {
-            return new FailedIoFuture<ConnectedStreamChannel>(e);
+            return new FailedIoFuture<StreamConnection>(e);
         }
-        final WorkerThread connectThread = choose(optionMap.get(Options.WORKER_ESTABLISH_WRITING, false));
         try {
-            final ServerSocketChannel channel = ServerSocketChannel.open();
-            channel.configureBlocking(false);
-            channel.socket().bind(destination);
-            final ChannelListener.SimpleSetter<NioTcpChannel> closeSetter = new ChannelListener.SimpleSetter<NioTcpChannel>();
-            //noinspection unchecked
-            ChannelListeners.invokeChannelListener(new BoundChannel() {
-                public XnioWorker getWorker() {
-                    return NioXnioWorker.this;
-                }
+            final SocketChannel channel = SocketChannel.open();
+            boolean ok = false;
+            try {
+                channel.configureBlocking(false);
+                channel.socket().bind(bindAddress);
+                final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, channel, null);
+                ChannelListeners.invokeChannelListener(connection, bindListener);
+                final WorkerThread readThread = chooseOptional(false);
+                final WorkerThread writeThread = chooseOptional(true);
+                final SelectionKey readKey = readThread != null ? readThread.registerChannel(channel) : null;
+                final SelectionKey writeKey = writeThread != null ? writeThread.registerChannel(channel) : null;
+                final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(connection, readKey, readThread);
+                final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(connection, writeKey, writeThread);
+                final boolean establishWrite = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
+                final AbstractNioConduit<SocketChannel> connectConduit = establishWrite ? sinkConduit : sourceConduit;
 
-                public SocketAddress getLocalAddress() {
-                    return channel.socket().getLocalSocketAddress();
+                if (channel.connect(destinationAddress)) {
+                    connection.setSourceConduit(sourceConduit);
+                    connection.setSinkConduit(sinkConduit);
+                    connectConduit.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(connection, openListener));
+                    final FinishedIoFuture<StreamConnection> finishedIoFuture = new FinishedIoFuture<StreamConnection>(connection);
+                    ok = true;
+                    return finishedIoFuture;
                 }
-
-                public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
-                    final SocketAddress address = getLocalAddress();
-                    return type.isInstance(address) ? type.cast(address) : null;
+                final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(connectConduit.getWorkerThread());
+                final CompleteHandler completeHandler = new CompleteHandler(futureResult, connection, sinkConduit, sourceConduit, openListener);
+                if (establishWrite) {
+                    sinkConduit.setWriteReadyHandler(completeHandler);
+                } else {
+                    sourceConduit.setReadReadyHandler(completeHandler);
                 }
-
-                public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
-                    return closeSetter;
-                }
-
-                public boolean isOpen() {
-                    return channel.isOpen();
-                }
-
-                public boolean supportsOption(final Option<?> option) {
-                    return false;
-                }
-
-                public <T> T getOption(final Option<T> option) throws IOException {
-                    return null;
-                }
-
-                public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-                    return null;
-                }
-
-                public void close() throws IOException {
-                    channel.close();
-                }
-
-                public String toString() {
-                    return String.format("TCP acceptor bound channel (NIO) <%h>", this);
-                }
-            }, bindListener);
-            final SocketChannel accepted = channel.accept();
-            if (accepted != null) {
-                IoUtils.safeClose(channel);
-                final NioTcpChannel tcpChannel = new NioTcpChannel(this, null, accepted);
-                tcpChannel.start();
-                tcpChannel.configureFrom(optionMap);
-                //noinspection unchecked
-                ChannelListeners.invokeChannelListener(tcpChannel, openListener);
-                return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
+                futureResult.addCancelHandler(new Cancellable() {
+                    public Cancellable cancel() {
+                        if (futureResult.setCancelled()) {
+                            safeClose(connection);
+                        }
+                        return this;
+                    }
+                });
+                connectConduit.setOps(SelectionKey.OP_CONNECT);
+                connectConduit.resume();
+                ok = true;
+                return futureResult.getIoFuture();
+            } finally {
+                if (! ok) safeClose(channel);
             }
-            final SimpleSetter<ServerSocketChannel> setter = new SimpleSetter<ServerSocketChannel>();
-            final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-            final NioHandle<ServerSocketChannel> handle = connectThread.addChannel(channel, channel, SelectionKey.OP_ACCEPT, setter);
-            setter.set(new ChannelListener<ServerSocketChannel>() {
-                public void handleEvent(final ServerSocketChannel channel) {
-                    final SocketChannel accepted;
-                    try {
-                        accepted = channel.accept();
-                        if (accepted == null) {
-                            return;
-                        }
-                    } catch (IOException e) {
-                        IoUtils.safeClose(channel);
-                        handle.cancelKey();
-                        futureResult.setException(e);
-                        return;
-                    }
-                    boolean ok = false;
-                    try {
-                        handle.cancelKey();
-                        IoUtils.safeClose(channel);
-                        try {
-                            accepted.configureBlocking(false);
-                            final NioTcpChannel tcpChannel;
-                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, null, accepted);
-                            tcpChannel.start();
-                            tcpChannel.configureFrom(optionMap);
-                            futureResult.setResult(tcpChannel);
-                            ok = true;
-                            //noinspection unchecked
-                            ChannelListeners.invokeChannelListener(tcpChannel, openListener);
-                        } catch (IOException e) {
-                            futureResult.setException(e);
-                            return;
-                        }
-                    } finally {
-                        if (! ok) {
-                            IoUtils.safeClose(accepted);
-                        }
-                    }
-                }
-
-                public String toString() {
-                    return "Accepting finisher for " + channel;
-                }
-            });
-            handle.resume();
-            return futureResult.getIoFuture();
         } catch (IOException e) {
-            return new FailedIoFuture<ConnectedStreamChannel>(e);
+            return new FailedIoFuture<StreamConnection>(e);
         }
+    }
+
+    protected IoFuture<ConnectedStreamChannel> connectTcpStream(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult);
+        final IoFuture<StreamConnection> future = openTcpStreamConnection(bindAddress, destinationAddress, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(WRAPPING_HANDLER, futureResult);
+        return futureResult.getIoFuture();
+    }
+
+    protected IoFuture<ConnectedStreamChannel> acceptTcpStream(final InetSocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult);
+        final IoFuture<StreamConnection> future = acceptTcpStreamConnection(destination, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(WRAPPING_HANDLER, futureResult);
+        return futureResult.getIoFuture();
     }
 
     /** {@inheritDoc} */
@@ -484,42 +487,61 @@ final class NioXnioWorker extends XnioWorker {
         channel.configureBlocking(false);
         channel.socket().bind(bindAddress);
         final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
-        udpChannel.start();
-        //noinspection unchecked
         ChannelListeners.invokeChannelListener(udpChannel, bindListener);
         return udpChannel;
     }
 
-    public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+    public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection() throws IOException {
         checkShutdown();
         boolean ok = false;
-        final Pipe in = Pipe.open();
+        final Pipe topPipe = Pipe.open();
         try {
-            in.source().configureBlocking(false);
-            in.sink().configureBlocking(false);
-            final Pipe out = Pipe.open();
+            topPipe.source().configureBlocking(false);
+            topPipe.sink().configureBlocking(false);
+            final Pipe bottomPipe = Pipe.open();
             try {
-                out.source().configureBlocking(false);
-                out.sink().configureBlocking(false);
-                final NioPipeChannel left = new NioPipeChannel(NioXnioWorker.this, in.sink(), out.source());
-                left.start();
-                final NioPipeChannel right = new NioPipeChannel(NioXnioWorker.this, out.sink(), in.source());
-                right.start();
-                final ChannelPipe<StreamChannel, StreamChannel> result = new ChannelPipe<StreamChannel, StreamChannel>(left, right);
+                bottomPipe.source().configureBlocking(false);
+                bottomPipe.sink().configureBlocking(false);
+                final NioPipeStreamConnection leftConnection = new NioPipeStreamConnection(this, bottomPipe.source(), topPipe.sink());
+                final NioPipeStreamConnection rightConnection = new NioPipeStreamConnection(this, topPipe.source(), bottomPipe.sink());
+                final WorkerThread topSourceThread = chooseOptional(false);
+                final WorkerThread topSinkThread = chooseOptional(true);
+                final WorkerThread bottomSourceThread = chooseOptional(false);
+                final WorkerThread bottomSinkThread = chooseOptional(true);
+                final SelectionKey topSourceKey = topSourceThread.registerChannel(topPipe.source());
+                final SelectionKey topSinkKey = topSinkThread.registerChannel(topPipe.sink());
+                final SelectionKey bottomSourceKey = bottomSourceThread.registerChannel(bottomPipe.source());
+                final SelectionKey bottomSinkKey = bottomSinkThread.registerChannel(bottomPipe.sink());
+                final NioPipeSourceConduit leftSourceConduit = new NioPipeSourceConduit(leftConnection, bottomSourceKey, bottomSourceThread);
+                final NioPipeSinkConduit leftSinkConduit = new NioPipeSinkConduit(leftConnection, topSinkKey, topSinkThread);
+                final NioPipeSourceConduit rightSourceConduit = new NioPipeSourceConduit(rightConnection, topSourceKey, topSourceThread);
+                final NioPipeSinkConduit rightSinkConduit = new NioPipeSinkConduit(rightConnection, bottomSinkKey, bottomSinkThread);
+                leftConnection.setSourceConduit(leftSourceConduit);
+                leftConnection.setSinkConduit(leftSinkConduit);
+                rightConnection.setSourceConduit(rightSourceConduit);
+                rightConnection.setSinkConduit(rightSinkConduit);
+                final ChannelPipe<StreamConnection, StreamConnection> result = new ChannelPipe<StreamConnection, StreamConnection>(leftConnection, rightConnection);
                 ok = true;
                 return result;
             } finally {
                 if (! ok) {
-                    safeClose(out.sink());
-                    safeClose(out.source());
+                    safeClose(bottomPipe.sink());
+                    safeClose(bottomPipe.source());
                 }
             }
         } finally {
             if (! ok) {
-                safeClose(in.sink());
-                safeClose(in.source());
+                safeClose(topPipe.sink());
+                safeClose(topPipe.source());
             }
         }
+    }
+
+    public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
+        final ChannelPipe<StreamConnection, StreamConnection> connection = createFullDuplexPipeConnection();
+        final StreamChannel left = new AssembledStreamChannel(connection.getLeftSide(), connection.getLeftSide().getSourceChannel(), connection.getLeftSide().getSinkChannel());
+        final StreamChannel right = new AssembledStreamChannel(connection.getRightSide(), connection.getRightSide().getSourceChannel(), connection.getRightSide().getSinkChannel());
+        return new ChannelPipe<StreamChannel, StreamChannel>(left, right);
     }
 
     public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
@@ -529,11 +551,19 @@ final class NioXnioWorker extends XnioWorker {
         try {
             pipe.source().configureBlocking(false);
             pipe.sink().configureBlocking(false);
-            final NioPipeSourceChannel sourceChannel = new NioPipeSourceChannel(this, pipe.source());
-            sourceChannel.start();
-            final NioPipeSinkChannel sinkChannel = new NioPipeSinkChannel(this, pipe.sink());
-            sinkChannel.start();
-            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(sourceChannel, sinkChannel);
+            final NioPipeStreamConnection leftConnection = new NioPipeStreamConnection(this, pipe.source(), null);
+            final NioPipeStreamConnection rightConnection = new NioPipeStreamConnection(this, null, pipe.sink());
+            final WorkerThread readThread = chooseOptional(false);
+            final WorkerThread writeThread = chooseOptional(true);
+            final SelectionKey readKey = readThread.registerChannel(pipe.source());
+            final SelectionKey writeKey = writeThread.registerChannel(pipe.sink());
+            final NioPipeSourceConduit sourceConduit = new NioPipeSourceConduit(leftConnection, readKey, readThread);
+            final NioPipeSinkConduit sinkConduit = new NioPipeSinkConduit(rightConnection, writeKey, writeThread);
+            leftConnection.setSourceConduit(sourceConduit);
+            leftConnection.writeClosed();
+            rightConnection.readClosed();
+            rightConnection.setSinkConduit(sinkConduit);
+            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(leftConnection.getSourceChannel(), rightConnection.getSinkChannel());
             ok = true;
             return result;
         } finally {
@@ -671,18 +701,38 @@ final class NioXnioWorker extends XnioWorker {
         if (waiter != null) LockSupport.unpark(waiter);
     }
 
-    protected void doMigration(final CloseableChannel channel) throws ClosedChannelException {
-        if (channel.getWorker() == this) {
-            return;
-        }
-        ((AbstractNioChannel<?>)channel).migrateTo(this);
-    }
-
     protected void taskPoolTerminated() {
         closeResource();
     }
 
     public NioXnio getXnio() {
         return (NioXnio) super.getXnio();
+    }
+
+    private static class ConnectionWrapListener implements ChannelListener<StreamConnection> {
+
+        private final FutureResult<ConnectedStreamChannel> futureResult;
+
+        public ConnectionWrapListener(final FutureResult<ConnectedStreamChannel> futureResult) {
+            this.futureResult = futureResult;
+        }
+
+        public void handleEvent(final StreamConnection channel) {
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(channel, channel.getSourceChannel(), channel.getSinkChannel());
+            if (!futureResult.setResult(assembledChannel)) {
+                safeClose(assembledChannel);
+            }
+        }
+    }
+
+    private static class WrappingHandler extends IoFuture.HandlingNotifier<StreamConnection, FutureResult<ConnectedStreamChannel>> {
+
+        public void handleCancelled(final FutureResult<ConnectedStreamChannel> attachment) {
+            attachment.setCancelled();
+        }
+
+        public void handleFailed(final IOException exception, final FutureResult<ConnectedStreamChannel> attachment) {
+            attachment.setException(exception);
+        }
     }
 }

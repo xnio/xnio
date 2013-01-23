@@ -36,30 +36,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
+import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
-import org.xnio.Xnio;
 import org.xnio.XnioExecutor;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.channels.ReadListenerSettable;
 import org.xnio.channels.SocketAddressBuffer;
 import org.xnio.channels.UnsupportedOptionException;
+import org.xnio.channels.WriteListenerSettable;
 
-import static org.xnio.ChannelListener.SimpleSetter;
 import static org.xnio.Xnio.NIO2;
 
 /**
  *
  */
-class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements MulticastMessageChannel {
+class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements MulticastMessageChannel, ReadListenerSettable<NioUdpChannel>, WriteListenerSettable<NioUdpChannel> {
 
     private static final Logger log = Logger.getLogger("org.xnio.nio.udp.server.channel");
 
-    private volatile NioHandle<NioUdpChannel> readHandle;
-    private volatile NioHandle<NioUdpChannel> writeHandle;
+    private final AbstractNioConduit<DatagramChannel> readHandle;
+    private final AbstractNioConduit<DatagramChannel> writeHandle;
 
-    private final SimpleSetter<NioUdpChannel> readSetter = new SimpleSetter<NioUdpChannel>();
-    private final SimpleSetter<NioUdpChannel> writeSetter = new SimpleSetter<NioUdpChannel>();
+    private ChannelListener<? super NioUdpChannel> readListener;
+    private ChannelListener<? super NioUdpChannel> writeListener;
 
     private final DatagramChannel datagramChannel;
 
@@ -68,13 +69,36 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     NioUdpChannel(final NioXnioWorker worker, final DatagramChannel datagramChannel) throws ClosedChannelException {
         super(worker);
         this.datagramChannel = datagramChannel;
-    }
-
-    void start() throws ClosedChannelException {
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
-        readHandle = readThread == null ? null : readThread.addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
-        writeHandle = writeThread == null ? null : writeThread.addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
+        final SelectionKey readKey = readThread == null ? null : readThread.registerChannel(datagramChannel);
+        final SelectionKey writeKey = writeThread == null ? null : writeThread.registerChannel(datagramChannel);
+        readHandle = new AbstractNioConduit<DatagramChannel>(readKey, readThread) {
+            void handleReady() {
+                final ChannelListener<? super NioUdpChannel> listener = readListener;
+                if (listener == null) {
+                    suspend();
+                } else {
+                    ChannelListeners.invokeChannelListener(NioUdpChannel.this, listener);
+                }
+            }
+
+            void forceTermination() {
+            }
+        };
+        writeHandle = new AbstractNioConduit<DatagramChannel>(writeKey, writeThread) {
+            void handleReady() {
+                final ChannelListener<? super NioUdpChannel> listener = writeListener;
+                if (listener == null) {
+                    suspend();
+                } else {
+                    ChannelListeners.invokeChannelListener(NioUdpChannel.this, listener);
+                }
+            }
+
+            void forceTermination() {
+            }
+        };
     }
 
     public SocketAddress getLocalAddress() {
@@ -117,7 +141,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             return receiveFrom(addressBuffer, buffers[offs]);
         }
         final int o = (int) Math.min(Buffers.remaining(buffers, offs, len), 65536L);
-        final ByteBuffer buffer = ByteBuffer.allocate((int) o);
+        final ByteBuffer buffer = ByteBuffer.allocate(o);
         final SocketAddress sourceAddress;
         try {
             sourceAddress = datagramChannel.receive(buffer);
@@ -164,12 +188,28 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         return datagramChannel.send(buffer, target) != 0;
     }
 
+    public ChannelListener<? super NioUdpChannel> getReadListener() {
+        return readListener;
+    }
+
+    public void setReadListener(final ChannelListener<? super NioUdpChannel> readListener) {
+        this.readListener = readListener;
+    }
+
+    public ChannelListener<? super NioUdpChannel> getWriteListener() {
+        return writeListener;
+    }
+
+    public void setWriteListener(final ChannelListener<? super NioUdpChannel> writeListener) {
+        this.writeListener = writeListener;
+    }
+
     public ChannelListener.Setter<NioUdpChannel> getReadSetter() {
-        return readSetter;
+        return new ReadListenerSettable.Setter<NioUdpChannel>(this);
     }
 
     public ChannelListener.Setter<NioUdpChannel> getWriteSetter() {
-        return writeSetter;
+        return new WriteListenerSettable.Setter<NioUdpChannel>(this);
     }
 
     public boolean flush() throws IOException {
@@ -202,7 +242,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public void suspendReads() {
-        final NioHandle<NioUdpChannel> handle = readHandle;
+        final AbstractNioConduit<DatagramChannel> handle = readHandle;
         if (handle != null) try {
             handle.suspend();
         } catch (CancelledKeyException ex) {
@@ -211,7 +251,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public void suspendWrites() {
-        final NioHandle<NioUdpChannel> handle = writeHandle;
+        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
         if (handle != null) try {
             handle.suspend();
         } catch (CancelledKeyException ex) {
@@ -220,7 +260,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public void resumeReads() {
-        final NioHandle<NioUdpChannel> handle = readHandle;
+        final AbstractNioConduit<DatagramChannel> handle = readHandle;
         if (handle == null) {
             throw new UnsupportedOperationException("No read thread configured");
         }
@@ -232,7 +272,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public void resumeWrites() {
-        final NioHandle<NioUdpChannel> handle = writeHandle;
+        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
         if (handle == null) {
             throw new UnsupportedOperationException("No read thread configured");
         }
@@ -244,25 +284,25 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public boolean isReadResumed() {
-        final NioHandle<NioUdpChannel> handle = readHandle;
+        final AbstractNioConduit<DatagramChannel> handle = readHandle;
         return handle != null && handle.isResumed();
     }
 
     public boolean isWriteResumed() {
-        final NioHandle<NioUdpChannel> handle = writeHandle;
+        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
         return handle != null && handle.isResumed();
     }
 
     public void wakeupReads() {
         resumeReads();
-        final NioHandle<NioUdpChannel> readHandle = this.readHandle;
+        final AbstractNioConduit<DatagramChannel> readHandle = this.readHandle;
         assert readHandle != null;
         readHandle.execute();
     }
 
     public void wakeupWrites() {
         resumeWrites();
-        final NioHandle<NioUdpChannel> writeHandle = this.writeHandle;
+        final AbstractNioConduit<DatagramChannel> writeHandle = this.writeHandle;
         assert writeHandle != null;
         writeHandle.execute();
     }
@@ -284,7 +324,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public XnioExecutor getReadThread() {
-        final NioHandle<NioUdpChannel> handle = readHandle;
+        final AbstractNioConduit<DatagramChannel> handle = readHandle;
         return handle == null ? null : handle.getWorkerThread();
     }
 
@@ -297,7 +337,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public XnioExecutor getWriteThread() {
-        final NioHandle<NioUdpChannel> handle = writeHandle;
+        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
         return handle == null ? null : handle.getWorkerThread();
     }
 
@@ -351,24 +391,24 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         final Object old;
         if (option == Options.RECEIVE_BUFFER) {
             old = Integer.valueOf(socket.getReceiveBufferSize());
-            int newValue = Options.RECEIVE_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            int newValue = Options.RECEIVE_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
                 throw new IllegalArgumentException("Receive buffer size must be greater than 0");
             }
             socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
             old = Integer.valueOf(socket.getSendBufferSize());
-            int newValue = Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            int newValue = Options.SEND_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
                 throw new IllegalArgumentException("Send buffer size must be greater than 0");
             }
             socket.setSendBufferSize(newValue);
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             old = Integer.valueOf(socket.getTrafficClass());
-            socket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value, 0).intValue());
+            socket.setTrafficClass(Options.IP_TRAFFIC_CLASS.cast(value, Integer.valueOf(0)).intValue());
         } else if (option == Options.BROADCAST) {
             old = Boolean.valueOf(socket.getBroadcast());
-            socket.setBroadcast(Options.BROADCAST.cast(value, false).booleanValue());
+            socket.setBroadcast(Options.BROADCAST.cast(value, Boolean.FALSE).booleanValue());
         } else {
             if (NIO2) {
                 if (option == Options.MULTICAST_TTL) {
@@ -441,33 +481,6 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     protected void cancelReadKey() {
         if (readHandle != null) {
             readHandle.cancelKey();
-        }
-    }
-
-    void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
-        boolean ok = false;
-        final WorkerThread writeThread = worker.chooseOptional(true);
-        final WorkerThread readThread = worker.chooseOptional(false);
-        final NioHandle<NioUdpChannel> newWriteHandle = writeThread == null? null: writeThread.addChannel(datagramChannel, this, SelectionKey.OP_WRITE, writeSetter);
-        try {
-            final NioHandle<NioUdpChannel> newReadHandle = readThread == null? null: readThread.addChannel(datagramChannel, this, SelectionKey.OP_READ, readSetter);
-            try {
-                cancelReadKey();
-                cancelWriteKey();
-                ok = true;
-            } finally {
-                if (ok) {
-                    readHandle = newReadHandle;
-                    writeHandle = newWriteHandle;
-                    super.migrateTo(worker);
-                } else if (newReadHandle != null) {
-                    newReadHandle.cancelKey();
-                }
-            }
-        } finally {
-            if (! ok & newWriteHandle != null) {
-                newWriteHandle.cancelKey();
-            }
         }
     }
 }

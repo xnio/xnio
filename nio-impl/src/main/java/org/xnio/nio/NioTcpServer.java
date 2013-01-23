@@ -23,7 +23,6 @@ import java.io.InterruptedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -35,24 +34,28 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jboss.logging.Logger;
+import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.StreamConnection;
+import org.xnio.channels.AcceptListenerSettable;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static java.util.concurrent.locks.LockSupport.*;
 import static org.xnio.Bits.*;
+import static org.xnio.IoUtils.safeClose;
 
-final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<NioTcpChannel> {
+final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<StreamConnection>, AcceptListenerSettable<NioTcpServer> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
     private static final String FQCN = NioTcpServer.class.getName();
 
-    private final ChannelListener.SimpleSetter<NioTcpServer> acceptSetter = new ChannelListener.SimpleSetter<NioTcpServer>();
+    private volatile ChannelListener<? super NioTcpServer> acceptListener;
 
-    private final List<NioHandle<NioTcpServer>> acceptHandles;
+    private final List<AbstractNioConduit<ServerSocketChannel>> acceptHandles;
 
     private final ServerSocketChannel channel;
     private final ServerSocket socket;
@@ -81,9 +84,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     @SuppressWarnings("unused")
     private volatile long connectionStatus = CONN_LOW_MASK | CONN_HIGH_MASK;
     @SuppressWarnings("unused")
-    private volatile int readTimeout = 0;
+    private volatile int readTimeout;
     @SuppressWarnings("unused")
-    private volatile int writeTimeout = 0;
+    private volatile int writeTimeout;
 
     @SuppressWarnings("unused")
     private volatile Thread waitingThread;
@@ -125,9 +128,19 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         }
         final WorkerThread[] threads = worker.choose(count, write);
         @SuppressWarnings("unchecked")
-        final NioHandle<NioTcpServer>[] handles = new NioHandle[threads.length];
+        final AbstractNioConduit<ServerSocketChannel>[] handles = new AbstractNioConduit[threads.length];
         for (int i = 0, length = threads.length; i < length; i++) {
-            handles[i] = threads[i].addChannel(channel, this, SelectionKey.OP_ACCEPT, acceptSetter);
+            final SelectionKey key = threads[i].registerChannel(channel);
+            handles[i] = new AbstractNioConduit<ServerSocketChannel>(key, threads[i]) {
+                void handleReady() {
+                    ChannelListeners.invokeChannelListener(NioTcpServer.this, acceptListener);
+                }
+
+                void forceTermination() {
+                    safeClose(NioTcpServer.this);
+                }
+            };
+            handles[i].setOps(SelectionKey.OP_ACCEPT);
         }
         //noinspection unchecked
         acceptHandles = Arrays.asList(handles);
@@ -146,19 +159,19 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         }
         sendBufferUpdater.set(this, sendBufferSize);
         if (optionMap.contains(Options.KEEP_ALIVE)) {
-            keepAliveUpdater.set(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
+            keepAliveUpdater.lazySet(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
         }
         if (optionMap.contains(Options.TCP_OOB_INLINE)) {
-            oobInlineUpdater.set(this, optionMap.get(Options.TCP_OOB_INLINE, false) ? 1 : 0);
+            oobInlineUpdater.lazySet(this, optionMap.get(Options.TCP_OOB_INLINE, false) ? 1 : 0);
         }
         if (optionMap.contains(Options.TCP_NODELAY)) {
-            tcpNoDelayUpdater.set(this, optionMap.get(Options.TCP_NODELAY, false) ? 1 : 0);
+            tcpNoDelayUpdater.lazySet(this, optionMap.get(Options.TCP_NODELAY, false) ? 1 : 0);
         }
         if (optionMap.contains(Options.READ_TIMEOUT)) {
-            readTimeoutUpdater.set(this, optionMap.get(Options.READ_TIMEOUT, 0));
+            readTimeoutUpdater.lazySet(this, optionMap.get(Options.READ_TIMEOUT, 0));
         }
         if (optionMap.contains(Options.WRITE_TIMEOUT)) {
-            writeTimeoutUpdater.set(this, optionMap.get(Options.WRITE_TIMEOUT, 0));
+            writeTimeoutUpdater.lazySet(this, optionMap.get(Options.WRITE_TIMEOUT, 0));
         }
         if (optionMap.contains(Options.CONNECTION_HIGH_WATER) || optionMap.contains(Options.CONNECTION_LOW_WATER)) {
             final int highWater = optionMap.get(Options.CONNECTION_HIGH_WATER, CONN_MAX);
@@ -170,7 +183,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 throw badLowWater(highWater);
             }
             final long highLowWater = (long) highWater << CONN_HIGH_BIT | (long) lowWater << CONN_LOW_BIT;
-            connectionStatusUpdater.set(this, highLowWater);
+            connectionStatusUpdater.lazySet(this, highLowWater);
         }
     }
 
@@ -186,7 +199,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         try {
             channel.close();
         } finally {
-            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+            for (AbstractNioConduit<ServerSocketChannel> handle : acceptHandles) {
                 handle.cancelKey();
             }
         }
@@ -227,35 +240,35 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         final Object old;
         if (option == Options.REUSE_ADDRESSES) {
             old = Boolean.valueOf(socket.getReuseAddress());
-            socket.setReuseAddress(Options.REUSE_ADDRESSES.cast(value, false).booleanValue());
+            socket.setReuseAddress(Options.REUSE_ADDRESSES.cast(value, Boolean.FALSE).booleanValue());
         } else if (option == Options.RECEIVE_BUFFER) { 
             old = Integer.valueOf(socket.getReceiveBufferSize());
-            final int newValue = Options.RECEIVE_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            final int newValue = Options.RECEIVE_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
                 throw new IllegalArgumentException("Receive buffer size must be greater than 0");
             }
             socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
-            final int newValue = Options.SEND_BUFFER.cast(value, DEFAULT_BUFFER_SIZE).intValue();
+            final int newValue = Options.SEND_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
                 throw new IllegalArgumentException("Send buffer size must be greater than 0");
             }
             final int oldValue = sendBufferUpdater.getAndSet(this, newValue);
             old = oldValue == -1 ? null : Integer.valueOf(oldValue);
         } else if (option == Options.KEEP_ALIVE) {
-            old = Boolean.valueOf(keepAliveUpdater.getAndSet(this, Options.KEEP_ALIVE.cast(value, false).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(keepAliveUpdater.getAndSet(this, Options.KEEP_ALIVE.cast(value, Boolean.FALSE).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.TCP_OOB_INLINE) {
-            old = Boolean.valueOf(oobInlineUpdater.getAndSet(this, Options.TCP_OOB_INLINE.cast(value, false).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(oobInlineUpdater.getAndSet(this, Options.TCP_OOB_INLINE.cast(value, Boolean.FALSE).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.TCP_NODELAY) {
-            old = Boolean.valueOf(tcpNoDelayUpdater.getAndSet(this, Options.TCP_NODELAY.cast(value, false).booleanValue() ? 1 : 0) != 0);
+            old = Boolean.valueOf(tcpNoDelayUpdater.getAndSet(this, Options.TCP_NODELAY.cast(value, Boolean.FALSE).booleanValue() ? 1 : 0) != 0);
         } else if (option == Options.READ_TIMEOUT) {
-            old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value, 0).intValue()));
+            old = Integer.valueOf(readTimeoutUpdater.getAndSet(this, Options.READ_TIMEOUT.cast(value, Integer.valueOf(0)).intValue()));
         } else if (option == Options.WRITE_TIMEOUT) {
-            old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value, 0).intValue()));
+            old = Integer.valueOf(writeTimeoutUpdater.getAndSet(this, Options.WRITE_TIMEOUT.cast(value, Integer.valueOf(0)).intValue()));
         } else if (option == Options.CONNECTION_HIGH_WATER) {
-            old = Integer.valueOf(getHighWater(updateWaterMark(-1, Options.CONNECTION_HIGH_WATER.cast(value,  (int) (CONN_HIGH_MASK >> CONN_HIGH_BIT)).intValue())));
+            old = Integer.valueOf(getHighWater(updateWaterMark(-1, Options.CONNECTION_HIGH_WATER.cast(value, Integer.valueOf((int) (CONN_HIGH_MASK >> CONN_HIGH_BIT))).intValue())));
         } else if (option == Options.CONNECTION_LOW_WATER) {
-            old = Integer.valueOf(getLowWater(updateWaterMark(Options.CONNECTION_LOW_WATER.cast(value, (int) (CONN_LOW_MASK >> CONN_LOW_BIT)).intValue(), -1)));
+            old = Integer.valueOf(getLowWater(updateWaterMark(Options.CONNECTION_LOW_WATER.cast(value, Integer.valueOf((int) (CONN_LOW_MASK >> CONN_LOW_BIT))).intValue(), -1)));
         } else {
             return null;
         }
@@ -336,7 +349,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         return oldValue & ~CONN_LOW_MASK | (long)lowWater << CONN_LOW_BIT;
     }
 
-    public NioTcpChannel accept() throws IOException {
+    public NioSocketStreamConnection accept() throws IOException {
         // This method changes the state of the CONN_SUSPENDING flag.
         // As such it is responsible to make sure that when the flag is cleared, the resume state accurately
         // reflects the state of the CONN_RESUMED and CONN_FULL flags.
@@ -362,12 +375,12 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             log.tracef("No connection accepted (%s)", e);
             return null;
         }
-        final NioTcpChannel newChannel;
         if (accepted == null) {
             undoAccept(newVal, wasSuspended, doSuspend);
             log.trace("No connection accepted");
             return null;
         }
+        final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(worker, accepted, this);
         boolean ok = false;
         try {
             accepted.configureBlocking(false);
@@ -378,22 +391,36 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
             final int sendBuffer = this.sendBuffer;
             if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
-            newChannel = new NioTcpChannel(worker, this, accepted);
             final WorkerThread workerThread = WorkerThread.getCurrent();
-            if (workerThread != null) {
-                newChannel.start(workerThread, workerThread.isWriteThread());
+            final WorkerThread readThread;
+            final WorkerThread writeThread;
+            if (workerThread == null) {
+                writeThread = worker.choose(true);
+                readThread = worker.choose(false);
+            } else if (workerThread.isWriteThread()) {
+                writeThread = workerThread;
+                readThread = worker.choose(false);
             } else {
-                newChannel.start();
+                writeThread = worker.choose(true);
+                readThread = workerThread;
             }
-            newChannel.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
-            newChannel.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
+            final SelectionKey readKey = readThread.registerChannel(accepted);
+            final SelectionKey writeKey = writeThread.registerChannel(accepted);
+            final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(newConnection, writeKey, writeThread);
+            final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(newConnection, readKey, readThread);
+            sinkConduit.setOps(SelectionKey.OP_WRITE);
+            sourceConduit.setOps(SelectionKey.OP_READ);
+            newConnection.setSinkConduit(sinkConduit);
+            newConnection.setSourceConduit(sourceConduit);
+            newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
+            newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
             ok = true;
             log.trace("TCP server accepted connection");
         } finally {
             if (!ok) {
                 log.trace("Failed to accept a connection, undoing");
                 undoAccept(newVal, wasSuspended, doSuspend);
-                IoUtils.safeClose(accepted);
+                safeClose(accepted);
             }
         }
         if (doSuspend) {
@@ -404,7 +431,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             // now attempt to synchronize the connection state with the new suspend state
             synchronizeConnectionState(oldVal, doSuspend);
         }
-        return newChannel;
+        return newConnection;
     }
 
     private void synchronizeConnectionState(long oldVal, boolean suspended) {
@@ -494,8 +521,16 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         return String.format("TCP server (NIO) <%s>", Integer.toHexString(hashCode()));
     }
 
-    public ChannelListener.SimpleSetter<NioTcpServer> getAcceptSetter() {
-        return acceptSetter;
+    public ChannelListener<? super NioTcpServer> getAcceptListener() {
+        return acceptListener;
+    }
+
+    public void setAcceptListener(final ChannelListener<? super NioTcpServer> acceptListener) {
+        this.acceptListener = acceptListener;
+    }
+
+    public ChannelListener.Setter<NioTcpServer> getAcceptSetter() {
+        return new AcceptListenerSettable.Setter<NioTcpServer>(this);
     }
 
     public boolean isOpen() {
@@ -558,11 +593,11 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     private void doResume(final int op) {
         if (op == 0) {
-            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+            for (AbstractNioConduit<ServerSocketChannel> handle : acceptHandles) {
                 handle.suspend();
             }
         } else {
-            for (NioHandle<NioTcpServer> handle : acceptHandles) {
+            for (AbstractNioConduit<ServerSocketChannel> handle : acceptHandles) {
                 handle.resume();
             }
         }
@@ -571,7 +606,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     public void wakeupAccepts() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
         resumeAccepts();
-        final List<NioHandle<NioTcpServer>> handles = acceptHandles;
+        final List<AbstractNioConduit<ServerSocketChannel>> handles = acceptHandles;
         final int len = handles.size();
         if (len == 0) {
             throw new IllegalArgumentException("No thread configured");
@@ -646,26 +681,6 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             then = now;
             if (duration <= 0L) {
                 return;
-            }
-        }
-    }
-
-    void migrateTo(final NioXnioWorker worker) throws ClosedChannelException {
-        boolean ok = false;
-        final WorkerThread acceptThread = worker.choose(true);
-        try {
-            final List<NioHandle<NioTcpServer>> handles = acceptHandles;
-            for (int i = 0; i < handles.size(); i++) {
-                NioHandle<NioTcpServer> oldHandle = handles.get(i);
-                oldHandle.cancelKey();
-                handles.set(i, acceptThread.addChannel(channel, typed(), SelectionKey.OP_ACCEPT, acceptSetter));
-            }
-            ok = true;
-        } finally {
-            if (! ok) {
-                IoUtils.safeClose(this);
-            } else {
-                super.migrateTo(worker);
             }
         }
     }

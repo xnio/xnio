@@ -18,6 +18,7 @@
 
 package org.xnio;
 
+import java.io.IOException;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
@@ -31,21 +32,17 @@ import org.xnio.conduits.StreamSourceConduit;
  */
 public abstract class StreamConnection extends Connection implements CloseListenerSettable<StreamConnection> {
 
-    private final ConduitStreamSourceChannel sourceChannel;
-    private final ConduitStreamSinkChannel sinkChannel;
+    private ConduitStreamSourceChannel sourceChannel;
+    private ConduitStreamSinkChannel sinkChannel;
     private ChannelListener<? super StreamConnection> closeListener;
 
     /**
      * Construct a new instance.
      *
      * @param worker the XNIO worker
-     * @param sourceConduit the source conduit
-     * @param sinkConduit the sink conduit
      */
-    protected StreamConnection(final XnioWorker worker, final StreamSourceConduit sourceConduit, final StreamSinkConduit sinkConduit) {
+    protected StreamConnection(final XnioWorker worker) {
         super(worker);
-        this.sourceChannel = new ConduitStreamSourceChannel(this, sourceConduit);
-        this.sinkChannel = new ConduitStreamSinkChannel(this, sinkConduit);
     }
 
     public void setCloseListener(final ChannelListener<? super StreamConnection> listener) {
@@ -60,13 +57,42 @@ public abstract class StreamConnection extends Connection implements CloseListen
         return new Setter<StreamConnection>(this);
     }
 
+    protected void setSourceConduit(StreamSourceConduit conduit) {
+        this.sourceChannel = conduit == null ? null : new ConduitStreamSourceChannel(this, conduit);
+    }
+
+    protected void setSinkConduit(StreamSinkConduit conduit) {
+        this.sinkChannel = conduit == null ? null : new ConduitStreamSinkChannel(this, conduit);
+    }
+
+    void invokeCloseListener() {
+        ChannelListeners.invokeChannelListener(this, closeListener);
+    }
+
+    void notifyReadClosed() throws IOException {
+        final ConduitStreamSourceChannel channel = sourceChannel;
+        if (channel != null) channel.close();
+    }
+
+    void notifyWriteClosed() throws IOException {
+        final ConduitStreamSinkChannel channel = sinkChannel;
+        if (channel != null) channel.close();
+    }
+
+    private static <T> T notNull(T orig) throws IllegalStateException {
+        if (orig == null) {
+            throw new IllegalStateException("Channel not available");
+        }
+        return orig;
+    }
+
     /**
      * Get the source channel.
      *
      * @return the source channel
      */
     public ConduitStreamSourceChannel getSourceChannel() {
-        return sourceChannel;
+        return notNull(sourceChannel);
     }
 
     /**
@@ -75,6 +101,6 @@ public abstract class StreamConnection extends Connection implements CloseListen
      * @return the sink channel
      */
     public ConduitStreamSinkChannel getSinkChannel() {
-        return sinkChannel;
+        return notNull(sinkChannel);
     }
 }

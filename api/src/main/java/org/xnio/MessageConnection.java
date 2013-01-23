@@ -18,6 +18,7 @@
 
 package org.xnio;
 
+import java.io.IOException;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitReadableMessageChannel;
 import org.xnio.conduits.ConduitWritableMessageChannel;
@@ -31,21 +32,17 @@ import org.xnio.conduits.MessageSourceConduit;
  */
 public abstract class MessageConnection extends Connection implements CloseListenerSettable<MessageConnection> {
 
-    private final ConduitReadableMessageChannel sourceChannel;
-    private final ConduitWritableMessageChannel sinkChannel;
+    private ConduitReadableMessageChannel sourceChannel;
+    private ConduitWritableMessageChannel sinkChannel;
     private ChannelListener<? super MessageConnection> closeListener;
 
     /**
      * Construct a new instance.
      *
      * @param worker the XNIO worker
-     * @param sourceConduit the source conduit
-     * @param sinkConduit the sink conduit
      */
-    protected MessageConnection(final XnioWorker worker, final MessageSourceConduit sourceConduit, final MessageSinkConduit sinkConduit) {
+    protected MessageConnection(final XnioWorker worker) {
         super(worker);
-        this.sourceChannel = new ConduitReadableMessageChannel(this, sourceConduit);
-        this.sinkChannel = new ConduitWritableMessageChannel(this, sinkConduit);
     }
 
     public void setCloseListener(final ChannelListener<? super MessageConnection> listener) {
@@ -60,13 +57,42 @@ public abstract class MessageConnection extends Connection implements CloseListe
         return new Setter<MessageConnection>(this);
     }
 
+    protected void setSourceConduit(MessageSourceConduit conduit) {
+        this.sourceChannel = conduit == null ? null : new ConduitReadableMessageChannel(this, conduit);
+    }
+
+    protected void setSinkConduit(MessageSinkConduit conduit) {
+        this.sinkChannel = conduit == null ? null : new ConduitWritableMessageChannel(this, conduit);
+    }
+
+    void invokeCloseListener() {
+        ChannelListeners.invokeChannelListener(this, closeListener);
+    }
+
+    void notifyReadClosed() throws IOException {
+        final ConduitReadableMessageChannel channel = sourceChannel;
+        if (channel != null) channel.close();
+    }
+
+    void notifyWriteClosed() throws IOException {
+        final ConduitWritableMessageChannel channel = sinkChannel;
+        if (channel != null) channel.close();
+    }
+
+    private static <T> T notNull(T orig) throws IllegalStateException {
+        if (orig == null) {
+            throw new IllegalStateException("Channel not available");
+        }
+        return orig;
+    }
+
     /**
      * Get the source channel.
      *
      * @return the source channel
      */
     public ConduitReadableMessageChannel getSourceChannel() {
-        return sourceChannel;
+        return notNull(sourceChannel);
     }
 
     /**
@@ -75,6 +101,6 @@ public abstract class MessageConnection extends Connection implements CloseListe
      * @return the sink channel
      */
     public ConduitWritableMessageChannel getSinkChannel() {
-        return sinkChannel;
+        return notNull(sinkChannel);
     }
 }

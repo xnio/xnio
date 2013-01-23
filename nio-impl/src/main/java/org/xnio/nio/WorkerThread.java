@@ -20,7 +20,6 @@ package org.xnio.nio;
 
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
-import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -36,7 +35,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
-import org.xnio.ChannelListener;
 import org.xnio.ReadPropertyAction;
 import org.xnio.XnioExecutor;
 
@@ -54,8 +52,8 @@ import static org.xnio.nio.Log.selectorLog;
 final class WorkerThread extends Thread implements XnioExecutor {
     private static final long LONGEST_DELAY = 9223372036853L;
     private static final String FQCN = WorkerThread.class.getName();
-    private static final String NH_FQCN = NioHandle.class.getName();
     private static final boolean OLD_LOCKING;
+    private static final boolean THREAD_SAFE_SELECTION_KEYS;
 
     private final NioXnioWorker worker;
 
@@ -74,6 +72,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
 
     static {
         OLD_LOCKING = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.old-locking", "false")));
+        THREAD_SAFE_SELECTION_KEYS = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.xnio.thread-safe-selection-keys", "false")));
     }
 
     WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final boolean writeThread) {
@@ -104,7 +103,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
             Iterator<TimeKey> iterator;
             long delayTime = Long.MAX_VALUE;
             Set<SelectionKey> selectedKeys;
-            Object[] keys;
+            SelectionKey[] keys = new SelectionKey[16];
             int oldState;
             int keyCount;
             for (;;) {
@@ -148,13 +147,17 @@ final class WorkerThread extends Thread implements XnioExecutor {
                     synchronized (selector) {
                         final Set<SelectionKey> keySet = selector.keys();
                         synchronized (keySet) {
-                            keys = keySet.toArray();
+                            keys = keySet.toArray(keys);
                         }
                     }
                     // shut em down
-                    for (Object key : keys) {
-                        final NioHandle<?> attachment = (NioHandle<?>) ((SelectionKey) key).attachment();
-                        if (attachment != null) safeClose(attachment.getChannel());
+                    for (SelectionKey key : keys) {
+                        if (key == null) break; //end of list
+                        final AbstractNioConduit<?> attachment = (AbstractNioConduit<?>) key.attachment();
+                        if (attachment != null) {
+                            safeClose(key.channel());
+                            attachment.forceTermination();
+                        }
                     }
                 }
                 // perform select
@@ -183,22 +186,22 @@ final class WorkerThread extends Thread implements XnioExecutor {
                     selectedKeys = selector.selectedKeys();
                     synchronized (selectedKeys) {
                         // copy so that handlers can safely cancel keys
-                        keys = selectedKeys.toArray();
+                        keys = selectedKeys.toArray(keys);
                         selectedKeys.clear();
                     }
                 }
-                for (Object keyObject : keys) {
-                    final SelectionKey key = (SelectionKey) keyObject;
+                for (SelectionKey key : keys) {
+                    if (key == null) break; //end of list
                     final int ops;
                     try {
                         ops = key.interestOps();
                         if (ops != 0) {
                             selectorLog.tracef("Selected key %s for %s", key, key.channel());
-                            final NioHandle<?> handle = (NioHandle<?>) key.attachment();
-                            if (handle == null) {
+                            final AbstractNioConduit<?> conduit = (AbstractNioConduit<?>) key.attachment();
+                            if (conduit == null) {
                                 cancelKey(key);
                             } else {
-                                handle.run();
+                                conduit.run();
                             }
                         }
                     } catch (CancelledKeyException ignored) {
@@ -214,6 +217,10 @@ final class WorkerThread extends Thread implements XnioExecutor {
             safeClose(selector);
             worker.closeResource();
         }
+    }
+
+    NioXnioWorker getWorker() {
+        return worker;
     }
 
     private static void safeRun(final Runnable command) {
@@ -251,7 +258,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
         return executeAfter(command, unit.toMillis(time));
     }
 
-    XnioExecutor.Key executeAfter(final Runnable command, final long time) {
+    Key executeAfter(final Runnable command, final long time) {
         if ((state & SHUTDOWN) != 0) {
             throw new RejectedExecutionException("Thread is terminating");
         }
@@ -272,28 +279,25 @@ final class WorkerThread extends Thread implements XnioExecutor {
         }
     }
 
-    <C extends Channel> NioHandle<C> addChannel(final AbstractSelectableChannel channel, final C xnioChannel, final int ops, final ChannelListener.SimpleSetter<C> setter) throws ClosedChannelException {
+    SelectionKey registerChannel(final AbstractSelectableChannel channel) throws ClosedChannelException {
         if (currentThread() == this) {
-            log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (same thread)", channel, this, xnioChannel);
-            final SelectionKey key = channel.register(selector, 0);
-            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel, ops);
-            key.attach(handle);
-            return handle;
+            return channel.register(selector, 0);
+        } else if (THREAD_SAFE_SELECTION_KEYS) {
+            try {
+                return channel.register(selector, 0);
+            } finally {
+                selector.wakeup();
+            }
         } else {
-            log.logf(FQCN, Logger.Level.TRACE, null, "Adding channel %s to %s for XNIO channel %s (other thread)", channel, this, xnioChannel);
             final SynchTask task = new SynchTask();
             queueTask(task);
-            final SelectionKey key;
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
-                key = channel.register(selector, 0);
+                return channel.register(selector, 0);
             } finally {
                 task.done();
             }
-            final NioHandle<C> handle = new NioHandle<C>(key, this, setter, xnioChannel, ops);
-            key.attach(handle);
-            return handle;
         }
     }
 
@@ -342,18 +346,11 @@ final class WorkerThread extends Thread implements XnioExecutor {
 
     void setOps(final SelectionKey key, final int ops) {
         assert key.selector() == selector;
-        final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
-            if (log.isTraceEnabled()) {
-                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (same thread)", key, channel, Integer.valueOf(ops));
-            }
             try {
                 key.interestOps(ops);
             } catch (CancelledKeyException ignored) {}
         } else if (OLD_LOCKING) {
-            if (log.isTraceEnabled()) {
-                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, Integer.valueOf(ops));
-            }
             final SynchTask task = new SynchTask();
             queueTask(task);
             try {
@@ -365,9 +362,6 @@ final class WorkerThread extends Thread implements XnioExecutor {
                 task.done();
             }
         } else {
-            if (log.isTraceEnabled()) {
-                log.logf(NH_FQCN, Logger.Level.TRACE, null, "Setting operations of key %s of %s to %02x (other thread)", key, channel, Integer.valueOf(ops));
-            }
             try {
                 key.interestOps(ops);
                 selector.wakeup();

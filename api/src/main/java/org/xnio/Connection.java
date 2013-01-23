@@ -20,8 +20,13 @@ package org.xnio;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.ConnectedChannel;
+
+import static org.xnio.Bits.allAreClear;
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.Bits.anyAreClear;
 
 /**
  * The base for all connections.
@@ -31,6 +36,13 @@ import org.xnio.channels.ConnectedChannel;
 public abstract class Connection implements CloseableChannel, ConnectedChannel {
 
     protected final XnioWorker worker;
+    @SuppressWarnings("unused")
+    private volatile int state;
+
+    private static final int FLAG_READ_CLOSED = 1;
+    private static final int FLAG_WRITE_CLOSED = 2;
+
+    private static final AtomicIntegerFieldUpdater<Connection> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(Connection.class, "state");
 
     /**
      * Construct a new instance.
@@ -56,6 +68,91 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
     public final XnioWorker getWorker() {
         return worker;
     }
+
+    protected boolean readClosed() {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_READ_CLOSED)) {
+                return false;
+            }
+            newVal = oldVal | FLAG_READ_CLOSED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(newVal, FLAG_READ_CLOSED | FLAG_WRITE_CLOSED)) {
+            try {
+                closeAction();
+            } catch (Throwable ignored) {}
+            invokeCloseListener();
+        }
+        return true;
+    }
+
+    protected boolean writeClosed() {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_WRITE_CLOSED)) {
+                return false;
+            }
+            newVal = oldVal | FLAG_WRITE_CLOSED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        if (allAreSet(newVal, FLAG_READ_CLOSED | FLAG_WRITE_CLOSED)) {
+            try {
+                closeAction();
+            } catch (Throwable ignored) {}
+            invokeCloseListener();
+        }
+        return true;
+    }
+
+    public final void close() throws IOException {
+        int oldVal, newVal;
+        do {
+            oldVal = state;
+            if (allAreSet(oldVal, FLAG_WRITE_CLOSED | FLAG_READ_CLOSED)) {
+                return;
+            }
+            newVal = oldVal | FLAG_WRITE_CLOSED;
+        } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+        try {
+            if (allAreClear(oldVal, FLAG_WRITE_CLOSED)) try {
+                notifyWriteClosed();
+            } catch (IOException e) {
+                if (allAreClear(oldVal, FLAG_READ_CLOSED)) try {
+                    notifyReadClosed();
+                } catch (Throwable ignored) {}
+                throw e;
+            }
+            if (allAreClear(oldVal, FLAG_READ_CLOSED)) {
+                notifyReadClosed();
+            }
+        } finally {
+            try {
+                closeAction();
+            } catch (Throwable ignored) {}
+            invokeCloseListener();
+        }
+    }
+
+    public boolean isReadShutdown() {
+        return allAreSet(state, FLAG_READ_CLOSED);
+    }
+
+    public boolean isWriteShutdown() {
+        return allAreSet(state, FLAG_WRITE_CLOSED);
+    }
+
+    public boolean isOpen() {
+        return anyAreClear(state, FLAG_READ_CLOSED | FLAG_WRITE_CLOSED);
+    }
+
+    abstract void notifyWriteClosed() throws IOException;
+
+    abstract void notifyReadClosed() throws IOException;
+
+    abstract void invokeCloseListener();
+
+    protected void closeAction() {}
 
     public boolean supportsOption(final Option<?> option) {
         return false;

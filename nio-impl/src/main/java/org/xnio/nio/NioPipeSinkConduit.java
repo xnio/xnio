@@ -1,7 +1,7 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012 Red Hat, Inc., and individual contributors
- * as indicated by the @author tags.
+ * JBoss, Home of Professional Open Source
+ *
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,15 @@
 
 package org.xnio.nio;
 
-import org.xnio.Xnio;
-import org.xnio.XnioProvider;
+import java.nio.channels.Pipe;
+import java.nio.channels.SelectionKey;
 
 /**
- * The NIO XNIO provider.
- *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class NioXnioProvider implements XnioProvider {
-    private static final Xnio INSTANCE = new NioXnio();
+final class NioPipeSinkConduit extends AbstractNioStreamSinkConduit<Pipe.SinkChannel> {
 
-    /** {@inheritDoc} */
-    public Xnio getInstance() {
-        return INSTANCE;
-    }
-
-    /** {@inheritDoc} */
-    public String getName() {
-        return INSTANCE.getName();
+    NioPipeSinkConduit(final AbstractNioStreamConnection connection, final SelectionKey selectionKey, final WorkerThread workerThread) {
+        super(connection, selectionKey, workerThread);
     }
 }

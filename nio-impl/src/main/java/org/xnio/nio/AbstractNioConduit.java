@@ -1,7 +1,7 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012 Red Hat, Inc., and individual contributors
- * as indicated by the @author tags.
+ * JBoss, Home of Professional Open Source
+ *
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,45 +18,50 @@
 
 package org.xnio.nio;
 
-import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import org.xnio.ChannelListener;
-import org.xnio.ChannelListeners;
+import org.xnio.conduits.Conduit;
 
-import static org.xnio.Bits.*;
-import static org.xnio.nio.Log.log;
+import static org.xnio.Bits.allAreClear;
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.Bits.intBitMask;
 
-final class NioHandle<C extends Channel> implements Runnable {
-    private final SelectionKey selectionKey;
-    private final WorkerThread workerThread;
-    private final ChannelListener.SimpleSetter<C> handlerSetter;
-    private final C channel;
-    @SuppressWarnings("unused")
-    private volatile int state;
+/**
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ */
+abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implements Conduit, Runnable {
 
     private static final int FLAG_SCHEDULED = 1 << 5;
     private static final int FLAG_SUS_RES = 1 << 6;
     private static final int FLAG_RESUMED = 1 << 7;
     private static final int MASK_OPS = intBitMask(0, 4); // NIO uses five bits; 1 << 1 is unused
 
-    @SuppressWarnings({ "raw", "rawtypes" })
-    private static final AtomicIntegerFieldUpdater<NioHandle> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioHandle.class, "state");
+    protected final SelectionKey selectionKey;
+    protected final WorkerThread workerThread;
 
-    NioHandle(final SelectionKey selectionKey, final WorkerThread workerThread, final ChannelListener.SimpleSetter<C> handlerSetter, final C channel, final int ops) {
+    @SuppressWarnings("unused")
+    private volatile int state;
+
+    @SuppressWarnings("rawtypes")
+    private static final AtomicIntegerFieldUpdater<AbstractNioConduit> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractNioConduit.class, "state");
+
+    public AbstractNioConduit(final SelectionKey selectionKey, final WorkerThread workerThread) {
         this.selectionKey = selectionKey;
         this.workerThread = workerThread;
-        this.handlerSetter = handlerSetter;
-        this.channel = channel;
-        this.state = ops & MASK_OPS;
+        selectionKey.attach(this);
+    }
+
+    SelectionKey getSelectionKey() {
+        return selectionKey;
     }
 
     WorkerThread getWorkerThread() {
         return workerThread;
     }
 
-    ChannelListener.SimpleSetter<C> getHandlerSetter() {
-        return handlerSetter;
+    N getChannel() {
+        return (N) selectionKey.channel();
     }
 
     void cancelKey() {
@@ -137,23 +142,14 @@ final class NioHandle<C extends Channel> implements Runnable {
         return allAreSet(state, FLAG_RESUMED);
     }
 
-    C getChannel() {
-        return channel;
-    }
-
     public void run() {
         int oldVal, newVal;
         do {
             oldVal = state;
             newVal = oldVal & ~FLAG_SCHEDULED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        final ChannelListener<? super C> listener = handlerSetter.get();
-        if (listener == null) {
-            log.tracef("Null listener; suspending %s to prevent runaway", this);
-            // prevent runaway
-            suspend();
-        } else if (allAreSet(oldVal, FLAG_RESUMED)) {
-            ChannelListeners.invokeChannelListener(channel, listener);
+        if (allAreSet(oldVal, FLAG_RESUMED)) {
+            handleReady();
         }
     }
 
@@ -168,4 +164,17 @@ final class NioHandle<C extends Channel> implements Runnable {
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         workerThread.execute(this);
     }
+
+    void wakeup() {
+        resume();
+        execute();
+    }
+
+    public NioXnioWorker getWorker() {
+        return workerThread.getWorker();
+    }
+
+    abstract void handleReady();
+
+    abstract void forceTermination();
 }

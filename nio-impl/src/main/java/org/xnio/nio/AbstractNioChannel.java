@@ -18,7 +18,6 @@
 
 package org.xnio.nio;
 
-import java.nio.channels.ClosedChannelException;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.XnioWorker;
@@ -52,9 +51,5 @@ abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements Cl
 
     protected final void invokeCloseHandler() {
         ChannelListeners.invokeChannelListener(typed(), closeSetter.get());
-    }
-
-    void migrateTo(NioXnioWorker worker) throws ClosedChannelException {
-        this.worker = worker;
     }
 }

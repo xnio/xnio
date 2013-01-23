@@ -38,7 +38,6 @@ import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.CloseableChannel;
 import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -826,6 +825,16 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
+     * Create a two-way stream pipe.
+     *
+     * @return the created pipe
+     * @throws IOException if the pipe could not be created
+     */
+    public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection() throws IOException {
+        throw new UnsupportedOperationException("Create a full-duplex pipe");
+    }
+
+    /**
      * Create a one-way stream pipe.
      *
      * @return the created pipe
@@ -980,29 +989,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             return null;
         }
     }
-
-    //==================================================
-    //
-    // Migration methods
-    //
-    //==================================================
-
-    /**
-     * Migrate the given channel to this worker.  Requires that the creating {@code Xnio} instance of the worker
-     * of the given channel matches this one.
-     *
-     * @param channel the channel
-     * @throws IOException if the source or destination worker is closed or the migration failed
-     * @throws IllegalArgumentException if the worker is incompatible
-     */
-    public void migrate(CloseableChannel channel) throws IOException, IllegalArgumentException {
-        if (channel.getWorker().getXnio() != xnio) {
-            throw new IllegalArgumentException("Cannot migrate channel (XNIO providers do not match)");
-        }
-        doMigration(channel);
-    }
-
-    protected abstract void doMigration(CloseableChannel channel) throws IOException;
 
     //==================================================
     //
