@@ -466,7 +466,7 @@ final class NioXnioWorker extends XnioWorker {
 
     protected IoFuture<ConnectedStreamChannel> connectTcpStream(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult);
+        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult, openListener);
         final IoFuture<StreamConnection> future = openTcpStreamConnection(bindAddress, destinationAddress, nestedOpenListener, bindListener, optionMap);
         future.addNotifier(WRAPPING_HANDLER, futureResult);
         return futureResult.getIoFuture();
@@ -474,7 +474,7 @@ final class NioXnioWorker extends XnioWorker {
 
     protected IoFuture<ConnectedStreamChannel> acceptTcpStream(final InetSocketAddress destination, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
-        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult);
+        final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult, openListener);
         final IoFuture<StreamConnection> future = acceptTcpStreamConnection(destination, nestedOpenListener, bindListener, optionMap);
         future.addNotifier(WRAPPING_HANDLER, futureResult);
         return futureResult.getIoFuture();
@@ -712,15 +712,19 @@ final class NioXnioWorker extends XnioWorker {
     private static class ConnectionWrapListener implements ChannelListener<StreamConnection> {
 
         private final FutureResult<ConnectedStreamChannel> futureResult;
+        private final ChannelListener<? super ConnectedStreamChannel> openListener;
 
-        public ConnectionWrapListener(final FutureResult<ConnectedStreamChannel> futureResult) {
+        public ConnectionWrapListener(final FutureResult<ConnectedStreamChannel> futureResult, final ChannelListener<? super ConnectedStreamChannel> openListener) {
             this.futureResult = futureResult;
+            this.openListener = openListener;
         }
 
         public void handleEvent(final StreamConnection channel) {
             final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(channel, channel.getSourceChannel(), channel.getSinkChannel());
             if (!futureResult.setResult(assembledChannel)) {
                 safeClose(assembledChannel);
+            } else {
+                ChannelListeners.invokeChannelListener(assembledChannel, openListener);
             }
         }
     }
