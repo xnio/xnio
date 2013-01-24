@@ -19,6 +19,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,7 @@ import static java.nio.channels.SelectionKey.OP_READ;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 abstract class AbstractNioSourceConduit<N extends AbstractSelectableChannel, C extends Connection> extends AbstractNioConnectionConduit<N, C> implements SourceConduit {
+
     private ReadReadyHandler handler;
 
     protected AbstractNioSourceConduit(final C connection, final SelectionKey selectionKey, final WorkerThread workerThread) {
@@ -42,9 +44,17 @@ abstract class AbstractNioSourceConduit<N extends AbstractSelectableChannel, C e
     public void terminateReads() throws IOException {
         if (tryClose()) try {
             closeAction();
+        } catch (ClosedChannelException ignored) {
         } finally {
             cancelKey();
-            try { handler.terminated(); } catch (Throwable ignored) {}
+            terminated();
+        }
+    }
+
+    void terminated() {
+        try {
+            handler.terminated();
+        } catch (Throwable ignored) {
         }
     }
 
@@ -66,7 +76,8 @@ abstract class AbstractNioSourceConduit<N extends AbstractSelectableChannel, C e
         if (handler == null) {
             try {
                 terminateReads();
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         } else {
             handler.forceTermination();
         }

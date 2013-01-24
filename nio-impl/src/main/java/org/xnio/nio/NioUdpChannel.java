@@ -71,8 +71,8 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         this.datagramChannel = datagramChannel;
         final WorkerThread readThread = worker.chooseOptional(false);
         final WorkerThread writeThread = worker.chooseOptional(true);
-        final SelectionKey readKey = readThread == null ? null : readThread.registerChannel(datagramChannel);
-        final SelectionKey writeKey = writeThread == null ? null : writeThread.registerChannel(datagramChannel);
+        final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(worker, datagramChannel) : readThread.registerChannel(datagramChannel);
+        final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(worker, datagramChannel) : writeThread.registerChannel(datagramChannel);
         readHandle = new AbstractNioConduit<DatagramChannel>(readKey, readThread) {
             void handleReady() {
                 final ChannelListener<? super NioUdpChannel> listener = readListener;
@@ -235,77 +235,57 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     private void cancelKeys() {
-        if (readHandle != null) {
-            try { readHandle.cancelKey(); } catch (Throwable ignored) {}
-        }
-        if (writeHandle != null) {
-            try { writeHandle.cancelKey(); } catch (Throwable ignored) {}
-        }
+        try { readHandle.cancelKey(); } catch (Throwable ignored) {}
+        try { writeHandle.cancelKey(); } catch (Throwable ignored) {}
     }
 
     public void suspendReads() {
-        final AbstractNioConduit<DatagramChannel> handle = readHandle;
-        if (handle != null) try {
-            handle.suspend();
+        try {
+            readHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void suspendWrites() {
-        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
-        if (handle != null) try {
-            handle.suspend();
+        try {
+            writeHandle.suspend();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void resumeReads() {
-        final AbstractNioConduit<DatagramChannel> handle = readHandle;
-        if (handle == null) {
-            throw new UnsupportedOperationException("No read thread configured");
-        }
         try {
-            handle.resume();
+            readHandle.resume();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public void resumeWrites() {
-        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
-        if (handle == null) {
-            throw new UnsupportedOperationException("No read thread configured");
-        }
         try {
-            handle.resume();
+            writeHandle.resume();
         } catch (CancelledKeyException ex) {
             // ignore
         }
     }
 
     public boolean isReadResumed() {
-        final AbstractNioConduit<DatagramChannel> handle = readHandle;
-        return handle != null && handle.isResumed();
+        return readHandle.isResumed();
     }
 
     public boolean isWriteResumed() {
-        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
-        return handle != null && handle.isResumed();
+        return writeHandle.isResumed();
     }
 
     public void wakeupReads() {
         resumeReads();
-        final AbstractNioConduit<DatagramChannel> readHandle = this.readHandle;
-        assert readHandle != null;
         readHandle.execute();
     }
 
     public void wakeupWrites() {
         resumeWrites();
-        final AbstractNioConduit<DatagramChannel> writeHandle = this.writeHandle;
-        assert writeHandle != null;
         writeHandle.execute();
     }
 
@@ -326,8 +306,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public XnioExecutor getReadThread() {
-        final AbstractNioConduit<DatagramChannel> handle = readHandle;
-        return handle == null ? null : handle.getWorkerThread();
+        return readHandle.getWorkerThread();
     }
 
     public void awaitWritable() throws IOException {
@@ -339,8 +318,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public XnioExecutor getWriteThread() {
-        final AbstractNioConduit<DatagramChannel> handle = writeHandle;
-        return handle == null ? null : handle.getWorkerThread();
+        return writeHandle.getWorkerThread();
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {

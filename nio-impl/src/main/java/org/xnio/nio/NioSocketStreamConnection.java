@@ -20,13 +20,12 @@ package org.xnio.nio;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.XnioWorker;
-
-import static org.xnio.IoUtils.safeClose;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -114,7 +113,7 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
             result = option.cast(Boolean.valueOf(channel.socket().getKeepAlive()));
             channel.socket().setKeepAlive(Options.KEEP_ALIVE.cast(value, Boolean.FALSE).booleanValue());
         } else if (option == Options.READ_TIMEOUT) {
-            result = option.cast(Integer.valueOf(sourceConduit.getAndSetReadTimeout(Options.READ_TIMEOUT.cast(value).intValue())));
+            result = option.cast(Integer.valueOf(sourceConduit.getAndSetReadTimeout(value == null ? 0 : Options.READ_TIMEOUT.cast(value).intValue())));
         } else if (option == Options.RECEIVE_BUFFER) {
             result = option.cast(Integer.valueOf(channel.socket().getReceiveBufferSize()));
             channel.socket().setReceiveBufferSize(Options.RECEIVE_BUFFER.cast(value).intValue());
@@ -128,16 +127,39 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
             result = option.cast(Boolean.valueOf(channel.socket().getOOBInline()));
             channel.socket().setOOBInline(Options.TCP_OOB_INLINE.cast(value, Boolean.FALSE).booleanValue());
         } else if (option == Options.WRITE_TIMEOUT) {
-            result = option.cast(Integer.valueOf(sinkConduit.getAndSetWriteTimeout(Options.WRITE_TIMEOUT.cast(value).intValue())));
+            result = option.cast(Integer.valueOf(sinkConduit.getAndSetWriteTimeout(value == null ? 0 : Options.WRITE_TIMEOUT.cast(value).intValue())));
         } else {
             return null;
         }
         return result;
     }
 
-    protected void closeAction() {
-        safeClose(channel);
-        server.channelClosed();
+    private void cancelKey(final AbstractNioConduit<?> conduit) {
+        if (conduit != null) conduit.cancelKey();
+    }
+
+    protected void closeAction() throws IOException {
+        try {
+            cancelKey(sourceConduit);
+            cancelKey(sinkConduit);
+            channel.close();
+        } catch (ClosedChannelException ignored) {
+        } finally {
+            final NioTcpServer server = this.server;
+            if (server != null) server.channelClosed();
+        }
+    }
+
+    private void terminated(final AbstractNioConnectionConduit<?, ?> conduit) {
+        if (conduit != null) conduit.terminated();
+    }
+
+    protected void notifyWriteClosed() {
+        terminated(sourceConduit);
+    }
+
+    protected void notifyReadClosed() {
+        terminated(sinkConduit);
     }
 
     SocketChannel getChannel() {

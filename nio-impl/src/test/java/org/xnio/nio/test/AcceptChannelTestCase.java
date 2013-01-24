@@ -58,7 +58,6 @@ public final class AcceptChannelTestCase extends TcpServerTest {
     public void awaitAcceptable() throws Exception {
        createServer(OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
        final Runnable acceptableAwaiter = new AcceptableAwaiter(server);
-       assertTrue(server.getClass().getName().endsWith("NioTcpServer"));
        final Thread acceptableAwaiterThread = new Thread(acceptableAwaiter);
        acceptableAwaiterThread.start();
        acceptableAwaiterThread.join(500);
@@ -196,7 +195,6 @@ public final class AcceptChannelTestCase extends TcpServerTest {
         createServer(OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE, Options.SEND_BUFFER, 15000));
 
         final Runnable acceptableAwaiter = new AcceptableAwaiter(server);
-        assertTrue(server.getClass().getName().endsWith("NioTcpServer"));
         final Thread acceptableAwaiterThread = new Thread(acceptableAwaiter);
         acceptableAwaiterThread.start();
         acceptableAwaiterThread.join(50);
@@ -237,7 +235,6 @@ public final class AcceptChannelTestCase extends TcpServerTest {
         createServer(OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
 
         final Runnable acceptableAwaiter = new AcceptableAwaiter(server, 300, TimeUnit.SECONDS);
-        assertTrue(server.getClass().getName().endsWith("NioTcpServer"));
         final Thread acceptableAwaiterThread = new Thread(acceptableAwaiter);
         acceptableAwaiterThread.start();
         acceptableAwaiterThread.join(500);
@@ -367,7 +364,6 @@ public final class AcceptChannelTestCase extends TcpServerTest {
         createServer(OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
 
         final Runnable acceptableAwaiter = new AcceptableAwaiter(server, 10, TimeUnit.MINUTES);
-        assertTrue(server.getClass().getName().endsWith("NioTcpServer"));
         final Thread acceptableAwaiterThread = new Thread(acceptableAwaiter);
         acceptableAwaiterThread.start();
         acceptableAwaiterThread.join(50);
@@ -508,7 +504,6 @@ public final class AcceptChannelTestCase extends TcpServerTest {
 
          // await acceptable
          final Runnable acceptableAwaiter = new AcceptableAwaiter(server, 10, TimeUnit.MINUTES);
-         assertTrue(server.getClass().getName().endsWith("NioTcpServer"));
          final Thread acceptableAwaiterThread = new Thread(acceptableAwaiter);
          acceptableAwaiterThread.start();
          acceptableAwaiterThread.join(50);

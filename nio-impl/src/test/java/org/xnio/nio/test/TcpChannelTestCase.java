@@ -125,7 +125,7 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         channel.setOption(Options.IP_TRAFFIC_CLASS, 5);
         channel.setOption(Options.KEEP_ALIVE, true);
         channel.setOption(Options.READ_TIMEOUT, 234095747);
-        assertNull(channel.setOption(Options.RECEIVE_BUFFER, 5000));
+        channel.setOption(Options.RECEIVE_BUFFER, 5000);
         channel.setOption(Options.SEND_BUFFER, 3000);
         channel.setOption(Options.TCP_NODELAY, true);
         channel.setOption(Options.TCP_OOB_INLINE, true);
@@ -138,7 +138,7 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         assertTrue(channel.getOption(Options.KEEP_ALIVE));
         assertEquals(234095747, (int) channel.getOption(Options.READ_TIMEOUT));
         assertTrue(channel.getOption(Options.RECEIVE_BUFFER) > 0);
-        assertEquals(3000, (int) channel.getOption(Options.SEND_BUFFER));
+        assertTrue(channel.getOption(Options.SEND_BUFFER) >= 3000);
         assertTrue(channel.getOption(Options.TCP_NODELAY));
         assertTrue(channel.getOption(Options.TCP_OOB_INLINE));
         assertEquals(1301093, (int) channel.getOption(Options.WRITE_TIMEOUT));
@@ -149,8 +149,8 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         assertTrue(channel.setOption(Options.IP_TRAFFIC_CLASS, 30) >= 0);
         assertTrue(channel.setOption(Options.KEEP_ALIVE, false));
         assertEquals(234095747, (int) channel.setOption(Options.READ_TIMEOUT, 1290455));
-        assertNull(channel.setOption(Options.RECEIVE_BUFFER, 3000));
-        assertEquals(3000, (int) channel.setOption(Options.SEND_BUFFER, 5000));
+        assertTrue(channel.setOption(Options.RECEIVE_BUFFER, 3000) >= 5000);
+        assertTrue(channel.setOption(Options.SEND_BUFFER, 5000) >= 3000);
         assertTrue(channel.setOption(Options.TCP_NODELAY, false));
         assertTrue(channel.setOption(Options.TCP_OOB_INLINE, false));
         assertEquals(1301093, (int) channel.setOption(Options.WRITE_TIMEOUT, 293265));
@@ -166,11 +166,8 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         assertEquals(293265, (int) channel.getOption(Options.WRITE_TIMEOUT));
 
         assertFalse(channel.setOption(Options.CLOSE_ABORT, null));
-        assertTrue(channel.setOption(Options.IP_TRAFFIC_CLASS, null) >= 0);
         assertFalse(channel.setOption(Options.KEEP_ALIVE, null));
         assertEquals(1290455, (int) channel.setOption(Options.READ_TIMEOUT, null));
-        assertNull(channel.setOption(Options.RECEIVE_BUFFER, null));
-        assertEquals(5000, (int) channel.setOption(Options.SEND_BUFFER, null));
         assertFalse(channel.setOption(Options.TCP_NODELAY, null));
         assertFalse(channel.setOption(Options.TCP_OOB_INLINE, null));
         assertEquals(293265, (int) channel.setOption(Options.WRITE_TIMEOUT, null));

@@ -112,24 +112,19 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
             if (allAreSet(oldVal, FLAG_WRITE_CLOSED | FLAG_READ_CLOSED)) {
                 return;
             }
-            newVal = oldVal | FLAG_WRITE_CLOSED;
+            newVal = oldVal | FLAG_READ_CLOSED | FLAG_WRITE_CLOSED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         try {
+            closeAction();
+        } finally {
             if (allAreClear(oldVal, FLAG_WRITE_CLOSED)) try {
                 notifyWriteClosed();
-            } catch (IOException e) {
-                if (allAreClear(oldVal, FLAG_READ_CLOSED)) try {
-                    notifyReadClosed();
-                } catch (Throwable ignored) {}
-                throw e;
+            } catch (Throwable ignored) {
             }
-            if (allAreClear(oldVal, FLAG_READ_CLOSED)) {
+            if (allAreClear(oldVal, FLAG_READ_CLOSED)) try {
                 notifyReadClosed();
+            } catch (Throwable ignored) {
             }
-        } finally {
-            try {
-                closeAction();
-            } catch (Throwable ignored) {}
             invokeCloseListener();
         }
     }
@@ -146,13 +141,13 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
         return anyAreClear(state, FLAG_READ_CLOSED | FLAG_WRITE_CLOSED);
     }
 
-    abstract void notifyWriteClosed() throws IOException;
+    protected abstract void notifyWriteClosed();
 
-    abstract void notifyReadClosed() throws IOException;
+    protected abstract void notifyReadClosed();
 
     abstract void invokeCloseListener();
 
-    protected void closeAction() {}
+    protected void closeAction() throws IOException {}
 
     public boolean supportsOption(final Option<?> option) {
         return false;

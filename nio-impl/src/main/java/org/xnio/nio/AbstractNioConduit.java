@@ -66,7 +66,8 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
 
     void cancelKey() {
         suspend();
-        workerThread.cancelKey(selectionKey);
+        final WorkerThread thread = workerThread;
+        if (thread != null) thread.cancelKey(selectionKey);
     }
 
     int setOps(int newOps) {
@@ -82,6 +83,10 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
     }
 
     void resume() {
+        final WorkerThread thread = workerThread;
+        if (thread == null) {
+            throw new IllegalArgumentException("No thread configured");
+        }
         int oldVal, newVal;
         do {
             oldVal = state;
@@ -95,7 +100,7 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
         }
         oldVal = newVal;
         newVal = oldVal & ~FLAG_SUS_RES;
-        workerThread.setOps(selectionKey, oldVal & MASK_OPS);
+        thread.setOps(selectionKey, oldVal & MASK_OPS);
         if (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
             boolean resume = true;
             do {
@@ -103,13 +108,18 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
                 newVal = oldVal & ~FLAG_SUS_RES;
                 if (allAreSet(oldVal, FLAG_RESUMED) != resume || (oldVal & MASK_OPS) != (newVal & MASK_OPS)) {
                     resume = !resume;
-                    workerThread.setOps(selectionKey, resume ? oldVal & MASK_OPS : 0);
+                    thread.setOps(selectionKey, resume ? oldVal & MASK_OPS : 0);
                 }
             } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         }
     }
 
     void suspend() {
+        final WorkerThread thread = workerThread;
+        if (thread == null) {
+            // always suspended
+            return;
+        }
         int oldVal, newVal;
         do {
             oldVal = state;
@@ -123,14 +133,14 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
         }
         oldVal = newVal;
         newVal = oldVal & ~FLAG_SUS_RES;
-        workerThread.setOps(selectionKey, 0);
+        thread.setOps(selectionKey, 0);
         if (! stateUpdater.compareAndSet(this, oldVal, newVal)) {
             final int ops = oldVal & MASK_OPS;
             boolean resume = false;
             do {
                 if (allAreSet(oldVal, FLAG_RESUMED) != resume) {
                     resume = !resume;
-                    workerThread.setOps(selectionKey, resume ? ops : 0);
+                    thread.setOps(selectionKey, resume ? ops : 0);
                 }
                 oldVal = state;
                 newVal = oldVal & ~FLAG_SUS_RES;
@@ -154,6 +164,10 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
     }
 
     void execute() {
+        final WorkerThread thread = workerThread;
+        if (thread == null) {
+            return;
+        }
         int oldVal, newVal;
         do {
             oldVal = state;
@@ -162,7 +176,7 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
             }
             newVal = oldVal | FLAG_SCHEDULED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        workerThread.execute(this);
+        thread.execute(this);
     }
 
     void wakeup() {
@@ -171,7 +185,8 @@ abstract class AbstractNioConduit<N extends AbstractSelectableChannel> implement
     }
 
     public NioXnioWorker getWorker() {
-        return workerThread.getWorker();
+        final WorkerThread thread = workerThread;
+        return thread != null ? thread.getWorker() : ((ThreadlessSelectionKey)selectionKey).getWorker();
     }
 
     abstract void handleReady();

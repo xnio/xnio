@@ -108,6 +108,7 @@ public abstract class TcpServerTest {
     protected void createServer(XnioWorker worker, OptionMap optionMap) throws IOException {
         if (server != null) {
             server.close();
+            assertFalse(server.isOpen());
         }
         server = worker.createStreamServer(bindAddress, null, optionMap);
         assertTrue(server.isOpen());
@@ -134,7 +135,6 @@ public abstract class TcpServerTest {
     @After
     public void closeServer() throws IOException {
         if (server != null) {
-            assertTrue(server.isOpen());
             server.close();
             assertFalse(server.isOpen());
         }

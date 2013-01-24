@@ -68,6 +68,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertTrue((int) server.getOption(Options.CONNECTION_LOW_WATER) > 0);
         assertTrue((int) server.getOption(Options.CONNECTION_HIGH_WATER) > 0);
         assertTrue((int) server.getOption(Options.CONNECTION_LOW_WATER) <= server.getOption(Options.CONNECTION_HIGH_WATER));
+        server.close();
     }
 
     @Test
@@ -98,6 +99,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertEquals(250000, (int) server.getOption(Options.WRITE_TIMEOUT));
         assertEquals(12345, (int) server.getOption(Options.CONNECTION_LOW_WATER));
         assertEquals(23456, (int) server.getOption(Options.CONNECTION_HIGH_WATER));
+        server.close();
     }
 
     @Test
@@ -208,6 +210,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertEquals(0, (int) server.setOption(Options.WRITE_TIMEOUT, null));
         assertTrue((int) server.setOption(Options.CONNECTION_LOW_WATER, null) > 0);
         assertTrue((int) server.setOption(Options.CONNECTION_HIGH_WATER, null) > 0);
+        server.close();
     }
 
     @Test
@@ -221,7 +224,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         final OptionMap.Builder optionMapBuilder = OptionMap.builder();
         optionMapBuilder.set(Options.WORKER_ACCEPT_THREADS, getWorkerReadThreads() == 1? 1: getWorkerReadThreads() - 1);
         optionMapBuilder.set(Options.WORKER_ESTABLISH_WRITING, false);
-        optionMapBuilder.set(Options.REUSE_ADDRESSES, false);
+        optionMapBuilder.set(Options.REUSE_ADDRESSES, true);
         optionMapBuilder.set(Options.RECEIVE_BUFFER, 30000);
         optionMapBuilder.set(Options.SEND_BUFFER, 29000);
         optionMapBuilder.set(Options.KEEP_ALIVE, false);
@@ -296,7 +299,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
 
         createServer(optionMapBuilder.getMap());
 
-        assertFalse(server.getOption(Options.REUSE_ADDRESSES));
+        assertTrue(server.getOption(Options.REUSE_ADDRESSES));
         assertEquals(30000, (int) server.getOption(Options.RECEIVE_BUFFER));
         assertEquals(29000, (int) server.getOption(Options.SEND_BUFFER));
         assertFalse(server.getOption(Options.KEEP_ALIVE));
@@ -323,7 +326,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertTrue(server.supportsOption(Options.CONNECTION_LOW_WATER));
         assertTrue(server.supportsOption(Options.CONNECTION_HIGH_WATER));
 
-        assertFalse(server.setOption(Options.REUSE_ADDRESSES, true));
+        assertTrue(server.setOption(Options.REUSE_ADDRESSES, false));
         assertEquals(30000, (int) server.setOption(Options.RECEIVE_BUFFER, 24000));
         assertEquals(29000, (int) server.setOption(Options.SEND_BUFFER, 23000));
         assertFalse(server.setOption(Options.KEEP_ALIVE, true));
@@ -396,7 +399,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertNull(server.setOption(Options.WORKER_TASK_MAX_THREADS, 20));
         assertNull(server.setOption(Options.WORKER_WRITE_THREADS, 21));
 
-        assertTrue(server.getOption(Options.REUSE_ADDRESSES));
+        assertFalse(server.getOption(Options.REUSE_ADDRESSES));
         assertEquals(24000, (int) server.getOption(Options.RECEIVE_BUFFER));
         assertEquals(23000, (int) server.getOption(Options.SEND_BUFFER));
         assertTrue(server.getOption(Options.KEEP_ALIVE));
@@ -411,6 +414,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
             assertNull("Non null value for option " + option + ": " + server.getOption(option), server.getOption(option));
             assertFalse(server.supportsOption(option));
         }
+        server.close();
     }
 
     @Test
@@ -433,5 +437,6 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         createServer(worker2, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false, Options.WORKER_ACCEPT_THREADS, 10));
         createServer(worker2, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false, Options.WORKER_ACCEPT_THREADS, 50));
         createServer(worker2, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false, Options.WORKER_ACCEPT_THREADS, 69));
+        server.close();
     }
 }

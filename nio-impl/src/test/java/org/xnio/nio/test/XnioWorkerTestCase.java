@@ -148,8 +148,6 @@ public class XnioWorkerTestCase {
                 assertEquals(channel2.getOption(Options.SEND_BUFFER), boundChannel.getOption(Options.SEND_BUFFER));
                 channel2.setOption(Options.SEND_BUFFER, 3000);
                 assertEquals(3000, (int) boundChannel.getOption(Options.SEND_BUFFER));
-                assertNull(boundChannel.setOption(Options.RECEIVE_BUFFER, 10000));
-                assertTrue(channel2.getOption(Options.RECEIVE_BUFFER) > 0);
                 assertEquals(bindAddress, channel2.getPeerAddress());
                 assertTrue(boundChannel.supportsOption(Options.KEEP_ALIVE));
                 assertFalse(boundChannel.supportsOption(Options.CONNECTION_LOW_WATER));
@@ -220,7 +218,11 @@ public class XnioWorkerTestCase {
             IoFuture<ConnectedStreamChannel> connectedStreamChannel = null;
             do {
                 if (connectedStreamChannel != null) {
-                    connectedStreamChannel.get().close();
+                    connectedStreamChannel.await();
+                    final IoFuture.Status status = connectedStreamChannel.getStatus();
+                    if (status == IoFuture.Status.DONE) {
+                        connectedStreamChannel.get().close();
+                    }
                     channelListener.clear();
                 }
                 connectedStreamChannel = xnioWorker.connectStream(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();

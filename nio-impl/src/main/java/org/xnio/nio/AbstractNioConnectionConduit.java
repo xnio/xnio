@@ -30,12 +30,12 @@ abstract class AbstractNioConnectionConduit<N extends AbstractSelectableChannel,
 
     protected AbstractNioConnectionConduit(final C connection, final SelectionKey selectionKey, final WorkerThread workerThread) {
         super(selectionKey, workerThread);
-        assert connection.getWorker() == workerThread.getWorker();
-        assert workerThread.getSelector() == selectionKey.selector();
         this.connection = connection;
     }
 
     abstract boolean tryClose();
+
+    abstract void terminated();
 
     C getConnection() {
         return connection;

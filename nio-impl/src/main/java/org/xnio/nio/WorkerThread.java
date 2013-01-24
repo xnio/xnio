@@ -345,7 +345,6 @@ final class WorkerThread extends Thread implements XnioExecutor {
     }
 
     void setOps(final SelectionKey key, final int ops) {
-        assert key.selector() == selector;
         if (currentThread() == this) {
             try {
                 key.interestOps(ops);

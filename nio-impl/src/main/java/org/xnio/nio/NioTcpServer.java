@@ -404,8 +404,8 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 writeThread = worker.choose(true);
                 readThread = workerThread;
             }
-            final SelectionKey readKey = readThread.registerChannel(accepted);
-            final SelectionKey writeKey = writeThread.registerChannel(accepted);
+            final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(worker, accepted) : readThread.registerChannel(accepted);
+            final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(worker, accepted) : writeThread.registerChannel(accepted);
             final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(newConnection, writeKey, writeThread);
             final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(newConnection, readKey, readThread);
             sinkConduit.setOps(SelectionKey.OP_WRITE);

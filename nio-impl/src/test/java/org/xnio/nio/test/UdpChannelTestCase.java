@@ -150,14 +150,14 @@ public class UdpChannelTestCase {
             Exception expected = null;
             try {
                 server1.resumeReads();
-            } catch (UnsupportedOperationException e) {
+            } catch (IllegalArgumentException e) {
                 expected = e;
             }
             assertNotNull(expected);
             expected = null;
             try {
                 server1.wakeupReads();
-            } catch (UnsupportedOperationException e) {
+            } catch (IllegalArgumentException e) {
                 expected = e;
             }
             assertNotNull(expected);
@@ -183,13 +183,13 @@ public class UdpChannelTestCase {
             expected = null;
             try {
                 server2.resumeWrites();
-            } catch (UnsupportedOperationException e) {
+            } catch (IllegalArgumentException e) {
                 expected = e;
             }
             expected = null;
             try {
                 server2.wakeupWrites();
-            } catch (UnsupportedOperationException e) {
+            } catch (IllegalArgumentException e) {
                 expected = e;
             }
             assertNotNull(expected);

@@ -265,7 +265,7 @@ final class NioXnioWorker extends XnioWorker {
 
     protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
         final AcceptingChannel<StreamConnection> server = createTcpConnectionServer(bindAddress, null, optionMap);
-        return new AcceptingChannel<ConnectedStreamChannel>() {
+        final AcceptingChannel<ConnectedStreamChannel> acceptingChannel = new AcceptingChannel<ConnectedStreamChannel>() {
             public ConnectedStreamChannel accept() throws IOException {
                 final StreamConnection connection = server.accept();
                 return connection == null ? null : new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
@@ -331,6 +331,8 @@ final class NioXnioWorker extends XnioWorker {
                 return server.setOption(option, value);
             }
         };
+        acceptingChannel.getAcceptSetter().set(acceptListener);
+        return acceptingChannel;
     }
 
     protected AcceptingChannel<StreamConnection> createTcpConnectionServer(final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, final OptionMap optionMap) throws IOException {
@@ -339,7 +341,7 @@ final class NioXnioWorker extends XnioWorker {
         final ServerSocketChannel channel = ServerSocketChannel.open();
         try {
             if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
-            if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+            channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, true));
             channel.configureBlocking(false);
             if (optionMap.contains(Options.BACKLOG)) {
                 channel.socket().bind(bindAddress, optionMap.get(Options.BACKLOG, 128));
@@ -432,8 +434,8 @@ final class NioXnioWorker extends XnioWorker {
                 ChannelListeners.invokeChannelListener(connection, bindListener);
                 final WorkerThread readThread = chooseOptional(false);
                 final WorkerThread writeThread = chooseOptional(true);
-                final SelectionKey readKey = readThread != null ? readThread.registerChannel(channel) : null;
-                final SelectionKey writeKey = writeThread != null ? writeThread.registerChannel(channel) : null;
+                final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(this, channel): readThread.registerChannel(channel);
+                final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(this, channel) : writeThread.registerChannel(channel);
                 final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(connection, readKey, readThread);
                 final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(connection, writeKey, writeThread);
                 final boolean establishWrite = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
@@ -497,6 +499,11 @@ final class NioXnioWorker extends XnioWorker {
         checkShutdown();
         final DatagramChannel channel = DatagramChannel.open();
         channel.configureBlocking(false);
+        if (optionMap.contains(Options.BROADCAST)) channel.socket().setBroadcast(optionMap.get(Options.BROADCAST, false));
+        if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
+        if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+        channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, true));
+        if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
         channel.socket().bind(bindAddress);
         final NioUdpChannel udpChannel = new NioUdpChannel(this, channel);
         ChannelListeners.invokeChannelListener(udpChannel, bindListener);
@@ -520,10 +527,10 @@ final class NioXnioWorker extends XnioWorker {
                 final WorkerThread topSinkThread = chooseOptional(true);
                 final WorkerThread bottomSourceThread = chooseOptional(false);
                 final WorkerThread bottomSinkThread = chooseOptional(true);
-                final SelectionKey topSourceKey = topSourceThread.registerChannel(topPipe.source());
-                final SelectionKey topSinkKey = topSinkThread.registerChannel(topPipe.sink());
-                final SelectionKey bottomSourceKey = bottomSourceThread.registerChannel(bottomPipe.source());
-                final SelectionKey bottomSinkKey = bottomSinkThread.registerChannel(bottomPipe.sink());
+                final SelectionKey topSourceKey = topSourceThread == null ? new ThreadlessSelectionKey(this, topPipe.source()) : topSourceThread.registerChannel(topPipe.source());
+                final SelectionKey topSinkKey = topSinkThread == null ? new ThreadlessSelectionKey(this, topPipe.sink()) : topSinkThread.registerChannel(topPipe.sink());
+                final SelectionKey bottomSourceKey = bottomSourceThread == null ? new ThreadlessSelectionKey(this, bottomPipe.source()) : bottomSourceThread.registerChannel(bottomPipe.source());
+                final SelectionKey bottomSinkKey = bottomSinkThread == null ? new ThreadlessSelectionKey(this, bottomPipe.sink()) : bottomSinkThread.registerChannel(bottomPipe.sink());
                 final NioPipeSourceConduit leftSourceConduit = new NioPipeSourceConduit(leftConnection, bottomSourceKey, bottomSourceThread);
                 final NioPipeSinkConduit leftSinkConduit = new NioPipeSinkConduit(leftConnection, topSinkKey, topSinkThread);
                 final NioPipeSourceConduit rightSourceConduit = new NioPipeSourceConduit(rightConnection, topSourceKey, topSourceThread);
@@ -571,8 +578,8 @@ final class NioXnioWorker extends XnioWorker {
             final NioPipeStreamConnection rightConnection = new NioPipeStreamConnection(this, null, pipe.sink());
             final WorkerThread readThread = chooseOptional(false);
             final WorkerThread writeThread = chooseOptional(true);
-            final SelectionKey readKey = readThread.registerChannel(pipe.source());
-            final SelectionKey writeKey = writeThread.registerChannel(pipe.sink());
+            final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(this, pipe.source()) : readThread.registerChannel(pipe.source());
+            final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(this, pipe.sink()) : writeThread.registerChannel(pipe.sink());
             final NioPipeSourceConduit sourceConduit = new NioPipeSourceConduit(leftConnection, readKey, readThread);
             final NioPipeSinkConduit sinkConduit = new NioPipeSinkConduit(rightConnection, writeKey, writeThread);
             sourceConduit.setOps(SelectionKey.OP_READ);
@@ -620,7 +627,7 @@ final class NioXnioWorker extends XnioWorker {
                     }
 
                     public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
-                        return null;
+                        return new ChannelListener.SimpleSetter<BoundChannel>();
                     }
 
                     public XnioWorker getWorker() {
@@ -678,8 +685,8 @@ final class NioXnioWorker extends XnioWorker {
                                     readThread = thread;
                                     writeThread = chooseOptional(true);
                                 }
-                                final SelectionKey readKey = readThread != null ? readThread.registerChannel(channel) : null;
-                                final SelectionKey writeKey = writeThread != null ? writeThread.registerChannel(channel) : null;
+                                final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(NioXnioWorker.this, channel) : readThread.registerChannel(channel);
+                                final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(NioXnioWorker.this, channel) : writeThread.registerChannel(channel);
                                 final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(connection, readKey, readThread);
                                 final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(connection, writeKey, writeThread);
                                 sourceConduit.setOps(SelectionKey.OP_READ);

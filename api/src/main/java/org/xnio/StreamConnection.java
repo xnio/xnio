@@ -69,16 +69,6 @@ public abstract class StreamConnection extends Connection implements CloseListen
         ChannelListeners.invokeChannelListener(this, closeListener);
     }
 
-    void notifyReadClosed() throws IOException {
-        final ConduitStreamSourceChannel channel = sourceChannel;
-        if (channel != null) channel.close();
-    }
-
-    void notifyWriteClosed() throws IOException {
-        final ConduitStreamSinkChannel channel = sinkChannel;
-        if (channel != null) channel.close();
-    }
-
     private static <T> T notNull(T orig) throws IllegalStateException {
         if (orig == null) {
             throw new IllegalStateException("Channel not available");

@@ -19,6 +19,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.concurrent.TimeUnit;
@@ -46,9 +47,17 @@ abstract class AbstractNioSinkConduit<N extends AbstractSelectableChannel, C ext
     public void truncateWrites() throws IOException {
         if (tryClose()) try {
             closeAction();
+        } catch (ClosedChannelException ignored) {
         } finally {
             cancelKey();
-            try { handler.terminated(); } catch (Throwable ignored) {}
+            terminated();
+        }
+    }
+
+    void terminated() {
+        try {
+            handler.terminated();
+        } catch (Throwable ignored) {
         }
     }
 

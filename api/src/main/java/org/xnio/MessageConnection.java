@@ -18,7 +18,6 @@
 
 package org.xnio;
 
-import java.io.IOException;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitReadableMessageChannel;
 import org.xnio.conduits.ConduitWritableMessageChannel;
@@ -67,16 +66,6 @@ public abstract class MessageConnection extends Connection implements CloseListe
 
     void invokeCloseListener() {
         ChannelListeners.invokeChannelListener(this, closeListener);
-    }
-
-    void notifyReadClosed() throws IOException {
-        final ConduitReadableMessageChannel channel = sourceChannel;
-        if (channel != null) channel.close();
-    }
-
-    void notifyWriteClosed() throws IOException {
-        final ConduitWritableMessageChannel channel = sinkChannel;
-        if (channel != null) channel.close();
     }
 
     private static <T> T notNull(T orig) throws IllegalStateException {
