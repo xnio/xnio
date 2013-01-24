@@ -469,6 +469,7 @@ final class NioXnioWorker extends XnioWorker {
         final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult, openListener);
         final IoFuture<StreamConnection> future = openTcpStreamConnection(bindAddress, destinationAddress, nestedOpenListener, bindListener, optionMap);
         future.addNotifier(WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
         return futureResult.getIoFuture();
     }
 
@@ -477,6 +478,7 @@ final class NioXnioWorker extends XnioWorker {
         final ChannelListener<StreamConnection> nestedOpenListener = new ConnectionWrapListener(futureResult, openListener);
         final IoFuture<StreamConnection> future = acceptTcpStreamConnection(destination, nestedOpenListener, bindListener, optionMap);
         future.addNotifier(WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
         return futureResult.getIoFuture();
     }
 
@@ -516,6 +518,10 @@ final class NioXnioWorker extends XnioWorker {
                 final NioPipeSinkConduit leftSinkConduit = new NioPipeSinkConduit(leftConnection, topSinkKey, topSinkThread);
                 final NioPipeSourceConduit rightSourceConduit = new NioPipeSourceConduit(rightConnection, topSourceKey, topSourceThread);
                 final NioPipeSinkConduit rightSinkConduit = new NioPipeSinkConduit(rightConnection, bottomSinkKey, bottomSinkThread);
+                leftSourceConduit.setOps(SelectionKey.OP_READ);
+                leftSinkConduit.setOps(SelectionKey.OP_WRITE);
+                rightSourceConduit.setOps(SelectionKey.OP_READ);
+                rightSinkConduit.setOps(SelectionKey.OP_WRITE);
                 leftConnection.setSourceConduit(leftSourceConduit);
                 leftConnection.setSinkConduit(leftSinkConduit);
                 rightConnection.setSourceConduit(rightSourceConduit);
@@ -559,6 +565,8 @@ final class NioXnioWorker extends XnioWorker {
             final SelectionKey writeKey = writeThread.registerChannel(pipe.sink());
             final NioPipeSourceConduit sourceConduit = new NioPipeSourceConduit(leftConnection, readKey, readThread);
             final NioPipeSinkConduit sinkConduit = new NioPipeSinkConduit(rightConnection, writeKey, writeThread);
+            sourceConduit.setOps(SelectionKey.OP_READ);
+            sinkConduit.setOps(SelectionKey.OP_WRITE);
             leftConnection.setSourceConduit(sourceConduit);
             leftConnection.writeClosed();
             rightConnection.readClosed();

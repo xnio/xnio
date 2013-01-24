@@ -86,6 +86,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             void forceTermination() {
             }
         };
+        readHandle.setOps(SelectionKey.OP_READ);
         writeHandle = new AbstractNioConduit<DatagramChannel>(writeKey, writeThread) {
             void handleReady() {
                 final ChannelListener<? super NioUdpChannel> listener = writeListener;
@@ -99,6 +100,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             void forceTermination() {
             }
         };
+        writeHandle.setOps(SelectionKey.OP_WRITE);
     }
 
     public SocketAddress getLocalAddress() {

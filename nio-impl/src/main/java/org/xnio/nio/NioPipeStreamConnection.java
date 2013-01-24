@@ -18,8 +18,12 @@
 
 package org.xnio.nio;
 
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.Pipe;
+import java.util.Set;
+import org.xnio.Option;
+import org.xnio.Options;
 import org.xnio.XnioWorker;
 
 /**
@@ -28,6 +32,8 @@ import org.xnio.XnioWorker;
 final class NioPipeStreamConnection extends AbstractNioStreamConnection {
     private final Pipe.SourceChannel sourceChannel;
     private final Pipe.SinkChannel sinkChannel;
+    private NioPipeSourceConduit sourceConduit;
+    private NioPipeSinkConduit sinkConduit;
 
     NioPipeStreamConnection(final XnioWorker worker, final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel) {
         super(worker);
@@ -49,6 +55,47 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
 
     protected boolean writeClosed() {
         return super.writeClosed();
+    }
+
+    protected void setSourceConduit(final NioPipeSourceConduit sourceConduit) {
+        this.sourceConduit = sourceConduit;
+        super.setSourceConduit(sourceConduit);
+    }
+
+    protected void setSinkConduit(final NioPipeSinkConduit sinkConduit) {
+        this.sinkConduit = sinkConduit;
+        super.setSinkConduit(sinkConduit);
+    }
+
+    private static final Set<Option<?>> OPTIONS = Option.setBuilder()
+            .add(Options.READ_TIMEOUT)
+            .add(Options.WRITE_TIMEOUT)
+            .create();
+
+    public boolean supportsOption(final Option<?> option) {
+        return OPTIONS.contains(option);
+    }
+
+    public <T> T getOption(final Option<T> option) throws IOException {
+        if (option == Options.READ_TIMEOUT) {
+            return option.cast(Integer.valueOf(sourceConduit.getReadTimeout()));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            return option.cast(Integer.valueOf(sinkConduit.getWriteTimeout()));
+        } else {
+            return null;
+        }
+    }
+
+    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+        T result;
+        if (option == Options.READ_TIMEOUT) {
+            result = option.cast(Integer.valueOf(sourceConduit.getAndSetReadTimeout(Options.READ_TIMEOUT.cast(value).intValue())));
+        } else if (option == Options.WRITE_TIMEOUT) {
+            result = option.cast(Integer.valueOf(sinkConduit.getAndSetWriteTimeout(Options.WRITE_TIMEOUT.cast(value).intValue())));
+        } else {
+            return null;
+        }
+        return result;
     }
 
     Pipe.SourceChannel getSourcePipeChannel() {
