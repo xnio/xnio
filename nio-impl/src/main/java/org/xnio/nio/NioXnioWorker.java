@@ -338,6 +338,8 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         final ServerSocketChannel channel = ServerSocketChannel.open();
         try {
+            if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+            if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
             channel.configureBlocking(false);
             if (optionMap.contains(Options.BACKLOG)) {
                 channel.socket().bind(bindAddress, optionMap.get(Options.BACKLOG, 128));
@@ -417,6 +419,14 @@ final class NioXnioWorker extends XnioWorker {
             boolean ok = false;
             try {
                 channel.configureBlocking(false);
+                if (optionMap.contains(Options.TCP_OOB_INLINE)) channel.socket().setOOBInline(optionMap.get(Options.TCP_OOB_INLINE, false));
+                if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
+                if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
+                if (optionMap.contains(Options.CLOSE_ABORT)) channel.socket().setSoLinger(optionMap.get(Options.CLOSE_ABORT, false), 0);
+                if (optionMap.contains(Options.KEEP_ALIVE)) channel.socket().setKeepAlive(optionMap.get(Options.KEEP_ALIVE, false));
+                if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+                if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+                if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                 channel.socket().bind(bindAddress);
                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, channel, null);
                 ChannelListeners.invokeChannelListener(connection, bindListener);
@@ -579,6 +589,140 @@ final class NioXnioWorker extends XnioWorker {
                 safeClose(pipe.sink());
                 safeClose(pipe.source());
             }
+        }
+    }
+
+    protected IoFuture<StreamConnection> acceptTcpStreamConnection(final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            checkShutdown();
+        } catch (ClosedWorkerException e) {
+            return new FailedIoFuture<StreamConnection>(e);
+        }
+        final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(this);
+        try {
+            boolean ok = false;
+            final ServerSocketChannel serverChannel = ServerSocketChannel.open();
+            try {
+                serverChannel.configureBlocking(false);
+                if (optionMap.contains(Options.RECEIVE_BUFFER)) {
+                    serverChannel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+                }
+                serverChannel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, true));
+                serverChannel.bind(destination);
+                if (bindListener != null) ChannelListeners.invokeChannelListener(new BoundChannel() {
+                    public SocketAddress getLocalAddress() {
+                        return serverChannel.socket().getLocalSocketAddress();
+                    }
+
+                    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                        final SocketAddress address = getLocalAddress();
+                        return type.isInstance(address) ? type.cast(address) : null;
+                    }
+
+                    public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
+                        return null;
+                    }
+
+                    public XnioWorker getWorker() {
+                        return NioXnioWorker.this;
+                    }
+
+                    public void close() throws IOException {
+                        serverChannel.close();
+                    }
+
+                    public boolean isOpen() {
+                        return serverChannel.isOpen();
+                    }
+
+                    public boolean supportsOption(final Option<?> option) {
+                        return false;
+                    }
+
+                    public <T> T getOption(final Option<T> option) throws IOException {
+                        return null;
+                    }
+
+                    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                        return null;
+                    }
+                }, bindListener);
+                final WorkerThread thread = choose(optionMap.get(Options.WORKER_ESTABLISH_WRITING, false));
+                final SelectionKey key = thread.registerChannel(serverChannel);
+                final AbstractNioConduit<ServerSocketChannel> conduit = new AbstractNioConduit<ServerSocketChannel>(key, thread) {
+                    void handleReady() {
+                        boolean ok = false;
+                        try {
+                            final SocketChannel channel = serverChannel.accept();
+                            if (channel == null) {
+                                ok = true;
+                                return;
+                            } else {
+                                safeClose(serverChannel);
+                            }
+                            try {
+                                channel.configureBlocking(false);
+                                if (optionMap.contains(Options.TCP_OOB_INLINE)) channel.socket().setOOBInline(optionMap.get(Options.TCP_OOB_INLINE, false));
+                                if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
+                                if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
+                                if (optionMap.contains(Options.CLOSE_ABORT)) channel.socket().setSoLinger(optionMap.get(Options.CLOSE_ABORT, false), 0);
+                                if (optionMap.contains(Options.KEEP_ALIVE)) channel.socket().setKeepAlive(optionMap.get(Options.KEEP_ALIVE, false));
+                                if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
+                                final NioSocketStreamConnection connection = new NioSocketStreamConnection(NioXnioWorker.this, channel, null);
+                                final WorkerThread readThread;
+                                final WorkerThread writeThread;
+                                if (thread.isWriteThread()) {
+                                    readThread = chooseOptional(false);
+                                    writeThread = thread;
+                                } else {
+                                    readThread = thread;
+                                    writeThread = chooseOptional(true);
+                                }
+                                final SelectionKey readKey = readThread != null ? readThread.registerChannel(channel) : null;
+                                final SelectionKey writeKey = writeThread != null ? writeThread.registerChannel(channel) : null;
+                                final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(connection, readKey, readThread);
+                                final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(connection, writeKey, writeThread);
+                                sourceConduit.setOps(SelectionKey.OP_READ);
+                                sinkConduit.setOps(SelectionKey.OP_WRITE);
+                                connection.setSourceConduit(sourceConduit);
+                                connection.setSinkConduit(sinkConduit);
+                                if (futureResult.setResult(connection)) {
+                                    ok = true;
+                                    ChannelListeners.invokeChannelListener(connection, openListener);
+                                }
+                            } finally {
+                                if (! ok) safeClose(channel);
+                            }
+                        } catch (IOException e) {
+                            futureResult.setException(e);
+                        } finally {
+                            if (! ok) {
+                                safeClose(serverChannel);
+                            }
+                        }
+                    }
+
+                    void forceTermination() {
+                        futureResult.setCancelled();
+                    }
+                };
+                conduit.setOps(SelectionKey.OP_ACCEPT);
+                conduit.resume();
+                ok = true;
+                futureResult.addCancelHandler(new Cancellable() {
+                    public Cancellable cancel() {
+                        if (futureResult.setCancelled()) {
+                            safeClose(serverChannel);
+                        }
+                        return this;
+                    }
+                });
+                return futureResult.getIoFuture();
+            } finally {
+                if (! ok) safeClose(serverChannel);
+            }
+        } catch (IOException e) {
+            return new FailedIoFuture<StreamConnection>(e);
         }
     }
 
