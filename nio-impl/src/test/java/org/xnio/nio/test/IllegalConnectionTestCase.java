@@ -52,7 +52,7 @@ public class IllegalConnectionTestCase {
 
     @BeforeClass
     public static void createWorker() throws IOException {
-        final Xnio xnio = Xnio.getInstance("nio", AcceptChannelTestCase.class.getClassLoader());
+        final Xnio xnio = Xnio.getInstance("nio", IllegalConnectionTestCase.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 3, Options.WORKER_READ_THREADS, 4));
         bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 12345);
     }
@@ -65,46 +65,13 @@ public class IllegalConnectionTestCase {
 
     @Test
     public void illegalAcceptThreads() throws IOException {
-        IllegalArgumentException expected = null;
-        try {
-            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ACCEPT_THREADS, 5, Options.CONNECTION_HIGH_WATER, 20));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
+        IllegalArgumentException expected;
 
-        expected = null;
-        try {
-            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ACCEPT_THREADS, 4, Options.WORKER_ESTABLISH_WRITING, true));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        final AcceptingChannel<? extends ConnectedStreamChannel> server = worker.createStreamServer(bindAddress, null,
-                OptionMap.create(Options.WORKER_ACCEPT_THREADS, 0));
-        expected = null;
-        try {
-            server.wakeupAccepts();
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        server.close();
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ACCEPT_THREADS, -5));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        final Xnio xnio = Xnio.getInstance("nio", AcceptChannelTestCase.class.getClassLoader());
+        final Xnio xnio = Xnio.getInstance("nio", getClass().getClassLoader());
         XnioWorker zeroThreadWorker = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 0, Options.WORKER_READ_THREADS, 0));
         expected = null;
         try {
-            zeroThreadWorker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ACCEPT_THREADS, 1, Options.WORKER_ESTABLISH_WRITING, true));
+            zeroThreadWorker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, true));
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -112,7 +79,7 @@ public class IllegalConnectionTestCase {
 
         expected = null;
         try {
-            zeroThreadWorker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ACCEPT_THREADS, 1, Options.WORKER_ESTABLISH_WRITING, false));
+            zeroThreadWorker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false));
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -161,14 +128,6 @@ public class IllegalConnectionTestCase {
     @Test
     public void illegalHighWaterMark() throws IOException {
         IllegalArgumentException expected = null;
-        try {
-            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, 1 << 20));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
         try {
             worker.createStreamServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, -1));
         } catch (IllegalArgumentException e) {

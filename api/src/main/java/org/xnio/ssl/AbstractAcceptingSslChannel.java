@@ -42,6 +42,7 @@ import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.Sequence;
 import org.xnio.SslClientAuthMode;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConnectedChannel;
@@ -249,5 +250,9 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
 
     public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
         tcpServer.awaitAcceptable(time, timeUnit);
+    }
+
+    public XnioExecutor getAcceptThread() {
+        return tcpServer.getAcceptThread();
     }
 }

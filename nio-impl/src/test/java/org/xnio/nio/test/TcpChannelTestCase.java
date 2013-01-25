@@ -36,6 +36,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.xnio.ChannelListener;
+import org.xnio.FutureResult;
 import org.xnio.IoFuture;
 import org.xnio.LocalSocketAddress;
 import org.xnio.Option;
@@ -81,7 +82,17 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
             serverChannel.close();
         }
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, optionMap);
-        serverChannel = server.accept();
+        final FutureResult<ConnectedStreamChannel> accepted = new FutureResult<ConnectedStreamChannel>(xnioWorker);
+        server.getAcceptThread().execute(new Runnable() {
+            public void run() {
+                try {
+                    accepted.setResult(server.accept());
+                } catch (IOException e) {
+                    accepted.setException(e);
+                }
+            }
+        });
+        serverChannel = accepted.getIoFuture().get();
         channel = connectedStreamChannel.get();
         assertNotNull(serverChannel);
         assertNotNull(channel);

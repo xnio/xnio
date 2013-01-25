@@ -458,6 +458,7 @@ public final class Options {
      * for a socket server under low connection volume, but higher throughput at high connection volume.  The minimum value
      * is 1, and the maximum value is equal to the number of available worker threads.
      */
+    @Deprecated
     public static final Option<Integer> WORKER_ACCEPT_THREADS = Option.simple(Options.class, "WORKER_ACCEPT_THREADS", Integer.class);
 
     /**

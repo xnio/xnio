@@ -27,6 +27,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.AccessController;
 import java.util.ArrayDeque;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
@@ -61,8 +62,10 @@ final class WorkerThread extends Thread implements XnioExecutor {
     private final Object workLock = new Object();
 
     private final boolean writeThread;
+    private final int number;
     private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
     private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
+    private final IdentityHashMap<Object, Object> tls = new IdentityHashMap<Object, Object>();
 
     private volatile int state;
 
@@ -75,11 +78,12 @@ final class WorkerThread extends Thread implements XnioExecutor {
         THREAD_SAFE_SELECTION_KEYS = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.xnio.thread-safe-selection-keys", "false")));
     }
 
-    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final boolean writeThread) {
+    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final boolean writeThread, final int number) {
         super(group, null, name, stackSize);
         this.selector = selector;
         this.worker = worker;
         this.writeThread = writeThread;
+        this.number = number;
     }
 
     static WorkerThread getCurrent() {
@@ -89,6 +93,10 @@ final class WorkerThread extends Thread implements XnioExecutor {
 
     boolean isWriteThread() {
         return writeThread;
+    }
+
+    int getNumber() {
+        return number;
     }
 
     public void run() {

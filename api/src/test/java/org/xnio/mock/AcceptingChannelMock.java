@@ -33,6 +33,7 @@ import org.xnio.ChannelListener.SimpleSetter;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.OptionMap.Builder;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 
@@ -214,6 +215,10 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
 
     public void enableAcceptance(boolean enable) {
         acceptanceEnabled = enable;
+    }
+
+    public XnioExecutor getAcceptThread() {
+        return null;
     }
 
     @Override

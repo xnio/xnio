@@ -75,7 +75,7 @@ public abstract class TcpServerTest {
             writeThreads = 1;
         }
         workerWriteThreadsValue = writeThreads;
-        xnio = Xnio.getInstance("nio", AcceptChannelTestCase.class.getClassLoader());
+        xnio = Xnio.getInstance("nio", TcpServerTest.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, workerWriteThreadsValue, Options.WORKER_READ_THREADS, workerReadThreadsValue));
         bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT);
     }

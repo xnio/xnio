@@ -49,6 +49,7 @@ import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.StreamConnection;
+import org.xnio.XnioExecutor;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.AssembledConnectedStreamChannel;
@@ -109,7 +110,7 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         try {
             for (int i = 0; i < readCount; i++) {
-                final WorkerThread readWorker = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, false);
+                final WorkerThread readWorker = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, false, i);
                 // Mark as daemon if the Options.THREAD_DAEMON has been set
                 if (markWorkerThreadAsDaemon) {
                     readWorker.setDaemon(true);
@@ -117,7 +118,7 @@ final class NioXnioWorker extends XnioWorker {
                 readWorkers[i] = readWorker;
             }
             for (int i = 0; i < writeCount; i++) {
-                final WorkerThread writeWorker = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s write-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, true);
+                final WorkerThread writeWorker = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s write-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, true, i);
                 // Mark as daemon if Options.THREAD_DAEMON has been set
                 if (markWorkerThreadAsDaemon) {
                     writeWorker.setDaemon(true);
@@ -171,6 +172,10 @@ final class NioXnioWorker extends XnioWorker {
             throw new IllegalArgumentException("No threads configured");
         }
         return result;
+    }
+
+    WorkerThread[] getAll(final boolean write) {
+        return write ? writeWorkers : readWorkers;
     }
 
     WorkerThread[] choose(int count, boolean write) {
@@ -309,6 +314,10 @@ final class NioXnioWorker extends XnioWorker {
 
             public XnioWorker getWorker() {
                 return server.getWorker();
+            }
+
+            public XnioExecutor getAcceptThread() {
+                return server.getAcceptThread();
             }
 
             public void close() throws IOException {

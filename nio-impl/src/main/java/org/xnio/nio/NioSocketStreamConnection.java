@@ -33,14 +33,14 @@ import org.xnio.XnioWorker;
 final class NioSocketStreamConnection extends AbstractNioStreamConnection {
 
     private final SocketChannel channel;
-    private final NioTcpServer server;
+    private final NioTcpServerConduit serverConduit;
     private NioSocketSourceConduit sourceConduit;
     private NioSocketSinkConduit sinkConduit;
 
-    NioSocketStreamConnection(final XnioWorker worker, final SocketChannel channel, final NioTcpServer server) {
+    NioSocketStreamConnection(final XnioWorker worker, final SocketChannel channel, final NioTcpServerConduit serverConduit) {
         super(worker);
         this.channel = channel;
-        this.server = server;
+        this.serverConduit = serverConduit;
     }
 
     public SocketAddress getPeerAddress() {
@@ -145,8 +145,8 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
             channel.close();
         } catch (ClosedChannelException ignored) {
         } finally {
-            final NioTcpServer server = this.server;
-            if (server != null) server.channelClosed();
+            final NioTcpServerConduit conduit = this.serverConduit;
+            if (conduit!= null) conduit.channelClosed();
         }
     }
 

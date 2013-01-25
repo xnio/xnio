@@ -65,8 +65,8 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
         assertFalse(server.getOption(Options.TCP_NODELAY));
         assertEquals(0, (int) server.getOption(Options.READ_TIMEOUT));
         assertEquals(0, (int) server.getOption(Options.WRITE_TIMEOUT));
-        assertTrue((int) server.getOption(Options.CONNECTION_LOW_WATER) > 0);
-        assertTrue((int) server.getOption(Options.CONNECTION_HIGH_WATER) > 0);
+        assertTrue(server.getOption(Options.CONNECTION_LOW_WATER) > 0);
+        assertTrue(server.getOption(Options.CONNECTION_HIGH_WATER) > 0);
         assertTrue((int) server.getOption(Options.CONNECTION_LOW_WATER) <= server.getOption(Options.CONNECTION_HIGH_WATER));
         server.close();
     }
@@ -74,7 +74,6 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
     @Test
     public void optionSetupOnServerCreation() throws IOException {
         final OptionMap.Builder optionMapBuilder = OptionMap.builder();
-        optionMapBuilder.set(Options.WORKER_ACCEPT_THREADS, getWorkerWriteThreads());
         optionMapBuilder.set(Options.WORKER_ESTABLISH_WRITING, true);
         optionMapBuilder.set(Options.REUSE_ADDRESSES, true);
         optionMapBuilder.set(Options.RECEIVE_BUFFER, 50000);
@@ -105,7 +104,6 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
     @Test
     public void resetOptions() throws IOException {
         final OptionMap.Builder optionMapBuilder = OptionMap.builder();
-        optionMapBuilder.set(Options.WORKER_ACCEPT_THREADS, getWorkerWriteThreads());
         optionMapBuilder.set(Options.WORKER_ESTABLISH_WRITING, true);
         optionMapBuilder.set(Options.REUSE_ADDRESSES, true);
         optionMapBuilder.set(Options.RECEIVE_BUFFER, 10);

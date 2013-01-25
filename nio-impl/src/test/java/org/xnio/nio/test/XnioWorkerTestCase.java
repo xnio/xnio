@@ -69,7 +69,7 @@ public class XnioWorkerTestCase {
 
     @BeforeClass
     public static void createWorker() throws IOException {
-        xnio = Xnio.getInstance("nio", AcceptChannelTestCase.class.getClassLoader());
+        xnio = Xnio.getInstance("nio", XnioWorkerTestCase.class.getClassLoader());
         bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT);
     }
 
