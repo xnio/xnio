@@ -37,8 +37,8 @@ import org.xnio.channels.WriteListenerSettable;
  */
 public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<ConduitStreamSinkChannel>, CloseListenerSettable<ConduitStreamSinkChannel>, Cloneable {
     private final Configurable configurable;
-    private final StreamSinkConduit conduit;
 
+    private StreamSinkConduit conduit;
     private ChannelListener<? super ConduitStreamSinkChannel> writeListener;
     private ChannelListener<? super ConduitStreamSinkChannel> closeListener;
 
@@ -50,6 +50,10 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
 
     public StreamSinkConduit getConduit() {
         return conduit;
+    }
+
+    public void setConduit(final StreamSinkConduit conduit) {
+        this.conduit = conduit;
     }
 
     public ChannelListener<? super ConduitStreamSinkChannel> getWriteListener() {

@@ -37,8 +37,8 @@ import org.xnio.channels.StreamSourceChannel;
  */
 public final class ConduitStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<ConduitStreamSourceChannel>, CloseListenerSettable<ConduitStreamSourceChannel>, Cloneable {
     private final Configurable configurable;
-    private final StreamSourceConduit conduit;
 
+    private StreamSourceConduit conduit;
     private ChannelListener<? super ConduitStreamSourceChannel> readListener;
     private ChannelListener<? super ConduitStreamSourceChannel> closeListener;
 
@@ -50,6 +50,10 @@ public final class ConduitStreamSourceChannel implements StreamSourceChannel, Re
 
     public StreamSourceConduit getConduit() {
         return conduit;
+    }
+
+    public void setConduit(final StreamSourceConduit conduit) {
+        this.conduit = conduit;
     }
 
     public boolean isOpen() {

@@ -32,69 +32,6 @@ import java.util.Iterator;
 public final class Conduits {
 
     /**
-     * Wrap a conduit with zero or more conduits created from factories.
-     *
-     * @param conduit the conduit to wrap
-     * @param factories the factories to apply
-     * @param <D> the conduit type
-     * @return the wrapped conduit
-     */
-    public static <D extends Conduit> D wrap(D conduit, ConduitFactory<D>... factories) {
-        for (ConduitFactory<D> factory : factories) {
-            conduit = factory.create(conduit);
-        }
-        return conduit;
-    }
-
-    /**
-     * Wrap a conduit with zero or more conduits created from factories.
-     *
-     * @param conduit the conduit to wrap
-     * @param factories the factories to apply
-     * @param offs the offset into the factories array
-     * @param len the number of elements to process in the factories array
-     * @param <D> the conduit type
-     * @return the wrapped conduit
-     */
-    public static <D extends Conduit> D wrap(D conduit, ConduitFactory<D>[] factories, int offs, int len) {
-        for (int i = 0; i < len; i++) {
-            final ConduitFactory<D> factory = factories[i + offs];
-            conduit = factory.create(conduit);
-        }
-        return conduit;
-    }
-
-    /**
-     * Wrap a conduit with zero or more conduits created from factories.
-     *
-     * @param conduit the conduit to wrap
-     * @param factories the factories to apply
-     * @param <D> the conduit type
-     * @return the wrapped conduit
-     */
-    public static <D extends Conduit> D wrap(D conduit, Iterable<ConduitFactory<D>> factories) {
-        for (ConduitFactory<D> factory : factories) {
-            conduit = factory.create(conduit);
-        }
-        return conduit;
-    }
-
-    /**
-     * Wrap a conduit with zero or more conduits created from factories.
-     *
-     * @param conduit the conduit to wrap
-     * @param factories the factories to apply
-     * @param <D> the conduit type
-     * @return the wrapped conduit
-     */
-    public static <D extends Conduit> D wrap(D conduit, Iterator<ConduitFactory<D>> factories) {
-        while (factories.hasNext()) {
-            conduit = factories.next().create(conduit);
-        }
-        return conduit;
-    }
-
-    /**
      * Platform-independent channel-to-channel transfer method.  Uses regular {@code read} and {@code write} operations
      * to move bytes from the {@code source} channel to the {@code sink} channel.  After this call, the {@code throughBuffer}
      * should be checked for remaining bytes; if there are any, they should be written to the {@code sink} channel before
