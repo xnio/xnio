@@ -44,6 +44,7 @@ public class AssembledConnectedChannel extends AssembledChannel implements Conne
         connection = ch;
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedChannel> getCloseSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedChannel>) super.getCloseSetter();
     }

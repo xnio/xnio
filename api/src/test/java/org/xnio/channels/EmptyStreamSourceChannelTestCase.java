@@ -40,7 +40,7 @@ import org.xnio.FileAccess;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.Xnio;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.XnioExecutorMock;
@@ -57,16 +57,15 @@ public class EmptyStreamSourceChannelTestCase {
     @Before
     public void createChannel() throws Exception {
         final Xnio xnio = Xnio.getInstance("xnio-mock");
-        this.channel = new EmptyStreamSourceChannel(
-                xnio.createWorker(OptionMap.EMPTY), new XnioExecutorMock());
+        this.channel = new EmptyStreamSourceChannel(new XnioExecutorMock(null));
     }
 
     @Test
     public void getWorkerAndExecutor() throws Exception {
         final Xnio xnio = Xnio.getInstance("xnio-mock");
         final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
-        final XnioExecutor executor = new XnioExecutorMock();
-        this.channel = new EmptyStreamSourceChannel(worker, executor);
+        final XnioIoThread executor = new XnioExecutorMock(worker);
+        this.channel = new EmptyStreamSourceChannel(executor);
         assertSame(worker, channel.getWorker());
         assertSame(executor, channel.getReadThread());
     }

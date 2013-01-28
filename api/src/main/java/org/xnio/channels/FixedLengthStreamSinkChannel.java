@@ -27,6 +27,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 import static java.lang.Math.min;
@@ -116,8 +117,13 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         }
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
         return delegate.getWriteThread();
+    }
+
+    public XnioIoThread getIoThread() {
+        return delegate.getIoThread();
     }
 
     public XnioWorker getWorker() {

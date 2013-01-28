@@ -89,7 +89,9 @@ public interface SuspendableReadChannel extends CloseableChannel {
      * Get the read thread for this channel.
      *
      * @return the thread, or {@code null} if none is configured or available
+     * @deprecated The {@link #getIoThread()} method should be used instead.
      */
+    @Deprecated
     XnioExecutor getReadThread();
 
     /**

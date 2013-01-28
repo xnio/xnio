@@ -18,7 +18,6 @@
 
 package org.xnio;
 
-import java.io.IOException;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
@@ -41,8 +40,8 @@ public abstract class StreamConnection extends Connection implements CloseListen
      *
      * @param worker the XNIO worker
      */
-    protected StreamConnection(final XnioWorker worker) {
-        super(worker);
+    protected StreamConnection(final XnioIoThread thread) {
+        super(thread);
     }
 
     public void setCloseListener(final ChannelListener<? super StreamConnection> listener) {

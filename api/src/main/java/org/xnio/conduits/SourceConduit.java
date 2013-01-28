@@ -20,7 +20,7 @@ package org.xnio.conduits;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -48,7 +48,7 @@ public interface SourceConduit extends Conduit {
      *
      * @return the XNIO read thread
      */
-    XnioExecutor getReadThread();
+    XnioIoThread getReadThread();
 
     void setReadReadyHandler(ReadReadyHandler handler);
 }

@@ -20,6 +20,7 @@ package org.xnio.nio;
 
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.CloseableChannel;
 
@@ -30,9 +31,9 @@ abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements Cl
 
     private final ChannelListener.SimpleSetter<C> closeSetter = new ChannelListener.SimpleSetter<C>();
 
-    protected volatile NioXnioWorker worker;
+    protected final NioXnioWorker worker;
 
-    public AbstractNioChannel(final NioXnioWorker worker) {
+    AbstractNioChannel(final NioXnioWorker worker) {
         this.worker = worker;
     }
 
@@ -42,6 +43,10 @@ abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements Cl
 
     public final ChannelListener.Setter<? extends C> getCloseSetter() {
         return closeSetter;
+    }
+
+    public XnioIoThread getIoThread() {
+        return worker.chooseThread();
     }
 
     @SuppressWarnings("unchecked")

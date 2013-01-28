@@ -25,6 +25,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.Option;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -91,6 +92,11 @@ public class AssembledChannel implements CloseableChannel {
     public XnioWorker getWorker() {
         // both should be the same
         return readChannel.getWorker();
+    }
+
+    public XnioIoThread getIoThread() {
+        // both should be the same
+        return readChannel.getIoThread();
     }
 
     public void close() throws IOException {

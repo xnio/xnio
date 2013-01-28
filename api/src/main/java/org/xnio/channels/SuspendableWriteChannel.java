@@ -29,6 +29,7 @@ import org.xnio.XnioExecutor;
  * writes as needed.
  */
 public interface SuspendableWriteChannel extends CloseableChannel {
+
     /**
      * Suspend further write notifications on this channel.
      */
@@ -92,7 +93,9 @@ public interface SuspendableWriteChannel extends CloseableChannel {
      * Get the write thread for this channel.
      *
      * @return the thread, or {@code null} if none is configured or available
+     * @deprecated The {@link #getIoThread()} method should be used instead.
      */
+    @Deprecated
     XnioExecutor getWriteThread();
 
     /**

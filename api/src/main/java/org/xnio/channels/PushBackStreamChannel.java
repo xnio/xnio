@@ -29,6 +29,7 @@ import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Pooled;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -185,8 +186,13 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
         }
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return firstChannel.getReadThread();
+    }
+
+    public XnioIoThread getIoThread() {
+        return firstChannel.getIoThread();
     }
 
     public XnioWorker getWorker() {
@@ -397,7 +403,12 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
             throw new UnsupportedOperationException();
         }
 
+        @Deprecated
         public XnioExecutor getReadThread() {
+            throw new UnsupportedOperationException();
+        }
+
+        public XnioIoThread getIoThread() {
             throw new UnsupportedOperationException();
         }
 

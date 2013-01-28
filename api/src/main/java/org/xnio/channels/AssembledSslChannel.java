@@ -66,6 +66,7 @@ public class AssembledSslChannel extends AssembledConnectedChannel implements Ss
         return handshakeSetter;
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledSslChannel> getCloseSetter() {
         return (ChannelListener.Setter<? extends AssembledSslChannel>) super.getCloseSetter();
     }

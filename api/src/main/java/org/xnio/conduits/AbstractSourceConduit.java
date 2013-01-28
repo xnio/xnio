@@ -20,7 +20,7 @@ package org.xnio.conduits;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 
 /**
  * An abstract base class for source conduits.
@@ -70,7 +70,7 @@ public abstract class AbstractSourceConduit<D extends SourceConduit> extends Abs
         next.awaitReadable(time, timeUnit);
     }
 
-    public XnioExecutor getReadThread() {
+    public XnioIoThread getReadThread() {
         return next.getReadThread();
     }
 

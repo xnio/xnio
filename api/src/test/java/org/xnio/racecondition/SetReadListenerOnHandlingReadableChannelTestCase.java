@@ -32,6 +32,7 @@ import org.junit.runner.RunWith;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.SuspendableChannel;
 import org.xnio.channels.TranslatingSuspendableChannel;
@@ -147,6 +148,7 @@ public class SetReadListenerOnHandlingReadableChannelTestCase {
                 public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {}
                 public XnioExecutor getWriteThread() { return null; }
                 public boolean flush() throws IOException { return true; }
+                public XnioIoThread getIoThread() { return null; }
                 public ChannelListener.Setter<? extends SuspendableChannel> getCloseSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
                 public ChannelListener.Setter<? extends SuspendableChannel> getReadSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}
                 public ChannelListener.Setter<? extends SuspendableChannel> getWriteSetter() {return new ChannelListener.SimpleSetter<SuspendableChannel>();}

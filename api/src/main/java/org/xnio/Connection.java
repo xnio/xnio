@@ -35,7 +35,7 @@ import static org.xnio.Bits.anyAreClear;
  */
 public abstract class Connection implements CloseableChannel, ConnectedChannel {
 
-    protected final XnioWorker worker;
+    protected final XnioIoThread thread;
     @SuppressWarnings("unused")
     private volatile int state;
 
@@ -47,10 +47,10 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
     /**
      * Construct a new instance.
      *
-     * @param worker the connection's worker
+     * @param thread
      */
-    protected Connection(final XnioWorker worker) {
-        this.worker = worker;
+    protected Connection(final XnioIoThread thread) {
+        this.thread = thread;
     }
 
     private static <A extends SocketAddress> A castAddress(final Class<A> type, SocketAddress address) {
@@ -66,7 +66,11 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
     }
 
     public final XnioWorker getWorker() {
-        return worker;
+        return thread.getWorker();
+    }
+
+    public XnioIoThread getIoThread() {
+        return thread;
     }
 
     protected boolean readClosed() {

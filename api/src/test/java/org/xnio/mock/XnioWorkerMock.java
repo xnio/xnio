@@ -32,9 +32,9 @@ import org.xnio.ChannelListeners;
 import org.xnio.FailedIoFuture;
 import org.xnio.FinishedIoFuture;
 import org.xnio.IoFuture;
-import org.xnio.LocalSocketAddress;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
@@ -67,6 +67,7 @@ public class XnioWorkerMock extends XnioWorker {
      * @see ChannelMock#getInfo()
      */
     public static final String LOCAL_CHANNEL_INFO = "tcp";
+    private final XnioExecutorMock mockThread = new XnioExecutorMock(this);
 
     private enum ConnectBehavior {SUCCEED, FAIL, CANCEL}
     private boolean shutdown;
@@ -78,6 +79,14 @@ public class XnioWorkerMock extends XnioWorker {
 
     protected XnioWorkerMock(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
         super(Xnio.getInstance(), threadGroup, optionMap, terminationTask);
+    }
+
+    public int getIoThreadCount() {
+        return 0;
+    }
+
+    protected XnioIoThread chooseThread() {
+        return mockThread;
     }
 
     protected IoFuture<ConnectedStreamChannel> internalConnectStream(final SocketAddress bindAddress, final SocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final String channelInfo) {
@@ -106,16 +115,6 @@ public class XnioWorkerMock extends XnioWorker {
         }
     }
 
-    @Override
-    protected IoFuture<ConnectedStreamChannel> connectTcpStream(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
-        return internalConnectStream(bindAddress, destinationAddress, openListener, bindListener, optionMap, TCP_CHANNEL_INFO);
-    }
-
-    @Override
-    protected IoFuture<ConnectedStreamChannel> connectLocalStream(final LocalSocketAddress bindAddress, final LocalSocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
-        return internalConnectStream(bindAddress, destinationAddress, openListener, bindListener, optionMap, LOCAL_CHANNEL_INFO);
-    }
-
     public void failConnection() {
         connectBehavior = ConnectBehavior.FAIL;
     }
@@ -131,18 +130,8 @@ public class XnioWorkerMock extends XnioWorker {
         channel.setOptionMap(optionMap);
         channel.setWorker(this);
         channel.setInfo(channelInfo);
-        ((AcceptingChannel)channel).getAcceptSetter().set((ChannelListener<AcceptingChannel<ConnectedStreamChannel>>) acceptListener);
+        ((AcceptingChannel)channel).getAcceptSetter().set(acceptListener);
         return channel;
-    }
-
-    @Override
-    protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        return internalCreateStreamServer(bindAddress, acceptListener, optionMap, TCP_CHANNEL_INFO);
-    }
-
-    @Override
-    protected AcceptingChannel<? extends ConnectedStreamChannel> createLocalStreamServer(LocalSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        return internalCreateStreamServer(bindAddress, acceptListener, optionMap, LOCAL_CHANNEL_INFO);
     }
 
     private IoFuture<ConnectedStreamChannel> internalAcceptStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, String channelInfo) {
@@ -168,16 +157,6 @@ public class XnioWorkerMock extends XnioWorker {
            default:
                throw new IllegalStateException("Unexpected ConnectBehavior");
         }
-    }
-
-    @Override
-    protected IoFuture<ConnectedStreamChannel> acceptTcpStream(InetSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        return internalAcceptStream(destination, openListener, bindListener, optionMap, TCP_CHANNEL_INFO);
-    }
-
-    @Override
-    protected IoFuture<ConnectedStreamChannel> acceptLocalStream(LocalSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        return internalAcceptStream(destination, openListener, bindListener, optionMap, LOCAL_CHANNEL_INFO);
     }
 
     private IoFuture<ConnectedMessageChannel> internalConnectDatagram(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, String channelInfo) {
@@ -206,21 +185,6 @@ public class XnioWorkerMock extends XnioWorker {
            default:
                throw new IllegalStateException("Unexpected ConnectBehavior");
         }
-    }
-
-    @Override
-    protected IoFuture<ConnectedMessageChannel> connectUdpDatagram(InetSocketAddress bindAddress, InetSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        return internalConnectDatagram(bindAddress, destination, openListener, bindListener, optionMap, UDP_CHANNEL_INFO);
-    }
-
-    @Override
-    protected IoFuture<ConnectedMessageChannel> connectLocalDatagram(LocalSocketAddress bindAddress, LocalSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        return internalConnectDatagram(bindAddress, destination, openListener, bindListener, optionMap, LOCAL_CHANNEL_INFO);
-    }
-
-    @Override
-    protected IoFuture<ConnectedMessageChannel> acceptLocalDatagram(LocalSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        return internalConnectDatagram(null, destination, openListener, bindListener, optionMap, LOCAL_CHANNEL_INFO);
     }
 
     @Override

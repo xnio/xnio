@@ -40,6 +40,7 @@ import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -808,6 +809,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return channel.getReadThread();
     }
@@ -881,6 +883,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
         }
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
         return channel.getWriteThread();
     }
@@ -925,6 +928,11 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
     /** {@inheritDoc} */
     public XnioWorker getWorker() {
         return channel.getWorker();
+    }
+
+    /** {@inheritDoc} */
+    public XnioIoThread getIoThread() {
+        return channel.getIoThread();
     }
 
     /** {@inheritDoc} */

@@ -437,13 +437,24 @@ public final class Options {
     public static final Option<Boolean> THREAD_DAEMON = Option.simple(Options.class, "THREAD_DAEMON", Boolean.class);
 
     /**
-     * Specify the number of read threads to create for the worker.  If not specified, a default will be chosen.
+     * Specify the number of I/O threads to create for the worker.  If not specified, a default will be chosen.
      */
+    public static final Option<Integer> WORKER_IO_THREADS = Option.simple(Options.class, "WORKER_IO_THREADS", Integer.class);
+
+    /**
+     * Specify the number of read threads to create for the worker.  If not specified, a default will be chosen.
+     *
+     * @deprecated Use {@link #WORKER_IO_THREADS} instead.
+     */
+    @Deprecated
     public static final Option<Integer> WORKER_READ_THREADS = Option.simple(Options.class, "WORKER_READ_THREADS", Integer.class);
 
     /**
      * Specify the number of write threads to create for the worker.  If not specified, a default will be chosen.
+     *
+     * @deprecated Use {@link #WORKER_IO_THREADS} instead.
      */
+    @Deprecated
     public static final Option<Integer> WORKER_WRITE_THREADS = Option.simple(Options.class, "WORKER_WRITE_THREADS", Integer.class);
 
     /**

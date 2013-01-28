@@ -117,8 +117,8 @@ public class UdpChannelTestCase {
 
     @Test
     public void testChannelWithOneThreadOnly() throws IllegalArgumentException, IOException {
-        final XnioWorker xnioWorker1 = xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, 0));
-        final XnioWorker xnioWorker2 = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 0));
+        final XnioWorker xnioWorker1 = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, 1));
+        final XnioWorker xnioWorker2 = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, 1));
         final MulticastMessageChannel server1 = xnioWorker1.createUdpServer(address1, OptionMap.EMPTY);
         final MulticastMessageChannel server2 = xnioWorker2.createUdpServer(address2, OptionMap.EMPTY);
         assertTrue(server1.isOpen());
@@ -147,27 +147,11 @@ public class UdpChannelTestCase {
             assertTrue(server1.isOpen());
             assertTrue(server2.isOpen());
 
-            Exception expected = null;
-            try {
-                server1.resumeReads();
-            } catch (IllegalArgumentException e) {
-                expected = e;
-            }
-            assertNotNull(expected);
-            expected = null;
-            try {
-                server1.wakeupReads();
-            } catch (IllegalArgumentException e) {
-                expected = e;
-            }
-            assertNotNull(expected);
-            assertNull(server1.getReadThread());
             TestChannelListener<MulticastMessageChannel> server1Listener = new TestChannelListener<MulticastMessageChannel>();
             server1.getWriteSetter().set(server1Listener);
             server1.resumeWrites();
             server1.wakeupWrites();
             assertTrue(server1Listener.isInvoked());
-            assertNotNull(server1.getWriteThread());
             assertFalse(server1.isReadResumed());
             assertTrue(server1.isWriteResumed());
             server1.suspendReads();
@@ -180,21 +164,6 @@ public class UdpChannelTestCase {
             server2.resumeReads();
             server2.wakeupReads();
             assertTrue(server2Listener.isInvoked());
-            expected = null;
-            try {
-                server2.resumeWrites();
-            } catch (IllegalArgumentException e) {
-                expected = e;
-            }
-            expected = null;
-            try {
-                server2.wakeupWrites();
-            } catch (IllegalArgumentException e) {
-                expected = e;
-            }
-            assertNotNull(expected);
-            assertNotNull(server2.getReadThread());
-            assertNull(server2.getWriteThread());
             assertTrue(server2.isReadResumed());
             assertFalse(server2.isWriteResumed());
             server2.suspendReads();

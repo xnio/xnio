@@ -24,7 +24,6 @@ package org.xnio.nio.test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -45,7 +44,6 @@ import org.xnio.Buffers;
 import org.xnio.ChannelPipe;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
-import org.xnio.Options;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamSinkChannel;
@@ -443,101 +441,6 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
 
         assertNotNull(sinkChannel.getWriteThread());
         assertNotNull(sinkChannel.getWriteThread());
-    }
-
-    @Test
-    public void readThreadOnlyChannel() throws IOException, InterruptedException {
-        final XnioWorker readThreadOnlyWorker = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 0));
-        initChannels(readThreadOnlyWorker, OptionMap.EMPTY);
-        final TestChannelListener<StreamSourceChannel> readListener = new TestChannelListener<StreamSourceChannel>();
-        final TestChannelListener<StreamSinkChannel> writeListener = new TestChannelListener<StreamSinkChannel>();
-        sourceChannel.getReadSetter().set(readListener);
-        sinkChannel.getWriteSetter().set(writeListener);
-
-        sinkChannel.awaitWritable();
-        sinkChannel.awaitWritable(1, TimeUnit.HOURS);
-
-        IllegalArgumentException expected = null;
-        try {
-            sinkChannel.resumeWrites();
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            sinkChannel.wakeupWrites();
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        assertFalse(sinkChannel.isWriteResumed());
-        sinkChannel.suspendWrites(); // nothing should happen
-        assertFalse(sinkChannel.isWriteResumed());
-
-        sourceChannel.resumeReads();
-        sourceChannel.wakeupReads();
-        sourceChannel.suspendReads();
-
-        assertNull(sinkChannel.getWriteThread());
-        assertNotNull(sourceChannel.getReadThread());
-
-
-        sinkChannel.shutdownWrites();
-        sourceChannel.shutdownReads();
-    }
-
-    @Test
-    public void writeThreadOnlyChannel() throws IOException, InterruptedException {
-        final XnioWorker writeThreadOnlyWorker = xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, 0));
-        initChannels(writeThreadOnlyWorker, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, true));
-        final TestChannelListener<StreamSourceChannel> readListener = new TestChannelListener<StreamSourceChannel>();
-        final TestChannelListener<StreamSinkChannel> writeListener = new TestChannelListener<StreamSinkChannel>();
-        sourceChannel.getReadSetter().set(readListener);
-        sinkChannel.getWriteSetter().set(writeListener);
-
-        final ReadableAwaiter<T> readableAwaiter = new ReadableAwaiter<T>(sourceChannel);
-        final Thread readableAwaiterThread = new Thread(readableAwaiter);
-        readableAwaiterThread.start();
-        readableAwaiterThread.join(50);
-        assertTrue(readableAwaiterThread.isAlive());
-
-        final ByteBuffer buffer = ByteBuffer.allocate(5);
-        buffer.put("12345".getBytes()).flip();
-        assertEquals(5, sinkChannel.write(buffer));
-        readableAwaiterThread.join();
-
-        IllegalArgumentException expected = null;
-        try {
-            sourceChannel.resumeReads();
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            sourceChannel.wakeupReads();
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        assertFalse(sourceChannel.isReadResumed());
-        sourceChannel.suspendReads(); // nothing should happen
-        assertFalse(sourceChannel.isReadResumed());
-
-        sinkChannel.resumeWrites();
-        sinkChannel.wakeupWrites();
-        sinkChannel.suspendWrites();
-
-        assertNull(sourceChannel.getReadThread());
-        assertNotNull(sinkChannel.getWriteThread());
-
-        sinkChannel.shutdownWrites();
-        sourceChannel.shutdownReads();
     }
 
     protected static class ReadableAwaiter<T extends StreamSourceChannel> implements Runnable {

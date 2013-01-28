@@ -27,7 +27,7 @@ import org.xnio.ChannelListener;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public class AssembledConnectedMessageChannel extends AssembledMessageChannel implements ConnectedChannel {
+public class AssembledConnectedMessageChannel extends AssembledMessageChannel implements ConnectedMessageChannel {
     private final ConnectedChannel connection;
 
     /**
@@ -52,14 +52,17 @@ public class AssembledConnectedMessageChannel extends AssembledMessageChannel im
         this(new AssembledConnectedChannel(readable, writable), readable, writable);
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedMessageChannel> getCloseSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedMessageChannel>) super.getCloseSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedMessageChannel> getReadSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedMessageChannel>) super.getReadSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedMessageChannel> getWriteSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedMessageChannel>) super.getWriteSetter();
     }

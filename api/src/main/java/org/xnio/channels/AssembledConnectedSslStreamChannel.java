@@ -69,14 +69,17 @@ public class AssembledConnectedSslStreamChannel extends AssembledConnectedStream
         return handshakeSetter;
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel> getCloseSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel>) super.getCloseSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel> getReadSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel>) super.getReadSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel> getWriteSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedSslStreamChannel>) super.getWriteSetter();
     }

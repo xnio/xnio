@@ -41,7 +41,6 @@ import org.xnio.channels.AcceptListenerSettable;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
-import static org.xnio.Bits.*;
 import static org.xnio.IoUtils.safeClose;
 
 final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<StreamConnection>, AcceptListenerSettable<NioTcpServer> {
@@ -50,11 +49,10 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     private volatile ChannelListener<? super NioTcpServer> acceptListener;
 
-    private final NioTcpServerConduit[] acceptConduits;
+    private final NioTcpServerHandle[] handles;
 
     private final ServerSocketChannel channel;
     private final ServerSocket socket;
-    private final boolean acceptWrite;
 
     private static final Set<Option<?>> options = Option.setBuilder()
             .add(Options.REUSE_ADDRESSES)
@@ -105,9 +103,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
         super(worker);
         this.channel = channel;
-        final boolean write = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false);
-        acceptWrite = write;
-        final WorkerThread[] threads = worker.getAll(write);
+        final WorkerThread[] threads = worker.getAll();
         final int threadCount = threads.length;
         if (threadCount == 0) {
             throw new IllegalArgumentException("No threads configured");
@@ -157,13 +153,13 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             perThreadHighRem = 0;
             connectionStatusUpdater.lazySet(this, CONN_LOW_MASK | CONN_HIGH_MASK);
         }
-        final NioTcpServerConduit[] handles = new NioTcpServerConduit[threadCount];
+        final NioTcpServerHandle[] handles = new NioTcpServerHandle[threadCount];
         for (int i = 0, length = threadCount; i < length; i++) {
             final SelectionKey key = threads[i].registerChannel(channel);
-            handles[i] = new NioTcpServerConduit(this, key, threads[i], i < perThreadHighRem ? perThreadHigh + 1 : perThreadHigh, i < perThreadLowRem ? perThreadLow + 1 : perThreadLow);
-            handles[i].setOps(SelectionKey.OP_ACCEPT);
+            handles[i] = new NioTcpServerHandle(this, key, threads[i], i < perThreadHighRem ? perThreadHigh + 1 : perThreadHigh, i < perThreadLowRem ? perThreadLow + 1 : perThreadLow);
+            key.attach(handles[i]);
         }
-        acceptConduits = handles;
+        this.handles = handles;
     }
 
     private static IllegalArgumentException badLowWater(final int highWater) {
@@ -178,8 +174,8 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         try {
             channel.close();
         } finally {
-            for (AbstractNioConduit<ServerSocketChannel> handle : acceptConduits) {
-                handle.cancelKey();
+            for (NioTcpServerHandle handle : handles) {
+                handle.getWorkerThread().cancelKey(handle.getSelectionKey());
             }
         }
     }
@@ -283,7 +279,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             newVal = (long)newLowWater << CONN_LOW_BIT | (long)newHighWater << CONN_HIGH_BIT;
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
 
-        final NioTcpServerConduit[] conduits = acceptConduits;
+        final NioTcpServerHandle[] conduits = handles;
         final int threadCount = conduits.length;
 
         int perThreadLow, perThreadLowRem;
@@ -295,7 +291,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         perThreadHighRem = newHighWater % threadCount;
 
         for (int i = 0; i < conduits.length; i++) {
-            NioTcpServerConduit conduit = conduits[i];
+            NioTcpServerHandle conduit = conduits[i];
             conduit.executeSetTask(i < perThreadHighRem ? perThreadHigh + 1 : perThreadHigh, i < perThreadLowRem ? perThreadLow + 1 : perThreadLow);
         }
 
@@ -312,56 +308,36 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     public NioSocketStreamConnection accept() throws IOException {
         final WorkerThread current = WorkerThread.getCurrent();
-        if (current != null) {
-            if (current.isWriteThread() == acceptWrite) {
-                final NioTcpServerConduit conduit = acceptConduits[current.getNumber()];
-                if (! conduit.getConnection()) {
-                    return null;
-                }
-                final SocketChannel accepted;
-                boolean ok = false;
-                try {
-                    accepted = channel.accept();
-                    if (accepted != null) try {
-                        final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(worker, accepted, conduit);
-                        accepted.configureBlocking(false);
-                        final Socket socket = accepted.socket();
-                        socket.setKeepAlive(keepAlive != 0);
-                        socket.setOOBInline(oobInline != 0);
-                        socket.setTcpNoDelay(tcpNoDelay != 0);
-                        final int sendBuffer = this.sendBuffer;
-                        if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
-                        final WorkerThread readThread;
-                        final WorkerThread writeThread;
-                        if (current.isWriteThread()) {
-                            writeThread = current;
-                            readThread = worker.choose(false);
-                        } else {
-                            writeThread = worker.choose(true);
-                            readThread = current;
-                        }
-                        final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(worker, accepted) : readThread.registerChannel(accepted);
-                        final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(worker, accepted) : writeThread.registerChannel(accepted);
-                        final NioSocketSinkConduit sinkConduit = new NioSocketSinkConduit(newConnection, writeKey, writeThread);
-                        final NioSocketSourceConduit sourceConduit = new NioSocketSourceConduit(newConnection, readKey, readThread);
-                        sinkConduit.setOps(SelectionKey.OP_WRITE);
-                        sourceConduit.setOps(SelectionKey.OP_READ);
-                        newConnection.setSinkConduit(sinkConduit);
-                        newConnection.setSourceConduit(sourceConduit);
-                        newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
-                        newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
-                        ok = true;
-                        return newConnection;
-                    } finally {
-                        if (! ok) safeClose(accepted);
-                    }
-                } catch (IOException e) {
-                    return null;
-                } finally {
-                    if (! ok) {
-                        conduit.freeConnection();
-                    }
-                }
+        final NioTcpServerHandle handle = handles[current.getNumber()];
+        if (! handle.getConnection()) {
+            return null;
+        }
+        final SocketChannel accepted;
+        boolean ok = false;
+        try {
+            accepted = channel.accept();
+            if (accepted != null) try {
+                accepted.configureBlocking(false);
+                final Socket socket = accepted.socket();
+                socket.setKeepAlive(keepAlive != 0);
+                socket.setOOBInline(oobInline != 0);
+                socket.setTcpNoDelay(tcpNoDelay != 0);
+                final int sendBuffer = this.sendBuffer;
+                if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
+                final SelectionKey selectionKey = current.registerChannel(accepted);
+                final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(current, selectionKey, handle);
+                newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
+                newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
+                ok = true;
+                return newConnection;
+            } finally {
+                if (! ok) safeClose(accepted);
+            }
+        } catch (IOException e) {
+            return null;
+        } finally {
+            if (! ok) {
+                handle.freeConnection();
             }
         }
         // by contract, only a resume will do
@@ -407,12 +383,12 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     private void doResume(final int op) {
         if (op == 0) {
-            for (AbstractNioConduit<ServerSocketChannel> handle : acceptConduits) {
-                handle.suspend();
+            for (NioTcpServerHandle handle : handles) {
+                handle.suspend(op);
             }
         } else {
-            for (AbstractNioConduit<ServerSocketChannel> handle : acceptConduits) {
-                handle.resume();
+            for (NioTcpServerHandle handle : handles) {
+                handle.resume(op);
             }
         }
     }
@@ -420,9 +396,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     public void wakeupAccepts() {
         log.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
         resumeAccepts();
-        final NioTcpServerConduit[] conduits = acceptConduits;
-        final int idx = IoUtils.getThreadLocalRandom().nextInt(conduits.length);
-        conduits[idx].execute();
+        final NioTcpServerHandle[] handles = this.handles;
+        final int idx = IoUtils.getThreadLocalRandom().nextInt(handles.length);
+        handles[idx].wakeup(SelectionKey.OP_ACCEPT);
     }
 
     public void awaitAcceptable() throws IOException {
@@ -433,9 +409,8 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         throw new UnsupportedOptionException("awaitAcceptable");
     }
 
+    @Deprecated
     public XnioExecutor getAcceptThread() {
-        final NioTcpServerConduit[] conduits = acceptConduits;
-        final int threadCount = conduits.length;
-        return conduits[IoUtils.getThreadLocalRandom().nextInt(threadCount)].getWorkerThread();
+        return getIoThread();
     }
 }

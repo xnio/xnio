@@ -26,6 +26,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -71,6 +72,11 @@ public class AssembledMessageChannel implements MessageChannel {
         this(new AssembledChannel(readable, writable), readable, writable);
     }
 
+    public XnioIoThread getIoThread() {
+        // both should be the same
+        return readable.getIoThread();
+    }
+
     // Read side
 
     public ChannelListener.Setter<? extends AssembledMessageChannel> getReadSetter() {
@@ -105,6 +111,7 @@ public class AssembledMessageChannel implements MessageChannel {
         readable.awaitReadable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return readable.getReadThread();
     }
@@ -155,6 +162,7 @@ public class AssembledMessageChannel implements MessageChannel {
         writable.awaitWritable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
         return writable.getWriteThread();
     }

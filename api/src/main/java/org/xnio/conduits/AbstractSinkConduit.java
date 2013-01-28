@@ -20,7 +20,7 @@ package org.xnio.conduits;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 
 /**
  * An abstract base class for output conduits.
@@ -70,7 +70,7 @@ public abstract class AbstractSinkConduit<D extends SinkConduit> extends Abstrac
         next.awaitWritable(time, timeUnit);
     }
 
-    public XnioExecutor getWriteThread() {
+    public XnioIoThread getWriteThread() {
         return next.getWriteThread();
     }
 

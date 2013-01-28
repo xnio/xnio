@@ -21,6 +21,7 @@ package org.xnio.channels;
 import java.io.IOException;
 import java.nio.channels.InterruptibleChannel;
 import org.xnio.ChannelListener;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -43,6 +44,13 @@ public interface CloseableChannel extends InterruptibleChannel, Configurable {
      * @return the worker
      */
     XnioWorker getWorker();
+
+    /**
+     * Get the I/O thread associated with this channel.
+     *
+     * @return the I/O thread associated with this channel
+     */
+    XnioIoThread getIoThread();
 
     /**
      * Close this channel.  When a channel is closed, its close listener is invoked.  Invoking this method

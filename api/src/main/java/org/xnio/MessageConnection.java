@@ -40,8 +40,8 @@ public abstract class MessageConnection extends Connection implements CloseListe
      *
      * @param worker the XNIO worker
      */
-    protected MessageConnection(final XnioWorker worker) {
-        super(worker);
+    protected MessageConnection(final XnioIoThread thread) {
+        super(thread);
     }
 
     public void setCloseListener(final ChannelListener<? super MessageConnection> listener) {

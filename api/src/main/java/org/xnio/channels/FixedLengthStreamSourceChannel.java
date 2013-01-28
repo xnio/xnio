@@ -27,6 +27,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 import static java.lang.Math.min;
@@ -273,7 +274,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         if (allAreClear(state, FLAG_CLOSED | FLAG_FINISHED)) {
             delegate.resumeReads();
         } else {
-            delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
+            delegate.getIoThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
         }
     }
 
@@ -285,7 +286,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         if (allAreClear(state, FLAG_CLOSED | FLAG_FINISHED)) {
             delegate.wakeupReads();
         } else {
-            delegate.getReadThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
+            delegate.getIoThread().execute(ChannelListeners.getChannelListenerTask(this, readListener));
         }
     }
 
@@ -316,8 +317,13 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         delegate.awaitReadable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return delegate.getReadThread();
+    }
+
+    public XnioIoThread getIoThread() {
+        return delegate.getIoThread();
     }
 
     public XnioWorker getWorker() {

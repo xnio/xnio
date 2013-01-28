@@ -31,6 +31,7 @@ import org.xnio.ChannelListener.Setter;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
@@ -104,6 +105,11 @@ public class MulticastMessageChannelMock implements MulticastMessageChannel, Cha
 
     @Override
     public XnioExecutor getReadThread() {
+        throw new UnsupportedOperationException("MulticastMessageChannelMock does not support this operation");
+    }
+
+    @Override
+    public XnioIoThread getIoThread() {
         throw new UnsupportedOperationException("MulticastMessageChannelMock does not support this operation");
     }
 

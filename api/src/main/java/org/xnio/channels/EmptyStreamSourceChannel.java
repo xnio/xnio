@@ -28,6 +28,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 import static org.xnio.Bits.allAreClear;
@@ -40,8 +41,7 @@ import static org.xnio.Bits.anyAreSet;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<EmptyStreamSourceChannel>, CloseListenerSettable<EmptyStreamSourceChannel> {
-    private final XnioWorker worker;
-    private final XnioExecutor executor;
+    private final XnioIoThread thread;
     private final Runnable readRunnable = new Runnable() {
         public void run() {
             ChannelListener<? super EmptyStreamSourceChannel> listener = readListener;
@@ -52,7 +52,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
             ChannelListeners.invokeChannelListener(EmptyStreamSourceChannel.this, listener);
             final int oldVal = state;
             if (allAreSet(oldVal, RESUMED) && allAreClear(oldVal, EMPTIED | CLOSED)) {
-                executor.execute(this);
+                thread.execute(this);
             }
         }
     };
@@ -71,12 +71,10 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
     /**
      * Construct a new instance.
      *
-     * @param worker the XNIO worker to use
-     * @param executor the XNIO read thread to use
+     * @param thread the XNIO read thread to use
      */
-    public EmptyStreamSourceChannel(final XnioWorker worker, final XnioExecutor executor) {
-        this.worker = worker;
-        this.executor = executor;
+    public EmptyStreamSourceChannel(final XnioIoThread thread) {
+        this.thread = thread;
     }
 
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
@@ -159,7 +157,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
             newVal = RESUMED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
         if (allAreClear(oldVal, EMPTIED)) {
-            executor.execute(readRunnable);
+            thread.execute(readRunnable);
         }
     }
 
@@ -176,13 +174,13 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
             }
             newVal = RESUMED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        executor.execute(readRunnable);
+        thread.execute(readRunnable);
     }
 
     public void shutdownReads() throws IOException {
         final int oldVal = stateUpdater.getAndSet(this, EMPTIED | CLOSED);
         if (allAreClear(oldVal, CLOSED)) {
-            executor.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
+            thread.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
         }
     }
 
@@ -194,12 +192,17 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
         // return immediately
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
-        return executor;
+        return thread;
+    }
+
+    public XnioIoThread getIoThread() {
+        return thread;
     }
 
     public XnioWorker getWorker() {
-        return worker;
+        return thread.getWorker();
     }
 
     public boolean isOpen() {
@@ -209,7 +212,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
     public void close() throws IOException {
         final int oldVal = stateUpdater.getAndSet(this, EMPTIED | CLOSED);
         if (allAreClear(oldVal, CLOSED)) {
-            executor.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
+            thread.execute(ChannelListeners.getChannelListenerTask(this, closeListener));
         }
     }
 

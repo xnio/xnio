@@ -19,7 +19,6 @@
 package org.xnio.nio;
 
 import java.nio.channels.SelectionKey;
-import java.nio.channels.ServerSocketChannel;
 import org.xnio.ChannelListeners;
 
 import static java.lang.Thread.currentThread;
@@ -28,7 +27,7 @@ import static org.xnio.IoUtils.safeClose;
 /**
 * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
 */
-class NioTcpServerConduit extends AbstractNioConduit<ServerSocketChannel> {
+class NioTcpServerHandle extends NioHandle {
 
     private final Runnable freeTask;
     private int count;
@@ -38,8 +37,8 @@ class NioTcpServerConduit extends AbstractNioConduit<ServerSocketChannel> {
     private boolean resumed;
     private NioTcpServer server;
 
-    NioTcpServerConduit(final NioTcpServer server, final SelectionKey key, final WorkerThread thread, final int low, final int high) {
-        super(key, thread);
+    NioTcpServerHandle(final NioTcpServer server, final SelectionKey key, final WorkerThread thread, final int low, final int high) {
+        super(thread, key);
         this.server = server;
         this.low = low;
         this.high = high;
@@ -50,12 +49,16 @@ class NioTcpServerConduit extends AbstractNioConduit<ServerSocketChannel> {
         };
     }
 
-    void handleReady() {
+    void handleReady(final int ops) {
         ChannelListeners.invokeChannelListener(server, server.getAcceptListener());
     }
 
     void forceTermination() {
         safeClose(server);
+    }
+
+    void terminated() {
+        server.invokeCloseHandler();
     }
 
     Runnable getFreeTask() {
@@ -64,12 +67,12 @@ class NioTcpServerConduit extends AbstractNioConduit<ServerSocketChannel> {
 
     void resume() {
         resumed = true;
-        if (! stopped) super.resume();
+        if (! stopped) super.resume(SelectionKey.OP_ACCEPT);
     }
 
     void suspend() {
         resumed = false;
-        super.suspend();
+        super.suspend(SelectionKey.OP_ACCEPT);
     }
 
     void channelClosed() {
@@ -85,7 +88,7 @@ class NioTcpServerConduit extends AbstractNioConduit<ServerSocketChannel> {
         if (count-- == low && stopped) {
             stopped = false;
             if (resumed) {
-                super.resume();
+                super.resume(SelectionKey.OP_ACCEPT);
             }
         }
     }

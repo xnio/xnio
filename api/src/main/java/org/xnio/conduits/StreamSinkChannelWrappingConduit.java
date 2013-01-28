@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -93,8 +93,8 @@ public final class StreamSinkChannelWrappingConduit implements StreamSinkConduit
         channel.awaitWritable(time, timeUnit);
     }
 
-    public XnioExecutor getWriteThread() {
-        return channel.getWriteThread();
+    public XnioIoThread getWriteThread() {
+        return channel.getIoThread();
     }
 
     public void setWriteReadyHandler(final WriteReadyHandler handler) {

@@ -27,6 +27,7 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.ChannelListener.Setter;
 import org.xnio.channels.MessageChannel;
@@ -92,6 +93,11 @@ public class MessageChannelMock implements ReadableMessageChannel, WritableMessa
 
     @Override
     public XnioExecutor getReadThread() {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public XnioIoThread getIoThread() {
         throw new RuntimeException("Not implemented");
     }
 

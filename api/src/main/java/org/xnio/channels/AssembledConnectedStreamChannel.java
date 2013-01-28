@@ -52,14 +52,17 @@ public class AssembledConnectedStreamChannel extends AssembledStreamChannel impl
         this(new AssembledConnectedChannel(source, sink), source, sink);
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedStreamChannel> getCloseSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedStreamChannel>) super.getCloseSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedStreamChannel> getReadSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedStreamChannel>) super.getReadSetter();
     }
 
+    @SuppressWarnings("unchecked")
     public ChannelListener.Setter<? extends AssembledConnectedStreamChannel> getWriteSetter() {
         return (ChannelListener.Setter<? extends AssembledConnectedStreamChannel>) super.getWriteSetter();
     }

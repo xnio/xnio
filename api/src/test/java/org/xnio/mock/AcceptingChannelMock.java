@@ -34,6 +34,7 @@ import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.OptionMap.Builder;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 
@@ -75,6 +76,10 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
     }
 
     private XnioWorker worker = null;
+
+    public XnioIoThread getIoThread() {
+        return null;
+    }
 
     @Override
     public XnioWorker getWorker() {

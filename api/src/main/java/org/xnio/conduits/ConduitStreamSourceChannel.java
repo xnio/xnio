@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.Configurable;
@@ -136,7 +137,12 @@ public final class ConduitStreamSourceChannel implements StreamSourceChannel, Re
         conduit.awaitReadable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
+        return conduit.getReadThread();
+    }
+
+    public XnioIoThread getIoThread() {
         return conduit.getReadThread();
     }
 

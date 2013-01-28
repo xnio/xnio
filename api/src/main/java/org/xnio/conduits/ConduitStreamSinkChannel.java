@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.Configurable;
@@ -152,7 +153,12 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
         conduit.truncateWrites();
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
+        return conduit.getWriteThread();
+    }
+
+    public XnioIoThread getIoThread() {
         return conduit.getWriteThread();
     }
 

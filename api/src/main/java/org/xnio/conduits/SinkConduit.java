@@ -20,7 +20,7 @@ package org.xnio.conduits;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 
 /**
  * A conduit which is a target or output for data.
@@ -67,7 +67,7 @@ public interface SinkConduit extends Conduit {
 
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
 
-    XnioExecutor getWriteThread();
+    XnioIoThread getWriteThread();
 
     /**
      * Set the handler which should receive readiness notifications.  A filter may

@@ -19,7 +19,6 @@
 package org.xnio.nio;
 
 import org.xnio.StreamConnection;
-import org.xnio.XnioWorker;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 
@@ -28,8 +27,8 @@ import org.xnio.conduits.StreamSourceConduit;
  */
 abstract class AbstractNioStreamConnection extends StreamConnection {
 
-    protected AbstractNioStreamConnection(final XnioWorker worker) {
-        super(worker);
+    protected AbstractNioStreamConnection(final WorkerThread workerThread) {
+        super(workerThread);
     }
 
     protected void setSourceConduit(final StreamSourceConduit conduit) {

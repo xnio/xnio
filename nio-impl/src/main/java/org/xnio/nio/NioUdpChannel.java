@@ -25,7 +25,6 @@ import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.MembershipKey;
@@ -36,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.logging.Logger;
 import org.xnio.Buffers;
-import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
@@ -56,8 +54,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     private static final Logger log = Logger.getLogger("org.xnio.nio.udp.server.channel");
 
-    private final AbstractNioConduit<DatagramChannel> readHandle;
-    private final AbstractNioConduit<DatagramChannel> writeHandle;
+    private final NioUdpChannelHandle handle;
 
     private ChannelListener<? super NioUdpChannel> readListener;
     private ChannelListener<? super NioUdpChannel> writeListener;
@@ -69,38 +66,10 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     NioUdpChannel(final NioXnioWorker worker, final DatagramChannel datagramChannel) throws ClosedChannelException {
         super(worker);
         this.datagramChannel = datagramChannel;
-        final WorkerThread readThread = worker.chooseOptional(false);
-        final WorkerThread writeThread = worker.chooseOptional(true);
-        final SelectionKey readKey = readThread == null ? new ThreadlessSelectionKey(worker, datagramChannel) : readThread.registerChannel(datagramChannel);
-        final SelectionKey writeKey = writeThread == null ? new ThreadlessSelectionKey(worker, datagramChannel) : writeThread.registerChannel(datagramChannel);
-        readHandle = new AbstractNioConduit<DatagramChannel>(readKey, readThread) {
-            void handleReady() {
-                final ChannelListener<? super NioUdpChannel> listener = readListener;
-                if (listener == null) {
-                    suspend();
-                } else {
-                    ChannelListeners.invokeChannelListener(NioUdpChannel.this, listener);
-                }
-            }
-
-            void forceTermination() {
-            }
-        };
-        readHandle.setOps(SelectionKey.OP_READ);
-        writeHandle = new AbstractNioConduit<DatagramChannel>(writeKey, writeThread) {
-            void handleReady() {
-                final ChannelListener<? super NioUdpChannel> listener = writeListener;
-                if (listener == null) {
-                    suspend();
-                } else {
-                    ChannelListeners.invokeChannelListener(NioUdpChannel.this, listener);
-                }
-            }
-
-            void forceTermination() {
-            }
-        };
-        writeHandle.setOps(SelectionKey.OP_WRITE);
+        final WorkerThread workerThread = worker.chooseThread();
+        final SelectionKey key = workerThread.registerChannel(datagramChannel);
+        handle = new NioUdpChannelHandle(workerThread, key, this);
+        key.attach(handle);
     }
 
     public SocketAddress getLocalAddress() {
@@ -235,58 +204,39 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     private void cancelKeys() {
-        try { readHandle.cancelKey(); } catch (Throwable ignored) {}
-        try { writeHandle.cancelKey(); } catch (Throwable ignored) {}
+        try { handle.getWorkerThread().cancelKey(handle.getSelectionKey()); } catch (Throwable ignored) {}
     }
 
     public void suspendReads() {
-        try {
-            readHandle.suspend();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
+        handle.suspend(SelectionKey.OP_READ);
     }
 
     public void suspendWrites() {
-        try {
-            writeHandle.suspend();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
+        handle.suspend(SelectionKey.OP_WRITE);
     }
 
     public void resumeReads() {
-        try {
-            readHandle.resume();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
+        handle.resume(SelectionKey.OP_READ);
     }
 
     public void resumeWrites() {
-        try {
-            writeHandle.resume();
-        } catch (CancelledKeyException ex) {
-            // ignore
-        }
+        handle.resume(SelectionKey.OP_WRITE);
     }
 
     public boolean isReadResumed() {
-        return readHandle.isResumed();
+        return handle.isResumed(SelectionKey.OP_READ);
     }
 
     public boolean isWriteResumed() {
-        return writeHandle.isResumed();
+        return handle.isResumed(SelectionKey.OP_WRITE);
     }
 
     public void wakeupReads() {
-        resumeReads();
-        readHandle.execute();
+        handle.wakeup(SelectionKey.OP_READ);
     }
 
     public void wakeupWrites() {
-        resumeWrites();
-        writeHandle.execute();
+        handle.wakeup(SelectionKey.OP_WRITE);
     }
 
     public void shutdownReads() throws IOException {
@@ -305,8 +255,9 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
-        return readHandle.getWorkerThread();
+        return getIoThread();
     }
 
     public void awaitWritable() throws IOException {
@@ -317,8 +268,9 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         SelectorUtils.await(worker.getXnio(), datagramChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
-        return writeHandle.getWorkerThread();
+        return getIoThread();
     }
 
     public Key join(final InetAddress group, final NetworkInterface iface) throws IOException {
@@ -449,18 +401,6 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
         public void close() throws IOException {
             key.drop();
-        }
-    }
-
-    protected void cancelWriteKey() {
-        if (writeHandle != null) {
-            writeHandle.cancelKey();
-        }
-    }
-
-    protected void cancelReadKey() {
-        if (readHandle != null) {
-            readHandle.cancelKey();
         }
     }
 }

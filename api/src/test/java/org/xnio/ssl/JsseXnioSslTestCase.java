@@ -42,6 +42,7 @@ import javax.net.ssl.SSLEngine;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -62,6 +63,7 @@ import org.xnio.mock.XnioWorkerMock;
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
+@Ignore
 public class JsseXnioSslTestCase {
     private static final Field setterField;
     private static final Field channelField;

@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.Option;
-import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamSinkChannel;
 
@@ -32,12 +32,12 @@ import org.xnio.channels.StreamSinkChannel;
  */
 public final class EmptyStreamSourceConduit implements StreamSourceConduit {
     private final XnioWorker worker;
-    private final XnioExecutor readThread;
+    private final XnioIoThread readThread;
     private ReadReadyHandler readReadyHandler;
     private boolean shutdown;
     private boolean resumed;
 
-    public EmptyStreamSourceConduit(final XnioWorker worker, final XnioExecutor readThread) {
+    public EmptyStreamSourceConduit(final XnioWorker worker, final XnioIoThread readThread) {
         this.worker = worker;
         this.readThread = readThread;
     }
@@ -108,7 +108,7 @@ public final class EmptyStreamSourceConduit implements StreamSourceConduit {
         }
     }
 
-    public XnioExecutor getReadThread() {
+    public XnioIoThread getReadThread() {
         return readThread;
     }
 

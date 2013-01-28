@@ -35,6 +35,7 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.StreamSinkChannel;
@@ -71,7 +72,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     private boolean flushEnabled = true;
     private boolean eof = false;
     private XnioWorker worker = new XnioWorkerMock(null, OptionMap.EMPTY, null);
-    private XnioExecutor executor = new XnioExecutorMock();
+    private XnioIoThread executor = new XnioExecutorMock(null);
     private Thread readWaiter;
     private Thread writeWaiter;
     private ChannelListener<? super ConnectedStreamChannel> readListener;
@@ -421,7 +422,13 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     }
 
     @Override
+    @Deprecated
     public XnioExecutor getReadThread() {
+        return executor;
+    }
+
+    @Override
+    public XnioIoThread getIoThread() {
         return executor;
     }
 
@@ -499,6 +506,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Chann
     }
 
     @Override
+    @Deprecated
     public XnioExecutor getWriteThread() {
         return executor;
     }

@@ -27,6 +27,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 /**
@@ -106,8 +107,13 @@ public class AssembledStreamChannel implements StreamChannel {
         source.awaitReadable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return source.getReadThread();
+    }
+
+    public XnioIoThread getIoThread() {
+        return source.getIoThread();
     }
 
     public int read(final ByteBuffer dst) throws IOException {
@@ -184,6 +190,7 @@ public class AssembledStreamChannel implements StreamChannel {
         sink.awaitWritable(time, timeUnit);
     }
 
+    @Deprecated
     public XnioExecutor getWriteThread() {
         return sink.getWriteThread();
     }

@@ -27,6 +27,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.xnio.IoUtils.safeClose;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -85,15 +86,7 @@ public class XnioWorkerTestCase {
     public void illegalWorker() throws IOException {
         IllegalArgumentException expected = null;
         try {
-            xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, -1));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, -5));
+            xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, -1));
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -170,39 +163,6 @@ public class XnioWorkerTestCase {
         } finally {
             streamServer.close();
         }
-    }
-
-    @Test
-    public void illegalConnect() throws IOException {
-        final XnioWorker xnioWorker1 = xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, 0));
-        final XnioWorker xnioWorker2 = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 0));
-
-        IllegalArgumentException expected = null;
-        try {
-            xnioWorker1.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnioWorker1.createStreamServer(bindAddress, null, OptionMap.EMPTY);
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnioWorker2.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, true));
-        } catch (IllegalArgumentException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        xnioWorker1.shutdown();
-        xnioWorker2.shutdown();
     }
 
     @Test
@@ -382,10 +342,10 @@ public class XnioWorkerTestCase {
     @Test
     public void connectTcpDatagram() throws IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
-        UnsupportedOperationException expected = null;
+        IllegalArgumentException expected = null;
         try {
             xnioWorker.connectDatagram(bindAddress, null, null, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -406,10 +366,10 @@ public class XnioWorkerTestCase {
     @Test
     public void acceptDatagram() throws IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
-        UnsupportedOperationException expected = null;
+        IllegalArgumentException expected = null;
         try {
             xnioWorker.acceptDatagram(bindAddress, null, null, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);

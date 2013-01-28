@@ -64,10 +64,15 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         synchronized (lock) {
             boolean intr = Thread.interrupted();
             try {
-                while (status == Status.WAITING) try {
-                    lock.wait();
-                } catch (InterruptedException e) {
-                    intr = true;
+                if (status == Status.WAITING) {
+                    Xnio.checkBlockingAllowed();
+                    do {
+                        try {
+                            lock.wait();
+                        } catch (InterruptedException e) {
+                            intr = true;
+                        }
+                    } while (status == Status.WAITING);
                 }
             } finally {
                 if (intr) {
@@ -92,13 +97,18 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         synchronized (lock) {
             boolean intr = Thread.interrupted();
             try {
-                while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) try {
-                    lock.wait(waitTime);
-                } catch (InterruptedException e) {
-                    intr = true;
-                } finally {
-                    // decrease duration by the elapsed time
-                    duration += now - (now = System.nanoTime());
+                if ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
+                    Xnio.checkBlockingAllowed();
+                    do {
+                        try {
+                            lock.wait(waitTime);
+                        } catch (InterruptedException e) {
+                            intr = true;
+                        } finally {
+                            // decrease duration by the elapsed time
+                            duration += now - (now = System.nanoTime());
+                        }
+                    } while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L);
                 }
             } finally {
                 if (intr) {
@@ -114,8 +124,11 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      */
     public Status awaitInterruptibly() throws InterruptedException {
         synchronized (lock) {
-            while (status == Status.WAITING) {
-                lock.wait();
+            if (status == Status.WAITING) {
+                Xnio.checkBlockingAllowed();
+                do {
+                    lock.wait();
+                } while (status == Status.WAITING);
             }
             return status;
         }
@@ -133,10 +146,13 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         long waitTime;
         Status status;
         synchronized (lock) {
-            while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
-                lock.wait(waitTime);
-                // decrease duration by the elapsed time
-                duration += now - (now = System.nanoTime());
+            if ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
+                Xnio.checkBlockingAllowed();
+                do {
+                    lock.wait(waitTime);
+                    // decrease duration by the elapsed time
+                    duration += now - (now = System.nanoTime());
+                } while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L);
             }
             return status;
         }

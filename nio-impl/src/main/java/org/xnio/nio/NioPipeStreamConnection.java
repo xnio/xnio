@@ -20,11 +20,12 @@ package org.xnio.nio;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.channels.Channel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.Pipe;
+import java.nio.channels.SelectionKey;
 import org.xnio.Option;
 import org.xnio.Options;
-import org.xnio.XnioWorker;
 
 import static org.xnio.IoUtils.safeClose;
 
@@ -34,13 +35,27 @@ import static org.xnio.IoUtils.safeClose;
 final class NioPipeStreamConnection extends AbstractNioStreamConnection {
     private final Pipe.SourceChannel sourceChannel;
     private final Pipe.SinkChannel sinkChannel;
-    private NioPipeSourceConduit sourceConduit;
-    private NioPipeSinkConduit sinkConduit;
+    private final NioPipeSourceConduit sourceConduit;
+    private final NioPipeSinkConduit sinkConduit;
 
-    NioPipeStreamConnection(final XnioWorker worker, final Pipe.SourceChannel sourceChannel, final Pipe.SinkChannel sinkChannel) {
-        super(worker);
-        this.sourceChannel = sourceChannel;
-        this.sinkChannel = sinkChannel;
+    NioPipeStreamConnection(final WorkerThread workerThread, final SelectionKey sourceKey, final SelectionKey sinkKey) {
+        super(workerThread);
+        if (sourceKey != null) {
+            setSourceConduit(sourceConduit = new NioPipeSourceConduit(workerThread, sourceKey, this));
+            sourceKey.attach(sourceConduit);
+            sourceChannel = (Pipe.SourceChannel) sourceKey.channel();
+        } else {
+            sourceConduit = null;
+            sourceChannel = null;
+        }
+        if (sinkKey != null) {
+            setSinkConduit(sinkConduit = new NioPipeSinkConduit(workerThread, sinkKey, this));
+            sinkKey.attach(sinkConduit);
+            sinkChannel = (Pipe.SinkChannel) sinkKey.channel();
+        } else {
+            sinkConduit = null;
+            sinkChannel = null;
+        }
     }
 
     public SocketAddress getPeerAddress() {
@@ -59,7 +74,7 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
         return super.writeClosed();
     }
 
-    private void terminated(final AbstractNioConnectionConduit<?, ?> conduit) {
+    private void terminated(final NioHandle conduit) {
         if (conduit != null) conduit.terminated();
     }
 
@@ -71,36 +86,26 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
         terminated(sinkConduit);
     }
 
-    private void cancelKey(final AbstractNioConduit<?> conduit) {
-        if (conduit != null) conduit.cancelKey();
+    private void cancelKey(final NioHandle handle) {
+        if (handle != null) handle.getWorkerThread().cancelKey(handle.getSelectionKey());
+    }
+
+    private void closeChannel(final Channel channel) throws IOException {
+        if (channel != null) try {
+            channel.close();
+        } catch (ClosedChannelException ignored) {}
     }
 
     protected void closeAction() throws IOException {
         try {
             cancelKey(sourceConduit);
             cancelKey(sinkConduit);
-            try {
-                sourceChannel.close();
-            } catch (ClosedChannelException ignored) {
-            }
-            try {
-                sinkChannel.close();
-            } catch (ClosedChannelException ignored) {
-            }
+            closeChannel(sourceChannel);
+            closeChannel(sinkChannel);
         } finally {
             safeClose(sourceChannel);
             safeClose(sinkChannel);
         }
-    }
-
-    protected void setSourceConduit(final NioPipeSourceConduit sourceConduit) {
-        this.sourceConduit = sourceConduit;
-        super.setSourceConduit(sourceConduit);
-    }
-
-    protected void setSinkConduit(final NioPipeSinkConduit sinkConduit) {
-        this.sinkConduit = sinkConduit;
-        super.setSinkConduit(sinkConduit);
     }
 
     public boolean supportsOption(final Option<?> option) {

@@ -19,15 +19,19 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.Pipe;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.AccessController;
 import java.util.ArrayDeque;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
@@ -36,8 +40,27 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jboss.logging.Logger;
+import org.xnio.Cancellable;
+import org.xnio.ChannelListener;
+import org.xnio.ChannelListeners;
+import org.xnio.ChannelPipe;
+import org.xnio.ClosedWorkerException;
+import org.xnio.FailedIoFuture;
+import org.xnio.FinishedIoFuture;
+import org.xnio.FutureResult;
+import org.xnio.IoFuture;
+import org.xnio.Option;
+import org.xnio.OptionMap;
+import org.xnio.Options;
 import org.xnio.ReadPropertyAction;
+import org.xnio.StreamConnection;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoFactory;
+import org.xnio.XnioIoThread;
+import org.xnio.XnioWorker;
+import org.xnio.channels.BoundChannel;
+import org.xnio.channels.StreamSinkChannel;
+import org.xnio.channels.StreamSourceChannel;
 
 import static java.lang.System.identityHashCode;
 import static java.lang.System.nanoTime;
@@ -50,22 +73,17 @@ import static org.xnio.nio.Log.selectorLog;
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-final class WorkerThread extends Thread implements XnioExecutor {
+final class WorkerThread extends XnioIoThread implements XnioExecutor {
     private static final long LONGEST_DELAY = 9223372036853L;
     private static final String FQCN = WorkerThread.class.getName();
     private static final boolean OLD_LOCKING;
     private static final boolean THREAD_SAFE_SELECTION_KEYS;
 
-    private final NioXnioWorker worker;
-
     private final Selector selector;
     private final Object workLock = new Object();
 
-    private final boolean writeThread;
-    private final int number;
     private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
     private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
-    private final IdentityHashMap<Object, Object> tls = new IdentityHashMap<Object, Object>();
 
     private volatile int state;
 
@@ -78,12 +96,9 @@ final class WorkerThread extends Thread implements XnioExecutor {
         THREAD_SAFE_SELECTION_KEYS = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.xnio.thread-safe-selection-keys", "false")));
     }
 
-    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final boolean writeThread, final int number) {
-        super(group, null, name, stackSize);
+    WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final int number) {
+        super(worker, number, group, name, stackSize);
         this.selector = selector;
-        this.worker = worker;
-        this.writeThread = writeThread;
-        this.number = number;
     }
 
     static WorkerThread getCurrent() {
@@ -91,12 +106,303 @@ final class WorkerThread extends Thread implements XnioExecutor {
         return thread instanceof WorkerThread ? (WorkerThread) thread : null;
     }
 
-    boolean isWriteThread() {
-        return writeThread;
+    public NioXnioWorker getWorker() {
+        return (NioXnioWorker) super.getWorker();
     }
 
-    int getNumber() {
-        return number;
+    protected IoFuture<StreamConnection> acceptTcpStreamConnection(final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            getWorker().checkShutdown();
+        } catch (ClosedWorkerException e) {
+            return new FailedIoFuture<StreamConnection>(e);
+        }
+        final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(this);
+        try {
+            boolean ok = false;
+            final ServerSocketChannel serverChannel = ServerSocketChannel.open();
+            try {
+                serverChannel.configureBlocking(false);
+                if (optionMap.contains(Options.RECEIVE_BUFFER)) {
+                    serverChannel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+                }
+                serverChannel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, true));
+                serverChannel.bind(destination);
+                if (bindListener != null) ChannelListeners.invokeChannelListener(new BoundChannel() {
+                    public SocketAddress getLocalAddress() {
+                        return serverChannel.socket().getLocalSocketAddress();
+                    }
+
+                    public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                        final SocketAddress address = getLocalAddress();
+                        return type.isInstance(address) ? type.cast(address) : null;
+                    }
+
+                    public ChannelListener.Setter<? extends BoundChannel> getCloseSetter() {
+                        return new ChannelListener.SimpleSetter<BoundChannel>();
+                    }
+
+                    public XnioWorker getWorker() {
+                        return WorkerThread.this.getWorker();
+                    }
+
+                    public XnioIoThread getIoThread() {
+                        return WorkerThread.this;
+                    }
+
+                    public void close() throws IOException {
+                        serverChannel.close();
+                    }
+
+                    public boolean isOpen() {
+                        return serverChannel.isOpen();
+                    }
+
+                    public boolean supportsOption(final Option<?> option) {
+                        return false;
+                    }
+
+                    public <T> T getOption(final Option<T> option) throws IOException {
+                        return null;
+                    }
+
+                    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                        return null;
+                    }
+                }, bindListener);
+                final SelectionKey key = this.registerChannel(serverChannel);
+                final NioHandle handle = new NioHandle(this, key) {
+                    void handleReady(final int ops) {
+                        boolean ok = false;
+                        try {
+                            final SocketChannel channel = serverChannel.accept();
+                            if (channel == null) {
+                                ok = true;
+                                return;
+                            } else {
+                                safeClose(serverChannel);
+                            }
+                            try {
+                                channel.configureBlocking(false);
+                                if (optionMap.contains(Options.TCP_OOB_INLINE)) channel.socket().setOOBInline(optionMap.get(Options.TCP_OOB_INLINE, false));
+                                if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
+                                if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
+                                if (optionMap.contains(Options.CLOSE_ABORT)) channel.socket().setSoLinger(optionMap.get(Options.CLOSE_ABORT, false), 0);
+                                if (optionMap.contains(Options.KEEP_ALIVE)) channel.socket().setKeepAlive(optionMap.get(Options.KEEP_ALIVE, false));
+                                if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
+                                final SelectionKey selectionKey = WorkerThread.this.registerChannel(channel);
+                                final NioSocketStreamConnection connection = new NioSocketStreamConnection(WorkerThread.this, selectionKey, null);
+                                if (futureResult.setResult(connection)) {
+                                    ok = true;
+                                    ChannelListeners.invokeChannelListener(connection, openListener);
+                                }
+                            } finally {
+                                if (! ok) safeClose(channel);
+                            }
+                        } catch (IOException e) {
+                            futureResult.setException(e);
+                        } finally {
+                            if (! ok) {
+                                safeClose(serverChannel);
+                            }
+                        }
+                    }
+
+                    void terminated() {
+                    }
+
+                    void forceTermination() {
+                        futureResult.setCancelled();
+                    }
+                };
+                key.attach(handle);
+                handle.resume(SelectionKey.OP_ACCEPT);
+                ok = true;
+                futureResult.addCancelHandler(new Cancellable() {
+                    public Cancellable cancel() {
+                        if (futureResult.setCancelled()) {
+                            safeClose(serverChannel);
+                        }
+                        return this;
+                    }
+                });
+                return futureResult.getIoFuture();
+            } finally {
+                if (! ok) safeClose(serverChannel);
+            }
+        } catch (IOException e) {
+            return new FailedIoFuture<StreamConnection>(e);
+        }
+    }
+
+    protected IoFuture<StreamConnection> openTcpStreamConnection(final InetSocketAddress bindAddress, final InetSocketAddress destinationAddress, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        try {
+            getWorker().checkShutdown();
+        } catch (ClosedWorkerException e) {
+            return new FailedIoFuture<StreamConnection>(e);
+        }
+        try {
+            final SocketChannel channel = SocketChannel.open();
+            boolean ok = false;
+            try {
+                channel.configureBlocking(false);
+                if (optionMap.contains(Options.TCP_OOB_INLINE)) channel.socket().setOOBInline(optionMap.get(Options.TCP_OOB_INLINE, false));
+                if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
+                if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
+                if (optionMap.contains(Options.CLOSE_ABORT)) channel.socket().setSoLinger(optionMap.get(Options.CLOSE_ABORT, false), 0);
+                if (optionMap.contains(Options.KEEP_ALIVE)) channel.socket().setKeepAlive(optionMap.get(Options.KEEP_ALIVE, false));
+                if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, -1));
+                if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+                if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
+                final SelectionKey key = registerChannel(channel);
+                final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, key, null);
+                channel.socket().bind(bindAddress);
+                ChannelListeners.invokeChannelListener(connection, bindListener);
+                if (channel.connect(destinationAddress)) {
+                    execute(ChannelListeners.getChannelListenerTask(connection, openListener));
+                    final FinishedIoFuture<StreamConnection> finishedIoFuture = new FinishedIoFuture<StreamConnection>(connection);
+                    ok = true;
+                    return finishedIoFuture;
+                }
+                final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(this);
+                final ConnectHandle connectHandle = new ConnectHandle(this, key, futureResult, connection, openListener);
+                key.attach(connectHandle);
+                futureResult.addCancelHandler(new Cancellable() {
+                    public Cancellable cancel() {
+                        if (futureResult.setCancelled()) {
+                            safeClose(connection);
+                        }
+                        return this;
+                    }
+                });
+                connectHandle.resume(SelectionKey.OP_CONNECT);
+                ok = true;
+                return futureResult.getIoFuture();
+            } finally {
+                if (! ok) safeClose(channel);
+            }
+        } catch (IOException e) {
+            return new FailedIoFuture<StreamConnection>(e);
+        }
+    }
+
+    static final class ConnectHandle extends NioHandle {
+
+        private final FutureResult<StreamConnection> futureResult;
+        private final NioSocketStreamConnection connection;
+        private final ChannelListener<? super StreamConnection> openListener;
+
+        ConnectHandle(final WorkerThread workerThread, final SelectionKey selectionKey, final FutureResult<StreamConnection> futureResult, final NioSocketStreamConnection connection, final ChannelListener<? super StreamConnection> openListener) {
+            super(workerThread, selectionKey);
+            this.futureResult = futureResult;
+            this.connection = connection;
+            this.openListener = openListener;
+        }
+
+        void handleReady(final int ops) {
+            final SocketChannel channel = getChannel();
+            boolean ok = false;
+            try {
+                if (channel.finishConnect()) {
+                    suspend(SelectionKey.OP_CONNECT);
+                    getSelectionKey().attach(connection.getConduit());
+                    if (futureResult.setResult(connection)) {
+                        ok = true;
+                        ChannelListeners.invokeChannelListener(connection, openListener);
+                    }
+                }
+            } catch (IOException e) {
+                futureResult.setException(e);
+            } finally {
+                if (! ok) safeClose(connection);
+            }
+        }
+
+        private SocketChannel getChannel() {
+            return (SocketChannel) getSelectionKey().channel();
+        }
+
+        void forceTermination() {
+            futureResult.setCancelled();
+            safeClose(getChannel());
+        }
+
+        void terminated() {
+        }
+    }
+
+    private static WorkerThread getPeerThread(final XnioIoFactory peer) throws ClosedWorkerException {
+        final WorkerThread peerThread;
+        if (peer instanceof NioXnioWorker) {
+            final NioXnioWorker peerWorker = (NioXnioWorker) peer;
+            peerWorker.checkShutdown();
+            peerThread = peerWorker.chooseThread();
+        } else if (peer instanceof WorkerThread) {
+            peerThread = (WorkerThread) peer;
+            peerThread.getWorker().checkShutdown();
+        } else {
+            throw new IllegalArgumentException("Peer must come from NIO provider");
+        }
+        return peerThread;
+    }
+
+    public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection(XnioIoFactory peer) throws IOException {
+        getWorker().checkShutdown();
+        boolean ok = false;
+        final Pipe topPipe = Pipe.open();
+        try {
+            topPipe.source().configureBlocking(false);
+            topPipe.sink().configureBlocking(false);
+            final Pipe bottomPipe = Pipe.open();
+            try {
+                bottomPipe.source().configureBlocking(false);
+                bottomPipe.sink().configureBlocking(false);
+                final WorkerThread peerThread = getPeerThread(peer);
+                final SelectionKey topSourceKey = registerChannel(topPipe.source());
+                final SelectionKey topSinkKey = peerThread.registerChannel(topPipe.sink());
+                final SelectionKey bottomSourceKey = peerThread.registerChannel(bottomPipe.source());
+                final SelectionKey bottomSinkKey = registerChannel(bottomPipe.sink());
+                final NioPipeStreamConnection leftConnection = new NioPipeStreamConnection(this, bottomSourceKey, topSinkKey);
+                final NioPipeStreamConnection rightConnection = new NioPipeStreamConnection(this, topSourceKey, bottomSinkKey);
+                final ChannelPipe<StreamConnection, StreamConnection> result = new ChannelPipe<StreamConnection, StreamConnection>(leftConnection, rightConnection);
+                ok = true;
+                return result;
+            } finally {
+                if (! ok) {
+                    safeClose(bottomPipe.sink());
+                    safeClose(bottomPipe.source());
+                }
+            }
+        } finally {
+            if (! ok) {
+                safeClose(topPipe.sink());
+                safeClose(topPipe.source());
+            }
+        }
+    }
+
+    public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe(final XnioIoFactory peer) throws IOException {
+        getWorker().checkShutdown();
+        final Pipe pipe = Pipe.open();
+        boolean ok = false;
+        try {
+            pipe.source().configureBlocking(false);
+            pipe.sink().configureBlocking(false);
+            final WorkerThread peerThread = getPeerThread(peer);
+            final SelectionKey readKey = registerChannel(pipe.source());
+            final SelectionKey writeKey = peerThread.registerChannel(pipe.sink());
+            final NioPipeStreamConnection leftConnection = new NioPipeStreamConnection(this, readKey, null);
+            final NioPipeStreamConnection rightConnection = new NioPipeStreamConnection(this, null, writeKey);
+            leftConnection.writeClosed();
+            rightConnection.readClosed();
+            final ChannelPipe<StreamSourceChannel,StreamSinkChannel> result = new ChannelPipe<StreamSourceChannel, StreamSinkChannel>(leftConnection.getSourceChannel(), rightConnection.getSinkChannel());
+            ok = true;
+            return result;
+        } finally {
+            if (! ok) {
+                safeClose(pipe.sink());
+                safeClose(pipe.source());
+            }
+        }
     }
 
     public void run() {
@@ -161,7 +467,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
                     // shut em down
                     for (SelectionKey key : keys) {
                         if (key == null) break; //end of list
-                        final AbstractNioConduit<?> attachment = (AbstractNioConduit<?>) key.attachment();
+                        final NioHandle attachment = (NioHandle) key.attachment();
                         if (attachment != null) {
                             safeClose(key.channel());
                             attachment.forceTermination();
@@ -205,11 +511,11 @@ final class WorkerThread extends Thread implements XnioExecutor {
                         ops = key.interestOps();
                         if (ops != 0) {
                             selectorLog.tracef("Selected key %s for %s", key, key.channel());
-                            final AbstractNioConduit<?> conduit = (AbstractNioConduit<?>) key.attachment();
-                            if (conduit == null) {
+                            final NioHandle handle = (NioHandle) key.attachment();
+                            if (handle == null) {
                                 cancelKey(key);
                             } else {
-                                conduit.run();
+                                handle.handleReady(key.readyOps());
                             }
                         }
                     } catch (CancelledKeyException ignored) {
@@ -223,12 +529,8 @@ final class WorkerThread extends Thread implements XnioExecutor {
         } finally {
             log.tracef("Shutting down channel thread \"%s\"", this);
             safeClose(selector);
-            worker.closeResource();
+            getWorker().closeResource();
         }
-    }
-
-    NioXnioWorker getWorker() {
-        return worker;
     }
 
     private static void safeRun(final Runnable command) {
@@ -355,7 +657,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
     void setOps(final SelectionKey key, final int ops) {
         if (currentThread() == this) {
             try {
-                key.interestOps(ops);
+                key.interestOps(key.interestOps() | ops);
             } catch (CancelledKeyException ignored) {}
         } else if (OLD_LOCKING) {
             final SynchTask task = new SynchTask();
@@ -363,16 +665,35 @@ final class WorkerThread extends Thread implements XnioExecutor {
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
-                key.interestOps(ops);
+                key.interestOps(key.interestOps() | ops);
             } catch (CancelledKeyException ignored) {
             } finally {
                 task.done();
             }
         } else {
             try {
-                key.interestOps(ops);
+                key.interestOps(key.interestOps() | ops);
                 selector.wakeup();
             } catch (CancelledKeyException ignored) {
+            }
+        }
+    }
+
+    void clearOps(final SelectionKey key, final int ops) {
+        if (currentThread() == this || ! OLD_LOCKING) {
+            try {
+                key.interestOps(key.interestOps() & ~ops);
+            } catch (CancelledKeyException ignored) {}
+        } else {
+            final SynchTask task = new SynchTask();
+            queueTask(task);
+            try {
+                // Prevent selector from sleeping until we're done!
+                selector.wakeup();
+                key.interestOps(key.interestOps() & ~ops);
+            } catch (CancelledKeyException ignored) {
+            } finally {
+                task.done();
             }
         }
     }

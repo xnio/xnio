@@ -72,7 +72,9 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
      * Get an accept thread for this channel.  If more than one is configured, any of them may be returned.
      *
      * @return the thread
+     * @deprecated The {@link #getIoThread()} method should be used instead.
      */
+    @Deprecated
     XnioExecutor getAcceptThread();
 
     /**

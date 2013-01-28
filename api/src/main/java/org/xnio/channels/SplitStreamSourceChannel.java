@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 import static org.xnio.Bits.*;
@@ -171,8 +172,13 @@ public final class SplitStreamSourceChannel implements StreamSourceChannel, Read
         invokeChannelListener(this, closeListener);
     }
 
+    @Deprecated
     public XnioExecutor getReadThread() {
         return delegate.getReadThread();
+    }
+
+    public XnioIoThread getIoThread() {
+        return delegate.getIoThread();
     }
 
     public boolean isOpen() {

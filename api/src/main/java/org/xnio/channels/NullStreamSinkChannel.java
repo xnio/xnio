@@ -28,6 +28,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
 import static org.xnio.Bits.*;
@@ -38,8 +39,8 @@ import static org.xnio.Bits.*;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class NullStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<NullStreamSinkChannel>, CloseListenerSettable<NullStreamSinkChannel> {
-    private final XnioWorker worker;
-    private final XnioExecutor executor;
+
+    private final XnioIoThread thread;
 
     @SuppressWarnings("unused")
     private volatile int state;
@@ -56,20 +57,23 @@ public final class NullStreamSinkChannel implements StreamSinkChannel, WriteList
     /**
      * Construct a new instance.
      *
-     * @param worker the worker to use
-     * @param executor the write thread for this channel
+     * @param thread the write thread for this channel
      */
-    public NullStreamSinkChannel(final XnioWorker worker, final XnioExecutor executor) {
-        this.worker = worker;
-        this.executor = executor;
+    public NullStreamSinkChannel(final XnioIoThread thread) {
+        this.thread = thread;
     }
 
     public XnioWorker getWorker() {
-        return worker;
+        return thread.getWorker();
     }
 
+    public XnioIoThread getIoThread() {
+        return thread;
+    }
+
+    @Deprecated
     public XnioExecutor getWriteThread() {
-        return executor;
+        return thread;
     }
 
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
@@ -169,7 +173,7 @@ public final class NullStreamSinkChannel implements StreamSinkChannel, WriteList
             }
             newVal = oldVal | FLAG_RESUMED;
         } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
-        executor.execute(ChannelListeners.getChannelListenerTask(this, writeListener));
+        thread.execute(ChannelListeners.getChannelListenerTask(this, writeListener));
     }
 
     public void wakeupWrites() {

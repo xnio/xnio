@@ -37,6 +37,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.AssembledConnectedMessageChannel;
+import org.xnio.channels.AssembledConnectedStreamChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.Configurable;
 import org.xnio.channels.ConnectedMessageChannel;
@@ -52,6 +54,7 @@ import org.xnio.conduits.InflatingStreamSourceConduit;
 import org.xnio.conduits.StreamSinkChannelWrappingConduit;
 import org.xnio.conduits.StreamSourceChannelWrappingConduit;
 
+import static org.xnio.IoUtils.safeClose;
 import static org.xnio.Messages.msg;
 
 /**
@@ -62,7 +65,7 @@ import static org.xnio.Messages.msg;
  * @since 3.0
  */
 @SuppressWarnings("unused")
-public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService {
+public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService, XnioIoFactory {
 
     private final Xnio xnio;
     private final TaskPool taskPool;
@@ -135,43 +138,86 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the acceptor
      * @throws IOException if the server could not be created
      */
+    @Deprecated
     public AcceptingChannel<? extends ConnectedStreamChannel> createStreamServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        if (bindAddress == null) {
-            throw msg.nullParameter("bindAddress");
-        }
-        if (bindAddress instanceof InetSocketAddress) {
-            return createTcpServer((InetSocketAddress) bindAddress, acceptListener, optionMap);
-        } else if (bindAddress instanceof LocalSocketAddress) {
-            return createLocalStreamServer((LocalSocketAddress) bindAddress, acceptListener, optionMap);
-        } else {
-            throw msg.badSockType(bindAddress.getClass());
-        }
-    }
+        final AcceptingChannel<StreamConnection> server = createStreamConnectionServer(bindAddress, null, optionMap);
+        final AcceptingChannel<ConnectedStreamChannel> acceptingChannel = new AcceptingChannel<ConnectedStreamChannel>() {
+            public ConnectedStreamChannel accept() throws IOException {
+                final StreamConnection connection = server.accept();
+                return connection == null ? null : new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            }
 
-    /**
-     * Implementation helper method to create a TCP stream server.
-     *
-     * @param bindAddress the address to bind to
-     * @param acceptListener the initial accept listener
-     * @param optionMap the initial configuration for the server
-     * @return the acceptor
-     * @throws IOException if the server could not be created
-     */
-    protected AcceptingChannel<? extends ConnectedStreamChannel> createTcpServer(InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("TCP server");
-    }
+            public ChannelListener.Setter<? extends AcceptingChannel<ConnectedStreamChannel>> getAcceptSetter() {
+                return ChannelListeners.getDelegatingSetter(server.getAcceptSetter(), this);
+            }
 
-    /**
-     * Implementation helper method to create a UNIX domain stream server.
-     *
-     * @param bindAddress the address to bind to
-     * @param acceptListener the initial accept listener
-     * @param optionMap the initial configuration for the server
-     * @return the acceptor
-     * @throws IOException if the server could not be created
-     */
-    protected AcceptingChannel<? extends ConnectedStreamChannel> createLocalStreamServer(LocalSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("UNIX stream server");
+            public ChannelListener.Setter<? extends AcceptingChannel<ConnectedStreamChannel>> getCloseSetter() {
+                return ChannelListeners.getDelegatingSetter(server.getCloseSetter(), this);
+            }
+
+            public SocketAddress getLocalAddress() {
+                return server.getLocalAddress();
+            }
+
+            public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
+                return server.getLocalAddress(type);
+            }
+
+            public void suspendAccepts() {
+                server.suspendAccepts();
+            }
+
+            public void resumeAccepts() {
+                server.resumeAccepts();
+            }
+
+            public void wakeupAccepts() {
+                server.wakeupAccepts();
+            }
+
+            public void awaitAcceptable() throws IOException {
+                server.awaitAcceptable();
+            }
+
+            public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
+                server.awaitAcceptable(time, timeUnit);
+            }
+
+            public XnioWorker getWorker() {
+                return server.getWorker();
+            }
+
+            @Deprecated
+            public XnioExecutor getAcceptThread() {
+                return server.getAcceptThread();
+            }
+
+            public XnioIoThread getIoThread() {
+                return chooseThread();
+            }
+
+            public void close() throws IOException {
+                server.close();
+            }
+
+            public boolean isOpen() {
+                return server.isOpen();
+            }
+
+            public boolean supportsOption(final Option<?> option) {
+                return server.supportsOption(option);
+            }
+
+            public <T> T getOption(final Option<T> option) throws IOException {
+                return server.getOption(option);
+            }
+
+            public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
+                return server.setOption(option, value);
+            }
+        };
+        acceptingChannel.getAcceptSetter().set(acceptListener);
+        return acceptingChannel;
     }
 
     /**
@@ -232,17 +278,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future result of this operation
      */
+    @Deprecated
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, null, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new StreamConnectionWrapListener(futureResult, openListener);
+        final IoFuture<StreamConnection> future = openStreamConnection(destination, nestedOpenListener, optionMap);
+        future.addNotifier(STREAM_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
     /**
@@ -254,17 +297,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future result of this operation
      */
+    @Deprecated
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new StreamConnectionWrapListener(futureResult, openListener);
+        final IoFuture<StreamConnection> future = openStreamConnection(destination, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(STREAM_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
     /**
@@ -278,152 +318,26 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future result of this operation
      */
+    @Deprecated
     public IoFuture<ConnectedStreamChannel> connectStream(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (bindAddress == null) {
-            throw msg.nullParameter("bindAddress");
-        }
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (bindAddress.getClass() != destination.getClass()) {
-            throw msg.mismatchSockType(bindAddress.getClass(), destination.getClass());
-        }
-        if (destination instanceof InetSocketAddress) {
-            return connectTcpStream((InetSocketAddress) bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalStream((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new StreamConnectionWrapListener(futureResult, openListener);
+        final IoFuture<StreamConnection> future = openStreamConnection(bindAddress, destination, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(STREAM_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
-    /**
-     * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
-     *
-     * @param destination the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return openLocalStreamConnection(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, null, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        return chooseThread().openStreamConnection(destination, openListener, optionMap);
     }
 
-    /**
-     * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
-     *
-     * @param destination the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return openLocalStreamConnection(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        return chooseThread().openStreamConnection(destination, openListener, bindListener, optionMap);
     }
 
-    /**
-     * Connect to a remote stream server.  The protocol family is determined by the type of the socket addresses given
-     * (which must match).
-     *
-     * @param bindAddress the local address to bind to
-     * @param destination the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (bindAddress == null) {
-            throw msg.nullParameter("bindAddress");
-        }
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (bindAddress.getClass() != destination.getClass()) {
-            throw msg.mismatchSockType(bindAddress.getClass(), destination.getClass());
-        }
-        if (destination instanceof InetSocketAddress) {
-            return openTcpStreamConnection((InetSocketAddress) bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return openLocalStreamConnection((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
-    }
-
-    /**
-     * Implementation helper method to connect to a TCP server.
-     *
-     * @param bindAddress the bind address
-     * @param destinationAddress the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
-    protected IoFuture<ConnectedStreamChannel> connectTcpStream(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to TCP server");
-    }
-
-    /**
-     * Implementation helper method to connect to a local (UNIX domain) server.
-     *
-     * @param bindAddress the bind address
-     * @param destinationAddress the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
-    protected IoFuture<ConnectedStreamChannel> connectLocalStream(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to local stream server");
-    }
-
-    /**
-     * Implementation helper method to connect to a TCP server.
-     *
-     * @param bindAddress the bind address
-     * @param destinationAddress the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map    @return the future result of this operation
-     * @return the future result of this operation
-     */
-    protected IoFuture<StreamConnection> openTcpStreamConnection(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to TCP server");
-    }
-
-    /**
-     * Implementation helper method to connect to a local (UNIX domain) server.
-     *
-     * @param bindAddress the bind address
-     * @param destinationAddress the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
-    protected IoFuture<StreamConnection> openLocalStreamConnection(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to local stream server");
+        return chooseThread().openStreamConnection(bindAddress, destination, openListener, bindListener, optionMap);
     }
 
     // Acceptors
@@ -438,96 +352,18 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future connection
      */
+    @Deprecated
     public IoFuture<ConnectedStreamChannel> acceptStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return acceptTcpStream((InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return acceptLocalStream((LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        final FutureResult<ConnectedStreamChannel> futureResult = new FutureResult<ConnectedStreamChannel>();
+        final ChannelListener<StreamConnection> nestedOpenListener = new StreamConnectionWrapListener(futureResult, openListener);
+        final IoFuture<StreamConnection> future = acceptStreamConnection(destination, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(STREAM_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
-    /**
-     * Implementation helper method to accept a local (UNIX domain) stream connection.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     *
-     * @return the future connection
-     */
-    protected IoFuture<ConnectedStreamChannel> acceptLocalStream(LocalSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a local stream connection");
-    }
-
-    /**
-     * Implementation helper method to accept a TCP connection.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     *
-     * @return the future connection
-     */
-    protected IoFuture<ConnectedStreamChannel> acceptTcpStream(InetSocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a TCP connection");
-    }
-
-    /**
-     * Accept a stream connection at a destination address.  If a wildcard address is specified, then a destination address
-     * is chosen in a manner specific to the OS and/or channel type.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future connection
-     */
     public IoFuture<StreamConnection> acceptStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return acceptTcpStreamConnection((InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return acceptLocalStreamConnection((LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
-    }
-
-    /**
-     * Implementation helper method to accept a local (UNIX domain) stream connection.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     *
-     * @return the future connection
-     */
-    protected IoFuture<StreamConnection> acceptLocalStreamConnection(LocalSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a local stream connection");
-    }
-
-    /**
-     * Implementation helper method to accept a TCP connection.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     *
-     * @return the future connection
-     */
-    protected IoFuture<StreamConnection> acceptTcpStreamConnection(InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a TCP connection");
+        return chooseThread().acceptStreamConnection(destination, openListener, bindListener, optionMap);
     }
 
     //==================================================
@@ -537,7 +373,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //==================================================
 
     /**
-     * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
+     * Connect to a remote datagram server.  The protocol family is determined by the type of the socket address given.
      *
      * @param destination the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
@@ -545,17 +381,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future result of this operation
      */
+    @Deprecated
     public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
-        if (destination instanceof InetSocketAddress) {
-            return connectUdpDatagram(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalDatagram(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw msg.badSockType(destination.getClass());
-        }
+        final FutureResult<ConnectedMessageChannel> futureResult = new FutureResult<ConnectedMessageChannel>();
+        final ChannelListener<MessageConnection> nestedOpenListener = new MessageConnectionWrapListener(futureResult, openListener);
+        final IoFuture<MessageConnection> future = openMessageConnection(destination, nestedOpenListener, optionMap);
+        future.addNotifier(MESSAGE_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
     /**
@@ -569,51 +402,18 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future result of this operation
      */
+    @Deprecated
     public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (bindAddress == null) {
-            throw new IllegalArgumentException("bindAddress is null");
-        }
-        if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
-        }
-        if (bindAddress.getClass() != destination.getClass()) {
-            throw new IllegalArgumentException("Bind address " + bindAddress.getClass() + " is not the same type as destination address " + destination.getClass());
-        }
-        if (destination instanceof InetSocketAddress) {
-            return connectUdpDatagram((InetSocketAddress) bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
-        } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalDatagram((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
-        }
+        final FutureResult<ConnectedMessageChannel> futureResult = new FutureResult<ConnectedMessageChannel>();
+        final ChannelListener<MessageConnection> nestedOpenListener = new MessageConnectionWrapListener(futureResult, openListener);
+        final IoFuture<MessageConnection> future = openMessageConnection(destination, nestedOpenListener, optionMap);
+        future.addNotifier(MESSAGE_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
-    /**
-     * Implementation helper method to connect to a UDP server.
-     *
-     * @param bindAddress the bind address
-     * @param destination the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
-    protected IoFuture<ConnectedMessageChannel> connectUdpDatagram(InetSocketAddress bindAddress, InetSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to UDP server");
-    }
-
-    /**
-     * Implementation helper method to connect to a local (UNIX domain) datagram server.
-     *
-     * @param bindAddress the bind address
-     * @param destination the destination address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map
-     * @return the future result of this operation
-     */
-    protected IoFuture<ConnectedMessageChannel> connectLocalDatagram(LocalSocketAddress bindAddress, LocalSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to local datagram server");
+    public IoFuture<MessageConnection> openMessageConnection(final SocketAddress destination, final ChannelListener<? super MessageConnection> openListener, final OptionMap optionMap) {
+        return chooseThread().openMessageConnection(destination, openListener, optionMap);
     }
 
     // Acceptors
@@ -628,29 +428,18 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param optionMap the option map
      * @return the future connection
      */
+    @Deprecated
     public IoFuture<ConnectedMessageChannel> acceptDatagram(SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
-        }
-        if (destination instanceof LocalSocketAddress) {
-            return acceptLocalDatagram((LocalSocketAddress) destination, openListener, bindListener, optionMap);
-        } else {
-            throw new UnsupportedOperationException("Accept a connection to socket address " + destination.getClass());
-        }
+        final FutureResult<ConnectedMessageChannel> futureResult = new FutureResult<ConnectedMessageChannel>();
+        final ChannelListener<MessageConnection> nestedOpenListener = new MessageConnectionWrapListener(futureResult, openListener);
+        final IoFuture<MessageConnection> future = acceptMessageConnection(destination, nestedOpenListener, bindListener, optionMap);
+        future.addNotifier(MESSAGE_WRAPPING_HANDLER, futureResult);
+        futureResult.addCancelHandler(future);
+        return futureResult.getIoFuture();
     }
 
-    /**
-     * Implementation helper method to accept a local (UNIX domain) datagram connection.
-     *
-     * @param destination the destination (bind) address
-     * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
-     * @param bindListener the listener which will be notified when the acceptor is bound, or {@code null} for none
-     * @param optionMap the option map
-     *
-     * @return the future connection
-     */
-    protected IoFuture<ConnectedMessageChannel> acceptLocalDatagram(LocalSocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a local message connection");
+    public IoFuture<MessageConnection> acceptMessageConnection(final SocketAddress destination, final ChannelListener<? super MessageConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        return chooseThread().acceptMessageConnection(destination, openListener, bindListener, optionMap);
     }
 
     //==================================================
@@ -668,7 +457,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param bindListener the initial open-connection listener
      * @param optionMap the initial configuration for the server
      * @return the UDP server channel
-     * @throws IOException if the server could not be created
+     * @throws java.io.IOException if the server could not be created
      *
      * @since 3.0
      */
@@ -684,7 +473,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param bindAddress the bind address
      * @param optionMap the initial configuration for the server
      * @return the UDP server channel
-     * @throws IOException if the server could not be created
+     * @throws java.io.IOException if the server could not be created
      *
      * @since 3.0
      */
@@ -704,7 +493,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param leftOpenListener the left-hand open listener
      * @param rightOpenListener the right-hand open listener
      * @param optionMap the pipe channel configuration
-     * @throws IOException if the pipe could not be created
+     * @throws java.io.IOException if the pipe could not be created
      * @deprecated Users should prefer the simpler {@link #createFullDuplexPipe()} instead.
      */
     @Deprecated
@@ -729,7 +518,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param sourceListener the source open listener
      * @param sinkListener the sink open listener
      * @param optionMap the pipe channel configuration
-     * @throws IOException if the pipe could not be created
+     * @throws java.io.IOException if the pipe could not be created
      * @deprecated Users should prefer the simpler {@link #createHalfDuplexPipe()} instead.
      */
     @Deprecated
@@ -814,34 +603,24 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return new ConduitStreamSinkChannel(Configurable.EMPTY, new DeflatingStreamSinkConduit(new StreamSinkChannelWrappingConduit(delegate), deflater));
     }
 
-    /**
-     * Create a two-way stream pipe.
-     *
-     * @return the created pipe
-     * @throws IOException if the pipe could not be created
-     */
     public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
-        throw new UnsupportedOperationException("Create a full-duplex pipe");
+        return chooseThread().createFullDuplexPipe();
     }
 
-    /**
-     * Create a two-way stream pipe.
-     *
-     * @return the created pipe
-     * @throws IOException if the pipe could not be created
-     */
     public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection() throws IOException {
-        throw new UnsupportedOperationException("Create a full-duplex pipe");
+        return chooseThread().createFullDuplexPipeConnection();
     }
 
-    /**
-     * Create a one-way stream pipe.
-     *
-     * @return the created pipe
-     * @throws IOException if the pipe could not be created
-     */
     public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe() throws IOException {
-        throw new UnsupportedOperationException("Create a half-duplex pipe");
+        return chooseThread().createHalfDuplexPipe();
+    }
+
+    public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection(final XnioIoFactory peer) throws IOException {
+        return chooseThread().createFullDuplexPipeConnection(peer);
+    }
+
+    public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe(final XnioIoFactory peer) throws IOException {
+        return chooseThread().createHalfDuplexPipe(peer);
     }
 
     //==================================================
@@ -945,6 +724,13 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         taskPool.execute(command);
     }
 
+    /**
+     * Get the number of I/O threads configured on this worker.
+     *
+     * @return the number of I/O threads configured on this worker
+     */
+    public abstract int getIoThreadCount();
+
     //==================================================
     //
     // Configuration methods
@@ -1014,6 +800,19 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return name;
     }
 
+    //==================================================
+    //
+    // SPI methods
+    //
+    //==================================================
+
+    /**
+     * Choose a thread randomly from this worker.
+     *
+     * @return the thread
+     */
+    protected abstract XnioIoThread chooseThread();
+
     final class TaskPool extends ThreadPoolExecutor {
 
         TaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final RejectedExecutionHandler handler) {
@@ -1025,4 +824,64 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
     }
 
+    static class StreamConnectionWrapListener implements ChannelListener<StreamConnection> {
+
+        private final FutureResult<ConnectedStreamChannel> futureResult;
+        private final ChannelListener<? super ConnectedStreamChannel> openListener;
+
+        public StreamConnectionWrapListener(final FutureResult<ConnectedStreamChannel> futureResult, final ChannelListener<? super ConnectedStreamChannel> openListener) {
+            this.futureResult = futureResult;
+            this.openListener = openListener;
+        }
+
+        public void handleEvent(final StreamConnection channel) {
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(channel, channel.getSourceChannel(), channel.getSinkChannel());
+            if (!futureResult.setResult(assembledChannel)) {
+                safeClose(assembledChannel);
+            } else {
+                ChannelListeners.invokeChannelListener(assembledChannel, openListener);
+            }
+        }
+    }
+
+    static class MessageConnectionWrapListener implements ChannelListener<MessageConnection> {
+
+        private final FutureResult<ConnectedMessageChannel> futureResult;
+        private final ChannelListener<? super ConnectedMessageChannel> openListener;
+
+        public MessageConnectionWrapListener(final FutureResult<ConnectedMessageChannel> futureResult, final ChannelListener<? super ConnectedMessageChannel> openListener) {
+            this.futureResult = futureResult;
+            this.openListener = openListener;
+        }
+
+        public void handleEvent(final MessageConnection channel) {
+            final AssembledConnectedMessageChannel assembledChannel = new AssembledConnectedMessageChannel(channel, channel.getSourceChannel(), channel.getSinkChannel());
+            if (!futureResult.setResult(assembledChannel)) {
+                safeClose(assembledChannel);
+            } else {
+                ChannelListeners.invokeChannelListener(assembledChannel, openListener);
+            }
+        }
+    }
+
+    private static final IoFuture.HandlingNotifier<StreamConnection, FutureResult<ConnectedStreamChannel>> STREAM_WRAPPING_HANDLER = new IoFuture.HandlingNotifier<StreamConnection, FutureResult<ConnectedStreamChannel>>() {
+        public void handleCancelled(final FutureResult<ConnectedStreamChannel> attachment) {
+            attachment.setCancelled();
+        }
+
+        public void handleFailed(final IOException exception, final FutureResult<ConnectedStreamChannel> attachment) {
+            attachment.setException(exception);
+        }
+    };
+
+    private static final IoFuture.HandlingNotifier<MessageConnection, FutureResult<ConnectedMessageChannel>> MESSAGE_WRAPPING_HANDLER = new IoFuture.HandlingNotifier<MessageConnection, FutureResult<ConnectedMessageChannel>>() {
+        public void handleCancelled(final FutureResult<ConnectedMessageChannel> attachment) {
+            attachment.setCancelled();
+        }
+
+        public void handleFailed(final IOException exception, final FutureResult<ConnectedMessageChannel> attachment) {
+            attachment.setException(exception);
+        }
+    };
 }
+
