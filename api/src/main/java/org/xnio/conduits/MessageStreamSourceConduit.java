@@ -24,10 +24,18 @@ import java.nio.channels.FileChannel;
 import org.xnio.channels.StreamSinkChannel;
 
 /**
+ * A stream source conduit which reads stream data from messages.  The receive buffer should always be as large as
+ * the largest possible incoming message, or larger, to avoid data loss.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class MessageStreamSourceConduit extends AbstractSourceConduit<MessageSourceConduit> implements StreamSourceConduit {
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     */
     public MessageStreamSourceConduit(final MessageSourceConduit next) {
         super(next);
     }

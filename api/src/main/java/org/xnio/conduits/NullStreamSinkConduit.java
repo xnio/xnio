@@ -29,6 +29,8 @@ import org.xnio.channels.Channels;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
+ * A stream sink conduit which discards all data written to it.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class NullStreamSinkConduit implements StreamSinkConduit {
@@ -38,8 +40,13 @@ public final class NullStreamSinkConduit implements StreamSinkConduit {
     private boolean shutdown;
     private boolean resumed;
 
-    public NullStreamSinkConduit(final XnioWorker worker, final XnioIoThread writeThread) {
-        this.worker = worker;
+    /**
+     * Construct a new instance.
+     *
+     * @param writeThread the write thread for this conduit
+     */
+    public NullStreamSinkConduit(final XnioIoThread writeThread) {
+        this.worker = writeThread.getWorker();
         this.writeThread = writeThread;
     }
 
@@ -121,17 +128,5 @@ public final class NullStreamSinkConduit implements StreamSinkConduit {
 
     public XnioWorker getWorker() {
         return worker;
-    }
-
-    public boolean supportsOption(final Option<?> option) {
-        return false;
-    }
-
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
-    }
-
-    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
     }
 }

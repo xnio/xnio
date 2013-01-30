@@ -34,6 +34,8 @@ import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.WriteListenerSettable;
 
 /**
+ * A stream sink channel which wraps a stream sink conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteListenerSettable<ConduitStreamSinkChannel>, CloseListenerSettable<ConduitStreamSinkChannel>, Cloneable {
@@ -43,16 +45,32 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
     private ChannelListener<? super ConduitStreamSinkChannel> writeListener;
     private ChannelListener<? super ConduitStreamSinkChannel> closeListener;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param configurable the configurable to delegate configuration requests to
+     * @param conduit the initial conduit to use for data transport
+     */
     public ConduitStreamSinkChannel(final Configurable configurable, final StreamSinkConduit conduit) {
         this.configurable = configurable;
         this.conduit = conduit;
         conduit.setWriteReadyHandler(new WriteReadyHandler.ChannelListenerHandler<ConduitStreamSinkChannel>(this));
     }
 
+    /**
+     * Get the underlying conduit for this channel.
+     *
+     * @return the underlying conduit for this channel
+     */
     public StreamSinkConduit getConduit() {
         return conduit;
     }
 
+    /**
+     * Set the underlying conduit for this channel.
+     *
+     * @param conduit the underlying conduit for this channel
+     */
     public void setConduit(final StreamSinkConduit conduit) {
         this.conduit = conduit;
     }
@@ -166,6 +184,11 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
         return conduit.getWorker();
     }
 
+    /**
+     * Duplicate this channel.  Changing the delegate conduit in one channel will not affect the other.
+     *
+     * @return the cloned channel
+     */
     public ConduitStreamSinkChannel clone() {
         try {
             return (ConduitStreamSinkChannel) super.clone();

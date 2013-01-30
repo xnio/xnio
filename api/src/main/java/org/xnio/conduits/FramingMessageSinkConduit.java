@@ -24,6 +24,8 @@ import org.xnio.Buffers;
 import org.xnio.Pooled;
 
 /**
+ * A message sink conduit which implements a simple message framing protocol over a stream conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamSinkConduit> implements MessageSinkConduit {
@@ -31,6 +33,13 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
     private final boolean longLengths;
     private final Pooled<ByteBuffer> transmitBuffer;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     * @param longLengths {@code true} to use 4-byte lengths, {@code false} to use 2-byte lengths
+     * @param transmitBuffer the transmit buffer to use
+     */
     public FramingMessageSinkConduit(final StreamSinkConduit next, final boolean longLengths, final Pooled<ByteBuffer> transmitBuffer) {
         super(next);
         this.longLengths = longLengths;

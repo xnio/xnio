@@ -32,23 +32,45 @@ import org.xnio.channels.ReadListenerSettable;
 import org.xnio.channels.ReadableMessageChannel;
 
 /**
+ * A readable message channel which is backed by a message source conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class ConduitReadableMessageChannel implements ReadableMessageChannel, ReadListenerSettable<ConduitReadableMessageChannel>, CloseListenerSettable<ConduitReadableMessageChannel>, Cloneable {
     private final Configurable configurable;
-    private final MessageSourceConduit conduit;
 
+    private MessageSourceConduit conduit;
     private ChannelListener<? super ConduitReadableMessageChannel> readListener;
     private ChannelListener<? super ConduitReadableMessageChannel> closeListener;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param configurable the configurable to delegate configuration requests to
+     * @param conduit the initial conduit to use for data transport
+     */
     public ConduitReadableMessageChannel(final Configurable configurable, final MessageSourceConduit conduit) {
         this.configurable = configurable;
         this.conduit = conduit;
         conduit.setReadReadyHandler(new ReadReadyHandler.ChannelListenerHandler<ConduitReadableMessageChannel>(this));
     }
 
+    /**
+     * Get the underlying conduit for this channel.
+     *
+     * @return the underlying conduit for this channel
+     */
     public MessageSourceConduit getConduit() {
         return conduit;
+    }
+
+    /**
+     * Set the underlying conduit for this channel.
+     *
+     * @param conduit the underlying conduit for this channel
+     */
+    public void setConduit(final MessageSourceConduit conduit) {
+        this.conduit = conduit;
     }
 
     public boolean isOpen() {
@@ -148,6 +170,11 @@ public final class ConduitReadableMessageChannel implements ReadableMessageChann
         return configurable.setOption(option, value);
     }
 
+    /**
+     * Duplicate this channel.  Changing the delegate conduit in one channel will not affect the other.
+     *
+     * @return the cloned channel
+     */
     public ConduitReadableMessageChannel clone() {
         try {
             return (ConduitReadableMessageChannel) super.clone();

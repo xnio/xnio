@@ -24,17 +24,36 @@ import org.xnio.IoUtils;
 import org.xnio.channels.CloseListenerSettable;
 
 /**
+ * The base ready handler type, which can forward termination requests as well as notifications of termination
+ * completion.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface TerminateHandler {
 
+    /**
+     * Force the front-end channel to close, in response to XNIO worker shutdown.
+     */
     void forceTermination();
 
+    /**
+     * Indicate that a previous shutdown request has successfully resulted in termination.
+     */
     void terminated();
 
+    /**
+     * A terminate handler which calls a channel listener on termination notification.
+     *
+     * @param <C> the channel type
+     */
     class ChannelListenerHandler<C extends Channel & CloseListenerSettable<C>> implements TerminateHandler {
         private final C channel;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param channel the channel to wrap
+         */
         public ChannelListenerHandler(final C channel) {
             this.channel = channel;
         }
@@ -48,10 +67,18 @@ public interface TerminateHandler {
         }
     }
 
+    /**
+     * A runnable task which invokes the {@link TerminateHandler#terminated()} method of the given handler.
+     */
     class ReadyTask implements Runnable {
 
         private final TerminateHandler handler;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param handler the handler to run
+         */
         public ReadyTask(final TerminateHandler handler) {
             this.handler = handler;
         }

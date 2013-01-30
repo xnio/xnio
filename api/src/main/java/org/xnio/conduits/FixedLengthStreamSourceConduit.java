@@ -134,6 +134,11 @@ public final class FixedLengthStreamSourceConduit extends AbstractStreamSourceCo
         return res;
     }
 
+    /**
+     * Get the number of bytes which remain available to read.
+     *
+     * @return the number of bytes which remain available to read
+     */
     public long getRemaining() {
         return remaining;
     }

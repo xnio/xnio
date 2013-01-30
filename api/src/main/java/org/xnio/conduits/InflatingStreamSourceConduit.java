@@ -27,6 +27,8 @@ import java.util.zip.Inflater;
 import org.xnio.channels.StreamSinkChannel;
 
 /**
+ * A filtering stream source conduit which decompresses the source data.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class InflatingStreamSourceConduit extends AbstractStreamSourceConduit<StreamSourceConduit> implements StreamSourceConduit {
@@ -34,6 +36,12 @@ public final class InflatingStreamSourceConduit extends AbstractStreamSourceCond
     private final Inflater inflater;
     private final ByteBuffer buffer;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the underlying conduit for this channel
+     * @param inflater the initialized inflater to use
+     */
     public InflatingStreamSourceConduit(final StreamSourceConduit next, final Inflater inflater) {
         super(next);
         this.inflater = inflater;

@@ -25,14 +25,29 @@ import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.WriteListenerSettable;
 
 /**
+ * A conduit write-ready handler.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface WriteReadyHandler extends TerminateHandler {
+    /**
+     * Signify that writes are ready.
+     */
     void writeReady();
 
+    /**
+     * A write ready handler which calls channel listener(s).
+     *
+     * @param <C> the channel type
+     */
     class ChannelListenerHandler<C extends Channel & WriteListenerSettable<C> & CloseListenerSettable<C>> implements WriteReadyHandler {
         private final C channel;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param channel the channel
+         */
         public ChannelListenerHandler(final C channel) {
             this.channel = channel;
         }
@@ -50,10 +65,18 @@ public interface WriteReadyHandler extends TerminateHandler {
         }
     }
 
+    /**
+     * A runnable task which invokes the {@link WriteReadyHandler#writeReady()} method of the given handler.
+     */
     class ReadyTask implements Runnable {
 
         private final WriteReadyHandler handler;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param handler the handler to invoke
+         */
         public ReadyTask(final WriteReadyHandler handler) {
             this.handler = handler;
         }

@@ -24,7 +24,7 @@ import java.nio.channels.FileChannel;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
- * An abstract base class for stream sink conduits.
+ * An abstract base class for filtering stream sink conduits.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */

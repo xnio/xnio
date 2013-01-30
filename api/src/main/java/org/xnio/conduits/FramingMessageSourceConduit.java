@@ -25,12 +25,20 @@ import org.xnio.Buffers;
 import org.xnio.Pooled;
 
 /**
+ * A message source conduit which implements a simple message framing protocol over a stream conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class FramingMessageSourceConduit extends AbstractSourceConduit<StreamSourceConduit> implements MessageSourceConduit {
     private final Pooled<ByteBuffer> receiveBuffer;
     private boolean ready;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     * @param receiveBuffer the transmit buffer to use
+     */
     public FramingMessageSourceConduit(final StreamSourceConduit next, final Pooled<ByteBuffer> receiveBuffer) {
         super(next);
         this.receiveBuffer = receiveBuffer;

@@ -22,12 +22,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
-import org.xnio.Option;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamSinkChannel;
 
 /**
+ * A stream source conduit which is always empty.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class EmptyStreamSourceConduit implements StreamSourceConduit {
@@ -37,8 +38,13 @@ public final class EmptyStreamSourceConduit implements StreamSourceConduit {
     private boolean shutdown;
     private boolean resumed;
 
-    public EmptyStreamSourceConduit(final XnioWorker worker, final XnioIoThread readThread) {
-        this.worker = worker;
+    /**
+     * Construct a new instance.
+     *
+     * @param readThread the read thread for this conduit
+     */
+    public EmptyStreamSourceConduit(final XnioIoThread readThread) {
+        this.worker = readThread.getWorker();
         this.readThread = readThread;
     }
 
@@ -114,17 +120,5 @@ public final class EmptyStreamSourceConduit implements StreamSourceConduit {
 
     public XnioWorker getWorker() {
         return worker;
-    }
-
-    public boolean supportsOption(final Option<?> option) {
-        return false;
-    }
-
-    public <T> T getOption(final Option<T> option) throws IOException {
-        return null;
-    }
-
-    public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
     }
 }

@@ -34,6 +34,8 @@ import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
+ * A stream source channel which wraps a stream source conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class ConduitStreamSourceChannel implements StreamSourceChannel, ReadListenerSettable<ConduitStreamSourceChannel>, CloseListenerSettable<ConduitStreamSourceChannel>, Cloneable {
@@ -43,16 +45,32 @@ public final class ConduitStreamSourceChannel implements StreamSourceChannel, Re
     private ChannelListener<? super ConduitStreamSourceChannel> readListener;
     private ChannelListener<? super ConduitStreamSourceChannel> closeListener;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param configurable the configurable to delegate configuration requests to
+     * @param conduit the initial conduit to use for data transport
+     */
     public ConduitStreamSourceChannel(final Configurable configurable, final StreamSourceConduit conduit) {
         this.configurable = configurable;
         this.conduit = conduit;
         conduit.setReadReadyHandler(new ReadReadyHandler.ChannelListenerHandler<ConduitStreamSourceChannel>(this));
     }
 
+    /**
+     * Get the underlying conduit for this channel.
+     *
+     * @return the underlying conduit for this channel
+     */
     public StreamSourceConduit getConduit() {
         return conduit;
     }
 
+    /**
+     * Set the underlying conduit for this channel.
+     *
+     * @param conduit the underlying conduit for this channel
+     */
     public void setConduit(final StreamSourceConduit conduit) {
         this.conduit = conduit;
     }
@@ -162,6 +180,11 @@ public final class ConduitStreamSourceChannel implements StreamSourceChannel, Re
         return configurable.setOption(option, value);
     }
 
+    /**
+     * Duplicate this channel.  Changing the delegate conduit in one channel will not affect the other.
+     *
+     * @return the cloned channel
+     */
     public ConduitStreamSourceChannel clone() {
         try {
             return (ConduitStreamSourceChannel) super.clone();

@@ -16,32 +16,8 @@
  * limitations under the License.
  */
 
-package org.xnio.conduits;
-
-import org.xnio.XnioWorker;
-
 /**
- * An abstract base class for filtering conduits.
- *
- * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * The XNIO conduit SPI.  Conduits represent the underlying transport and filtering mechanism of
+ * point-to-point message- and stream-oriented channels.
  */
-public abstract class AbstractConduit<D extends Conduit> implements Conduit {
-
-    /**
-     * The delegate conduit.
-     */
-    protected final D next;
-
-    /**
-     * Construct a new instance.
-     *
-     * @param next the delegate conduit to set
-     */
-    protected AbstractConduit(final D next) {
-        this.next = next;
-    }
-
-    public XnioWorker getWorker() {
-        return next.getWorker();
-    }
-}
+package org.xnio.conduits;

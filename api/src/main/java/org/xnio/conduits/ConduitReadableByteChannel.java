@@ -23,12 +23,19 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
 /**
-* @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
-*/
+ * A byte channel which wraps a conduit.
+ *
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ */
 public final class ConduitReadableByteChannel implements ReadableByteChannel {
 
     private StreamSourceConduit conduit;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param conduit the conduit to delegate to
+     */
     public ConduitReadableByteChannel(final StreamSourceConduit conduit) {
         this.conduit = conduit;
     }

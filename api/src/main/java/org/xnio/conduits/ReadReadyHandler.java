@@ -25,14 +25,30 @@ import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.ReadListenerSettable;
 
 /**
+ * A conduit read-ready handler.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface ReadReadyHandler extends TerminateHandler {
+
+    /**
+     * Signify that reads are ready.
+     */
     void readReady();
 
+    /**
+     * A read ready handler which calls channel listener(s).
+     *
+     * @param <C> the channel type
+     */
     class ChannelListenerHandler<C extends Channel & ReadListenerSettable<C> & CloseListenerSettable<C>> implements ReadReadyHandler {
         private final C channel;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param channel the channel
+         */
         public ChannelListenerHandler(final C channel) {
             this.channel = channel;
         }
@@ -50,10 +66,18 @@ public interface ReadReadyHandler extends TerminateHandler {
         }
     }
 
+    /**
+     * A runnable task which invokes the {@link ReadReadyHandler#readReady()} method of the given handler.
+     */
     class ReadyTask implements Runnable {
 
         private final ReadReadyHandler handler;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param handler the handler to invoke
+         */
         public ReadyTask(final ReadReadyHandler handler) {
             this.handler = handler;
         }

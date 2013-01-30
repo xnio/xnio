@@ -19,6 +19,7 @@
 package org.xnio.conduits;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 import org.xnio.XnioIoThread;
 
@@ -61,12 +62,41 @@ public interface SinkConduit extends Conduit {
      */
     void wakeupWrites();
 
+    /**
+     * Determine whether write notifications are currently enabled.
+     *
+     * @return {@code true} if write notifications are enabled
+     */
     boolean isWriteResumed();
 
+    /**
+     * Block until this channel becomes writable again.  This method may return spuriously before the channel becomes
+     * writable.
+     *
+     * @throws InterruptedIOException if the operation is interrupted; the thread's interrupt flag will be set
+     * as well
+     * @throws IOException if an I/O error occurs
+     */
     void awaitWritable() throws IOException;
 
+    /**
+     * Block until this conduit becomes writable again, or until the timeout expires.  This method may return
+     * spuriously before the conduit becomes writable or the timeout expires.
+     *
+     * @param time the time to wait
+     * @param timeUnit the time unit
+     *
+     * @throws InterruptedIOException if the operation is interrupted; the thread's interrupt flag will be set
+     * as well
+     * @throws IOException if an I/O error occurs
+     */
     void awaitWritable(long time, TimeUnit timeUnit) throws IOException;
 
+    /**
+     * Get the write thread for this conduit.
+     *
+     * @return the thread, or {@code null} if none is configured or available
+     */
     XnioIoThread getWriteThread();
 
     /**

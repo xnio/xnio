@@ -27,12 +27,19 @@ import org.xnio.Pooled;
 import org.xnio.channels.StreamSinkChannel;
 
 /**
+ * A stream source conduit which allows buffers to be "pushed back" to the head of the stream.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class PushBackStreamSourceConduit extends AbstractStreamSourceConduit<StreamSourceConduit> implements StreamSourceConduit {
     private StreamSourceConduit current = next;
     private boolean shutdown;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     */
     public PushBackStreamSourceConduit(final StreamSourceConduit next) {
         super(next);
     }
@@ -74,6 +81,12 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
         current.setReadReadyHandler(handler);
     }
 
+    /**
+     * Push a buffer back to the head of the stream.  Once the buffer data is consumed, it will
+     * be released back to its original pool (if any).
+     *
+     * @param pooledBuffer the buffer to push back
+     */
     public void pushBack(Pooled<ByteBuffer> pooledBuffer) {
         if (pooledBuffer == null) {
             return;

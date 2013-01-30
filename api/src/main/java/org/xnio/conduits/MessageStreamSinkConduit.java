@@ -25,10 +25,17 @@ import org.xnio.Buffers;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
+ * A stream sink conduit which wraps each write into a single message.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class MessageStreamSinkConduit extends AbstractSinkConduit<MessageSinkConduit> implements StreamSinkConduit {
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     */
     public MessageStreamSinkConduit(final MessageSinkConduit next) {
         super(next);
     }

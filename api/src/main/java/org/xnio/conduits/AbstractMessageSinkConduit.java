@@ -22,10 +22,17 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
+ * An abstract base class for filtering message sink conduits.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public abstract class AbstractMessageSinkConduit<D extends MessageSinkConduit> extends AbstractSinkConduit<D> implements MessageSinkConduit {
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     */
     protected AbstractMessageSinkConduit(final D next) {
         super(next);
     }

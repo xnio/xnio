@@ -26,6 +26,8 @@ import org.xnio.Buffers;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
+ * A filtering stream sink conduit which compresses the written data.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class DeflatingStreamSinkConduit extends AbstractStreamSinkConduit<StreamSinkConduit> implements StreamSinkConduit {
@@ -34,6 +36,12 @@ public final class DeflatingStreamSinkConduit extends AbstractStreamSinkConduit<
     private final Deflater deflater;
     private final ByteBuffer outBuffer;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     * @param deflater the initialized deflater to use
+     */
     public DeflatingStreamSinkConduit(final StreamSinkConduit next, final Deflater deflater) {
         super(next);
         this.deflater = deflater;

@@ -22,11 +22,29 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
+ * A message sink conduit.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public interface MessageSinkConduit extends SinkConduit {
 
+    /**
+     * Send a complete message.
+     *
+     * @param buffer the message to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
     boolean send(ByteBuffer src) throws IOException;
 
+    /**
+     * Send a complete message.
+     *
+     * @param buffers the buffers holding the message to send
+     * @param offs the offset into the buffer array of the first buffer
+     * @param len the number of buffers that contain data to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
     boolean send(ByteBuffer[] srcs, int offs, int len) throws IOException;
 }

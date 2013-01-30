@@ -28,11 +28,18 @@ import org.xnio.channels.StreamSourceChannel;
 import static java.lang.Math.min;
 
 /**
+ * A stream sink conduit with a limited length.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkConduit<StreamSinkConduit> implements StreamSinkConduit {
     private long remaining;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param next the delegate conduit to set
+     */
     public FixedLengthStreamSinkConduit(final FixedLengthStreamSinkConduit next) {
         super(next);
     }
@@ -147,6 +154,11 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         }
     }
 
+    /**
+     * Get the number of remaining bytes available to read.
+     *
+     * @return the number of remaining bytes available to read
+     */
     public long getRemaining() {
         return remaining;
     }

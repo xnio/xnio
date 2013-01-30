@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.XnioIoThread;
 
 /**
- * An abstract base class for output conduits.
+ * An abstract base class for filtering output conduits.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
