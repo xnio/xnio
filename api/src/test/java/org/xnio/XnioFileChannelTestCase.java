@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,23 +44,26 @@ import org.xnio.mock.ConnectedStreamChannelMock;
 /**
  * Test for {@link XnioFileChannel}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
 public class XnioFileChannelTestCase {
 
+    private RandomAccessFile randomAccessFile;
     private FileChannel fileChannel;
 
     @Before
     public void initFileChannel() throws IOException {
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        fileChannel = new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
+        randomAccessFile = new RandomAccessFile(file, "rw");
+        fileChannel = new XnioFileChannel(randomAccessFile.getChannel());
     }
 
     @After
     public void closeFileChannel() throws IOException {
         fileChannel.close();
+        randomAccessFile.close();
     }
 
     @Test

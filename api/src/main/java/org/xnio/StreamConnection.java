@@ -52,7 +52,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
         return closeListener;
     }
 
-    public ChannelListener.Setter<StreamConnection> getCloseSetter() {
+    public ChannelListener.Setter<? extends StreamConnection> getCloseSetter() {
         return new Setter<StreamConnection>(this);
     }
 

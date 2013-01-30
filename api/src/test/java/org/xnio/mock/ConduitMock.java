@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,6 @@ package org.xnio.mock;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
@@ -29,83 +28,132 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
 import org.xnio.Buffers;
-import org.xnio.ChannelListener;
-import org.xnio.ChannelListener.Setter;
 import org.xnio.IoUtils;
-import org.xnio.Option;
 import org.xnio.OptionMap;
-import org.xnio.XnioExecutor;
+import org.xnio.StreamConnection;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
-import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.AssembledConnectedStreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import org.xnio.conduits.ReadReadyHandler;
+import org.xnio.conduits.StreamSinkConduit;
+import org.xnio.conduits.StreamSourceConduit;
+import org.xnio.conduits.WriteReadyHandler;
 
 /**
- * Mock of a connected stream channel.<p>
+ * Mock of a sink/source conduit.<p>
  * This channel mock will store everything that is written to it for later comparison, and allows feeding of bytes for
  * reading.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-public class ConnectedStreamChannelMock implements ConnectedStreamChannel, StreamSourceChannel, StreamSinkChannel, Mock{
+public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock{
 
     // written stuff will be copied to this buffer
     private ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
     // read stuff will be taken from this buffer
     private ByteBuffer readBuffer = ByteBuffer.allocate(10000);
-    // read stuff can only be read if read is enabled
-    private boolean readEnabled;
-    // can only write when write is enabled
-    private boolean writeEnabled = true;
-    // indicates if this channel is closed
-    private boolean closed = false;
-    private boolean checkClosed = true;
-    private boolean writeResumed = false;
-    private boolean writeAwaken = false;
-    private boolean readAwaken = false;
-    private boolean readResumed = false;
-    private boolean readsDown = false;
-    private boolean writesDown = false;
-    private boolean allowShutdownWrites = true;
-    private boolean flushed = true;
-    private boolean flushEnabled = true;
+    // if eof is true, read will return -1 if readBuffer is empty
     private boolean eof = false;
-    private XnioWorker worker = new XnioWorkerMock();
-    private XnioIoThread executor = new XnioIoThreadMock(null);
+
+    // read stuff can only be read if read operations are enabled
+    private boolean readsEnabled;
+    // can only write when write operations are enabled
+    private boolean writesEnabled = true;
+    // terminateWrites() will be ignored if allowTerminateWrites is false
+    private boolean allowTerminateWrites = true;
+    // is flush enabled
+    private boolean flushEnabled = true;
+    // enables check for closed conduit (if an attempt to perform an operation is performed once this conduit is
+    // closed, a ClosedChannelException will be thrown only if checkClosed is true)
+    private boolean checkClosed = true;
+
+
+    // is write operation resumed
+    private boolean writesResumed = false;
+    // is write operation awaken
+    private boolean writesAwaken = false;
+    // is write operation terminated
+    private boolean writesTerminated = false;
+    // is write operation truncated
+    private boolean writesTruncated = false;
+    // are all written contents flushed
+    private boolean flushed = true;
+    // is read operation resumed
+    private boolean readsResumed = false;
+    // is read operation awaken
+    private boolean readsAwaken = false;
+    // is read operation terminated
+    private boolean readsTerminated = false;
+    // indicates if this conduit is closed
+    private boolean closed = false;
+
+    // the worker
+    private XnioWorker worker;
+    // the executor
+    private XnioIoThread executor;
+
+    // read waiter
     private Thread readWaiter;
+    // write waiter
     private Thread writeWaiter;
-    private ChannelListener<? super ConnectedStreamChannel> readListener;
-    private ChannelListener<? super ConnectedStreamChannel> writeListener;
-    private ChannelListener<? super ConnectedStreamChannel> closeListener;
-    private String info = null; // any extra information regarding this channel used by tests
 
+    // write ready handler
+    // implement this when needed
+    @SuppressWarnings("unused")
+    private WriteReadyHandler writeReadyHandler;
+    // read ready handler
+    // implement this when needed
+    @SuppressWarnings("unused")
+    private ReadReadyHandler readReadyHandler;
+
+    // any extra information regarding this channel used by tests
+    private String info = null;
+
+    public ConduitMock(XnioWorker worker, XnioIoThread xnioIoThread) {
+        this.executor = xnioIoThread;
+        this.worker = worker;
+    }
+
+    public ConduitMock() {
+        this(new XnioWorkerMock(), null);
+    }
+
+    /**
+     * Returns the executor.
+     */
+    XnioIoThread getXnioIoThread() {
+        return executor;
+    }
+
+    // implement this for handlers when needed
     // listener setters
-    private final ChannelListener.Setter<ConnectedStreamChannel> readListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
-        @Override
-        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
-            readListener = listener;
-        }
-    };
-
-    private final ChannelListener.Setter<ConnectedStreamChannel> writeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
-        @Override
-        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
-            writeListener = listener;
-        }
-    };
-
-    private final ChannelListener.Setter<ConnectedStreamChannel> closeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
-        @Override
-        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
-            closeListener = listener;
-        }
-    };
+//    private final ChannelListener.Setter<ConnectedStreamChannel> readListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+//        @Override
+//        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+//            readListener = listener;
+//        }
+//    };
+//
+//    private final ChannelListener.Setter<ConnectedStreamChannel> writeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+//        @Override
+//        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+//            writeListener = listener;
+//        }
+//    };
+//
+//    private final ChannelListener.Setter<ConnectedStreamChannel> closeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+//        @Override
+//        public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
+//            closeListener = listener;
+//        }
+//    };
 
 
     /**
      * Feeds {@code readData} to read clients.
-     * @param readData data that will be available for reading on this channel mock
+     * @param readData data that will be available for reading
      */
     public void setReadData(String... readData) {
         final Thread waiter;
@@ -143,7 +191,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
             readBuffer.position(position);
         }
         
-        if (readWaiter == null || totalLength == 0 || !readEnabled) {
+        if (readWaiter == null || totalLength == 0 || !readsEnabled) {
             return;
         }
         waiter = readWaiter;
@@ -154,7 +202,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
 
     /**
      * Feeds {@code readData} to read clients.
-     * @param readData data that will be available for reading on this channel mock
+     * @param readData data that will be available for reading
      */
     public void setReadDataWithLength(String... readData) {
         final Thread waiter;
@@ -194,7 +242,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
             if (resetPosition) {
                 readBuffer.position(position);
             }
-            if (readWaiter == null || totalLength == 0 || !readEnabled) {
+            if (readWaiter == null || totalLength == 0 || !readsEnabled) {
                 return;
             }
             waiter = readWaiter;
@@ -244,7 +292,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
             if (resetPosition) {
                 readBuffer.position(position);
             }
-            if (readWaiter == null || totalLength == 0 || !readEnabled) {
+            if (readWaiter == null || totalLength == 0 || !readsEnabled) {
                 return;
             }
             waiter = readWaiter;
@@ -252,11 +300,15 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         LockSupport.unpark(waiter);
     }
 
+    /**
+     * Marks the eof for read operations. Once eof is set, all read operations will return -1 as soon as there is no
+     * read data available. 
+     */
     public void setEof() {
         final Thread waiter;
         synchronized (this) {
             eof = true;
-            if (readWaiter == null || !readEnabled) {
+            if (readWaiter == null || !readsEnabled) {
                 return;
             }
             waiter = readWaiter;
@@ -264,11 +316,26 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         LockSupport.unpark(waiter);
     }
 
-    public void enableRead(boolean enable) {
+    /**
+     * Indicates if has all read data been consumed by read operations.
+     */
+    public synchronized boolean allReadDataConsumed() {
+        return readBuffer.position() == readBuffer.limit();
+    }
+
+    /**
+     * Enables and disables read operations. If read operations are disabled, read will always return 0, even if
+     * there is {@link #setReadData(String...) read data available} in the local buffer.
+     * <p>
+     * Read operations are disabled by default.
+     * 
+     * @param enable {@code false} for disabling reads, {@code true} for enabling.
+     */
+    public void enableReads(boolean enable) {
         final Thread waiter;
         synchronized (this) {
-            readEnabled = enable;
-            if (readWaiter == null || !readEnabled || !((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
+            readsEnabled = enable;
+            if (readWaiter == null || !readsEnabled || !((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
                 return;
             }
             waiter = readWaiter;
@@ -276,10 +343,17 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         LockSupport.unpark(waiter);
     }
 
-    public void enableWrite(boolean enable) {
+    /**
+     * Enables and disables write operations. If write operations are disabled, write will always return 0.
+     * <p>
+     * Write operations are enabled by default.
+     * 
+     * @param enable {@code false} for disabling writes, {@code true} for enabling.
+     */
+    public void enableWrites(boolean enable) {
         final Thread waiter;
         synchronized (this) {
-            writeEnabled = enable;
+            writesEnabled = enable;
             waiter = writeWaiter;
         }
         if (waiter != null) {
@@ -287,12 +361,21 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         }
     }
 
+    /**
+     * Enables check for closed. This will result in a ClosedChannelException is an attempt to execute an operation
+     * is performed when this conduit is closed. If closed check is disabled, any operation can be performed on this
+     * mock regardless of whether it is closed.
+     * <p>
+     * This check is enabled by default.
+     * 
+     * @param enable {@code true} for enabling the closed check, {@code false} for disabling it
+     */
     public synchronized void enableClosedCheck(boolean enable) {
         checkClosed = enable;
     }
 
     /**
-     * Returns all the bytes that have been written to this channel mock.
+     * Returns all the bytes that have been written to this conduit mock.
      * 
      * @return the written bytes in the form of a UTF-8 string
      */
@@ -303,51 +386,42 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         writeBuffer.flip();
         return Buffers.getModifiedUtf8(writeBuffer);
     }
-    
+
+    /**
+     * Returns the written bytes buffer
+     * 
+     * @return the buffer containing all the bytes that have been written to this conduit mock
+     */
     public ByteBuffer getWrittenBytes() {
         return writeBuffer;
     }
 
-    @Override
-    public void close() throws IOException {
-        closed = true;
-        shutdownWrites();
-        shutdownReads();
+    /**
+     * Indicates if all data written to this conduit has been flushed.
+     * @return
+     */
+    public boolean isFlushed() {
+        return flushed;
     }
 
-    @Override
-    public boolean isOpen() {
-        return !closed;
+    /**
+     * Enables and disables flush. If flush is disabled, requests to flush data are ignored.
+     * <p>
+     * Flush is enabled by default.
+     * 
+     * @param enable {@code true} for enabling flush, {@code false} for disabling
+     */
+    public synchronized void enableFlush(boolean enable) {
+        flushEnabled = enable;
     }
 
-    private OptionMap optionMap; 
-
-    @Override
-    public boolean supportsOption(Option<?> option) {
-        return optionMap == null? false: optionMap.contains(option);
+    /**
+     * Changes the worker associated with this conduit mock.
+     */
+    public void setWorker(XnioWorker worker) {
+        this.worker = worker;
     }
 
-    @Override
-    public <T> T getOption(Option<T> option) throws IOException {
-        return optionMap == null? null: optionMap.get(option);
-    }
-
-    @Override
-    public <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException {
-        final OptionMap.Builder optionMapBuilder = OptionMap.builder();
-        T previousValue = null;
-        if (optionMap != null) {
-            optionMapBuilder.addAll(optionMap);
-            previousValue = optionMap.get(option);
-        }
-        optionMapBuilder.set(option, value);
-        optionMap = optionMapBuilder.getMap();
-        return previousValue;
-    }
-
-    public void setOptionMap(OptionMap optionMap) {
-        this.optionMap = optionMap;
-    }
 
     @Override
     public OptionMap getOptionMap() {
@@ -355,33 +429,77 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     @Override
+    public String getInfo() {
+        return info;
+    }
+
+    @Override
+    public void setInfo(String i) {
+        info = i;
+    }
+
+    public boolean isOpen() {
+        return !writesTerminated || !readsTerminated; 
+    }
+
+    private OptionMap optionMap; 
+// review this
+//    @Override
+//    public boolean supportsOption(Option<?> option) {
+//        return optionMap == null? false: optionMap.contains(option);
+//    }
+//
+//    @Override
+//    public <T> T getOption(Option<T> option) throws IOException {
+//        return optionMap == null? null: optionMap.get(option);
+//    }
+//
+//    @Override
+//    public <T> T setOption(Option<T> option, T value) throws IllegalArgumentException, IOException {
+//        final OptionMap.Builder optionMapBuilder = OptionMap.builder();
+//        T previousValue = null;
+//        if (optionMap != null) {
+//            optionMapBuilder.addAll(optionMap);
+//            previousValue = optionMap.get(option);
+//        }
+//        optionMapBuilder.set(option, value);
+//        optionMap = optionMapBuilder.getMap();
+//        return previousValue;
+//    }
+
+    public void setOptionMap(OptionMap optionMap) {
+        this.optionMap = optionMap;
+    }
+
+    @Override
     public void suspendReads() {
-        readAwaken = false;
-        readResumed = false;
+        readsAwaken = false;
+        readsResumed = false;
     }
 
     @Override
     public void resumeReads() {
-        readResumed = true;
+        readsResumed = true;
     }
 
     @Override
     public boolean isReadResumed() {
-        return readResumed;
+        return readsResumed;
     }
 
     @Override
-    public void shutdownReads() throws IOException {
-        readsDown = true;
+    public void terminateReads() throws IOException {
+        readsTerminated = true;
         return;
     }
-    
-    public boolean isShutdownReads() {
-        return readsDown;
+
+    @Override
+    public synchronized boolean isReadShutdown() {
+        return readsTerminated;
     }
 
     /**
-     * This mock supports only one read thread waiting at most.
+     * This mock does not support more than one read thread waiter at the same time.
      */
     @Override
     public void awaitReadable() throws IOException {
@@ -389,7 +507,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
             if (readWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
             }
-            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readEnabled) {
+            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readsEnabled) {
                 return;
             }
             readWaiter = Thread.currentThread();
@@ -401,7 +519,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     /**
-     * This mock supports only one read thread waiting at most.
+     * This mock does not support more than one read thread waiter at the same time.
      */
     @Override
     public void awaitReadable(long time, TimeUnit timeUnit) throws IOException {
@@ -409,7 +527,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
             if (readWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one read waiter thread at most... there is already a  waiting thread" + readWaiter);
             }
-            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readEnabled) {
+            if (((readBuffer.hasRemaining() && readBuffer.capacity() != readBuffer.limit()) || eof) && readsEnabled) {
                 return;
             }
             readWaiter = Thread.currentThread();
@@ -422,38 +540,27 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     @Override
-    @Deprecated
-    public XnioExecutor getReadThread() {
-        return executor;
-    }
-
-    @Override
-    public XnioIoThread getIoThread() {
-        return executor;
-    }
-
-    @Override
     public void suspendWrites() {
-        writeAwaken = false;
-        writeResumed = false;
+        writesAwaken = false;
+        writesResumed = false;
     }
 
     @Override
     public void resumeWrites() {
-        writeResumed = true;
+        writesResumed = true;
     }
 
     @Override
     public boolean isWriteResumed() {
-        return writeResumed;
+        return writesResumed;
     }
 
     @Override
-    public synchronized void shutdownWrites() throws IOException {
-        if (!allowShutdownWrites) {
+    public synchronized void terminateWrites() throws IOException {
+        if (!allowTerminateWrites) {
             return;
         }
-        writesDown = true;
+        writesTerminated = true;
         final Thread waiter;
         synchronized (this) {
             eof = true;
@@ -466,17 +573,31 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         return;
     }
 
-    public boolean isShutdownWrites() {
-        return writesDown;
+    @Override
+    public synchronized void truncateWrites() throws IOException {
+        terminateWrites();
+        writesTruncated = true;
     }
 
+    @Override
+    public synchronized boolean isWriteShutdown() {
+        return writesTerminated;
+    }
+
+    public synchronized boolean isWriteTruncated() {
+        return writesTruncated;
+    }
+
+    /**
+     * This mock does not support more than one read thread waiter at the same time.
+     */
     @Override
     public void awaitWritable() throws IOException {
         synchronized(this) {
             if (writeWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one write waiter thread at most... there is already a  waiting thread" + writeWaiter);
             }
-            if (writeEnabled) {
+            if (writesEnabled) {
                 return;
             }
             writeWaiter = Thread.currentThread();
@@ -487,13 +608,16 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         }
     }
 
+    /**
+     * This mock does not support more than one write thread waiter at the same time.
+     */
     @Override
     public void awaitWritable(long time, TimeUnit timeUnit) throws IOException {
         synchronized (this) {
             if (writeWaiter != null) {
                 throw new IllegalStateException("ConnectedStreamChannelMock can be used only with one write waiter thread at most... there is already a  waiting thread" + writeWaiter);
             }
-            if (writeEnabled) {
+            if (writesEnabled) {
                 return;
             }
             writeWaiter = Thread.currentThread();
@@ -506,8 +630,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     @Override
-    @Deprecated
-    public XnioExecutor getWriteThread() {
+    public XnioIoThread getWriteThread() {
         return executor;
     }
 
@@ -519,26 +642,22 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         return flushed;
     }
 
-    public boolean isFlushed() {
-        return flushed;
-    }
-
-    public synchronized void enableFlush(boolean enable) {
-        flushEnabled = enable;
-    }
-
     @Override
     public long transferFrom(FileChannel src, long position, long count) throws IOException {
-        if (writeEnabled) {
-            return src.transferTo(position, count, this);
+        if (writesEnabled) {
+            final StreamConnection connection = new StreamConnectionMock(this);
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            return src.transferTo(position, count, assembledChannel);
         }
         return 0;
     }
 
     @Override
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        if (writeEnabled) {
-            IoUtils.transfer(source, count, throughBuffer, this);
+        if (writesEnabled) {
+            final StreamConnection connection = new StreamConnectionMock(this);
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            IoUtils.transfer(source, count, throughBuffer, assembledChannel);
         }
         return 0;
     }
@@ -548,7 +667,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
-        if (writeEnabled) {
+        if (writesEnabled) {
             if (writeBuffer.limit() < writeBuffer.capacity()) {
                 writeBuffer.limit(writeBuffer.capacity());
             }
@@ -566,7 +685,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
-        if (writeEnabled) {
+        if (writesEnabled) {
             if (writeBuffer.limit() < writeBuffer.capacity()) {
                 writeBuffer.limit(writeBuffer.capacity());
             }
@@ -580,31 +699,21 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     @Override
-    public synchronized long write(ByteBuffer[] srcs) throws IOException {
-        if (closed && checkClosed) {
-            throw new ClosedChannelException();
-        }
-        if (writeEnabled) {
-            if (writeBuffer.limit() < writeBuffer.capacity()) {
-                writeBuffer.limit(writeBuffer.capacity());
-            }
-            return Buffers.copy(writeBuffer, srcs, 0, srcs.length);
-        }
-        return 0;
-    }
-
-    @Override
     public long transferTo(long position, long count, FileChannel target) throws IOException {
-        if (readEnabled) {
-            return target.transferFrom(this, position, count);
+        if (readsEnabled) {
+            final StreamConnection connection = new StreamConnectionMock(this);
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            return target.transferFrom(assembledChannel, position, count);
         }
         return 0;
     }
 
     @Override
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
-        if (readEnabled) {
-            return IoUtils.transfer(this, count, throughBuffer, target);
+        if (readsEnabled) {
+            final StreamConnection connection = new StreamConnectionMock(this);
+            final AssembledConnectedStreamChannel assembledChannel = new AssembledConnectedStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
+            return IoUtils.transfer(assembledChannel, count, throughBuffer, target);
         }
         return 0;
     }
@@ -614,7 +723,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
-        if (readEnabled) {
+        if (readsEnabled) {
             try {
                 if ((!readBuffer.hasRemaining() || readBuffer.position() == 0 && readBuffer.limit() == readBuffer.capacity()) && eof) {
                     return -1;
@@ -636,7 +745,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         if (closed && checkClosed) {
             throw new ClosedChannelException();
         }
-        if (readEnabled) {
+        if (readsEnabled) {
             if ((!readBuffer.hasRemaining() || readBuffer.position() == 0 && readBuffer.limit() == readBuffer.capacity()) && eof) {
                 return -1;
             }
@@ -647,131 +756,72 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         }
         return 0;
     }
-    
-    public synchronized boolean allReadDataConsumed() {
-        return readBuffer.position() == readBuffer.limit();
-    }
-
-    @Override
-    public synchronized long read(ByteBuffer[] dsts) throws IOException {
-        if (closed && checkClosed) {
-            throw new ClosedChannelException();
-        }
-        if (readEnabled) {
-            if ((!readBuffer.hasRemaining() || readBuffer.position() == 0 && readBuffer.limit() == readBuffer.capacity()) && eof) {
-                return -1;
-            }
-            if (readBuffer.limit() == readBuffer.capacity() && readBuffer.position() == 0) {
-                return 0;
-            }
-            return Buffers.copy(dsts, 0, dsts.length, readBuffer);
-        }
-        return 0;
-    }
-
-    private SocketAddress peerAddress;
-
-    @Override
-    public SocketAddress getPeerAddress() {
-        return peerAddress;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <A extends SocketAddress> A getPeerAddress(Class<A> type) {
-        if (type.isAssignableFrom(peerAddress.getClass())) {
-            return (A) peerAddress;
-        }
-        return null;
-    }
-
-    public void setPeerAddress(SocketAddress peerAddress) {
-        this.peerAddress = peerAddress;
-    }
-
-    private SocketAddress localAddress;
-
-    @Override
-    public SocketAddress getLocalAddress() {
-        return localAddress;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <A extends SocketAddress> A getLocalAddress(Class<A> type) {
-        if (type.isAssignableFrom(localAddress.getClass())) {
-            return (A) localAddress;
-        }
-        return null;
-    }
-
-    public void setLocalAddress(SocketAddress localAddress) {
-        this.localAddress = localAddress;
-    }
 
     @Override
     public XnioWorker getWorker() {
         return worker;
     }
 
-    public void setWorker(XnioWorker worker) {
-        this.worker = worker;
-    }
-
     @Override
     public void wakeupReads() {
-        readAwaken = true;
-        readResumed = true;
+        readsAwaken = true;
+        readsResumed = true;
     }
 
     public boolean isReadAwaken() {
-        return readAwaken;
+        return readsAwaken;
     }
 
     @Override
     public void wakeupWrites() {
-        writeAwaken = true;
-        writeResumed = true;
+        writesAwaken = true;
+        writesResumed = true;
     }
 
     public boolean isWriteAwaken() {
-        return writeAwaken;
+        return writesAwaken;
+    }
+
+    // implement this when needed
+//    @Override
+//    public Setter<? extends StreamConnection> getReadSetter() {
+//        return readListenerSetter;
+//    }
+//
+//    @Override
+//    public Setter<? extends ConnectedStreamChannel> getWriteSetter() {
+//        return writeListenerSetter;
+//    }
+//
+//    @Override
+//    public Setter<? extends ConnectedStreamChannel> getCloseSetter() {
+//        return closeListenerSetter;
+//    }
+
+//    public ChannelListener<? super ConnectedStreamChannel> getReadListener() {
+//        return readListener;
+//    }
+//
+//    public ChannelListener<? super ConnectedStreamChannel> getWriteListener() {
+//        return writeListener;
+//    }
+//
+//    public ChannelListener<? super ConnectedStreamChannel> getCloseListener() {
+//        return closeListener;
+//    }
+
+    @Override // make ready handler active when needed
+    public synchronized void setWriteReadyHandler(WriteReadyHandler handler) {
+        writeReadyHandler = handler;
+    }
+
+    @Override // make ready handler active when needed
+    public void setReadReadyHandler(ReadReadyHandler handler) {
+        readReadyHandler = handler;
     }
 
     @Override
-    public Setter<? extends ConnectedStreamChannel> getReadSetter() {
-        return readListenerSetter;
-    }
-
-    @Override
-    public Setter<? extends ConnectedStreamChannel> getWriteSetter() {
-        return writeListenerSetter;
-    }
-
-    @Override
-    public Setter<? extends ConnectedStreamChannel> getCloseSetter() {
-        return closeListenerSetter;
-    }
-
-    public ChannelListener<? super ConnectedStreamChannel> getReadListener() {
-        return readListener;
-    }
-
-    public ChannelListener<? super ConnectedStreamChannel> getWriteListener() {
-        return writeListener;
-    }
-
-    public ChannelListener<? super ConnectedStreamChannel> getCloseListener() {
-        return closeListener;
-    }
-
-    @Override
-    public String getInfo() {
-        return info;
-    }
-
-    @Override
-    public void setInfo(String i) {
-        info = i;
+    public XnioIoThread getReadThread() {
+        return executor;
     }
 }

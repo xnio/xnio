@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,12 +43,12 @@ import org.xnio.Xnio;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.mock.ConnectedStreamChannelMock;
-import org.xnio.mock.XnioExecutorMock;
+import org.xnio.mock.XnioIoThreadMock;
 
 /**
  * Test for {@link EmptySourceStreamChannel}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public class EmptyStreamSourceChannelTestCase {
 
@@ -56,18 +56,19 @@ public class EmptyStreamSourceChannelTestCase {
 
     @Before
     public void createChannel() throws Exception {
-        final Xnio xnio = Xnio.getInstance("xnio-mock");
-        this.channel = new EmptyStreamSourceChannel(new XnioExecutorMock(null));
+        this.channel = new EmptyStreamSourceChannel(new XnioIoThreadMock(null));
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void getWorkerAndExecutor() throws Exception {
         final Xnio xnio = Xnio.getInstance("xnio-mock");
         final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
-        final XnioIoThread executor = new XnioExecutorMock(worker);
+        final XnioIoThread executor = new XnioIoThreadMock(worker);
         this.channel = new EmptyStreamSourceChannel(executor);
         assertSame(worker, channel.getWorker());
         assertSame(executor, channel.getReadThread());
+        assertSame(executor, channel.getIoThread());
     }
 
     @Test
@@ -116,7 +117,8 @@ public class EmptyStreamSourceChannelTestCase {
     public void transferToFileChannel() throws Exception {
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             assertEquals(0, channel.transferTo(5, 0, fileChannel));
             assertEquals(0, channel.transferTo(0, 0, fileChannel));
@@ -124,6 +126,7 @@ public class EmptyStreamSourceChannelTestCase {
             assertEquals(0, channel.transferTo(300, 3, null));
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -253,11 +256,13 @@ public class EmptyStreamSourceChannelTestCase {
         assertEquals(-1, channel.read(ByteBuffer.allocate(15)));
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             assertEquals(0, channel.transferTo(0, 10, fileChannel));
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 

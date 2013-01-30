@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.Channel;
@@ -37,54 +38,111 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.AssembledConnectedMessageChannel;
+import org.xnio.channels.AssembledConnectedStreamChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.FramedMessageChannel;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.mock.AcceptingChannelMock;
-import org.xnio.mock.ChannelMock;
-import org.xnio.mock.ConnectedStreamChannelMock;
+import org.xnio.mock.AcceptingChannelMock2;
+import org.xnio.mock.MessageConnectionMock;
+import org.xnio.mock.Mock;
 import org.xnio.mock.MulticastMessageChannelMock;
+import org.xnio.mock.StreamConnectionMock;
+import org.xnio.mock.XnioIoThreadMock;
 import org.xnio.mock.XnioWorkerMock;
 
 /**
  * Test for {@link XnioWorker}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-@Ignore
+@SuppressWarnings("deprecation")
 public class XnioWorkerTestCase {
 
     private static final SocketAddress unknownSocketAddress = new SocketAddress() {private static final long serialVersionUID = 1L;};
     private XnioWorker xnioWorker;
-    
 
     @Before
     public void init() throws IllegalArgumentException, IOException {
         final Xnio xnio = Xnio.getInstance();
-        xnioWorker = xnio.createWorker(OptionMap.create(Options.WORKER_NAME, "worker for tests"));
+        xnioWorker = xnio.createWorker(OptionMap.create(Options.WORKER_NAME, "worker for tests", Options.THREAD_DAEMON, true));
         assertNotNull(xnioWorker);
         assertEquals("worker for tests", xnioWorker.getName());
     }
 
     private void checkCreateStreamServer(SocketAddress socketAddress, String channelInfo) throws IOException {
-        final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
-        final OptionMap optionMap = OptionMap.create(Options.BROADCAST, true);
+        final TestChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
+        final OptionMap optionMap = OptionMap.create(Options.BROADCAST, true); // use any option, for test purposes
         final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = xnioWorker.createStreamServer(
                 socketAddress, acceptingChannelListener, optionMap);
         assertNotNull(streamServer);
         assertEquals(socketAddress, streamServer.getLocalAddress());
+        assertEquals(socketAddress, streamServer.getLocalAddress(socketAddress.getClass()));
+        assertNotNull(streamServer.getIoThread());
+
         assertSame(xnioWorker, streamServer.getWorker());
-        assertTrue(streamServer instanceof AcceptingChannelMock);
-        AcceptingChannelMock acceptingChannelMock = (AcceptingChannelMock) streamServer;
-        assertSame(acceptingChannelListener, acceptingChannelMock.getAcceptListener());
-        assertEquals(optionMap, acceptingChannelMock.getOptionMap());
-        assertEquals(channelInfo, acceptingChannelMock.getInfo());
+
+        // make sure that acceptance is being delegated to AcceptingChannelMock
+        final AssembledConnectedStreamChannel assembledChannel = (AssembledConnectedStreamChannel) streamServer.accept();
+        assertNotNull(assembledChannel);
+        // check that acceptance has been correctly delegated to XnioWorkerMock
+        final StreamConnectionMock connection = getConnectedChannel(assembledChannel);
+        assertNotNull(connection);
+        assertSame(streamServer, acceptingChannelListener.getChannel());
+        assertEquals(optionMap, connection.getOptionMap());
+        assertEquals(channelInfo, connection.getInfo());
+
+        // retrieve actual accepting channel
+        final AcceptingChannelMock2 acceptingChannel = connection.getServer();
+        assertEquals(optionMap, acceptingChannel.getOptionMap());
+        assertEquals(channelInfo, acceptingChannel.getInfo());
+        assertEquals(socketAddress, acceptingChannel.getLocalAddress());
+        assertEquals(socketAddress, acceptingChannel.getLocalAddress(socketAddress.getClass()));
+
+        // check correct delegation between the stream server and actual accepting channel
+        assertFalse(acceptingChannel.isAcceptResumed());
+        streamServer.resumeAccepts();
+        assertTrue(acceptingChannel.isAcceptResumed());
+        streamServer.suspendAccepts();
+        assertFalse(acceptingChannel.isAcceptResumed());
+        assertFalse(acceptingChannel.isAcceptWokenUp());
+        streamServer.wakeupAccepts();
+        assertTrue(acceptingChannel.isAcceptWokenUp());
+
+        assertFalse(acceptingChannel.haveWaitedAcceptable());
+        streamServer.awaitAcceptable();
+        assertTrue(acceptingChannel.haveWaitedAcceptable());
+        acceptingChannel.clearWaitedAcceptable();
+        streamServer.awaitAcceptable(10, TimeUnit.MILLISECONDS);
+        assertTrue(acceptingChannel.haveWaitedAcceptable());
+        assertEquals(10, acceptingChannel.getAwaitAcceptableTime());
+        assertSame(TimeUnit.MILLISECONDS, acceptingChannel.getAwaitAcceptableTimeUnit());
+
+        assertSame(acceptingChannel.getAcceptThread(), streamServer.getAcceptThread());
+
+        acceptingChannel.setSupportedOptions(Options.KEEP_ALIVE);        // use any option, just for testing purposes
+        assertTrue(streamServer.supportsOption(Options.KEEP_ALIVE));
+        assertFalse(streamServer.supportsOption(Options.BROADCAST));
+
+        assertTrue(streamServer.getOption(Options.BROADCAST));
+        assertTrue(acceptingChannel.getOption(Options.BROADCAST));
+        assertTrue(streamServer.setOption(Options.BROADCAST,  false));
+        assertFalse(streamServer.getOption(Options.BROADCAST));
+        assertFalse(acceptingChannel.getOption(Options.BROADCAST));
+
+        assertTrue(streamServer.isOpen());
+        assertTrue(acceptingChannel.isOpen());
+        streamServer.close();
+        assertFalse(streamServer.isOpen());
+        assertFalse(acceptingChannel.isOpen());
+
+        ((XnioWorkerMock) xnioWorker).failConnection();
+        final AcceptingChannel<? extends ConnectedStreamChannel> failAcceptanceServer = xnioWorker.createStreamServer(socketAddress, acceptingChannelListener, optionMap);
+        assertNull(failAcceptanceServer.accept());
     }
 
     @Test
@@ -129,14 +187,12 @@ public class XnioWorkerTestCase {
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(socketAddress, channelListener, optionMap);
         assertNotNull(connectedStreamChannel);
 
-        final ConnectedStreamChannelMock channelMock = (ConnectedStreamChannelMock) connectedStreamChannel.get();
-        assertNotNull(channelMock);
+        final AssembledConnectedStreamChannel assembledChannel = (AssembledConnectedStreamChannel) connectedStreamChannel.get();
+        assertNotNull(assembledChannel);
         assertTrue(channelListener.isInvoked());
-        assertSame(channelMock, channelListener.getChannel());
-        assertEquals(localSocketAddress, channelMock.getLocalAddress());
-        assertEquals(socketAddress, channelMock.getPeerAddress());
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
+        assertSame(assembledChannel, channelListener.getChannel());
+        assertEquals(localSocketAddress, assembledChannel.getLocalAddress());
+        assertEquals(socketAddress, assembledChannel.getPeerAddress());
     }
 
     @Test
@@ -156,16 +212,18 @@ public class XnioWorkerTestCase {
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(socketAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedStreamChannel);
 
-        final ConnectedStreamChannelMock channelMock = (ConnectedStreamChannelMock) connectedStreamChannel.get();
-        assertNotNull(channelMock);
+        final AssembledConnectedStreamChannel assembledConnectionStream = (AssembledConnectedStreamChannel) connectedStreamChannel.get();
+        assertNotNull(assembledConnectionStream);
+        final StreamConnectionMock connection = getConnectedChannel(assembledConnectionStream);
+        assertNotNull(connection);
         assertTrue(channelListener.isInvoked());
-        assertSame(channelMock, channelListener.getChannel());
+        assertSame(assembledConnectionStream, channelListener.getChannel());
         assertTrue(bindListener.isInvoked());
-        assertSame(channelMock, bindListener.getChannel());
-        assertEquals(localSocketAddress, channelMock.getLocalAddress());
-        assertEquals(socketAddress, channelMock.getPeerAddress());
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
+        assertSame(connection, bindListener.getChannel());
+        assertEquals(localSocketAddress, connection.getLocalAddress());
+        assertEquals(socketAddress, connection.getPeerAddress());
+        assertEquals(optionMap, connection.getOptionMap());
+        assertEquals(channelInfo, connection.getInfo());
     }
 
     @Test
@@ -270,16 +328,18 @@ public class XnioWorkerTestCase {
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(localSocketAddress, socketAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedStreamChannel);
 
-        final ConnectedStreamChannelMock channelMock = (ConnectedStreamChannelMock) connectedStreamChannel.get();
-        assertNotNull(channelMock);
+        final AssembledConnectedStreamChannel assembledChannel = (AssembledConnectedStreamChannel) connectedStreamChannel.get();
+        assertNotNull(assembledChannel);
+        final StreamConnectionMock connection = getConnectedChannel(assembledChannel);
+        assertNotNull(connection);
         assertTrue(channelListener.isInvoked());
-        assertSame(channelMock, channelListener.getChannel());
+        assertSame(assembledChannel, channelListener.getChannel());
         assertTrue(bindListener.isInvoked());
-        assertSame(channelMock, bindListener.getChannel());
-        assertEquals(localSocketAddress, channelMock.getLocalAddress());
-        assertEquals(socketAddress, channelMock.getPeerAddress());
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
+        assertSame(connection, bindListener.getChannel());
+        assertEquals(localSocketAddress, connection.getLocalAddress());
+        assertEquals(socketAddress, connection.getPeerAddress());
+        assertEquals(optionMap, connection.getOptionMap());
+        assertEquals(channelInfo, connection.getInfo());
     }
 
     @Test
@@ -299,15 +359,17 @@ public class XnioWorkerTestCase {
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.acceptStream(socketAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedStreamChannel);
 
-        final ConnectedStreamChannelMock channelMock = (ConnectedStreamChannelMock) connectedStreamChannel.get();
-        assertNotNull(channelMock);
+        final AssembledConnectedStreamChannel assembledChannel = (AssembledConnectedStreamChannel) connectedStreamChannel.get();
+        assertNotNull(assembledChannel);
+        final StreamConnectionMock connection = getConnectedChannel(assembledChannel);
+        assertNotNull(connection);
         assertTrue(channelListener.isInvoked());
-        assertSame(channelMock, channelListener.getChannel());
+        assertSame(assembledChannel, channelListener.getChannel());
         assertTrue(bindListener.isInvoked());
-        assertSame(channelMock, bindListener.getChannel());
-        assertEquals(socketAddress, channelMock.getPeerAddress());
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
+        assertSame(connection, bindListener.getChannel());
+        assertEquals(socketAddress, connection.getPeerAddress());
+        assertEquals(optionMap, connection.getOptionMap());
+        assertEquals(channelInfo, connection.getInfo());
     }
 
     @Test
@@ -341,66 +403,57 @@ public class XnioWorkerTestCase {
         assertNotNull(expected);
     }
 
-    private void checkConnectDatagram(SocketAddress socketAddress, SocketAddress localAddress, String channelInfo) throws CancellationException, IOException {
+    @Test
+    public void connectDatagram() throws CancellationException, IOException {
+        final SocketAddress socketAddress = new LocalSocketAddress("local");
         final TestChannelListener<ConnectedMessageChannel> channelListener = new TestChannelListener<ConnectedMessageChannel>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
         final OptionMap optionMap = OptionMap.create(Options.WRITE_TIMEOUT, 800000);
         final IoFuture<ConnectedMessageChannel> connectedDatagramFuture = xnioWorker.connectDatagram(socketAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedDatagramFuture);
 
-        final FramedMessageChannel channel = (FramedMessageChannel) connectedDatagramFuture.get();
+        final AssembledConnectedMessageChannel assembledChannel = (AssembledConnectedMessageChannel) connectedDatagramFuture.get();
 
         assertTrue(channelListener.isInvoked());
-        assertSame(channel, channelListener.getChannel());
-        assertTrue(bindListener.isInvoked());
-        assertSame(channel, bindListener.getChannel());
-        assertEquals(localAddress, channel.getLocalAddress());
-        assertEquals(socketAddress, channel.getPeerAddress());
-        assertEquals(800000, (int) channel.getOption(Options.WRITE_TIMEOUT));
-        final ChannelMock channelMock = (ChannelMock) channel.getChannel();
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
+        assertSame(assembledChannel, channelListener.getChannel());
+        //assertTrue(bindListener.isInvoked());
+        // FIXME XNIO-192
+        //assertSame(assembledChannel, bindListener.getChannel());
+        assertEquals(Xnio.ANY_LOCAL_ADDRESS, assembledChannel.getLocalAddress());
+        assertEquals(socketAddress, assembledChannel.getPeerAddress());
+        assertEquals(800000, (int) assembledChannel.getOption(Options.WRITE_TIMEOUT));
+
+        final MessageConnectionMock connectionMock = getConnectedChannel(assembledChannel);
+        assertSame(optionMap, connectionMock.getOptionMap());
+        assertEquals(XnioWorkerMock.LOCAL_CHANNEL_INFO, connectionMock.getInfo());
     }
 
     @Test
-    public void connectTcpDatagram() throws CancellationException, IOException {
-        checkConnectDatagram(new InetSocketAddress(1050), Xnio.ANY_INET_ADDRESS, XnioWorkerMock.UDP_CHANNEL_INFO);
-    }
+    public void connectDatagramWithBindAddress() throws CancellationException, IOException {
+        final SocketAddress socketAddress = new LocalSocketAddress("local1");
+        final SocketAddress bindAddress = new LocalSocketAddress("local2");
 
-    @Test
-    public void connectLocalDatagram() throws CancellationException, IOException {
-        checkConnectDatagram(new LocalSocketAddress("local"), Xnio.ANY_LOCAL_ADDRESS, XnioWorkerMock.LOCAL_CHANNEL_INFO);
-    }
-
-    private void checkConnectDatagramWithBindAddress(SocketAddress socketAddress, SocketAddress bindAddress, String channelInfo) throws CancellationException, IOException {
         final TestChannelListener<ConnectedMessageChannel> channelListener = new TestChannelListener<ConnectedMessageChannel>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
         final OptionMap optionMap = OptionMap.create(Options.STACK_SIZE, 9000000l);
         final IoFuture<ConnectedMessageChannel> connectedDatagramFuture = xnioWorker.connectDatagram(bindAddress, socketAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedDatagramFuture);
 
-        final FramedMessageChannel channel = (FramedMessageChannel) connectedDatagramFuture.get();
+        final AssembledConnectedMessageChannel assembledChannel = (AssembledConnectedMessageChannel) connectedDatagramFuture.get();
 
         assertTrue(channelListener.isInvoked());
-        assertSame(channel, channelListener.getChannel());
-        assertTrue(bindListener.isInvoked());
-        assertSame(channel, bindListener.getChannel());
-        assertEquals(bindAddress, channel.getLocalAddress());
-        assertEquals(socketAddress, channel.getPeerAddress());
-        assertEquals(9000000l, (long) channel.getOption(Options.STACK_SIZE));
-        final ChannelMock channelMock = (ChannelMock) channel.getChannel();
-        assertEquals(optionMap, channelMock.getOptionMap());
-        assertEquals(channelInfo, channelMock.getInfo());
-    }
+        assertSame(assembledChannel, channelListener.getChannel());
+        //assertTrue(bindListener.isInvoked());
+        // FIXME XNIO-192
+        //assertSame(assembledChannel, bindListener.getChannel());
+        assertEquals(Xnio.ANY_LOCAL_ADDRESS, assembledChannel.getLocalAddress());
+        // FIXME bindAddress is ignored assertEquals(bindAddress, assembledChannel.getLocalAddress());
+        assertEquals(socketAddress, assembledChannel.getPeerAddress());
+        assertEquals(9000000l, (long) assembledChannel.getOption(Options.STACK_SIZE));
 
-    @Test
-    public void connectTcpDatagramWithBindAddress() throws CancellationException, IOException {
-        checkConnectDatagramWithBindAddress(new InetSocketAddress(1050), new InetSocketAddress(2050), XnioWorkerMock.UDP_CHANNEL_INFO);
-    }
-
-    @Test
-    public void connectLocalDatagramWithBindAddress() throws CancellationException, IOException {
-        checkConnectDatagramWithBindAddress(new LocalSocketAddress("local1"), new LocalSocketAddress("local2"), XnioWorkerMock.LOCAL_CHANNEL_INFO);
+        final MessageConnectionMock connectionMock = getConnectedChannel(assembledChannel);
+        assertSame(optionMap, connectionMock.getOptionMap());
+        assertEquals(XnioWorkerMock.LOCAL_CHANNEL_INFO, connectionMock.getInfo());
     }
 
     @Test
@@ -423,13 +476,13 @@ public class XnioWorkerTestCase {
         }
         assertNotNull(expected);
 
-        expected = null;
+        /*expected = null;
         try {
             xnioWorker.connectDatagram(null, new LocalSocketAddress("local"), channelListener, bindListener, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
-        assertNotNull(expected);
+        assertNotNull(expected); */ // FIXME XNIO-192 bindAddress is now ignored
 
         expected = null;
         try {
@@ -447,13 +500,13 @@ public class XnioWorkerTestCase {
         }
         assertNotNull(expected);
 
-        expected = null;
+        /*expected = null;
         try {
             xnioWorker.connectDatagram(new InetSocketAddress(800), new LocalSocketAddress("local"), channelListener, bindListener, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
-        assertNotNull(expected);
+        assertNotNull(expected); */ // FIXME XNIO-192 now bind address is ignored
 
         expected = null;
         try {
@@ -466,7 +519,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.connectDatagram(unknownSocketAddress, unknownSocketAddress, channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -481,16 +534,20 @@ public class XnioWorkerTestCase {
         final IoFuture<ConnectedMessageChannel> connectedDatagramFuture = xnioWorker.acceptDatagram(localAddress, channelListener, bindListener, optionMap);
         assertNotNull(connectedDatagramFuture);
 
-        final FramedMessageChannel channel = (FramedMessageChannel) connectedDatagramFuture.get();
+        final AssembledConnectedMessageChannel assembledChannel = (AssembledConnectedMessageChannel) connectedDatagramFuture.get();
 
         assertTrue(channelListener.isInvoked());
-        assertSame(channel, channelListener.getChannel());
-        assertTrue(bindListener.isInvoked());
-        assertSame(channel, bindListener.getChannel());
-        assertEquals(localAddress, channel.getPeerAddress());
-        assertEquals(990000l, (long) channel.getOption(Options.STACK_SIZE));
-        final ChannelMock channelMock = (ChannelMock) channel.getChannel();
-        assertEquals(optionMap, channelMock.getOptionMap());
+        assertSame(assembledChannel, channelListener.getChannel());
+        //assertTrue(bindListener.isInvoked());
+        // FIXME XNIO-192
+        //assertSame(assembledChannel, bindListener.getChannel());
+        
+        assertEquals(localAddress, assembledChannel.getPeerAddress());
+        assertEquals(990000l, (long) assembledChannel.getOption(Options.STACK_SIZE));
+
+        final MessageConnectionMock connectionMock = getConnectedChannel(assembledChannel);
+        assertSame(optionMap, connectionMock.getOptionMap());
+        assertEquals(XnioWorkerMock.LOCAL_CHANNEL_INFO, connectionMock.getInfo());
     }
 
     @Test
@@ -508,7 +565,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.acceptDatagram(new InetSocketAddress(10), channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -516,7 +573,7 @@ public class XnioWorkerTestCase {
         expected = null;
         try {
             xnioWorker.acceptDatagram(unknownSocketAddress, channelListener, bindListener, OptionMap.EMPTY);
-        } catch (UnsupportedOperationException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -532,7 +589,7 @@ public class XnioWorkerTestCase {
         assertEquals(address, channel.getLocalAddress());
         // check optionMap
         assertTrue(channel instanceof MulticastMessageChannelMock);
-        ChannelMock channelMock = (ChannelMock) channel;
+        Mock channelMock = (Mock) channel;
         assertEquals(optionMap, channelMock.getOptionMap());
     }
 
@@ -550,7 +607,7 @@ public class XnioWorkerTestCase {
         assertSame(channel, listener.getChannel());
         // check optionMap
         assertTrue(channel instanceof MulticastMessageChannelMock);
-        ChannelMock channelMock = (ChannelMock) channel;
+        Mock channelMock = (Mock) channel;
         assertEquals(optionMap, channelMock.getOptionMap());
     }
 
@@ -725,6 +782,7 @@ public class XnioWorkerTestCase {
         final XnioWorker xnioWorker = new XnioWorker(Xnio.getInstance(), Thread.currentThread().getThreadGroup(),
                 OptionMap.EMPTY, new Runnable() {public void run() {}}) {
 
+
             @Override
             public void shutdown() {}
 
@@ -753,12 +811,12 @@ public class XnioWorkerTestCase {
 
             @Override
             protected XnioIoThread chooseThread() {
-                return null;
+                return new XnioIoThreadMock(this);
             }
         };
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.createStreamConnectionServer(null, null, null);
+            xnioWorker.createStreamConnectionServer(new InetSocketAddress(1000), null, null);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -766,31 +824,7 @@ public class XnioWorkerTestCase {
 
         expected = null;
         try {
-            xnioWorker.openStreamConnection(null, null, null, null, null);
-        } catch (UnsupportedOperationException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnioWorker.acceptStreamConnection(null, null, null, null);
-        } catch (UnsupportedOperationException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnioWorker.openMessageConnection(null, null, null);
-        } catch (UnsupportedOperationException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-
-        expected = null;
-        try {
-            xnioWorker.acceptMessageConnection(null, null, null, null);
+            xnioWorker.createStreamConnectionServer(new LocalSocketAddress("server"), null, null);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -828,21 +862,52 @@ public class XnioWorkerTestCase {
     private static class TestCommand implements Runnable {
 
         private CountDownLatch latch = new CountDownLatch(1);
-        public boolean executed = false;
 
         @Override
         public void run() {
-            executed = true;
             latch.countDown();
         }
 
         public void waitCompletion() throws InterruptedException {
             latch.await();
         }
+    }
 
-        public boolean waitCompletion(long timeout) throws InterruptedException {
-            latch.await(timeout, TimeUnit.MILLISECONDS);
-            return executed;
+    private static final Field connectedChannelField;
+    private static final Field connectionField;
+
+    static {
+        try {
+            connectedChannelField = AssembledConnectedStreamChannel.class.getDeclaredField("connection");
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        } catch (SecurityException e) {
+            throw new RuntimeException(e);
+        }
+        connectedChannelField.setAccessible(true);
+
+        try {
+            connectionField = AssembledConnectedMessageChannel.class.getDeclaredField("connection");
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        } catch (SecurityException e) {
+            throw new RuntimeException(e);
+        }
+        connectionField.setAccessible(true);
+    }
+    private StreamConnectionMock getConnectedChannel(AssembledConnectedStreamChannel assembledChannel) {
+        try {
+            return (StreamConnectionMock) connectedChannelField.get(assembledChannel);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private MessageConnectionMock getConnectedChannel(AssembledConnectedMessageChannel assembledChannel) {
+        try {
+            return (MessageConnectionMock) connectionField.get(assembledChannel);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
     }
 }

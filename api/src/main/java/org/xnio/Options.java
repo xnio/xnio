@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source
  *
- * Copyright 2008 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,7 +143,8 @@ public final class Options {
 
     /**
      * Specify whether SSL should be enabled.  If specified in conjunction with {@link #SSL_STARTTLS} then SSL will not
-     * be negotiated until {@link org.xnio.channels.SslChannel#startHandshake()} is called.
+     * be negotiated until {@link org.xnio.channels.SslChannel#startHandshake()} or
+     * {@link org.xnio.channels.SslConnection#startHandshake()}  is called.
      *
      * @since 3.0
      */

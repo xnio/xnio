@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,14 +41,15 @@ import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.Options;
-import org.xnio.mock.AcceptingChannelMock;
+import org.xnio.StreamConnection;
+import org.xnio.mock.AcceptingChannelMock2;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.MessageChannelMock;
 
 /**
  * Test for {@link Channels}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public class ChannelsTestCase {
 
@@ -415,8 +416,8 @@ public class ChannelsTestCase {
 
     @Test
     public void acceptBlocking() throws IOException, InterruptedException {
-        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
-        final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<ConnectedStreamChannelMock>(acceptingChannelMock);
+        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
+        final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<StreamConnection>(acceptingChannelMock);
         final Thread acceptChannelThread = new Thread(acceptBlockingRunnable);
         assertNotNull(Channels.acceptBlocking(acceptingChannelMock));
         assertFalse(acceptingChannelMock.haveWaitedAcceptable());
@@ -435,8 +436,8 @@ public class ChannelsTestCase {
 
     @Test
     public void acceptBlockingWithTimeout() throws IOException, InterruptedException {
-        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
-        final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<ConnectedStreamChannelMock>(acceptingChannelMock, 10, TimeUnit.SECONDS);
+        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
+        final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<StreamConnection>(acceptingChannelMock, 10, TimeUnit.SECONDS);
         final Thread acceptChannelThread = new Thread(acceptBlockingRunnable);
         // try to accept blocking with acceptance enabled at accepting channel mock
         assertNotNull(Channels.acceptBlocking(acceptingChannelMock, 1, TimeUnit.SECONDS));
@@ -466,7 +467,8 @@ public class ChannelsTestCase {
         channelMock.enableRead(true);
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             Channels.transferBlocking(fileChannel, channelMock, 0, 4);
             fileChannel.position(0);
@@ -475,6 +477,7 @@ public class ChannelsTestCase {
             assertReadMessage(buffer, "test");
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -484,7 +487,8 @@ public class ChannelsTestCase {
         channelMock.setReadData("test", "12345");
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             final Thread transferBlockingThread = new Thread(new TransferBlockingToFileChannel(channelMock, fileChannel, 0, 8));
             transferBlockingThread.start();
@@ -498,6 +502,7 @@ public class ChannelsTestCase {
             assertReadMessage(buffer, "test", "1234");
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -506,7 +511,8 @@ public class ChannelsTestCase {
         final ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             final ByteBuffer buffer = ByteBuffer.allocate(10);
             buffer.put("test".getBytes("UTF-8")).flip();
@@ -516,6 +522,7 @@ public class ChannelsTestCase {
             assertWrittenMessage(channelMock, "test");
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -525,7 +532,8 @@ public class ChannelsTestCase {
         channelMock.enableWrite(false);
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             final ByteBuffer buffer = ByteBuffer.allocate(10);
             buffer.put("test12345".getBytes("UTF-8")).flip();
@@ -541,6 +549,7 @@ public class ChannelsTestCase {
             assertWrittenMessage(channelMock, "test", "1234");
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -572,9 +581,9 @@ public class ChannelsTestCase {
 
     @Test
     public void setAcceptListener() {
-        final AcceptingChannelMock channelMock = new AcceptingChannelMock();
-        final ChannelListener<AcceptingChannel<ConnectedStreamChannelMock>> channelListener = new ChannelListener<AcceptingChannel<ConnectedStreamChannelMock>>() {
-            public void handleEvent(final AcceptingChannel<ConnectedStreamChannelMock> channel) {}
+        final AcceptingChannelMock2 channelMock = new AcceptingChannelMock2();
+        final ChannelListener<AcceptingChannel<StreamConnection>> channelListener = new ChannelListener<AcceptingChannel<StreamConnection>>() {
+            public void handleEvent(final AcceptingChannel<StreamConnection> channel) {}
         };
 
         Channels.setAcceptListener(channelMock, channelListener);

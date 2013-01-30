@@ -1,23 +1,20 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
+ * contributors as indicated by the @author tags.
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.xnio.nio.test;
 
@@ -27,7 +24,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import static org.xnio.IoUtils.safeClose;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -46,19 +42,22 @@ import org.xnio.IoFuture;
 import org.xnio.LocalSocketAddress;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
+import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 
 /**
  * Test for XnioWorker.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
+@SuppressWarnings("deprecation")
 public class XnioWorkerTestCase {
 
     private static final int SERVER_PORT = 12345;
@@ -104,6 +103,72 @@ public class XnioWorkerTestCase {
     @Test
     public void createTcpStreamServerAndConnect() throws IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        final ChannelListener<AcceptingChannel<StreamConnection>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<StreamConnection>>();;
+        final AcceptingChannel<? extends StreamConnection> streamServer = xnioWorker.createStreamConnectionServer(
+                bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
+        assertNotNull(streamServer);
+        try {
+            assertEquals(bindAddress, streamServer.getLocalAddress());
+            assertSame(xnioWorker, streamServer.getWorker());
+            final TestChannelListener<StreamConnection> connectionListener1 = new TestChannelListener<StreamConnection>();
+            final TestChannelListener<StreamConnection> connectionListener2 = new TestChannelListener<StreamConnection>();
+            final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
+            final IoFuture<StreamConnection> connection1 = xnioWorker.openStreamConnection(bindAddress, connectionListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
+            final IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, connectionListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
+            assertNotNull(connection1);
+            assertNotNull(connection2);
+            assertServerClientConnection(streamServer, bindListener, connection1.get(), connectionListener1, connection2.get(), connectionListener2);
+        } finally {
+            streamServer.close();
+        }
+    }
+
+    private void assertServerClientConnection(AcceptingChannel<? extends ConnectedChannel> server, TestChannelListener<BoundChannel> bindListener, ConnectedChannel clientChannel1, final TestChannelListener<? extends ConnectedChannel> clientListener1, ConnectedChannel clientChannel2, final TestChannelListener<? extends ConnectedChannel> clientListener2) throws IOException {
+        assertNotNull(server);
+        assertNotNull(clientChannel1);
+        assertNotNull(clientChannel2);
+        try {
+            
+            assertTrue(clientListener1.isInvoked());
+            assertSame(clientChannel1, clientListener1.getChannel());
+            assertEquals(bindAddress, clientChannel1.getPeerAddress());
+
+            assertTrue(clientListener2.isInvoked());
+            assertSame(clientChannel2, clientListener2.getChannel());
+            assertTrue(bindListener.isInvoked());
+            final BoundChannel boundChannel = bindListener.getChannel();
+            assertNotNull(boundChannel);
+            assertEquals(clientChannel2.getLocalAddress(), boundChannel.getLocalAddress());
+            assertEquals(clientChannel2.getLocalAddress(InetSocketAddress.class), boundChannel.getLocalAddress(InetSocketAddress.class));
+            assertEquals(clientChannel2.getLocalAddress(LocalSocketAddress.class), boundChannel.getLocalAddress(LocalSocketAddress.class));
+            assertSame(clientChannel2.getWorker(), boundChannel.getWorker());
+            assertEquals(clientChannel2.getOption(Options.SEND_BUFFER), boundChannel.getOption(Options.SEND_BUFFER));
+            clientChannel2.setOption(Options.SEND_BUFFER, 3000);
+            assertEquals(3000, (int) boundChannel.getOption(Options.SEND_BUFFER));
+            assertEquals(bindAddress, clientChannel2.getPeerAddress());
+            assertTrue(boundChannel.supportsOption(Options.KEEP_ALIVE));
+            assertFalse(boundChannel.supportsOption(Options.CONNECTION_LOW_WATER));
+            assertNotNull(boundChannel.toString());
+            
+            final TestChannelListener<BoundChannel> boundChannelCloseListener = new TestChannelListener<BoundChannel>();
+            boundChannel.getCloseSetter().set(boundChannelCloseListener);
+            assertTrue(boundChannel.isOpen());
+            assertTrue(clientChannel2.isOpen());
+            assertFalse(boundChannelCloseListener.isInvokedYet());
+            boundChannel.close();
+            assertTrue(boundChannelCloseListener.isInvoked());
+            assertFalse(boundChannel.isOpen());
+            assertFalse(clientChannel2.isOpen());
+
+        } finally {
+            clientChannel1.close();
+            clientChannel2.close();
+        }
+    }
+
+    @Test
+    public void createTcpStreamChannelServerAndConnect() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
         final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = xnioWorker.createStreamServer(
                 bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
@@ -113,60 +178,66 @@ public class XnioWorkerTestCase {
             assertSame(xnioWorker, streamServer.getWorker());
             final TestChannelListener<ConnectedStreamChannel> channelListener1 = new TestChannelListener<ConnectedStreamChannel>();
             final TestChannelListener<ConnectedStreamChannel> channelListener2 = new TestChannelListener<ConnectedStreamChannel>();
-            final TestChannelListener<BoundChannel> bindListener1 = new TestChannelListener<BoundChannel>();
+            final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
             final IoFuture<ConnectedStreamChannel> connectedStreamChannel1 = xnioWorker.connectStream(bindAddress, channelListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
-            final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = xnioWorker.connectStream(bindAddress, channelListener2, bindListener1, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
+            final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = xnioWorker.connectStream(bindAddress, channelListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
             assertNotNull(connectedStreamChannel1);
             assertNotNull(connectedStreamChannel2);
     
-            final ConnectedStreamChannel channel1 = connectedStreamChannel1.get();
-            final ConnectedStreamChannel channel2 = connectedStreamChannel2.get();
-            assertNotNull(channel1);
-            assertNotNull(channel2);
-            try {
-                
-                assertTrue(channelListener1.isInvoked());
-                assertSame(channel1, channelListener1.getChannel());
-                assertEquals(bindAddress, channel1.getPeerAddress());
-
-                assertTrue(channelListener2.isInvoked());
-                assertSame(channel2, channelListener2.getChannel());
-                assertTrue(bindListener1.isInvoked());
-                final BoundChannel boundChannel = bindListener1.getChannel();
-                assertNotNull(boundChannel);
-                assertEquals(channel2.getLocalAddress(), boundChannel.getLocalAddress());
-                assertEquals(channel2.getLocalAddress(InetSocketAddress.class), boundChannel.getLocalAddress(InetSocketAddress.class));
-                assertEquals(channel2.getLocalAddress(LocalSocketAddress.class), boundChannel.getLocalAddress(LocalSocketAddress.class));
-                assertSame(channel2.getWorker(), boundChannel.getWorker());
-                assertEquals(channel2.getOption(Options.SEND_BUFFER), boundChannel.getOption(Options.SEND_BUFFER));
-                channel2.setOption(Options.SEND_BUFFER, 3000);
-                assertEquals(3000, (int) boundChannel.getOption(Options.SEND_BUFFER));
-                assertEquals(bindAddress, channel2.getPeerAddress());
-                assertTrue(boundChannel.supportsOption(Options.KEEP_ALIVE));
-                assertFalse(boundChannel.supportsOption(Options.CONNECTION_LOW_WATER));
-                assertNotNull(boundChannel.toString());
-                
-                final TestChannelListener<BoundChannel> boundChannelCloseListener = new TestChannelListener<BoundChannel>();
-                boundChannel.getCloseSetter().set(boundChannelCloseListener);
-                assertTrue(boundChannel.isOpen());
-                assertTrue(channel2.isOpen());
-                assertFalse(boundChannelCloseListener.isInvokedYet());
-                boundChannel.close();
-                assertTrue(boundChannelCloseListener.isInvoked());
-                assertFalse(boundChannel.isOpen());
-                assertFalse(channel2.isOpen());
-
-            } finally {
-                channel1.close();
-                channel2.close();
-            }
+            assertServerClientConnection(streamServer, bindListener, connectedStreamChannel1.get(), channelListener1, connectedStreamChannel2.get(), channelListener2);
         } finally {
             streamServer.close();
         }
     }
 
     @Test
-    public void cancelTcpConnection() throws IOException {
+    public void cancelOpenStreamConnection() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        final ChannelListener<AcceptingChannel<StreamConnection>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<StreamConnection>>();;
+        final AcceptingChannel<? extends StreamConnection> streamServer = xnioWorker.createStreamConnectionServer(
+                bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
+        assertNotNull(streamServer);
+        try {
+            final TestChannelListener<StreamConnection> channelListener = new TestChannelListener<StreamConnection>();
+            final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
+            IoFuture<StreamConnection> connectedStreamChannel = null;
+            do {
+                if (connectedStreamChannel != null) {
+                    connectedStreamChannel.await();
+                    final IoFuture.Status status = connectedStreamChannel.getStatus();
+                    if (status == IoFuture.Status.DONE) {
+                        connectedStreamChannel.get().close();
+                    }
+                    channelListener.clear();
+                }
+                connectedStreamChannel = xnioWorker.openStreamConnection(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
+                connectedStreamChannel.cancel();
+            } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED);
+
+            CancellationException expected = null;
+            try {
+                connectedStreamChannel.get();
+            } catch (CancellationException e) {
+                expected = e;
+            }
+            assertNotNull(expected);
+            assertSame(IoFuture.Status.CANCELLED, connectedStreamChannel.getStatus());
+
+            assertFalse(channelListener.isInvokedYet());
+            assertFalse(bindListener.isInvokedYet());
+
+            // make sure that the server is up and can accept more connections
+            assertTrue(streamServer.isOpen());
+            final IoFuture<StreamConnection> anotherChannel = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+            assertNotNull(anotherChannel.get());
+            anotherChannel.get().close();
+        } finally {
+            streamServer.close();
+        }
+    }
+
+    @Test
+    public void cancelConnectStream() throws IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
         final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = xnioWorker.createStreamServer(
@@ -212,11 +283,35 @@ public class XnioWorkerTestCase {
     }
 
     @Test
+    public void createLocalStreamConnectionServer() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        UnsupportedOperationException expected = null;
+        try {
+            xnioWorker.createStreamConnectionServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
+        } catch (UnsupportedOperationException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+    }
+
+    @Test
     public void createLocalStreamServer() throws IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
             xnioWorker.createStreamServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
+        } catch (UnsupportedOperationException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+    }
+
+    @Test
+    public void openLocalStreamConnection() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        UnsupportedOperationException expected = null;
+        try {
+            xnioWorker.openStreamConnection(new LocalSocketAddress("server for test"), null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -233,6 +328,79 @@ public class XnioWorkerTestCase {
             expected = e;
         }
         assertNotNull(expected);
+    }
+
+    @Test
+    public void acceptStreamConnection() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        final InetSocketAddress bindAddress2 = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 23456);
+        final TestChannelListener<StreamConnection> channelListener1 = new TestChannelListener<StreamConnection>();
+        final TestChannelListener<StreamConnection> channelListener2 = new TestChannelListener<StreamConnection>();
+        final TestChannelListener<BoundChannel> bindListener1 = new TestChannelListener<BoundChannel>();
+        final TestChannelListener<BoundChannel> bindListener2 = new TestChannelListener<BoundChannel>();
+        final OptionMap optionMap = OptionMap.create(Options.READ_TIMEOUT, 800000);
+        final IoFuture<StreamConnection> channelFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener1, bindListener1, optionMap);
+        final IoFuture<StreamConnection> channelFuture2 = xnioWorker.acceptStreamConnection(bindAddress2, channelListener2, bindListener2, optionMap);
+        final IoFuture<StreamConnection> connectedStreamChannel1 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+        final IoFuture<StreamConnection> connectedStreamChannel2 = xnioWorker.openStreamConnection(bindAddress2, null, OptionMap.EMPTY);
+        assertNotNull(connectedStreamChannel1);
+        assertNotNull(connectedStreamChannel2);
+        assertNotNull(channelFuture1);
+        assertNotNull(channelFuture2);
+
+        final StreamConnection channel1 = channelFuture1.get();
+        final StreamConnection channel2 = channelFuture2.get();
+        assertNotNull(channel1);
+        assertNotNull(channel2);
+        assertAcceptedChannels(xnioWorker, channel1, channelListener1, bindListener1, bindAddress,
+                connectedStreamChannel1.get().getLocalAddress(), channel2, channelListener2, bindListener2,
+                bindAddress2, connectedStreamChannel2.get().getLocalAddress());
+    }
+
+    private void assertAcceptedChannels(XnioWorker worker, ConnectedChannel channel1, TestChannelListener<? extends ConnectedChannel> channelListener1,
+            TestChannelListener<BoundChannel> bindListener1,  SocketAddress bindAddress1, SocketAddress peerAddress1, ConnectedChannel channel2,
+            TestChannelListener<? extends ConnectedChannel> channelListener2, TestChannelListener<BoundChannel> bindListener2,
+            SocketAddress bindAddress2, SocketAddress peerAddress2) throws IOException {
+        try {
+            assertTrue(channelListener1.isInvoked());
+            assertSame(channel1, channelListener1.getChannel());
+            assertTrue(bindListener1.isInvoked());
+            assertEquals(peerAddress1, channel1.getPeerAddress());
+
+            final BoundChannel boundChannel1 = bindListener1.getChannel();
+            assertNotNull(boundChannel1);
+            assertSame(worker, boundChannel1.getWorker());
+            assertEquals(bindAddress, boundChannel1.getLocalAddress());
+            assertNull(boundChannel1.getLocalAddress(LocalSocketAddress.class));
+            assertNotNull(boundChannel1.getCloseSetter());
+            assertFalse(boundChannel1.isOpen()); // expected
+            assertFalse(boundChannel1.supportsOption(Options.KEEP_ALIVE));
+            assertNull(boundChannel1.getOption(Options.KEEP_ALIVE));
+            assertNull(boundChannel1.setOption(Options.KEEP_ALIVE, null));
+            assertNull(boundChannel1.getOption(Options.KEEP_ALIVE));
+            assertNotNull(boundChannel1.toString());
+
+            assertTrue(channelListener2.isInvoked());
+            assertSame(channel2, channelListener2.getChannel());
+            assertTrue(bindListener2.isInvoked());
+            assertEquals(peerAddress2, channel2.getPeerAddress());
+
+            final BoundChannel boundChannel2 = bindListener2.getChannel();
+            assertNotNull(boundChannel2);
+            assertSame(worker, boundChannel2.getWorker());
+            assertEquals(bindAddress2, boundChannel2.getLocalAddress());
+            assertNull(boundChannel2.getLocalAddress(LocalSocketAddress.class));
+            assertNotNull(boundChannel2.getCloseSetter());
+            assertFalse(boundChannel2.isOpen()); // expected
+            assertFalse(boundChannel2.supportsOption(Options.KEEP_ALIVE));
+            assertNull(boundChannel2.getOption(Options.KEEP_ALIVE));
+            assertNull(boundChannel2.setOption(Options.KEEP_ALIVE, null));
+            assertNull(boundChannel2.getOption(Options.KEEP_ALIVE));
+            assertNotNull(boundChannel2.toString());
+        } finally {
+            channel1.close();
+            channel2.close();
+        }
     }
 
     @Test
@@ -257,49 +425,43 @@ public class XnioWorkerTestCase {
         final ConnectedStreamChannel channel2 = channelFuture2.get();
         assertNotNull(channel1);
         assertNotNull(channel2);
+
+        assertAcceptedChannels(xnioWorker, channel1, channelListener1, bindListener1, bindAddress,
+                connectedStreamChannel1.get().getLocalAddress(), channel2, channelListener2, bindListener2,
+                bindAddress2, connectedStreamChannel2.get().getLocalAddress());
+    }
+
+    @Test
+    public void cancelAcceptStreamConnection() throws CancellationException, IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        final TestChannelListener<StreamConnection> channelListener = new TestChannelListener<StreamConnection>();
+        final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
+        final IoFuture<StreamConnection> connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+        final IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+
+        assertNotNull(connectionFuture1);
+        assertNotNull(connection2);
+
+        connectionFuture1.cancel();
+
+        CancellationException expected = null;
         try {
-            assertTrue(channelListener1.isInvoked());
-            assertSame(channel1, channelListener1.getChannel());
-            assertTrue(bindListener1.isInvoked());
-            assertEquals(connectedStreamChannel1.get().getLocalAddress(), channel1.getPeerAddress());
+            connectionFuture1.get();
+        } catch (CancellationException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
 
-            final BoundChannel boundChannel1 = bindListener1.getChannel();
-            assertNotNull(boundChannel1);
-            assertSame(xnioWorker, boundChannel1.getWorker());
-            assertEquals(bindAddress, boundChannel1.getLocalAddress());
-            assertNull(boundChannel1.getLocalAddress(LocalSocketAddress.class));
-            assertNotNull(boundChannel1.getCloseSetter());
-            assertFalse(boundChannel1.isOpen()); // expected
-            assertFalse(boundChannel1.supportsOption(Options.KEEP_ALIVE));
-            assertNull(boundChannel1.getOption(Options.KEEP_ALIVE));
-            assertNull(boundChannel1.setOption(Options.KEEP_ALIVE, null));
-            assertNull(boundChannel1.getOption(Options.KEEP_ALIVE));
-            assertNotNull(boundChannel1.toString());
-
-            assertTrue(channelListener2.isInvoked());
-            assertSame(channel2, channelListener2.getChannel());
-            assertTrue(bindListener2.isInvoked());
-            assertEquals(connectedStreamChannel2.get().getLocalAddress(), channel2.getPeerAddress());
-
-            final BoundChannel boundChannel2 = bindListener2.getChannel();
-            assertNotNull(boundChannel2);
-            assertSame(xnioWorker, boundChannel2.getWorker());
-            assertEquals(bindAddress2, boundChannel2.getLocalAddress());
-            assertNull(boundChannel2.getLocalAddress(LocalSocketAddress.class));
-            assertNotNull(boundChannel2.getCloseSetter());
-            assertFalse(boundChannel2.isOpen()); // expected
-            assertFalse(boundChannel2.supportsOption(Options.KEEP_ALIVE));
-            assertNull(boundChannel2.getOption(Options.KEEP_ALIVE));
-            assertNull(boundChannel2.setOption(Options.KEEP_ALIVE, null));
-            assertNull(boundChannel2.getOption(Options.KEEP_ALIVE));
-            assertNotNull(boundChannel2.toString());
-        } finally {
-            channel1.close();
-            channel2.close();
+        assertFalse(channelListener.isInvokedYet());
+        assertFalse(channelListener.isInvokedYet());
+        if (bindListener.isInvokedYet()) {
+            BoundChannel boundChannel = bindListener.getChannel();
+            assertNotNull(boundChannel);
+            assertFalse(boundChannel.isOpen());
         }
     }
 
-    // @Test FIXME XNIO-169
+    @Test
     public void cancelAcceptTcpStream() throws CancellationException, IOException {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<ConnectedStreamChannel> channelListener = new TestChannelListener<ConnectedStreamChannel>();
@@ -320,11 +482,12 @@ public class XnioWorkerTestCase {
         }
         assertNotNull(expected);
 
-        final ConnectedStreamChannel channel = channelFuture.get();
-        assertNotNull(channel);
-        assertFalse(channel.isOpen());
         assertFalse(channelListener.isInvokedYet());
-        assertFalse(bindListener.isInvokedYet());
+        if (bindListener.isInvokedYet()) {
+            BoundChannel boundChannel = bindListener.getChannel();
+            assertNotNull(boundChannel);
+            assertFalse(boundChannel.isOpen());
+        }
     }
 
     @Test
@@ -333,6 +496,14 @@ public class XnioWorkerTestCase {
         UnsupportedOperationException expected = null;
         try {
             xnioWorker.acceptStream(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
+        } catch (UnsupportedOperationException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            xnioWorker.acceptStreamConnection(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -369,6 +540,18 @@ public class XnioWorkerTestCase {
         IllegalArgumentException expected = null;
         try {
             xnioWorker.acceptDatagram(bindAddress, null, null, OptionMap.EMPTY);
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+    }
+
+    @Test
+    public void acceptMessageConnection() throws IOException {
+        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        IllegalArgumentException expected = null;
+        try {
+            xnioWorker.acceptMessageConnection(bindAddress, null, null, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -424,8 +607,9 @@ public class XnioWorkerTestCase {
         assertFalse(xnioWorker.isTerminated());
         xnioWorker.shutdownNow();
         assertTrue(xnioWorker.isShutdown());
-        assertFalse(xnioWorker.isTerminated());
-        xnioWorker.awaitTermination();
+        if (!xnioWorker.isTerminated()) {
+            xnioWorker.awaitTermination();
+        }
         assertTrue(terminationTask.isInvoked());
         assertTrue(xnioWorker.isShutdown());
         assertTrue(xnioWorker.isTerminated());

@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,11 +45,13 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.channels.SslConnection;
 
 /**
  * An XNIO SSL provider based on JSSE.  Works with any XNIO provider.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public final class JsseXnioSsl extends XnioSsl {
     private final Pool<ByteBuffer> socketBufferPool;
@@ -98,6 +100,7 @@ public final class JsseXnioSsl extends XnioSsl {
         return sslContext;
     }
 
+    @SuppressWarnings("deprecation")
     public IoFuture<ConnectedSslStreamChannel> connectSsl(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         final FutureResult<ConnectedSslStreamChannel> futureResult = new FutureResult<ConnectedSslStreamChannel>(IoUtils.directExecutor());
         final IoFuture<ConnectedStreamChannel> connectedChannelFuture = worker.connectStream(bindAddress, destination, new ChannelListener<ConnectedStreamChannel>() {
@@ -127,44 +130,40 @@ public final class JsseXnioSsl extends XnioSsl {
         return futureResult.getIoFuture();
     }
 
-    private StreamConnection createWrappedConnection(final StreamConnection original, final InetSocketAddress destination, final OptionMap optionMap) {
-        return SslConnectionWrapper.wrap(original, JsseSslUtils.createSSLEngine(sslContext, optionMap, destination), socketBufferPool, applicationBufferPool);
-    }
-
-    public IoFuture<StreamConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
-        final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(worker);
-        final IoFuture<StreamConnection> connection = worker.openStreamConnection(bindAddress, destination, openListener, bindListener, optionMap);
-        connection.addNotifier(new IoFuture.HandlingNotifier<StreamConnection, FutureResult<StreamConnection>>() {
-            public void handleCancelled(final FutureResult<StreamConnection> attachment) {
-                attachment.setCancelled();
-            }
-
-            public void handleFailed(final IOException exception, final FutureResult<StreamConnection> attachment) {
-                attachment.setException(exception);
-            }
-        }, futureResult);
-        futureResult.addCancelHandler(connection);
-        worker.openStreamConnection(bindAddress, destination, new ChannelListener<StreamConnection>() {
-            public void handleEvent(final StreamConnection channel) {
-                final StreamConnection wrappedConnection = createWrappedConnection(channel, destination, optionMap);
+    public IoFuture<SslConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super SslConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+        final FutureResult<SslConnection> futureResult = new FutureResult<SslConnection>(worker);
+        final IoFuture<StreamConnection> connection = worker.openStreamConnection(bindAddress, destination, new ChannelListener<StreamConnection>() {
+            public void handleEvent(final StreamConnection connection) {
+                final SslConnection wrappedConnection = new JsseSslStreamConnection(connection, JsseSslUtils.createSSLEngine(sslContext, optionMap, destination), socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
                 if (! futureResult.setResult(wrappedConnection)) {
-                    IoUtils.safeClose(channel);
+                    IoUtils.safeClose(connection);
                 } else {
                     ChannelListeners.invokeChannelListener(wrappedConnection, openListener);
                 }
             }
         }, bindListener, optionMap);
+        connection.addNotifier(new IoFuture.HandlingNotifier<StreamConnection, FutureResult<SslConnection>>() {
+            public void handleCancelled(final FutureResult<SslConnection> attachment) {
+                attachment.setCancelled();
+            }
+
+            public void handleFailed(final IOException exception, final FutureResult<SslConnection> attachment) {
+                attachment.setException(exception);
+            }
+        }, futureResult);
+        futureResult.addCancelHandler(connection);
         return futureResult.getIoFuture();
     }
 
+    @SuppressWarnings("deprecation")
     public AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, final OptionMap optionMap) throws IOException {
         final JsseAcceptingSslStreamChannel server = new JsseAcceptingSslStreamChannel(sslContext, worker.createStreamServer(bindAddress, null, optionMap), optionMap, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
         return server;
     }
 
-    public AcceptingChannel<StreamConnection> createSslConnectionServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, final OptionMap optionMap) throws IOException {
-       final JsseAcceptingSslStreamConnection server = new JsseAcceptingSslStreamConnection(sslContext, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, socketBufferPool, applicationBufferPool);
+    public AcceptingChannel<SslConnection> createSslConnectionServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<SslConnection>> acceptListener, final OptionMap optionMap) throws IOException {
+       final JsseAcceptingSslStreamConnection server = new JsseAcceptingSslStreamConnection(sslContext, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
         return server;
     }

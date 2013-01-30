@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,22 +21,24 @@ package org.xnio.ssl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+
+import javax.net.ssl.SSLContext;
+
 import org.xnio.ChannelListener;
 import org.xnio.IoFuture;
 import org.xnio.OptionMap;
-import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
-
-import javax.net.ssl.SSLContext;
+import org.xnio.channels.SslConnection;
 
 /**
  * An SSL provider for XNIO.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 @SuppressWarnings("unused")
 public abstract class XnioSsl {
@@ -76,6 +78,7 @@ public abstract class XnioSsl {
      *
      * @return the SSL connection
      */
+    @Deprecated
     public IoFuture<ConnectedSslStreamChannel> connectSsl(XnioWorker worker, InetSocketAddress destination, ChannelListener<? super ConnectedSslStreamChannel> openListener, OptionMap optionMap) {
         return connectSsl(worker, ANY_INET_ADDRESS, destination, openListener, null, optionMap);
     }
@@ -90,6 +93,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
+    @Deprecated
     public IoFuture<ConnectedSslStreamChannel> connectSsl(final XnioWorker worker, final InetSocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         return connectSsl(worker, ANY_INET_ADDRESS, destination, openListener, bindListener, optionMap);
     }
@@ -104,6 +108,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
+    @Deprecated
     public IoFuture<ConnectedSslStreamChannel> connectSsl(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super ConnectedSslStreamChannel> openListener, final OptionMap optionMap) {
         return connectSsl(worker, bindAddress, destination, openListener, null, optionMap);
     }
@@ -119,6 +124,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
+    @Deprecated
     public abstract IoFuture<ConnectedSslStreamChannel> connectSsl(XnioWorker worker, InetSocketAddress bindAddress, InetSocketAddress destination, ChannelListener<? super ConnectedSslStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap);
 
     /**
@@ -131,7 +137,7 @@ public abstract class XnioSsl {
      *
      * @return the SSL connection
      */
-    public IoFuture<StreamConnection> openSslConnection(XnioWorker worker, InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, OptionMap optionMap) {
+    public IoFuture<SslConnection> openSslConnection(XnioWorker worker, InetSocketAddress destination, ChannelListener<? super SslConnection> openListener, OptionMap optionMap) {
         return openSslConnection(worker, ANY_INET_ADDRESS, destination, openListener, null, optionMap);
     }
 
@@ -145,7 +151,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
-    public IoFuture<StreamConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
+    public IoFuture<SslConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress destination, final ChannelListener<? super SslConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         return openSslConnection(worker, ANY_INET_ADDRESS, destination, openListener, bindListener, optionMap);
     }
 
@@ -159,7 +165,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
-    public IoFuture<StreamConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super StreamConnection> openListener, final OptionMap optionMap) {
+    public IoFuture<SslConnection> openSslConnection(final XnioWorker worker, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super SslConnection> openListener, final OptionMap optionMap) {
         return openSslConnection(worker, bindAddress, destination, openListener, null, optionMap);
     }
 
@@ -174,7 +180,7 @@ public abstract class XnioSsl {
      * @param optionMap the option map
      * @return the SSL connection
      */
-    public abstract IoFuture<StreamConnection> openSslConnection(XnioWorker worker, InetSocketAddress bindAddress, InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap);
+    public abstract IoFuture<SslConnection> openSslConnection(XnioWorker worker, InetSocketAddress bindAddress, InetSocketAddress destination, ChannelListener<? super SslConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap);
 
     /**
      * Create a bound TCP SSL server.
@@ -186,6 +192,7 @@ public abstract class XnioSsl {
      * @return the unbound TCP SSL server
      * @throws IOException if the server could not be created
      */
+    @Deprecated
     public abstract AcceptingChannel<ConnectedSslStreamChannel> createSslTcpServer(XnioWorker worker, InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedSslStreamChannel>> acceptListener, OptionMap optionMap) throws IOException;
 
     /**
@@ -198,5 +205,5 @@ public abstract class XnioSsl {
      * @return the unbound TCP SSL server
      * @throws IOException if the server could not be created
      */
-    public abstract AcceptingChannel<StreamConnection> createSslConnectionServer(XnioWorker worker, InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException;
+    public abstract AcceptingChannel<SslConnection> createSslConnectionServer(XnioWorker worker, InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<SslConnection>> acceptListener, OptionMap optionMap) throws IOException;
 }

@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,14 +46,15 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jmock.lib.concurrent.DeterministicExecutor;
 import org.junit.Test;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.mock.AcceptingChannelMock;
+import org.xnio.mock.AcceptingChannelMock2;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.MessageChannelMock;
+import org.xnio.mock.StreamConnectionMock;
 
 /**
  * Test for {@link ChannelListeners}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
 public class ChannelListenersTestCase {
@@ -176,7 +177,7 @@ public class ChannelListenersTestCase {
 
     @Test
     public void openListenerAdapter() {
-        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
+        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
 
         IllegalArgumentException expected = null;
         try {
@@ -186,8 +187,8 @@ public class ChannelListenersTestCase {
         }
         assertNotNull(expected);
 
-        final TestChannelListener<ConnectedStreamChannelMock> testListener = new TestChannelListener<ConnectedStreamChannelMock>();
-        final ChannelListener<AcceptingChannel<ConnectedStreamChannelMock>> acceptingListener = ChannelListeners.openListenerAdapter(testListener);
+        final TestChannelListener<StreamConnection> testListener = new TestChannelListener<StreamConnection>();
+        final ChannelListener<AcceptingChannel<StreamConnection>> acceptingListener = ChannelListeners.openListenerAdapter(testListener);
         assertNotNull(acceptingListener);
         assertNotNull(acceptingListener.toString());
 
@@ -202,9 +203,9 @@ public class ChannelListenersTestCase {
         assertTrue(testListener.isInvoked());
         assertNotNull(testListener.getTargetChannel());
 
-        final AcceptingChannelMock failingAcceptingChannel = new AcceptingChannelMock() {
+        final AcceptingChannelMock2 failingAcceptingChannel = new AcceptingChannelMock2() {
             @Override
-            public ConnectedStreamChannelMock accept() throws IOException {
+            public StreamConnectionMock accept() throws IOException {
                 throw new IOException("Test exception");
             }
         };
@@ -222,6 +223,7 @@ public class ChannelListenersTestCase {
         final TestChannelListener<ConnectedStreamChannelMock> listener2 = new TestChannelListener<ConnectedStreamChannelMock>();
         final TestChannelListener<ConnectedStreamChannelMock> listener3 = new TestChannelListener<ConnectedStreamChannelMock>();
 
+        @SuppressWarnings("deprecation")
         final ChannelListener.Setter<ConnectedStreamChannelMock> setter = ChannelListeners.getSetter(channel, fieldUpdater);
         setter.set(listener1);
         assertSame(listener1, channel.getListener());
@@ -576,60 +578,66 @@ public class ChannelListenersTestCase {
         final FailingChannel channel = new FailingChannel();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
-        final ByteBuffer buffer = ByteBuffer.allocate(10);
-        buffer.put("test".getBytes("UTF-8")).flip();
-        assertEquals(4, fileChannel.write(buffer));
-        fileChannel.position(0);
-
-        final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener1 = ChannelListeners.
-            <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 4, listener, exceptionHandler);
-
-        // attempt to transfer, it will fail because writing is disabled on the channel
-        channel.enableWrite(false);
-        assertNull(channel.getWriteListener());
-        assertFalse(channel.isWriteResumed());
-        fileSendingChannelListener1.handleEvent(channel);
-        assertSame(fileSendingChannelListener1, channel.getWriteListener());
-        assertTrue(channel.isWriteResumed());
-
-        // attempt again, this time with write enabled
-        channel.enableWrite(true);
-        assertFalse(listener.isInvoked());
-        assertTrue(channel.getWrittenText().isEmpty());
-        fileSendingChannelListener1.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-        assertWrittenMessage(channel, "test");
-
-        listener.clear();
-        final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener2 = ChannelListeners.
-            <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 0, listener, exceptionHandler);
-        fileSendingChannelListener2.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-
-        final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener3 = ChannelListeners.
-        <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 10, listener, exceptionHandler);
-        buffer.clear();
-        buffer.put("1234567890".getBytes()).flip();
-        assertEquals(10, fileChannel.write(buffer));
-
-        final IOException writeFailure = new IOException("Test exception");
-        channel.throwExceptionOnWrite(writeFailure);
-        assertFalse(exceptionHandler.isInvoked());
-        fileSendingChannelListener3.handleEvent(channel);
-        assertTrue(exceptionHandler.isInvoked());
-        assertSame(channel, exceptionHandler.getFailingChannel());
-        assertSame(writeFailure, exceptionHandler.getFailure());
-
-        channel.limitWrite(3);
-        listener.clear();
-        assertWrittenMessage(channel, "test");
-        fileSendingChannelListener3.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-        assertWrittenMessage(channel, "test", "1234567890");
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
+        try {
+            final ByteBuffer buffer = ByteBuffer.allocate(10);
+            buffer.put("test".getBytes("UTF-8")).flip();
+            assertEquals(4, fileChannel.write(buffer));
+            fileChannel.position(0);
+    
+            final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener1 = ChannelListeners.
+                <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 4, listener, exceptionHandler);
+    
+            // attempt to transfer, it will fail because writing is disabled on the channel
+            channel.enableWrite(false);
+            assertNull(channel.getWriteListener());
+            assertFalse(channel.isWriteResumed());
+            fileSendingChannelListener1.handleEvent(channel);
+            assertSame(fileSendingChannelListener1, channel.getWriteListener());
+            assertTrue(channel.isWriteResumed());
+    
+            // attempt again, this time with write enabled
+            channel.enableWrite(true);
+            assertFalse(listener.isInvoked());
+            assertTrue(channel.getWrittenText().isEmpty());
+            fileSendingChannelListener1.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+            assertWrittenMessage(channel, "test");
+    
+            listener.clear();
+            final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener2 = ChannelListeners.
+                <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 0, listener, exceptionHandler);
+            fileSendingChannelListener2.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+    
+            final ChannelListener<ConnectedStreamChannelMock> fileSendingChannelListener3 = ChannelListeners.
+            <ConnectedStreamChannelMock>fileSendingChannelListener(fileChannel, 0, 10, listener, exceptionHandler);
+            buffer.clear();
+            buffer.put("1234567890".getBytes()).flip();
+            assertEquals(10, fileChannel.write(buffer));
+    
+            final IOException writeFailure = new IOException("Test exception");
+            channel.throwExceptionOnWrite(writeFailure);
+            assertFalse(exceptionHandler.isInvoked());
+            fileSendingChannelListener3.handleEvent(channel);
+            assertTrue(exceptionHandler.isInvoked());
+            assertSame(channel, exceptionHandler.getFailingChannel());
+            assertSame(writeFailure, exceptionHandler.getFailure());
+    
+            channel.limitWrite(3);
+            listener.clear();
+            assertWrittenMessage(channel, "test");
+            fileSendingChannelListener3.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+            assertWrittenMessage(channel, "test", "1234567890");
+        } finally {
+            randomAccessFile.close();
+            fileChannel.close();
+        }
     }
 
     @Test
@@ -640,64 +648,69 @@ public class ChannelListenersTestCase {
         channel.setReadData("test");
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannelWrapper fileChannel = new FileChannelWrapper(new RandomAccessFile(file, "rw").getChannel());
-
-        final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener1 = ChannelListeners.
-            <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 0, 4, listener, exceptionHandler);
-
-        // attempt to transfer, it will fail because reading is disabled on the channel
-        channel.enableRead(false);
-        assertNull(channel.getReadListener());
-        assertFalse(channel.isReadResumed());
-        fileReceivingChannelListener1.handleEvent(channel);
-        assertSame(fileReceivingChannelListener1, channel.getReadListener());
-        assertTrue(channel.isReadResumed());
-
-        // attempt again, this time with read enabled
-        channel.enableRead(true);
-        assertFalse(listener.isInvoked());
-        final ByteBuffer buffer = ByteBuffer.allocate(15);
-        fileChannel.read(buffer);
-        assertReadMessage(buffer);
-        fileReceivingChannelListener1.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-        buffer.clear();
-        fileChannel.read(buffer);
-        assertReadMessage(buffer, "test");
-
-        listener.clear();
-        final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener2 = ChannelListeners.
-            <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 0, 0, listener, exceptionHandler);
-        fileReceivingChannelListener2.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-
-        final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener3 = ChannelListeners.
-            <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 4, 10, listener, exceptionHandler);
-        channel.setReadData("1234567890");
-
-        final IOException readFailure = new IOException("Test exception");
-        channel.throwExceptionOnRead(readFailure);
-        assertFalse(exceptionHandler.isInvoked());
-        fileReceivingChannelListener3.handleEvent(channel);
-        assertTrue(exceptionHandler.isInvoked());
-        assertSame(channel, exceptionHandler.getFailingChannel());
-        assertSame(readFailure, exceptionHandler.getFailure());
-
-        fileChannel.limitTransfer(3);
-        listener.clear();
-        buffer.clear();
-        fileChannel.position(0);
-        fileChannel.read(buffer);
-        assertReadMessage(buffer, "test");
-        fileReceivingChannelListener3.handleEvent(channel);
-        assertTrue(listener.isInvoked());
-        assertSame(channel, listener.getTargetChannel());
-        buffer.clear();
-        fileChannel.position(0);
-        fileChannel.read(buffer);
-        assertReadMessage(buffer, "test", "1234567890");
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannelWrapper fileChannel = new FileChannelWrapper(randomAccessFile.getChannel());
+        try {
+            final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener1 = ChannelListeners.
+                <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 0, 4, listener, exceptionHandler);
+    
+            // attempt to transfer, it will fail because reading is disabled on the channel
+            channel.enableRead(false);
+            assertNull(channel.getReadListener());
+            assertFalse(channel.isReadResumed());
+            fileReceivingChannelListener1.handleEvent(channel);
+            assertSame(fileReceivingChannelListener1, channel.getReadListener());
+            assertTrue(channel.isReadResumed());
+    
+            // attempt again, this time with read enabled
+            channel.enableRead(true);
+            assertFalse(listener.isInvoked());
+            final ByteBuffer buffer = ByteBuffer.allocate(15);
+            fileChannel.read(buffer);
+            assertReadMessage(buffer);
+            fileReceivingChannelListener1.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+            buffer.clear();
+            fileChannel.read(buffer);
+            assertReadMessage(buffer, "test");
+    
+            listener.clear();
+            final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener2 = ChannelListeners.
+                <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 0, 0, listener, exceptionHandler);
+            fileReceivingChannelListener2.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+    
+            final ChannelListener<ConnectedStreamChannelMock> fileReceivingChannelListener3 = ChannelListeners.
+                <ConnectedStreamChannelMock>fileReceivingChannelListener(fileChannel, 4, 10, listener, exceptionHandler);
+            channel.setReadData("1234567890");
+    
+            final IOException readFailure = new IOException("Test exception");
+            channel.throwExceptionOnRead(readFailure);
+            assertFalse(exceptionHandler.isInvoked());
+            fileReceivingChannelListener3.handleEvent(channel);
+            assertTrue(exceptionHandler.isInvoked());
+            assertSame(channel, exceptionHandler.getFailingChannel());
+            assertSame(readFailure, exceptionHandler.getFailure());
+    
+            fileChannel.limitTransfer(3);
+            listener.clear();
+            buffer.clear();
+            fileChannel.position(0);
+            fileChannel.read(buffer);
+            assertReadMessage(buffer, "test");
+            fileReceivingChannelListener3.handleEvent(channel);
+            assertTrue(listener.isInvoked());
+            assertSame(channel, listener.getTargetChannel());
+            buffer.clear();
+            fileChannel.position(0);
+            fileChannel.read(buffer);
+            assertReadMessage(buffer, "test", "1234567890");
+        } finally {
+            randomAccessFile.close();
+            fileChannel.close();
+        }
     }
 
     @Test

@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,169 +22,123 @@ package org.xnio.mock;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.xnio.AbstractIoFuture;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
-import org.xnio.FailedIoFuture;
-import org.xnio.FinishedIoFuture;
-import org.xnio.IoFuture;
+import org.xnio.LocalSocketAddress;
 import org.xnio.OptionMap;
+import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.channels.BoundChannel;
-import org.xnio.channels.ConnectedMessageChannel;
-import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.FramedMessageChannel;
 import org.xnio.channels.MulticastMessageChannel;
 
 /**
  * {@link XnioWorker} mock.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public class XnioWorkerMock extends XnioWorker {
 
     /**
      * Extra info set on created channel mocks if the channel mock was created as a tcp channel.
-     * @see ChannelMock#getInfo()
+     * @see Mock#getInfo()
      */
     public static final String TCP_CHANNEL_INFO = "tcp";
 
     /**
      * Extra info set on created channel mocks if the channel mock was created as a udp channel.
-     * @see ChannelMock#getInfo()
+     * @see Mock#getInfo()
      */
     public static final String UDP_CHANNEL_INFO = "udp";
 
     /**
      * Extra info set on created channel mocks if the channel mock was created as a local channel.
-     * @see ChannelMock#getInfo()
+     * @see Mock#getInfo()
      */
-    public static final String LOCAL_CHANNEL_INFO = "tcp";
-    private final XnioExecutorMock mockThread = new XnioExecutorMock(this);
+    public static final String LOCAL_CHANNEL_INFO = "local";
 
-    private enum ConnectBehavior {SUCCEED, FAIL, CANCEL}
-    private boolean shutdown;
+    /**
+     * The thread mock.
+     */
+    private final XnioIoThreadMock mockThread = new XnioIoThreadMock(this);
+
+    // indicates which action should be taken if a request to connect is performed
+    enum ConnectBehavior {SUCCEED, FAIL, CANCEL}
+
+    // by default, every request to connectil will succeed
     private ConnectBehavior connectBehavior = ConnectBehavior.SUCCEED;
 
-    protected XnioWorkerMock(Xnio xnio, ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
-        super(xnio, threadGroup, optionMap, terminationTask);
+    // has this worker been shut down
+    private boolean shutdown;
+
+    protected XnioWorkerMock() {
+        this(Xnio.getInstance(), null, OptionMap.EMPTY, null);
     }
 
     protected XnioWorkerMock(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
         super(Xnio.getInstance(), threadGroup, optionMap, terminationTask);
     }
 
+    protected XnioWorkerMock(Xnio xnio, ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
+        super(xnio, threadGroup, optionMap, terminationTask);
+    }
+
+    @Override
     public int getIoThreadCount() {
         return 0;
     }
 
+    @Override
     protected XnioIoThread chooseThread() {
         return mockThread;
     }
 
-    protected IoFuture<ConnectedStreamChannel> internalConnectStream(final SocketAddress bindAddress, final SocketAddress destinationAddress, final ChannelListener<? super ConnectedStreamChannel> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final String channelInfo) {
-        switch(connectBehavior) {
-            case SUCCEED: {
-                ConnectedStreamChannelMock channel = new ConnectedStreamChannelMock();
-                channel.setLocalAddress(bindAddress);
-                channel.setPeerAddress(destinationAddress);
-                ChannelListeners.invokeChannelListener(channel, bindListener);
-                ChannelListeners.invokeChannelListener(channel, openListener);
-                channel.setWorker(this);
-                channel.setOptionMap(optionMap);
-                channel.setInfo(channelInfo);
-                return new FinishedIoFuture<ConnectedStreamChannel>(channel);
-            }
-            case FAIL:
-                return new FailedIoFuture<ConnectedStreamChannel>(new IOException("dummy exception"));
-            case CANCEL:
-                return new AbstractIoFuture<ConnectedStreamChannel>() {
-                    {
-                        setCancelled();
-                    }
-                };
-           default:
-               throw new IllegalStateException("Unexpected ConnectBehavior");
-        }
+    /**
+     * Returns the connect behavior of this worker mock.
+     */
+    ConnectBehavior getConnectBehavior() {
+        return this.connectBehavior;
     }
 
+    /**
+     * Sets this worker mock to fail every request to connect. Used for emulating failure to connect behavior.
+     */
     public void failConnection() {
         connectBehavior = ConnectBehavior.FAIL;
     }
 
+    /**
+     * Sets this worker mock to behave as if every request to connect has been cancelled by a third party, whenever
+     * applicable. Used for emulating cancellation of connection futures. 
+     */
     public void cancelConnection() {
         connectBehavior = ConnectBehavior.CANCEL;
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private AcceptingChannel<? extends ConnectedStreamChannel> internalCreateStreamServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<ConnectedStreamChannel>> acceptListener, OptionMap optionMap, String channelInfo) throws IOException {
-        AcceptingChannelMock channel = new AcceptingChannelMock();
+    private AcceptingChannel<StreamConnection> internalCreateStreamServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap, String channelInfo) throws IOException {
+        AcceptingChannelMock2 channel = new AcceptingChannelMock2();
         channel.setLocalAddress(bindAddress);
         channel.setOptionMap(optionMap);
         channel.setWorker(this);
         channel.setInfo(channelInfo);
+        if (connectBehavior == ConnectBehavior.FAIL) channel.enableAcceptance(false);
         ((AcceptingChannel)channel).getAcceptSetter().set(acceptListener);
         return channel;
     }
 
-    private IoFuture<ConnectedStreamChannel> internalAcceptStream(SocketAddress destination, ChannelListener<? super ConnectedStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, String channelInfo) {
-        switch(connectBehavior) {
-            case SUCCEED: {
-                ConnectedStreamChannelMock channel = new ConnectedStreamChannelMock();
-                channel.setPeerAddress(destination);
-                ChannelListeners.invokeChannelListener(channel, bindListener);
-                ChannelListeners.invokeChannelListener(channel, openListener);
-                channel.setWorker(this);
-                channel.setOptionMap(optionMap);
-                channel.setInfo(channelInfo);
-                return new FinishedIoFuture<ConnectedStreamChannel>(channel);
-            }
-            case FAIL:
-                return new FailedIoFuture<ConnectedStreamChannel>(new IOException("dummy exception"));
-            case CANCEL:
-                return new AbstractIoFuture<ConnectedStreamChannel>() {
-                    {
-                        setCancelled();
-                    }
-                };
-           default:
-               throw new IllegalStateException("Unexpected ConnectBehavior");
-        }
+    @Override
+    protected AcceptingChannel<StreamConnection> createTcpConnectionServer(InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException {
+        return internalCreateStreamServer(bindAddress, acceptListener, optionMap, TCP_CHANNEL_INFO);
     }
 
-    private IoFuture<ConnectedMessageChannel> internalConnectDatagram(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, String channelInfo) {
-        switch(connectBehavior) {
-            case SUCCEED: {
-                final ConnectedStreamChannelMock channel = new ConnectedStreamChannelMock();
-                channel.setLocalAddress(bindAddress);
-                channel.setPeerAddress(destination);
-                channel.setWorker(this);
-                channel.setOptionMap(optionMap);
-                channel.setInfo(channelInfo);
-
-                final FramedMessageChannel messageChannel = new FramedMessageChannel(channel, ByteBuffer.allocate(10), ByteBuffer.allocate(10));
-                ChannelListeners.invokeChannelListener(messageChannel, bindListener);
-                ChannelListeners.invokeChannelListener(messageChannel, openListener);
-                return new FinishedIoFuture<ConnectedMessageChannel>(messageChannel);
-            }
-            case FAIL:
-                return new FailedIoFuture<ConnectedMessageChannel>(new IOException("dummy exception"));
-            case CANCEL:
-                return new AbstractIoFuture<ConnectedMessageChannel>() {
-                    {
-                        setCancelled();
-                    }
-                };
-           default:
-               throw new IllegalStateException("Unexpected ConnectBehavior");
-        }
+    @Override
+    protected AcceptingChannel<StreamConnection> createLocalStreamConnectionServer(LocalSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException {
+        return internalCreateStreamServer(bindAddress, acceptListener, optionMap, LOCAL_CHANNEL_INFO);
     }
 
     @Override
@@ -225,4 +179,5 @@ public class XnioWorkerMock extends XnioWorker {
     @Override
     public void awaitTermination() throws InterruptedException {
     }
+
 }

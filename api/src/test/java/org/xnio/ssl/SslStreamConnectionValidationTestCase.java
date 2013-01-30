@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,12 +35,12 @@ import org.xnio.Pool;
 import org.xnio.ssl.mock.SSLEngineMock;
 
 /**
- * Test invalid scenarios involving JsseConnectedSslStreamChannel.
+ * Test invalid scenarios involving the SSL connection.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStreamChannelTest {
+public class SslStreamConnectionValidationTestCase extends AbstractSslConnectionTest {
 
     @After @Override
     public void checkContext() {
@@ -48,35 +48,122 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
     }
 
     @Test
-    public void invalidConstructorParameters() {
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        // null connected stream channel
+    public void invalidSinkConduitConstructorParameters() {
+        final JsseSslConduitEngine conduitEngine = createSslConduitEngine(sinkConduit, sourceConduit);
+
+        // null next conduit
         boolean failed = false;
         try {
-            new JsseConnectedSslStreamChannel(null, engineMock, socketBufferPool, applicationBufferPool, false);
+            new JsseSslStreamSinkConduit(null, conduitEngine, true);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
         assertTrue(failed);
-        // null ssl engine
+
+        // null ssl conduit engine
         failed = false;
         try {
-            new JsseConnectedSslStreamChannel(connectedChannelMock, null, socketBufferPool, applicationBufferPool, false);
+            new JsseSslStreamSinkConduit(sinkConduit, null, true);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
         assertTrue(failed);
+    }
+
+    @Test
+    public void invalidSourceConduitConstructorParameters() {
+        final JsseSslConduitEngine conduitEngine = createSslConduitEngine(sinkConduit, sourceConduit);
+
+        // null next conduit
+        boolean failed = false;
+        try {
+            new JsseSslStreamSourceConduit(null, conduitEngine, true);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null ssl conduit engine
+        failed = false;
+        try {
+            new JsseSslStreamSourceConduit(sourceConduit, null, true);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+    }
+
+    @Test
+    public void invalidConduitEngineParameters() {
+        final JsseSslStreamConnection connection = (JsseSslStreamConnection) this.connection;
+        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
+        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
+
+        // null connection
+        boolean failed = false;
+        try {
+            new JsseSslConduitEngine(null, sinkConduit, sourceConduit, engineMock, socketBufferPool, applicationBufferPool);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null sinkConduit
+        failed = false;
+        try {
+            new JsseSslConduitEngine(connection, null, sourceConduit, engineMock, socketBufferPool, applicationBufferPool);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null source conduit
+        failed = false;
+        try {
+            new JsseSslConduitEngine(connection, sinkConduit, null, engineMock, socketBufferPool, applicationBufferPool);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null engine
+        failed = false;
+        try {
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, null, socketBufferPool, applicationBufferPool);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null socket buffer pool
+        failed = false;
+        try {
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, null, applicationBufferPool);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
+        // null application buffer pool
+        failed = false;
+        try {
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, null);
+        } catch (IllegalArgumentException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+
         // small length for socket buffer pool
         failed = false;
-        
+
         final Pool<ByteBuffer> smallBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 16000, 16000 * 16);
         try {
-            new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, smallBufferPool, applicationBufferPool, false);
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, smallBufferPool, applicationBufferPool);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
         assertTrue(failed);
+
         // socket buffer pool will create a good sized receiveBuffer, but a small sized sendBuffer
         failed = false;
         @SuppressWarnings("unchecked")
@@ -88,25 +175,27 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
             will(returnValue(smallBufferPool.allocate()));
         }});
         try {
-            new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, invalidReadBufferPool, applicationBufferPool, false);
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, invalidReadBufferPool, applicationBufferPool);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
         assertTrue(failed);
+
         // applicationBufferPool creates buffers too short
         failed = false;
         try {
-            new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, smallBufferPool, false);
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, smallBufferPool);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
         assertTrue(failed);
+
         // applicationBufferPool will produce a buffer that is greater than SslEngine.session's packet buffer size,
         // but smaller than SslEngine.session's application buffer size
         failed = false;
         final Pool<ByteBuffer> mediumBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 16920, 16920 * 16);
         try {
-            new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, mediumBufferPool, false);
+            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, mediumBufferPool);
         } catch (IllegalArgumentException e) {
             failed = true;
         }
@@ -115,15 +204,15 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
 
     @Test
     public void writeAfterShutdown() throws IOException {
-        connectedChannelMock.setReadData(SSLEngineMock.CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
-        sslChannel.shutdownWrites();
+        conduitMock.setReadData(SSLEngineMock.CLOSE_MSG);
+        conduitMock.enableReads(true);
+        sinkConduit.terminateWrites();
 
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("MSG!!!!!!!".getBytes("UTF-8")).flip();
         boolean failed = false;
         try {
-            sslChannel.write(buffer);
+            sinkConduit.write(buffer);
         } catch (ClosedChannelException e) {
             failed = true;
         }
@@ -134,20 +223,20 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
     public void invalidWriteBufferArray() throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("invalid".getBytes("UTF-8")).flip();
-        // the channel should simply return 0 if length is 0 or a negative number
-        assertEquals(0, sslChannel.write(new ByteBuffer[]{buffer}, 0, 0));
-        assertEquals(0, sslChannel.write(new ByteBuffer[]{buffer}, 0, -1));
-        // channel should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
+        // the conduit should simply return 0 if length is 0 or a negative number
+        assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, 0, 0));
+        assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, 0, -1));
+        // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            assertEquals(0, sslChannel.write(new ByteBuffer[]{buffer}, -1, 1));
+            assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, -1, 1));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            assertEquals(0, sslChannel.write(new ByteBuffer[]{buffer}, 0, 2));
+            assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, 0, 2));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
@@ -159,7 +248,7 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         // null buffer
         boolean failed = false;
         try {
-            sslChannel.write((ByteBuffer) null);
+            sinkConduit.write((ByteBuffer) null);
         } catch (NullPointerException e) {
             failed = true;
         }
@@ -167,7 +256,7 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         // null buffer array
         failed = false;
         try {
-            sslChannel.write((ByteBuffer[]) null);
+            sinkConduit.write((ByteBuffer[]) null, 4, 20);
         } catch (NullPointerException e) {
             failed = true;
         }
@@ -175,7 +264,7 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         // null buffer in buffer array
         failed = false;
         try {
-            sslChannel.write(new ByteBuffer[] {null});
+            sinkConduit.write(new ByteBuffer[] {null}, 0, 1);
         } catch (NullPointerException e) {
             failed = true;
         }
@@ -184,39 +273,44 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
 
     @Test
     public void invalidReadBufferArray() throws IOException {
-        connectedChannelMock.setReadData("invalid read buffer array");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("invalid read buffer array");
+        conduitMock.enableReads(true);
         final ByteBuffer buffer = ByteBuffer.allocate(10);
-        // the channel should simply return 0 if length is 0 or a negative number
-        assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}, 0, 0));
-        assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}, 0, -1));
-        // channel should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
+        // the conduit should simply return 0 if length is 0 or a negative number
+        assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 0));
+        assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, -1));
+        // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}, -1, 1));
+            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, -1, 1));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}, 0, 2));
+            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 2));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
-        // length parameter is ignored if buffer length is 0
-        assertEquals(0, sslChannel.read(new ByteBuffer[0], 0, 50));
+        failed = false;
+        try {
+            assertEquals(0, sourceConduit.read(new ByteBuffer[0], 0, 50));
+        } catch (ArrayIndexOutOfBoundsException e) {
+            failed = true;
+        }
+        assertTrue(failed);
     }
 
     @Test
     public void readToNullBuffer() throws IOException {
-        connectedChannelMock.setReadData("null read buffer");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("null read buffer");
+        conduitMock.enableReads(true);
         // read to a null buffer
         boolean failed = false;
         try {
-            sslChannel.read((ByteBuffer) null);
+            sourceConduit.read((ByteBuffer) null);
         } catch (NullPointerException e) {
             failed = true;
         }
@@ -224,7 +318,7 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         // read to a null buffer array
         failed = false;
         try {
-            sslChannel.read((ByteBuffer[]) null);
+            sourceConduit.read((ByteBuffer[]) null, 1, 3);
         } catch (NullPointerException e) {
             failed = true;
         }
@@ -232,24 +326,20 @@ public class SslChannelValidationTestCase extends AbstractJsseConnectedSslStream
         // read to a null buffer in a buffer array
         failed = false;
         try {
-            sslChannel.read(new ByteBuffer[]{null});
+            sourceConduit.read(new ByteBuffer[]{null}, 0, 1);
         } catch (NullPointerException e) {
             failed = true;
         }
         assertTrue(failed);
     }
 
-    // FIXME @Test
-    public void closeCantFlush() throws IOException {
-        connectedChannelMock.enableFlush(false);
+    @Test
+    public void terminateWritesCantFlush() throws IOException {
+        conduitMock.enableFlush(false);
         ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("abc".getBytes("UTF-8")).flip();
-        sslChannel.write(buffer);
-        try {
-            sslChannel.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        assertWrittenMessage("abc");
+        sinkConduit.write(buffer);
+        sinkConduit.terminateWrites();
+        assertWrittenMessage("abc", SSLEngineMock.CLOSE_MSG);
     }
 }

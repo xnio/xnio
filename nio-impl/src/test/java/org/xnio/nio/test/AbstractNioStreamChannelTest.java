@@ -1,30 +1,25 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
+ * JBoss, Home of Professional Open Source
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.xnio.nio.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -37,14 +32,13 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.xnio.Buffers;
 import org.xnio.OptionMap;
-import org.xnio.Options;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamChannel;
 
 /**
  * Tests a pair of connected stream channels.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSourceChannelTest <StreamChannel, StreamChannel> {
 
@@ -189,6 +183,7 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
         assertFalse(channel1.isOpen());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void awaitReadableAndWritable() throws IOException, InterruptedException {
         initChannels();
@@ -249,6 +244,8 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
         writableAwaiterThread3.join();
 
         assertNotNull(channel1.getWriteThread());
+        assertNotNull(channel1.getIoThread());
         assertNotNull(channel2.getWriteThread());
+        assertNotNull(channel2.getIoThread());
     }
 }

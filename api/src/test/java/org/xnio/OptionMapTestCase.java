@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +39,7 @@ import org.junit.Test;
 /**
  * Test for {@link OptionMap}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
 public class OptionMapTestCase {
@@ -144,6 +144,7 @@ public class OptionMapTestCase {
         assertTrue(optionMapToString.contains("WORKER1"));
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void checkOptionMapCreatedByBuilder() throws Exception {
         final OptionMap.Builder optionMapBuilder = OptionMap.builder();

@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012 Red Hat, Inc., and individual contributors
+ * Copyright 2013 Red Hat, Inc., and individual contributors
  * as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,9 +41,12 @@ import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.channels.SocketAddressBuffer;
 
 /**
+ * 
+ * Test for UDP connections.
+ * 
+ * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  *
  */
-@SuppressWarnings( { "JavaDoc" })
 public final class NioUdpTestCase extends TestCase {
     private static final int SERVER_PORT = 12345;
     private static final InetSocketAddress SERVER_SOCKET_ADDRESS;
@@ -149,6 +152,7 @@ public final class NioUdpTestCase extends TestCase {
         doServerCreate(true);
     }
 
+    @SuppressWarnings("unused")
     @Ignore /* XXX - depends on each server getting a separate thread */
     public void testClientToServerTransmitNioToNio() throws Exception {
         if (true) return;

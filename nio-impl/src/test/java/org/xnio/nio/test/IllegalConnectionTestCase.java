@@ -1,23 +1,19 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
+ * Copyright 2013 Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.xnio.nio.test;
 
@@ -34,6 +30,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.xnio.OptionMap;
 import org.xnio.Options;
+import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
@@ -42,9 +39,10 @@ import org.xnio.channels.ConnectedStreamChannel;
 /**
  * Test case for scenarios where an attempt to perform an illegal connection is made.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
+@SuppressWarnings("deprecation")
 public class IllegalConnectionTestCase {
 
     private static SocketAddress bindAddress;
@@ -68,7 +66,24 @@ public class IllegalConnectionTestCase {
         IllegalArgumentException expected;
 
         final Xnio xnio = Xnio.getInstance("nio", getClass().getClassLoader());
-        XnioWorker zeroThreadWorker = xnio.createWorker(OptionMap.create(Options.WORKER_WRITE_THREADS, 0, Options.WORKER_READ_THREADS, 0));
+        final XnioWorker zeroThreadWorker = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, 0));
+
+        expected = null;
+        try {
+            zeroThreadWorker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, true));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            zeroThreadWorker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, false));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
         expected = null;
         try {
             zeroThreadWorker.createStreamServer(bindAddress, null, OptionMap.create(Options.WORKER_ESTABLISH_WRITING, true));
@@ -90,6 +105,23 @@ public class IllegalConnectionTestCase {
     public void illegalReceiveBufferSize() throws IOException {
         IllegalArgumentException expected = null;
         try {
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.RECEIVE_BUFFER, 0));
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.RECEIVE_BUFFER, -1));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
             worker.createStreamServer(bindAddress, null, OptionMap.create(Options.RECEIVE_BUFFER, 0));
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
@@ -110,6 +142,22 @@ public class IllegalConnectionTestCase {
     public void illegalLowWaterMark() throws IOException {
         IllegalArgumentException expected = null;
         try {
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, 2, Options.CONNECTION_LOW_WATER, 3));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.CONNECTION_LOW_WATER, -1));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
             worker.createStreamServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, 2, Options.CONNECTION_LOW_WATER, 3));
         } catch (IllegalArgumentException e) {
             expected = e;
@@ -129,6 +177,14 @@ public class IllegalConnectionTestCase {
     public void illegalHighWaterMark() throws IOException {
         IllegalArgumentException expected = null;
         try {
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, -1));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
             worker.createStreamServer(bindAddress, null, OptionMap.create(Options.CONNECTION_HIGH_WATER, -1));
         } catch (IllegalArgumentException e) {
             expected = e;
@@ -140,7 +196,7 @@ public class IllegalConnectionTestCase {
     public void illegalSendBufferSize() throws IOException {
         IllegalArgumentException expected = null;
         try {
-           worker.createStreamServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, 0));
+           worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, 0));
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -148,13 +204,13 @@ public class IllegalConnectionTestCase {
 
         expected = null;
         try {
-            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, -2));
+            worker.createStreamConnectionServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, -2));
         } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
-        
-        final AcceptingChannel<? extends ConnectedStreamChannel> server = worker.createStreamServer(bindAddress, null,
+
+        final AcceptingChannel<? extends StreamConnection> server = worker.createStreamConnectionServer(bindAddress, null,
                 OptionMap.EMPTY);
         expected = null;
         try {
@@ -172,6 +228,42 @@ public class IllegalConnectionTestCase {
             expected = e;
         }
         server.close();
+        assertNotNull(expected);
+        
+        expected = null;
+        try {
+           worker.createStreamServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, 0));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            worker.createStreamServer(bindAddress, null, OptionMap.create(Options.SEND_BUFFER, -2));
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
+        final AcceptingChannel<? extends ConnectedStreamChannel> serverChannel = worker.createStreamServer(bindAddress, null,
+                OptionMap.EMPTY);
+        expected = null;
+        try {
+            serverChannel.setOption(Options.SEND_BUFFER, 0);
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        serverChannel.close();
+        assertNotNull(expected);
+
+        expected = null;
+        try {
+            serverChannel.setOption(Options.SEND_BUFFER, -5);
+        } catch (IllegalArgumentException e) {
+            expected = e;
+        }
+        serverChannel.close();
         assertNotNull(expected);
     }
 

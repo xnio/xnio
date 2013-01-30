@@ -42,7 +42,7 @@ import org.xnio.channels.SocketAddressBuffer;
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  *
  */
-public class MulticastMessageChannelMock implements MulticastMessageChannel, ChannelMock {
+public class MulticastMessageChannelMock implements MulticastMessageChannel, Mock {
     private final InetSocketAddress bindAddress;
     private final OptionMap optionMap;
     private String info = null; // any extra information regarding this channel used by tests

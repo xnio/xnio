@@ -15,36 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.xnio.nio.test;
 
-package org.xnio.conduits;
-
-import org.xnio.XnioWorker;
+import org.junit.Before;
 
 /**
- * An abstract base class for filtering conduits.
+ * Runs NioSslTcpConnectionTestCase with 3 I/O threads.
+ * 
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
- * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public abstract class AbstractConduit<D extends Conduit> implements Conduit {
+public class MultiThreadedNioSslTcpConnectionTestCase extends NioSslTcpConnectionTestCase {
 
-    /**
-     * The delegate conduit.
-     */
-    protected final D next;
-
-    /**
-     * Construct a new instance.
-     *
-     * @param next the delegate conduit to set
-     */
-    protected AbstractConduit(final D next) {
-        if (next == null) {
-            throw new IllegalArgumentException("next is null");
-        }
-        this.next = next;
-    }
-
-    public XnioWorker getWorker() {
-        return next.getWorker();
+    @Before
+    public void setThreads() {
+        super.setNumberOfThreads(3);
     }
 }

@@ -27,21 +27,22 @@ import org.xnio.OptionMap;
 import org.xnio.Pool;
 import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.SslConnection;
 
 /**
  * Accepting channel for StreamConnections with SSL.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel<StreamConnection, StreamConnection> {
+final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel<SslConnection, StreamConnection> {
 
-    JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
         super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, false);
     }
 
     @Override
-    public StreamConnection accept(StreamConnection tcpConnection, SSLEngine engine) {
-        return SslConnectionWrapper.wrap(tcpConnection, engine, socketBufferPool, applicationBufferPool);
+    public SslConnection accept(StreamConnection tcpConnection, SSLEngine engine) {
+        return new JsseSslStreamConnection(tcpConnection, engine, socketBufferPool, applicationBufferPool, startTls);
     }
 }

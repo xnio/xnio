@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,12 +23,13 @@ import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
 
+import org.xnio.mock.ConduitMock;
 import org.xnio.mock.ConnectedStreamChannelMock;
 
 /**
  * This class contains common assertions performed by tests after a read or a write operation.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
 public class AssertReadWrite {
@@ -62,7 +63,7 @@ public class AssertReadWrite {
     }
 
     /**
-     * Asserts that {@code message} equals the data written by {@code sslChannel} to {@code connectedChannelMock}.
+     * Asserts that {@code message} equals the data written to {@code connectedChannelMock}.
      * 
      * @param connectedChannelMock the channel mock where {@code message} should have been written to
      * @param message              the message expected to have been written to the channel mock
@@ -74,5 +75,20 @@ public class AssertReadWrite {
         }
         assertEquals("expected total size: "+ stringBuffer.length() + " actual length: " + connectedChannelMock.getWrittenText().length(),
                 stringBuffer.toString(), connectedChannelMock.getWrittenText());
+    }
+
+    /**
+     * Asserts that {@code message} equals the data written to {@code conduitMock}.
+     * 
+     * @param conduitMock the conduit mock where {@code message} should have been written to
+     * @param message     the message expected to have been written to the channel mock
+     */
+    public static final void assertWrittenMessage(ConduitMock conduitMock, String... message) {
+        final StringBuffer stringBuffer = new StringBuffer();
+        for (String messageString: message) {
+            stringBuffer.append(messageString);
+        }
+        assertEquals("expected total size: "+ stringBuffer.length() + " actual length: " + conduitMock.getWrittenText().length(),
+                stringBuffer.toString(), conduitMock.getWrittenText());
     }
 }

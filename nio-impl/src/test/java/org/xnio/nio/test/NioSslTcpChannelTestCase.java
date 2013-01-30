@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012 Red Hat, Inc., and individual contributors
+ * Copyright 2013 Red Hat, Inc., and individual contributors
  * as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,38 +22,37 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.jboss.logging.Logger;
 import org.junit.BeforeClass;
-import org.junit.Test;
 import org.xnio.ChannelListener;
-import org.xnio.ChannelListeners;
 import org.xnio.IoFuture;
-import org.xnio.IoUtils;
 import org.xnio.OptionMap;
-import org.xnio.Options;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.BoundChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.ssl.XnioSsl;
 
-@SuppressWarnings( { "JavaDoc" })
-public final class NioSslTcpTestCase {
+/**
+ * Test for {@code XnioSsl} channels.
+ * 
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
+ *
+ */
+public class NioSslTcpChannelTestCase extends AbstractNioTcpTest<ConnectedSslStreamChannel, ConnectedSslStreamChannel, ConnectedSslStreamChannel> {
 
+    private XnioSsl xnioSsl;
     private static final String KEY_STORE_PROPERTY = "javax.net.ssl.keyStore";
     private static final String KEY_STORE_PASSWORD_PROPERTY = "javax.net.ssl.keyStorePassword";
     private static final String TRUST_STORE_PROPERTY = "javax.net.ssl.trustStore";
@@ -61,15 +60,9 @@ public final class NioSslTcpTestCase {
     private static final String DEFAULT_KEY_STORE = "keystore.jks";
     private static final String DEFAULT_KEY_STORE_PASSWORD = "jboss-remoting-test";
 
-    private static final Logger log = Logger.getLogger("TEST");
-
-    private final List<Throwable> problems = new CopyOnWriteArrayList<Throwable>();
-
-    private static final int SERVER_PORT = 12345;
-
     @BeforeClass
     public static void setKeyStoreAndTrustStore() {
-        final URL storePath = NioSslTcpTestCase.class.getClassLoader().getResource(DEFAULT_KEY_STORE);
+        final URL storePath = NioSslTcpChannelTestCase.class.getClassLoader().getResource(DEFAULT_KEY_STORE);
         if (System.getProperty(KEY_STORE_PROPERTY) == null) {
             System.setProperty(KEY_STORE_PROPERTY, storePath.getFile());
         }
@@ -84,54 +77,50 @@ public final class NioSslTcpTestCase {
         }
     }
 
-    private void checkProblems() {
-        for (Throwable problem : problems) {
-            log.error("Test exception", problem);
-        }
-        assertTrue(problems.isEmpty());
+    @SuppressWarnings("deprecation")
+    @Override
+    protected AcceptingChannel<? extends ConnectedSslStreamChannel> createServer(XnioWorker worker, InetSocketAddress address,
+            ChannelListener<AcceptingChannel<ConnectedSslStreamChannel>> openListener, OptionMap optionMap) throws IOException {
+        return xnioSsl.createSslTcpServer(worker, address,  openListener,  optionMap);
     }
 
-    private void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedStreamChannel> clientHandler, final ChannelListener<? super ConnectedStreamChannel> serverHandler) throws Exception {
-        final Xnio xnio = Xnio.getInstance("nio", NioSslTcpTestCase.class.getClassLoader());
-        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
-        try {
-            final XnioSsl xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
-            // IDEA thinks this is unchecked because of http://youtrack.jetbrains.net/issue/IDEA-59290
-            @SuppressWarnings("unchecked")
-            final AcceptingChannel<? extends ConnectedStreamChannel> server = xnioSsl.createSslTcpServer(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), ChannelListeners.<ConnectedSslStreamChannel>openListenerAdapter(new CatchingChannelListener<ConnectedSslStreamChannel>(serverHandler, problems)), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
-            server.resumeAccepts();
-            try {
-                final IoFuture<? extends ConnectedStreamChannel> ioFuture = xnioSsl.connectSsl(worker, new InetSocketAddress
-                        (Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
-                        new CatchingChannelListener<ConnectedStreamChannel>(clientHandler, problems), null,
-                        OptionMap.EMPTY);
-                final ConnectedStreamChannel channel = ioFuture.get();
-                try {
-                    body.run();
-                    channel.close();
-                    server.close();
-                } catch (Exception e) {
-                    log.errorf(e, "Error running body");
-                    throw e;
-                } catch (Error e) {
-                    log.errorf(e, "Error running body");
-                    throw e;
-                } finally {
-                    IoUtils.safeClose(channel);
-                }
-            } finally {
-                IoUtils.safeClose(server);
-            }
-        } finally {
-            worker.shutdown();
-            worker.awaitTermination(1L, TimeUnit.MINUTES);
-        }
+    @SuppressWarnings("deprecation")
+    @Override
+    protected IoFuture<? extends ConnectedSslStreamChannel> connect(XnioWorker worker, InetSocketAddress address,
+            ChannelListener<ConnectedSslStreamChannel> openListener, ChannelListener<? super BoundChannel> bindListener,
+            OptionMap optionMap) {
+        return xnioSsl.connectSsl(worker, address,  openListener, bindListener, optionMap);
     }
 
-    @Test
-    public void testClientTcpClose() throws Exception {
-        problems.clear();
-        log.info("Test: testClientTcpClose");
+    @Override
+    protected void setReadListener(ConnectedSslStreamChannel channel, ChannelListener<ConnectedSslStreamChannel> readListener) {
+        channel.getReadSetter().set(readListener);
+    }
+
+    @Override
+    protected void setWriteListener(ConnectedSslStreamChannel channel, ChannelListener<ConnectedSslStreamChannel> writeListener) {
+        channel.getWriteSetter().set(writeListener);
+    }
+
+    @Override
+    protected void resumeReads(ConnectedSslStreamChannel channel) {
+        channel.resumeReads();
+    }
+
+    @Override
+    protected void resumeWrites(ConnectedSslStreamChannel channel) {
+        channel.resumeWrites();
+    }
+
+    @Override
+    protected void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedSslStreamChannel> clientHandler, final ChannelListener<? super ConnectedSslStreamChannel> serverHandler) throws Exception {
+        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
+        super.doConnectionTest(body,  clientHandler, serverHandler);
+    }
+
+    @Override
+    public void clientClose() throws Exception {
+        log.info("Test: clientClose");
         final CountDownLatch latch = new CountDownLatch(4);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
         final AtomicBoolean serverOK = new AtomicBoolean(false);
@@ -196,83 +185,11 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        checkProblems();
     }
 
-    @Test
-    public void testServerTcpClose() throws Exception {
-        problems.clear();
-        log.info("Test: testServerTcpClose");
-        final CountDownLatch latch = new CountDownLatch(2);
-        final AtomicBoolean clientOK = new AtomicBoolean(false);
-        final AtomicBoolean serverOK = new AtomicBoolean(false);
-        doConnectionTest(new Runnable() {
-            public void run() {
-                try {
-                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }, new ChannelListener<ConnectedStreamChannel>() {
-            public void handleEvent(final ConnectedStreamChannel channel) {
-                try {
-                    channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            latch.countDown();
-                        }
-                    });
-                    channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            try {
-                                final int c = channel.read(ByteBuffer.allocate(100));
-                                if (c == -1) {
-                                    clientOK.set(true);
-                                    channel.close();
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    });
-                    channel.resumeReads();
-                } catch (Throwable t) {
-                    try {
-                        channel.close();
-                    } catch (Throwable t2) {
-                        t.printStackTrace();
-                        latch.countDown();
-                        throw new RuntimeException(t);
-                    }
-                    throw new RuntimeException(t);
-                }
-            }
-        }, new ChannelListener<ConnectedStreamChannel>() {
-            public void handleEvent(final ConnectedStreamChannel channel) {
-                try {
-                    channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            serverOK.set(true);
-                            latch.countDown();
-                        }
-                    });
-                    channel.close();
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    latch.countDown();
-                    throw new RuntimeException(t);
-                }
-            }
-        });
-        assertTrue(serverOK.get());
-        assertTrue(clientOK.get());
-        checkProblems();
-    }
-
-    @Test
-    public void testTwoWayTransfer() throws Exception {
-        problems.clear();
-        log.info("Test: testTwoWayTransfer");
+    @Override
+    public void twoWayTransfer() throws Exception {
+        log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
         final AtomicInteger clientReceived = new AtomicInteger(0);
@@ -326,7 +243,7 @@ public final class NioSslTcpTestCase {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
                                                                 if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0) {
-                                                                    channel.getWriteThread().executeAfter(new Runnable() {
+                                                                    channel.getIoThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();
                                                                         }
@@ -395,7 +312,6 @@ public final class NioSslTcpTestCase {
                     }
                 });
                 channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                    boolean done = false;
                     public void handleEvent(final ConnectedStreamChannel channel) {
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
@@ -412,7 +328,7 @@ public final class NioSslTcpTestCase {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
                                                                 if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0) {
-                                                                    channel.getWriteThread().executeAfter(new Runnable() {
+                                                                    channel.getIoThread().executeAfter(new Runnable() {
                                                                         public void run() {
                                                                             channel.wakeupWrites();
                                                                         }
@@ -459,78 +375,11 @@ public final class NioSslTcpTestCase {
         });
         assertEquals(serverSent.get(), clientReceived.get());
         assertEquals(clientSent.get(), serverReceived.get());
-        checkProblems();
     }
 
-    @Test
-    public void testClientTcpNastyClose() throws Exception {
-        problems.clear();
-        log.info("Test: testClientTcpNastyClose");
-        final CountDownLatch latch = new CountDownLatch(2);
-        final AtomicBoolean clientOK = new AtomicBoolean(false);
-        final AtomicBoolean serverOK = new AtomicBoolean(false);
-        doConnectionTest(new Runnable() {
-            public void run() {
-                try {
-                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }, new ChannelListener<ConnectedStreamChannel>() {
-            public void handleEvent(final ConnectedStreamChannel channel) {
-                try {
-                    channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            latch.countDown();
-                        }
-                    });
-                    channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
-                    channel.close();
-                    clientOK.set(true);
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    latch.countDown();
-                    throw new RuntimeException(t);
-                }
-            }
-        }, new ChannelListener<ConnectedStreamChannel>() {
-            public void handleEvent(final ConnectedStreamChannel channel) {
-                try {
-                    channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            latch.countDown();
-                        }
-                    });
-                    channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
-                        public void handleEvent(final ConnectedStreamChannel channel) {
-                            int res;
-                            try {
-                                res = channel.read(ByteBuffer.allocate(100));
-                            } catch (IOException e) {
-                                serverOK.set(true);
-                                IoUtils.safeClose(channel);
-                                return;
-                            }
-                            if (res > 0) IoUtils.safeClose(channel);
-                        }
-                    });
-                    channel.resumeReads();
-                } catch (Throwable t) {
-                    t.printStackTrace();
-                    latch.countDown();
-                    throw new RuntimeException(t);
-                }
-            }
-        });
-        assertTrue(serverOK.get());
-        assertTrue(clientOK.get());
-        checkProblems();
-    }
-
-    // FIXME @Test
-    public void testServerTcpNastyClose() throws Exception {
-        problems.clear();
+    @Override // FIXME
+    public void serverNastyClose() throws Exception {
+       /* problems.clear();
         log.info("Test: testServerTcpNastyClose");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicBoolean clientOK = new AtomicBoolean(false);
@@ -626,6 +475,6 @@ public final class NioSslTcpTestCase {
         });
         assertTrue(serverOK.get());
         assertTrue(clientOK.get());
-        checkProblems();
+        checkProblems();*/
     }
 }

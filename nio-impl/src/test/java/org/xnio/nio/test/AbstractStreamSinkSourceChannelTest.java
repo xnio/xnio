@@ -1,23 +1,19 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
+ * Copyright 2013 Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.xnio.nio.test;
 
@@ -52,7 +48,7 @@ import org.xnio.channels.StreamSourceChannel;
 /**
  * Tests a pair of connected source/sink channels.
  *
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  * @param <S> the sink channel type
  * @param <T> the source channel type
@@ -204,7 +200,8 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         buffer.put("transfered message".getBytes()).flip();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             assertEquals (0, sourceChannel.transferTo(0, 6, fileChannel));
 
@@ -224,15 +221,17 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
 
             sourceChannel.close();
 
+            long transferred = 0;
             ClosedChannelException expected = null;
             try {
-                sourceChannel.transferTo(0, 6, fileChannel);
+                transferred = sourceChannel.transferTo(0, 6, fileChannel);
             } catch (ClosedChannelException e) {
                 expected = e;
             }
-            assertNotNull(expected);
+            assertTrue(expected != null || transferred == 0);
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -245,7 +244,8 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         buffer.put("transferred message".getBytes()).flip();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
-        final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
+        final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+        final FileChannel fileChannel = randomAccessFile.getChannel();
         try {
             assertEquals (0, sinkChannel.transferFrom(fileChannel, 0, 6));
 
@@ -264,15 +264,16 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
 
             sinkChannel.close();
 
-            ClosedChannelException expected = null;
+            IOException expected = null;
             try {
                 sinkChannel.transferFrom(fileChannel, 0, 6);
-            } catch (ClosedChannelException e) {
+            } catch (IOException e) {
                 expected = e;
             }
             assertNotNull(expected);
         } finally {
             fileChannel.close();
+            randomAccessFile.close();
         }
     }
 
@@ -378,6 +379,7 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         assertFalse(sinkChannel.isOpen());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void awaitReadableAndWritable() throws IOException, InterruptedException {
         initChannels();
@@ -440,7 +442,7 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         writableAwaiterThread3.join();
 
         assertNotNull(sinkChannel.getWriteThread());
-        assertNotNull(sinkChannel.getWriteThread());
+        assertNotNull(sinkChannel.getIoThread());
     }
 
     protected static class ReadableAwaiter<T extends StreamSourceChannel> implements Runnable {

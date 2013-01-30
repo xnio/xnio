@@ -1,8 +1,7 @@
 /*
- * JBoss, Home of Professional Open Source.
+ * JBoss, Home of Professional Open Source
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
- * contributors as indicated by the @author tags.
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.xnio.mock;
 
-import java.nio.channels.Channel;
 import org.xnio.OptionMap;
 
 /**
- * A ChannelMock can contain extra info useful to the tests.
+ * A Mock can contain extra info useful to the tests.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-public interface ChannelMock extends Channel {
-
+public interface Mock {
     public void setInfo(String info);
     public String getInfo();
     public OptionMap getOptionMap();

@@ -382,6 +382,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the future result of this operation
      */
     @Deprecated
+    // FIXME XNIO-192 invoke bind listener
     public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         final FutureResult<ConnectedMessageChannel> futureResult = new FutureResult<ConnectedMessageChannel>();
         final ChannelListener<MessageConnection> nestedOpenListener = new MessageConnectionWrapListener(futureResult, openListener);
@@ -403,6 +404,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the future result of this operation
      */
     @Deprecated
+    // FIXME bindAddress is now ignored
     public IoFuture<ConnectedMessageChannel> connectDatagram(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super ConnectedMessageChannel> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         final FutureResult<ConnectedMessageChannel> futureResult = new FutureResult<ConnectedMessageChannel>();
         final ChannelListener<MessageConnection> nestedOpenListener = new MessageConnectionWrapListener(futureResult, openListener);

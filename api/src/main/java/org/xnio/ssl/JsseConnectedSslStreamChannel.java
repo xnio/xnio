@@ -334,8 +334,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                 }
             }
         }
-        // FIXME when called by shutdown Writes, current thread already holds the lock
-        //assert ! Thread.holdsLock(getWriteLock());
         boolean newResult = false;
         for (;;) {
             switch (result.getHandshakeStatus()) {
@@ -391,7 +389,7 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
                     final ByteBuffer unwrappedBuffer = readBuffer.getResource();
                     synchronized (getReadLock()) {
                         int unwrapResult = handleUnwrapResult(result = unwrap(buffer, unwrappedBuffer));
-                        if (unwrapResult >= 0) { // FIXME what if the unwrap return buffer overflow???
+                        if (unwrapResult >= 0) {
                             // have we made some progress?
                             if(result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || result.bytesConsumed() > 0) {
                                 if (result.bytesProduced() > 0 || buffer.hasRemaining()) {
@@ -463,7 +461,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
             return 0L;
         }
         final ByteBuffer buffer = receiveBuffer.getResource();
-        // TODO what do we do when we are out of space at unwrappedBuffer?
         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
         long total = 0;
         SSLEngineResult result;
@@ -502,7 +499,6 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     private int handleUnwrapResult(final SSLEngineResult result) throws IOException {
-        // FIXME assert ! Thread.holdsLock(getWriteLock());
         assert Thread.holdsLock(getReadLock());
         log.logf(FQCN, Logger.Level.TRACE, null, "Unwrap result is %s", result);
         switch (result.getStatus()) {

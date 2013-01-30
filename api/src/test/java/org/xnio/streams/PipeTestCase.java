@@ -363,7 +363,7 @@ public class PipeTestCase {
         } else if (read == 5) {
             assertReadMessage(bytes, "34567");
         } else {
-            fail("Should've red 3 or 5 bytes");
+            fail("Should've read 3 or 5 bytes but read " + read);
         }
         assertEquals('8', inputStream.read());
         assertEquals('9', inputStream.read());

@@ -128,7 +128,7 @@ public class SSLEngineMock extends SSLEngine {
         /**
          * A task is needed to be executed so handshake can proceed. This mock will provide a faulty task,
          * one that will throw an exception when requested to execute.
-         * FIXME this action is not supported right now
+         * TODO this action is not supported right now
          */
         NEED_FAULTY_TASK,
         /**
@@ -412,9 +412,9 @@ public class SSLEngineMock extends SSLEngine {
 
         public SSLEngineResult unwrap(ByteBuffer[] dsts, int offset, int length, ByteBuffer src, boolean needUnwrap,int actionIndex) {
             if (!src.hasRemaining()) {
-                return new SSLEngineResult(Status.BUFFER_UNDERFLOW, HandshakeStatus.NEED_UNWRAP, 0, 0);
+                return new SSLEngineResult(closed && closeMessageUnwrapped? Status.CLOSED: Status.BUFFER_UNDERFLOW, HandshakeStatus.NEED_UNWRAP, 0, 0);
             }
-            Status okStatus = closed? Status.CLOSED: Status.OK;
+            Status okStatus = closed && closeMessageUnwrapped? Status.CLOSED: Status.OK;
             // amount of bytes available at src
             int initialSrcRemaining = src.remaining();
             int bytesProduced = 0;
@@ -460,7 +460,6 @@ public class SSLEngineMock extends SSLEngine {
             String wrapped = Buffers.getModifiedUtf8(src);
             int wrappedEndIndex = wrapped.length();
             int wrappedLeftOver = -1;
-            int totalWritten = 0;
             while (wrappedEndIndex > 0 && !unwrapMap.containsKey(wrapped.substring(0, wrappedEndIndex))) {
                 wrappedLeftOver = wrappedEndIndex --;
             }
@@ -518,7 +517,6 @@ public class SSLEngineMock extends SSLEngine {
                         done = false;
                     }
                     Buffers.putModifiedUtf8(dsts[i], unwrappedData);
-                    totalWritten += unwrappedData.length();
                     if (done) {
                         break;
                     }
