@@ -38,6 +38,7 @@ import java.nio.channels.ScatteringByteChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
+import org.xnio.XnioIoThread;
 
 /**
  * A utility class containing static methods to support channel usage.
@@ -905,6 +906,44 @@ public final class Channels {
                     default: total += (long) ires;
                 }
             }
+        }
+    }
+
+    /**
+     * Resume reads asynchronously.  Queues a task on the channel's I/O thread to resume.  Note that if a channel
+     * has multiple threads associated with it, the results may not be desirable.
+     *
+     * @param channel the channel to resume
+     */
+    public static void resumeReadsAsync(final SuspendableReadChannel channel) {
+        final XnioIoThread ioThread = channel.getIoThread();
+        if (ioThread == Thread.currentThread()) {
+            channel.resumeReads();
+        } else {
+            ioThread.execute(new Runnable() {
+                public void run() {
+                    channel.resumeReads();
+                }
+            });
+        }
+    }
+
+    /**
+     * Resume writes asynchronously.  Queues a task on the channel's I/O thread to resume.  Note that if a channel
+     * has multiple threads associated with it, the results may not be desirable.
+     *
+     * @param channel the channel to resume
+     */
+    public static void resumeWritesAsync(final SuspendableWriteChannel channel) {
+        final XnioIoThread ioThread = channel.getIoThread();
+        if (ioThread == Thread.currentThread()) {
+            channel.resumeWrites();
+        } else {
+            ioThread.execute(new Runnable() {
+                public void run() {
+                    channel.resumeWrites();
+                }
+            });
         }
     }
 
