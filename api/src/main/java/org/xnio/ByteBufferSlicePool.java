@@ -61,14 +61,16 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     private final int threadLocalQueueSize;
     private final ThreadLocal<ArrayDeque<Slice>> localQueueHolder = new ThreadLocal<ArrayDeque<Slice>>() {
         protected ArrayDeque<Slice> initialValue() {
-            return new ArrayDeque<Slice>(threadLocalQueueSize);
-        }
+            //noinspection serial
+            return new ArrayDeque<Slice>(threadLocalQueueSize) {
 
-        /**
-         * This sucks but there's no other way to ensure these buffers are returned to the pool.
-         */
-        protected void finalize() {
-            remove();
+                /**
+                 * This sucks but there's no other way to ensure these buffers are returned to the pool.
+                 */
+                protected void finalize() {
+                    remove();
+                }
+            };
         }
 
         public void remove() {
