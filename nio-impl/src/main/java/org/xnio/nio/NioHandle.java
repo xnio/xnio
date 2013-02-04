@@ -21,6 +21,7 @@ package org.xnio.nio;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 
+import static org.xnio.Bits.allAreClear;
 import static org.xnio.Bits.allAreSet;
 
 /**
@@ -36,7 +37,11 @@ abstract class NioHandle {
     }
 
     void resume(final int ops) {
-        workerThread.setOps(selectionKey, ops);
+        try {
+            if (! allAreSet(selectionKey.interestOps(), ops)) {
+                workerThread.setOps(selectionKey, ops);
+            }
+        } catch (CancelledKeyException ignored) {}
     }
 
     void wakeup(final int ops) {
@@ -49,7 +54,11 @@ abstract class NioHandle {
     }
 
     void suspend(final int ops) {
-        workerThread.clearOps(selectionKey, ops);
+        try {
+            if (! allAreClear(selectionKey.interestOps(), ops)) {
+                workerThread.clearOps(selectionKey, ops);
+            }
+        } catch (CancelledKeyException ignored) {}
     }
 
     boolean isResumed(final int ops) {
