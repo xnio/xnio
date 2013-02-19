@@ -50,7 +50,11 @@ abstract class NioHandle {
                 handleReady(ops);
             }
         });
-        workerThread.setOps(selectionKey, ops);
+        try {
+            if (! allAreSet(selectionKey.interestOps(), ops)) {
+                workerThread.setOps(selectionKey, ops);
+            }
+        } catch (CancelledKeyException ignored) {}
     }
 
     void suspend(final int ops) {
