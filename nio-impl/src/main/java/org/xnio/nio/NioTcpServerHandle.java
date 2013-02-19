@@ -35,7 +35,6 @@ class NioTcpServerHandle extends NioHandle {
     private int low;
     private int high;
     private boolean stopped;
-    private boolean resumed;
 
     NioTcpServerHandle(final NioTcpServer server, final SelectionKey key, final WorkerThread thread, final int low, final int high) {
         super(thread, key);
@@ -66,13 +65,29 @@ class NioTcpServerHandle extends NioHandle {
     }
 
     void resume() {
-        resumed = true;
-        if (! stopped) super.resume(SelectionKey.OP_ACCEPT);
+        final WorkerThread thread = getWorkerThread();
+        if (thread == currentThread()) {
+            if (! stopped && server.resumed) super.resume(SelectionKey.OP_ACCEPT);
+        } else {
+            thread.execute(new Runnable() {
+                public void run() {
+                    resume();
+                }
+            });
+        }
     }
 
     void suspend() {
-        resumed = false;
-        if (! stopped) super.suspend(SelectionKey.OP_ACCEPT);
+        final WorkerThread thread = getWorkerThread();
+        if (thread == currentThread()) {
+            if (! stopped && ! server.resumed) super.suspend(SelectionKey.OP_ACCEPT);
+        } else {
+            thread.execute(new Runnable() {
+                public void run() {
+                    suspend();
+                }
+            });
+        }
     }
 
     void channelClosed() {
@@ -87,7 +102,7 @@ class NioTcpServerHandle extends NioHandle {
     void freeConnection() {
         if (count-- <= low && stopped) {
             stopped = false;
-            if (resumed) {
+            if (server.resumed) {
                 super.resume(SelectionKey.OP_ACCEPT);
             }
         }
@@ -114,7 +129,7 @@ class NioTcpServerHandle extends NioHandle {
                 suspend();
             } else if (count <= low && stopped) {
                 stopped = false;
-                if (resumed) resume();
+                if (server.resumed) resume();
             }
         } else {
             thread.execute(new Runnable() {

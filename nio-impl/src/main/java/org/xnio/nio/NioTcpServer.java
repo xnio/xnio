@@ -81,6 +81,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     private volatile int readTimeout;
     @SuppressWarnings("unused")
     private volatile int writeTimeout;
+    volatile boolean resumed;
 
     private static final long CONN_LOW_MASK     = 0x000000007FFFFFFFL;
     private static final long CONN_LOW_BIT      = 0L;
@@ -374,21 +375,23 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     }
 
     public void suspendAccepts() {
+        resumed = false;
         doResume(0);
     }
 
     public void resumeAccepts() {
+        resumed = true;
         doResume(SelectionKey.OP_ACCEPT);
     }
 
     private void doResume(final int op) {
         if (op == 0) {
             for (NioTcpServerHandle handle : handles) {
-                handle.suspend(op);
+                handle.suspend();
             }
         } else {
             for (NioTcpServerHandle handle : handles) {
-                handle.resume(op);
+                handle.resume();
             }
         }
     }
