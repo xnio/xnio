@@ -72,7 +72,7 @@ class NioTcpServerHandle extends NioHandle {
 
     void suspend() {
         resumed = false;
-        super.suspend(SelectionKey.OP_ACCEPT);
+        if (! stopped) super.suspend(SelectionKey.OP_ACCEPT);
     }
 
     void channelClosed() {
@@ -85,7 +85,7 @@ class NioTcpServerHandle extends NioHandle {
     }
 
     void freeConnection() {
-        if (count-- == low && stopped) {
+        if (count-- <= low && stopped) {
             stopped = false;
             if (resumed) {
                 super.resume(SelectionKey.OP_ACCEPT);
@@ -97,9 +97,9 @@ class NioTcpServerHandle extends NioHandle {
         if (stopped) {
             return false;
         }
-        if (++count == high) {
+        if (++count >= high) {
             stopped = true;
-            suspend();
+            super.suspend(SelectionKey.OP_ACCEPT);
         }
         return true;
     }
