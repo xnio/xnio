@@ -30,12 +30,12 @@ import static org.xnio.IoUtils.safeClose;
 class NioTcpServerHandle extends NioHandle {
 
     private final Runnable freeTask;
+    private final NioTcpServer server;
     private int count;
     private int low;
     private int high;
     private boolean stopped;
     private boolean resumed;
-    private NioTcpServer server;
 
     NioTcpServerHandle(final NioTcpServer server, final SelectionKey key, final WorkerThread thread, final int low, final int high) {
         super(thread, key);
