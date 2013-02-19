@@ -71,7 +71,7 @@ public class FinishedIoFuture<T> implements IoFuture<T> {
 
     @Override
     public IOException getException() throws IllegalStateException {
-        return null;
+        throw new IllegalStateException();
     }
 
     @Override

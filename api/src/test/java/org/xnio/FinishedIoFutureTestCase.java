@@ -39,13 +39,7 @@ public class FinishedIoFutureTestCase {
     @Test
     public void test() throws Exception {
         final FinishedIoFuture<String> future = new FinishedIoFuture<String>("future result");
-        future.addCancelHandler(new Cancellable() {
-            @Override
-            public Cancellable cancel() {
-                throw new RuntimeException("This Cancellable should never be called!");
-            }
-        });
-
+     
         final TestNotifier notifier = new TestNotifier();
         final Object attachment = new Object();
         future.addNotifier(notifier, attachment);
