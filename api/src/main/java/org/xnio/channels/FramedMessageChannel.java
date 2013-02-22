@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -104,6 +104,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                         receiveBuffer.clear();
                     } else {
                         Buffers.unget(receiveBuffer, 4);
+                        receiveBuffer.compact();
                     }
                     log.tracef("Did not read enough bytes for a full message");
                     clearReadReady();
@@ -112,15 +113,16 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
                 if (buffer.hasRemaining()) {
                     log.tracef("Copying message from %s into %s", receiveBuffer, buffer);
-                    return Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
+                    Buffers.copy(buffer, Buffers.slice(receiveBuffer, length));
                 } else {
                     log.tracef("Not copying message from %s into full buffer %s", receiveBuffer, buffer);
                     Buffers.skip(receiveBuffer, length);
-                    return 0;
                 }
+                // move on to next message
+                receiveBuffer.compact();
+                return length;
             } finally {
                 if (res != -1) {
-                    receiveBuffer.compact();
                     if (receiveBuffer.position() >= 4 && receiveBuffer.position() >= 4 + receiveBuffer.getInt(0)) {
                         // there's another packet ready to go
                         setReadReady();
@@ -167,6 +169,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                         receiveBuffer.clear();
                     } else {
                         Buffers.unget(receiveBuffer, 4);
+                        receiveBuffer.compact();
                     }
                     log.tracef("Did not read enough bytes for a full message");
                     clearReadReady();
@@ -175,15 +178,16 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 }
                 if (Buffers.hasRemaining(buffers)) {
                     log.tracef("Copying message from %s into multiple buffers", receiveBuffer);
-                    return Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
+                    Buffers.copy(buffers, offs, len, Buffers.slice(receiveBuffer, length));
                 } else {
                     log.tracef("Not copying message from %s into multiple full buffers", receiveBuffer);
                     Buffers.skip(receiveBuffer, length);
-                    return 0;
                 }
+                // move on to next message
+                receiveBuffer.compact();
+                return length;
             } finally {
                 if (res != -1) {
-                    receiveBuffer.compact();
                     if (receiveBuffer.position() >= 4 && receiveBuffer.position() >= 4 + receiveBuffer.getInt(0)) {
                         // there's another packet ready to go
                         setReadReady();
@@ -269,7 +273,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     protected boolean flushAction(final boolean shutDown) throws IOException {
         synchronized (transmitBuffer) {
-            return (shutDown || doFlushBuffer()) && channel.flush();
+            return (doFlushBuffer()) && channel.flush();
         }
     }
 
