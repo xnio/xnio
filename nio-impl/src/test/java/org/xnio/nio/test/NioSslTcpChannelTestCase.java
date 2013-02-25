@@ -198,7 +198,7 @@ public class NioSslTcpChannelTestCase extends AbstractNioTcpTest<ConnectedSslStr
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
-                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
+                    assertTrue(latch.await(500000L, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -242,19 +242,13 @@ public class NioSslTcpChannelTestCase extends AbstractNioTcpTest<ConnectedSslStr
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0) {
-                                                                    channel.getIoThread().executeAfter(new Runnable() {
-                                                                        public void run() {
-                                                                            channel.wakeupWrites();
-                                                                        }
-                                                                    }, 1L, TimeUnit.MILLISECONDS);
-                                                                    channel.suspendWrites();
-                                                                } else try {
-                                                                    channel.shutdownWrites();
-                                                                    channel.flush();
-                                                                } catch (Throwable t) {
-                                                                    t.printStackTrace();
-                                                                    throw new RuntimeException(t);
+                                                                if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
+                                                                    try {
+                                                                        channel.close();
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
                                                                 }
                                                             }
                                                         };
@@ -327,19 +321,13 @@ public class NioSslTcpChannelTestCase extends AbstractNioTcpTest<ConnectedSslStr
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0) {
-                                                                    channel.getIoThread().executeAfter(new Runnable() {
-                                                                        public void run() {
-                                                                            channel.wakeupWrites();
-                                                                        }
-                                                                    }, 1L, TimeUnit.MILLISECONDS);
-                                                                    channel.suspendWrites();
-                                                                } else try {
-                                                                    channel.shutdownWrites();
-                                                                    channel.flush();
-                                                                } catch (Throwable t) {
-                                                                    t.printStackTrace();
-                                                                    throw new RuntimeException(t);
+                                                                if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
+                                                                    try {
+                                                                        channel.close();
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
                                                                 }
                                                             }
                                                         };

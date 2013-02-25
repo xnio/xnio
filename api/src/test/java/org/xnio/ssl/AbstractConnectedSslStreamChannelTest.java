@@ -20,7 +20,6 @@
 package org.xnio.ssl;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 import org.junit.Before;
@@ -28,45 +27,46 @@ import org.xnio.AssertReadWrite;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
-import org.xnio.channels.TranslatingSuspendableChannel;
-import org.xnio.mock.ConnectedStreamChannelMock;
+import org.xnio.channels.AssembledConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.channels.SslConnection;
+import org.xnio.mock.ConduitMock;
+import org.xnio.mock.StreamConnectionMock;
 
 /**
- * Abstract test for {@link #JsseConnectedSslStreamChannel}.
+ * Abstract test for {@link #AssembledConnectedSslStreamChannel}.
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-public abstract class AbstractJsseConnectedSslStreamChannelTest extends AbstractSslTest {
+public abstract class AbstractConnectedSslStreamChannelTest extends AbstractSslTest {
     // the channel to be tested
-    protected JsseConnectedSslStreamChannel sslChannel;
-    // the underlying channel used as a delegate by the test target
-    protected ConnectedStreamChannelMock connectedChannelMock;
+    protected ConnectedSslStreamChannel sslChannel;
+    // the underlying connection used as a delegate by the test target
+    protected StreamConnectionMock connectionMock;
+    // the underlying conduit used as a delegate by the test target
+    protected ConduitMock conduitMock;
 
     @Override @Before
     public void createChannelMock() throws IOException {
         super.createChannelMock();
-        connectedChannelMock = new ConnectedStreamChannelMock();
+        conduitMock = new ConduitMock();
+        connectionMock = new StreamConnectionMock(conduitMock);
         sslChannel = createSslChannel();
     }
 
-    protected JsseConnectedSslStreamChannel createSslChannel() {
+    protected ConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        return new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, applicationBufferPool, false);
-    }
-
-    protected void sslChannelHandleWritable() throws Exception {
-        Method handleWritableMethod = TranslatingSuspendableChannel.class.getDeclaredMethod("handleWritable");
-        handleWritableMethod.setAccessible(true);
-        handleWritableMethod.invoke(sslChannel);
+        final SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, false);
+        return new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
     }
 
     @Override
     protected void assertWrittenMessage(String... message) {
-        AssertReadWrite.assertWrittenMessage(connectedChannelMock, message);
+        AssertReadWrite.assertWrittenMessage(conduitMock, message);
      }
 
     protected final void assertWrittenMessage(String[]... interwovenMessages) {
-        super.tempAssertWrittenMessage(connectedChannelMock.getWrittenText(), interwovenMessages);
+        super.tempAssertWrittenMessage(conduitMock.getWrittenText(), interwovenMessages);
     }
 }

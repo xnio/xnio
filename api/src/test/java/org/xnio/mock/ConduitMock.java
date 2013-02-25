@@ -117,7 +117,9 @@ public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock
     }
 
     public ConduitMock() {
-        this(new XnioWorkerMock(), null);
+        final XnioWorkerMock worker = new XnioWorkerMock();
+        this.worker = worker;
+        this.executor = worker.chooseThread();
     }
 
     /**

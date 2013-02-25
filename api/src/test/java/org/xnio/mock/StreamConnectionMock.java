@@ -39,7 +39,7 @@ public class StreamConnectionMock extends StreamConnection implements Mock {
     // the local address
     private SocketAddress localAddress;
     // the server responsible for accepting this connection
-    private AcceptingChannelMock2 server;
+    private AcceptingChannelMock server;
     // any extra information regarding this channel used by tests, usually used to check for correct delegation between api and impl
     private String info = null;
 
@@ -52,14 +52,14 @@ public class StreamConnectionMock extends StreamConnection implements Mock {
     /**
      * Sets the accepting server that created this connection.
      */
-    void setServer(AcceptingChannelMock2 server) {
+    void setServer(AcceptingChannelMock server) {
         this.server = server;
     }
 
     /**
      * Returns the accepting server that created this connection.
      */
-    public AcceptingChannelMock2 getServer() {
+    public AcceptingChannelMock getServer() {
         return server;
     }
 

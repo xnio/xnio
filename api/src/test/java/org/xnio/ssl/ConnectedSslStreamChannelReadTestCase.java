@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,19 +43,19 @@ import org.xnio.ssl.mock.SSLEngineMock;
 
 
 /**
- * Test for read operations on  {@link #JsseConnectedSslStreamChannel}.
+ * Test for read operations on a {@link AssembledConnectedSslStreamChannel}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 @RunWith(JMock.class)
-public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConnectedSslStreamChannelTest{
+public class ConnectedSslStreamChannelReadTestCase extends AbstractConnectedSslStreamChannelTest{
 
     @Test
     public void readWithoutHandshake() throws IOException {
         // no handshake actions for engineMock this time, meaning it will just wrap and unwrap without any handshake
         // the message we want to write
-        connectedChannelMock.setReadData("MockTest", CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("MockTest", CLOSE_MSG);
+        conduitMock.enableReads(true);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         // attempt to read... channel is expected to read the entire message without any issues
         assertEquals(8, sslChannel.read(buffer));
@@ -73,8 +73,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         engineMock.addWrapEntry("MockTest", "WRAPPED_MOCK_TEST");
         // no handshake actions for engineMock this time, meaning it will just wrap and unwrap without any handshake
         // the message we want to read
-        connectedChannelMock.setReadData("WRAPPED_MOCK_TEST", CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("WRAPPED_MOCK_TEST", CLOSE_MSG);
+        conduitMock.enableReads(true);
         // attempt to read... channel is expected to read the entire message without any handshake issues
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         assertEquals(8, sslChannel.read(buffer)); 
@@ -95,8 +95,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH);
         // set ReadData on connectedChannelMock, including the wrapped version of message we want to read
-        connectedChannelMock.setReadData("handshake", "mock test works!", "channel closed");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("handshake", "mock test works!", "channel closed");
+        conduitMock.enableReads(true);
 
         // channel is expected to read all data from connectedChannelMock
         final ByteBuffer buffer = ByteBuffer.allocate(100);
@@ -121,8 +121,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, FINISH);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(SSLEngineMock.HANDSHAKE_MSG, "{testReadWithTasklessHandshake}", " _ ");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData(SSLEngineMock.HANDSHAKE_MSG, "{testReadWithTasklessHandshake}", " _ ");
+        conduitMock.enableReads(true);
 
         // channel is expected to read "Mock Test" from connectedChannelMock
         final ByteBuffer buffer = ByteBuffer.allocate(100);
@@ -149,9 +149,9 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("{handshake data}", "{data}", "{data}", "{more data}");
+        conduitMock.setReadData("{handshake data}", "{data}", "{data}", "{more data}");
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         // try to read message
         final ByteBuffer buffer = ByteBuffer.allocate(30);
         assertEquals(30, sslChannel.read(buffer));
@@ -160,8 +160,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         buffer.clear();
 
         // set more read data
-        connectedChannelMock.setReadData("{data}", "{more data}");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("{data}", "{more data}");
+        conduitMock.enableReads(true);
         // and read again
         assertEquals(30, sslChannel.read(buffer));
         // data expected to have been read from 'connectedChannelMock' by 'sslChannel'
@@ -169,8 +169,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         buffer.clear();
 
         // set more read data
-        connectedChannelMock.setReadData("{more data}", "{message closed}");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("{more data}", "{message closed}");
+        conduitMock.enableReads(true);
         // and read again
         assertEquals(9, sslChannel.read(buffer));
 
@@ -194,8 +194,8 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         // message buffer
         final ByteBuffer buffer = ByteBuffer.allocate(100);
 
-        connectedChannelMock.setReadData(HANDSHAKE_MSG, CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData(HANDSHAKE_MSG, CLOSE_MSG);
+        conduitMock.enableReads(true);
         // attempt to read several times... channel is expected to stop on the second NEED_UNWRAP actoin, as
         // connectedChannelMock will read an abrupt CLOSE_MSG
         assertEquals(-1, sslChannel.read(buffer));
@@ -217,10 +217,10 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
                 NEED_WRAP, NEED_WRAP, NEED_WRAP, NEED_UNWRAP, NEED_TASK, NEED_TASK, NEED_TASK, NEED_TASK, FINISH,
                 PERFORM_REQUESTED_ACTION, NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(HANDSHAKE_MSG, "read a lot", HANDSHAKE_MSG, " read a lot ",
+        conduitMock.setReadData(HANDSHAKE_MSG, "read a lot", HANDSHAKE_MSG, " read a lot ",
                 HANDSHAKE_MSG, "read a lot ", HANDSHAKE_MSG, " read a lot", CLOSE_MSG);
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         // try to read message
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         assertEquals(10, sslChannel.read(buffer));
@@ -268,11 +268,11 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
                 NEED_WRAP, NEED_WRAP, NEED_WRAP, NEED_UNWRAP, NEED_TASK, NEED_TASK, NEED_TASK, NEED_TASK, FINISH,
                 PERFORM_REQUESTED_ACTION, NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("HANDSHAKE_MSG", "read a lot", "a lot", "read", "HANDSHAKE_MSG", "a lot",
+        conduitMock.setReadData("HANDSHAKE_MSG", "read a lot", "a lot", "read", "HANDSHAKE_MSG", "a lot",
                 "read a lot", "HANDSHAKE_MSG", "read nothing", "read a lot", "HANDSHAKE_MSG", "read nothing",
                 "CLOSE_MSG");
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         // try to read message
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         assertEquals(10, sslChannel.read(buffer));
@@ -308,10 +308,10 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION,
                 NEED_WRAP, NEED_UNWRAP, PERFORM_REQUESTED_ACTION, NEED_UNWRAP, PERFORM_REQUESTED_ACTION, FINISH);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(HANDSHAKE_MSG, "read this", "read this", "read this", "read this",
+        conduitMock.setReadData(HANDSHAKE_MSG, "read this", "read this", "read this", "read this",
                 HANDSHAKE_MSG, "read this", HANDSHAKE_MSG, "read this", CLOSE_MSG);
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         // attempt to read... channel is expected to read the message 
         assertEquals(54, sslChannel.read(buffer));
@@ -338,10 +338,10 @@ public class JsseConnectedSslStreamChannelReadTestCase extends AbstractJsseConne
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION,
                 NEED_WRAP, NEED_UNWRAP, PERFORM_REQUESTED_ACTION, NEED_UNWRAP, PERFORM_REQUESTED_ACTION, FINISH);
         // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("[!@#$%^&*()_]", "read this", "read this", "read this", "read this",
+        conduitMock.setReadData("[!@#$%^&*()_]", "read this", "read this", "read this", "read this",
                 "[!@#$%^&*()_]", "read this", "[!@#$%^&*()_]", "read this", "[_)(*&^%$#@!]");
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         // attempt to read... channel is expected to read the message 
         assertEquals(24, sslChannel.read(buffer));

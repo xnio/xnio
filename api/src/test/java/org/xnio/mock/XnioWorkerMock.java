@@ -121,7 +121,7 @@ public class XnioWorkerMock extends XnioWorker {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private AcceptingChannel<StreamConnection> internalCreateStreamServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap, String channelInfo) throws IOException {
-        AcceptingChannelMock2 channel = new AcceptingChannelMock2();
+        AcceptingChannelMock channel = new AcceptingChannelMock();
         channel.setLocalAddress(bindAddress);
         channel.setOptionMap(optionMap);
         channel.setWorker(this);

@@ -33,6 +33,7 @@ import org.xnio.ChannelListener.SimpleSetter;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.OptionMap.Builder;
+import org.xnio.StreamConnection;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
@@ -43,7 +44,7 @@ import org.xnio.channels.AcceptingChannel;
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamChannelMock>, Mock {
+public class AcceptingChannelMock implements AcceptingChannel<StreamConnection>, Mock {
     private SimpleSetter<AcceptingChannelMock> acceptSetter = new SimpleSetter<AcceptingChannelMock>();
     private SimpleSetter<AcceptingChannelMock> closeSetter = new SimpleSetter<AcceptingChannelMock>();
     private volatile boolean acceptanceEnabled = true;
@@ -52,10 +53,15 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
     private SocketAddress localAddress;
     private boolean acceptsResumed = false;
     private boolean acceptsWokenUp = false;
+
+    private boolean waitedAcceptable = false;
+    private long awaitAcceptableTime;
+    private TimeUnit awaitAcceptableTimeUnit;
+
     private String info = null; // any extra information regarding this channel used by tests
 
     public AcceptingChannelMock() {
-        
+        setWorker(new XnioWorkerMock());
     }
 
     public void setLocalAddress(SocketAddress address) {
@@ -75,10 +81,10 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
         return null;
     }
 
-    private XnioWorker worker = null;
+    private XnioWorkerMock worker = null;
 
     public XnioIoThread getIoThread() {
-        return null;
+        return worker.chooseThread();
     }
 
     @Override
@@ -86,7 +92,7 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
         return worker;
     }
     
-    public void setWorker(XnioWorker worker) {
+    public void setWorker(XnioWorkerMock worker) {
         this.worker = worker;
     }
 
@@ -159,10 +165,6 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
         return acceptsWokenUp;
     }
 
-    boolean waitedAcceptable = false;
-    long awaitAcceptableTime;
-    TimeUnit awaitAcceptableTimeUnit;
-
     public void clearWaitedAcceptable() {
         waitedAcceptable = false;
     }
@@ -192,28 +194,32 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
     }
 
     @Override
-    public ConnectedStreamChannelMock accept() throws IOException {
+    public StreamConnectionMock accept() throws IOException {
         if (acceptanceEnabled) {
-            //System.out.println("Acceptance enabled... returning accepted channel");
-            ConnectedStreamChannelMock channel = new ConnectedStreamChannelMock();
-            channel.setPeerAddress(new InetSocketAddress(42630));
-            return channel;
-        } else {
-            //System.out.println("Acceptance NOT enabled");
+            final XnioIoThread thread = worker.chooseThread();
+            StreamConnectionMock streamConnection = new StreamConnectionMock(new ConduitMock(worker, thread));
+            streamConnection.setPeerAddress(new InetSocketAddress(42630));
+            streamConnection.setInfo(getInfo());
+            streamConnection.setOptionMap(getOptionMap());
+            streamConnection.setServer(this);
+            if (acceptSetter.get() != null) {
+                acceptSetter.get().handleEvent(this);
+            }
+            return streamConnection;
         }
         return null;
     }
 
     @Override
-    public Setter<? extends AcceptingChannel<ConnectedStreamChannelMock>> getAcceptSetter() {
+    public Setter<? extends AcceptingChannel<StreamConnection>> getAcceptSetter() {
         return acceptSetter;
     }
 
     @Override
-    public Setter<? extends AcceptingChannel<ConnectedStreamChannelMock>> getCloseSetter() {
+    public Setter<? extends AcceptingChannel<StreamConnection>> getCloseSetter() {
         return closeSetter;
     }
-    
+
     public ChannelListener<? super AcceptingChannelMock> getAcceptListener() {
         return acceptSetter.get();
     }
@@ -222,6 +228,7 @@ public class AcceptingChannelMock implements AcceptingChannel<ConnectedStreamCha
         acceptanceEnabled = enable;
     }
 
+    @Override
     public XnioExecutor getAcceptThread() {
         return null;
     }

@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,41 +30,43 @@ import javax.net.ssl.SSLSession;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
-import org.junit.Before;
 import org.junit.Test;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
+import org.xnio.channels.AssembledConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.channels.SslConnection;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 
 /**
- * Tests {@link JsseConnectedSslStreamChannel} in buffer overflow scenarios.
+ * Tests {@link AssembledConnectedSslStreamChannel} in buffer overflow scenarios.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-public class JsseConnectedSslStreamChannelBufferOverflowTestCase {
+public class ConnectedSslStreamChannelBufferOverflowTestCase extends AbstractConnectedSslStreamChannelTest {
 
     // mockery context
     protected Mockery context;
-    // the channel to be tested
-    protected JsseConnectedSslStreamChannel sslChannel;
+
     // the underlying channel used by JsseConnectedSslStreamChannel above
     protected ConnectedStreamChannelMock connectedChannelMock;
     // the SSLEngine mock, allows to test different engine behavior with channel
     protected SSLEngineMock engineMock;
 
-    @Before
-    public void createChannelMock() throws IOException {
+    @Override
+    protected ConnectedSslStreamChannel createSslChannel() {
         context = new JUnit4Mockery();
         connectedChannelMock = new ConnectedStreamChannelMock();
         engineMock = new SSLEngineMockSmallPacketSize(context);
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
-        sslChannel = new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, applicationBufferPool, false);
+        final SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, false);
+        return new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
     }
 
     @Test

@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2011 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,10 +46,10 @@ import org.xnio.ssl.mock.SSLEngineMock;
 /**
  * Test write operations on {@link JsseConnectedSslStreamChannel}.
  * 
- * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
+ * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 @RunWith(JMock.class)
-public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConnectedSslStreamChannelTest {
+public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSslStreamChannelTest {
 
     @Test
     public void writeWithoutHandshake() throws IOException {
@@ -64,14 +64,14 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         sslChannel.shutdownWrites();
         assertFalse(sslChannel.flush());
         // send the close message
-        connectedChannelMock.setReadData(CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData(CLOSE_MSG);
+        conduitMock.enableReads(true);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("MockTest", CLOSE_MSG);
     }
 
@@ -91,14 +91,14 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         sslChannel.shutdownWrites();
         assertFalse(sslChannel.flush());
         // send the close message
-        connectedChannelMock.setReadData(CLOSE_MSG);
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData(CLOSE_MSG);
+        conduitMock.enableReads(true);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
-        // data expected to have bee written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have bee written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("WRAPPED_MOCK_TEST", CLOSE_MSG);
     }
 
@@ -110,26 +110,26 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         engineMock.addWrapEntry(CLOSE_MSG, "channel closed");
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("handshake", "channel closed");
-        connectedChannelMock.enableFlush(false);
+        // set ReadData on conduitMock
+        conduitMock.setReadData("handshake", "channel closed");
+        conduitMock.enableFlush(false);
         // message we want to write
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         final ByteBuffer[] buffers = new ByteBuffer[]{buffer};
         buffer.put("MockTest".getBytes("UTF-8")).flip();
 
-        // attempt to write... channel is expected to stop on NEED_WRAP, as flush is disabled on connectedChannelMock
+        // attempt to write... channel is expected to stop on NEED_WRAP, as flush is disabled on conduitMock
         assertEquals(0, sslChannel.write(buffers, 0, 1));
-        assertFalse(connectedChannelMock.isFlushed());
-        connectedChannelMock.enableFlush(true);
+        assertFalse(conduitMock.isFlushed());
+        conduitMock.enableFlush(true);
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
-        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on connectedChannelMock is not available
+        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on conduitMock is not available
         assertEquals(0, sslChannel.write(buffers, 0, 1));
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
 
         // enable read, now read data will be available to JsseConnectedSslStreamChannel
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         // channel is expected to write all data from buffer
         assertEquals(8, sslChannel.write(new ByteBuffer[]{buffer, ByteBuffer.allocate(0)}, 0, 2));
         assertFalse(buffer.hasRemaining());
@@ -142,7 +142,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("handshake", "mock test works!", "channel closed");
     }
 
@@ -154,18 +154,18 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
 
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, FINISH);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(SSLEngineMock.HANDSHAKE_MSG, " _ ");
+        // set ReadData on conduitMock
+        conduitMock.setReadData(SSLEngineMock.HANDSHAKE_MSG, " _ ");
         // message we want to write
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MockTest".getBytes("UTF-8")).flip();
 
-        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on connectedChannelMock is not available
+        // attempt to write... channel is expected to stop on NEED_UNWRAP, as read on conduitMock is not available
         assertEquals(0, sslChannel.write(buffer));
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
 
         // enable read, now read data will be available to JsseConnectedSslStreamChannel
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         // channel is expected to write all data from buffer
         assertEquals(8, sslChannel.write(buffer));
         assertFalse(buffer.hasRemaining());
@@ -175,7 +175,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage(HANDSHAKE_MSG, "{testWriteWithTasklessHandshake}", " _ ");
     }
 
@@ -187,10 +187,10 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         engineMock.addWrapEntry(CLOSE_MSG, "{message closed}");
         // set the handshake actions that engineMock will emulate
         engineMock.setHandshakeActions(NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("{handshake data}");
-        // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        // set ReadData on conduitMock
+        conduitMock.setReadData("{handshake data}");
+        // enable read on conduitMock, meaning that data above will be available to be read right away
+        conduitMock.enableReads(true);
         // message we want to write
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MockTest".getBytes("UTF-8")).flip();
@@ -208,14 +208,14 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         sslChannel.shutdownWrites();
         assertFalse(sslChannel.flush());
         // send the close message
-        connectedChannelMock.setReadData("{message closed}");
-        connectedChannelMock.enableRead(true);
+        conduitMock.setReadData("{message closed}");
+        conduitMock.enableReads(true);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
 
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("{handshake data}", "{data}", "{data}", "{data}", "{data}", "{data}", "{data}", "{data}",
                 "{data}", "{data}", "{data}", "{message closed}");
     }
@@ -227,7 +227,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         // message we want to write
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MockTest".getBytes("UTF-8")).flip();
-        // attempt to write several times... channel is expected to stop on NEED_UNWRAP, as read on connectedChannelMock is disabled
+        // attempt to write several times... channel is expected to stop on NEED_UNWRAP, as read on conduitMock is disabled
         assertEquals(0, sslChannel.write(buffer));
         assertEquals(0, sslChannel.write(buffer));
         assertEquals(0, sslChannel.write(buffer));
@@ -238,7 +238,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertFalse(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage(HANDSHAKE_MSG, CLOSE_MSG);
     }
 
@@ -249,10 +249,10 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
                 NEED_UNWRAP, NEED_WRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION,
                 NEED_WRAP, NEED_WRAP, NEED_WRAP, NEED_UNWRAP, NEED_TASK, NEED_TASK, NEED_TASK, NEED_TASK, FINISH,
                 PERFORM_REQUESTED_ACTION, NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, CLOSE_MSG);
-        // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        // set ReadData on conduitMock
+        conduitMock.setReadData(HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, CLOSE_MSG);
+        // enable read on conduitMock, meaning that data above will be available to be read right away
+        conduitMock.enableReads(true);
         // messages we plan to write
         final ByteBuffer buffer1 = ByteBuffer.allocate(10);
         buffer1.put("MockTest1".getBytes("UTF-8")).flip();
@@ -281,7 +281,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage(HANDSHAKE_MSG, "MockTest1", HANDSHAKE_MSG, "MockTest2", HANDSHAKE_MSG, HANDSHAKE_MSG,
                 HANDSHAKE_MSG, "MockTest3", HANDSHAKE_MSG, "MockTest4", CLOSE_MSG);
     }
@@ -300,10 +300,10 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
                 NEED_UNWRAP, NEED_WRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION,
                 NEED_WRAP, NEED_WRAP, NEED_WRAP, NEED_UNWRAP, NEED_TASK, NEED_TASK, NEED_TASK, NEED_TASK, FINISH,
                 PERFORM_REQUESTED_ACTION, NEED_WRAP, NEED_UNWRAP, NEED_TASK, FINISH, PERFORM_REQUESTED_ACTION);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("HANDSHAKE_MSG", "HANDSHAKE_MSG", "HANDSHAKE_MSG", "HANDSHAKE_MSG", "CLOSE_MSG");
-        // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        // set ReadData on conduitMock
+        conduitMock.setReadData("HANDSHAKE_MSG", "HANDSHAKE_MSG", "HANDSHAKE_MSG", "HANDSHAKE_MSG", "CLOSE_MSG");
+        // enable read on conduitMock, meaning that data above will be available to be read right away
+        conduitMock.enableReads(true);
         // messages we plan to write
         final ByteBuffer buffer1 = ByteBuffer.allocate(10);
         buffer1.put("MockTest1".getBytes("UTF-8")).flip();
@@ -332,7 +332,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("HANDSHAKE_MSG", "MOCK 1", "HANDSHAKE_MSG", "MOCK 2", "HANDSHAKE_MSG", "HANDSHAKE_MSG",
                 "HANDSHAKE_MSG", "MOCK 3", "HANDSHAKE_MSG", "MOCK 4", "CLOSE_MSG");
     }
@@ -344,10 +344,10 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
                 NEED_WRAP, PERFORM_REQUESTED_ACTION, NEED_WRAP, PERFORM_REQUESTED_ACTION, NEED_WRAP, PERFORM_REQUESTED_ACTION,
                 NEED_UNWRAP, PERFORM_REQUESTED_ACTION, PERFORM_REQUESTED_ACTION, NEED_UNWRAP, PERFORM_REQUESTED_ACTION,
                 NEED_TASK, PERFORM_REQUESTED_ACTION, PERFORM_REQUESTED_ACTION, FINISH);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData(HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, CLOSE_MSG);
-        // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        // set ReadData on conduitMock
+        conduitMock.setReadData(HANDSHAKE_MSG, HANDSHAKE_MSG, HANDSHAKE_MSG, CLOSE_MSG);
+        // enable read on conduitMock, meaning that data above will be available to be read right away
+        conduitMock.enableReads(true);
         // message we plan to write
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("write this".getBytes("UTF-8")).flip();
@@ -364,7 +364,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage(HANDSHAKE_MSG, "write this", HANDSHAKE_MSG, "write this",
                 HANDSHAKE_MSG, "write this", HANDSHAKE_MSG, "write this", "write this", "write this", "write this",
                 "write this", "write this", "write this", CLOSE_MSG);
@@ -382,10 +382,10 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
                 NEED_WRAP, PERFORM_REQUESTED_ACTION, NEED_WRAP, PERFORM_REQUESTED_ACTION, NEED_WRAP, PERFORM_REQUESTED_ACTION,
                 NEED_UNWRAP, PERFORM_REQUESTED_ACTION, PERFORM_REQUESTED_ACTION, NEED_UNWRAP, PERFORM_REQUESTED_ACTION,
                 NEED_TASK, PERFORM_REQUESTED_ACTION, PERFORM_REQUESTED_ACTION, FINISH);
-        // set ReadData on connectedChannelMock
-        connectedChannelMock.setReadData("[!@#$%^&*()_]", "[!@#$%^&*()_]", "[!@#$%^&*()_]", "[_)(*&^%$#@!]");
-        // enable read on connectedChannelMock, meaning that data above will be available to be read right away
-        connectedChannelMock.enableRead(true);
+        // set ReadData on conduitMock
+        conduitMock.setReadData("[!@#$%^&*()_]", "[!@#$%^&*()_]", "[!@#$%^&*()_]", "[_)(*&^%$#@!]");
+        // enable read on conduitMock, meaning that data above will be available to be read right away
+        conduitMock.enableReads(true);
         // message we plan to write
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("write this".getBytes("UTF-8")).flip();
@@ -402,7 +402,7 @@ public class JsseConnectedSslStreamChannelWriteTestCase extends AbstractJsseConn
         assertTrue(sslChannel.flush());
         // close channel
         sslChannel.close();
-        // data expected to have been written to 'connectedChannelMock' by 'sslChannel'
+        // data expected to have been written to 'conduitMock' by 'sslChannel'
         assertWrittenMessage("[!@#$%^&*()_]", "this", "[!@#$%^&*()_]", "this", "[!@#$%^&*()_]", "this", "[!@#$%^&*()_]",
                 "this", "this", "this", "this", "this", "this", "this", "[_)(*&^%$#@!]");
     }

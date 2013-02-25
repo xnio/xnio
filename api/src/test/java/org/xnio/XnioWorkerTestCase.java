@@ -46,7 +46,7 @@ import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
-import org.xnio.mock.AcceptingChannelMock2;
+import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.MessageConnectionMock;
 import org.xnio.mock.Mock;
 import org.xnio.mock.MulticastMessageChannelMock;
@@ -97,7 +97,7 @@ public class XnioWorkerTestCase {
         assertEquals(channelInfo, connection.getInfo());
 
         // retrieve actual accepting channel
-        final AcceptingChannelMock2 acceptingChannel = connection.getServer();
+        final AcceptingChannelMock acceptingChannel = connection.getServer();
         assertEquals(optionMap, acceptingChannel.getOptionMap());
         assertEquals(channelInfo, acceptingChannel.getInfo());
         assertEquals(socketAddress, acceptingChannel.getLocalAddress());

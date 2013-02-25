@@ -42,7 +42,7 @@ import org.xnio.ChannelListener;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.StreamConnection;
-import org.xnio.mock.AcceptingChannelMock2;
+import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.MessageChannelMock;
 
@@ -416,7 +416,7 @@ public class ChannelsTestCase {
 
     @Test
     public void acceptBlocking() throws IOException, InterruptedException {
-        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
+        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
         final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<StreamConnection>(acceptingChannelMock);
         final Thread acceptChannelThread = new Thread(acceptBlockingRunnable);
         assertNotNull(Channels.acceptBlocking(acceptingChannelMock));
@@ -436,7 +436,7 @@ public class ChannelsTestCase {
 
     @Test
     public void acceptBlockingWithTimeout() throws IOException, InterruptedException {
-        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
+        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
         final AcceptBlocking<?> acceptBlockingRunnable = new AcceptBlocking<StreamConnection>(acceptingChannelMock, 10, TimeUnit.SECONDS);
         final Thread acceptChannelThread = new Thread(acceptBlockingRunnable);
         // try to accept blocking with acceptance enabled at accepting channel mock
@@ -581,7 +581,7 @@ public class ChannelsTestCase {
 
     @Test
     public void setAcceptListener() {
-        final AcceptingChannelMock2 channelMock = new AcceptingChannelMock2();
+        final AcceptingChannelMock channelMock = new AcceptingChannelMock();
         final ChannelListener<AcceptingChannel<StreamConnection>> channelListener = new ChannelListener<AcceptingChannel<StreamConnection>>() {
             public void handleEvent(final AcceptingChannel<StreamConnection> channel) {}
         };

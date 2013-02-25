@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jmock.lib.concurrent.DeterministicExecutor;
 import org.junit.Test;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.mock.AcceptingChannelMock2;
+import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.MessageChannelMock;
 import org.xnio.mock.StreamConnectionMock;
@@ -177,7 +177,7 @@ public class ChannelListenersTestCase {
 
     @Test
     public void openListenerAdapter() {
-        final AcceptingChannelMock2 acceptingChannelMock = new AcceptingChannelMock2();
+        final AcceptingChannelMock acceptingChannelMock = new AcceptingChannelMock();
 
         IllegalArgumentException expected = null;
         try {
@@ -203,7 +203,7 @@ public class ChannelListenersTestCase {
         assertTrue(testListener.isInvoked());
         assertNotNull(testListener.getTargetChannel());
 
-        final AcceptingChannelMock2 failingAcceptingChannel = new AcceptingChannelMock2() {
+        final AcceptingChannelMock failingAcceptingChannel = new AcceptingChannelMock() {
             @Override
             public StreamConnectionMock accept() throws IOException {
                 throw new IOException("Test exception");

@@ -43,22 +43,26 @@ import org.xnio.ByteBufferSlicePool;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
 import org.xnio.Pool;
+import org.xnio.channels.AssembledConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.SslChannel;
+import org.xnio.channels.SslConnection;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 /**
- * Test for JsseConnectedSslStreamChannel on start tls mode.
+ * Test for AssembledConnectedSslStreamChannel on start tls mode.
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChannelTest {
+public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTest {
 
     @SuppressWarnings("unchecked")
     @Override
-    protected JsseConnectedSslStreamChannel createSslChannel() {
+    protected ConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        JsseConnectedSslStreamChannel channel = new JsseConnectedSslStreamChannel(connectedChannelMock, engineMock, socketBufferPool, applicationBufferPool, true);
+        SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, true);
+        final ConnectedSslStreamChannel channel = new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
         channel.getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
         channel.getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
         return channel;
@@ -81,15 +85,15 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
     @Test
     public void testSimpleFlush() throws IOException {
         // handshake action: NEED_WRAP
-        connectedChannelMock.enableWrite(true);
+        conduitMock.enableWrites(true);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MSG".getBytes("UTF-8")).flip();
         assertEquals(3, sslChannel.write(buffer));
         assertWrittenMessage("MSG");
-        assertFalse(connectedChannelMock.isFlushed());
+        assertFalse(conduitMock.isFlushed());
 
         sslChannel.flush();
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
         assertWrittenMessage("MSG");
     }
 
@@ -97,15 +101,15 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
     public void testFlushWithHandshaking() throws IOException {
         // handshake action: NEED_WRAP... this hanshake action will be ignored on START_TLS mode
         engineMock.setHandshakeActions(NEED_WRAP);
-        connectedChannelMock.enableWrite(true);
+        conduitMock.enableWrites(true);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MSG".getBytes("UTF-8")).flip();
         assertEquals(3, sslChannel.write(buffer));
         assertWrittenMessage("MSG");
-        assertFalse(connectedChannelMock.isFlushed());
+        assertFalse(conduitMock.isFlushed());
 
         sslChannel.flush();
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
         assertWrittenMessage("MSG");
     }
 
@@ -113,83 +117,83 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
     public void readNeedsWrapWriteAndReadDisabled() throws IOException {
         // handshake action: NEED_WRAP
         engineMock.setHandshakeActions(NEED_WRAP, FINISH);
-        connectedChannelMock.setReadData(CLOSE_MSG);
-        connectedChannelMock.enableRead(false);
-        connectedChannelMock.enableWrite(false);
+        conduitMock.setReadData(CLOSE_MSG);
+        conduitMock.enableReads(false);
+        conduitMock.enableWrites(false);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertFalse(conduitMock.isReadAwaken());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadAwaken());
+        assertFalse(conduitMock.isWriteResumed());
         // attempt to read... channel is expected to return 0 as it stumbles upon a NEED_WRAP that cannot be executed
         assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}));
         // everything is kept the same
-        assertTrue(connectedChannelMock.isReadResumed());
+        assertTrue(conduitMock.isReadResumed());
         assertTrue(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
         assertFalse(sslChannel.isWriteResumed());
         // no handshake is performed
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
         assertEquals(0, sslChannel.read(buffer));
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         assertEquals(7, sslChannel.read(buffer));
         assertWrittenMessage(new String[0]);
-        // close message is just read as a plain message, as sslChannel.read is simply delegated to connectedChannelMock
+        // close message is just read as a plain message, as sslChannel.read is simply delegated to conduitMock
         assertReadMessage(buffer, CLOSE_MSG);
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
 
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
-        assertTrue(connectedChannelMock.isShutdownWrites());
+        assertTrue(conduitMock.isWriteShutdown());
 
         sslChannel.shutdownReads();
-        assertTrue(connectedChannelMock.isShutdownReads());
+        assertTrue(conduitMock.isReadShutdown());
 
-        connectedChannelMock.enableWrite(true);
+        conduitMock.enableWrites(true);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
-        assertTrue(connectedChannelMock.isShutdownWrites());
+        assertTrue(conduitMock.isWriteShutdown());
         assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
 
         assertWrittenMessage(new String[0]);
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
     }
 
     @Test
     public void writeNeedsUnwrapReadAndFlushDisabled () throws IOException {
         // handshake action: NEED_WRAP
         engineMock.setHandshakeActions(NEED_UNWRAP, FINISH);
-        connectedChannelMock.setReadData(HANDSHAKE_MSG);
-        connectedChannelMock.enableRead(false);
-        connectedChannelMock.enableWrite(true);
-        connectedChannelMock.enableFlush(false);
+        conduitMock.setReadData(HANDSHAKE_MSG);
+        conduitMock.enableReads(false);
+        conduitMock.enableWrites(true);
+        conduitMock.enableFlush(false);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MSG".getBytes("UTF-8")).flip();
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
         // attempt to write... channel is expected to write because, on STARTLS mode, it wil simply delegate the
-        // write request to connectedChannelMock
+        // write request to conduitMock
         assertEquals(3, sslChannel.write(buffer));
         // no read/write operation has been resumed either
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
         // the first handshake action is as before, nothing has changed
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
 
         assertFalse(sslChannel.flush());
         assertWrittenMessage("MSG");
-        assertFalse(connectedChannelMock.isFlushed());
+        assertFalse(conduitMock.isFlushed());
 
-        connectedChannelMock.enableFlush(true);
+        conduitMock.enableFlush(true);
         assertTrue(sslChannel.flush());
         assertWrittenMessage("MSG");
 
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
         assertWrittenMessage("MSG");
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
     }
 
     @Test
@@ -198,8 +202,8 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isReadResumed());
         assertTrue(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
-        assertFalse(connectedChannelMock.isWriteAwaken());
+        assertFalse(conduitMock.isReadAwaken());
+        assertFalse(conduitMock.isWriteAwaken());
         engineMock.setHandshakeActions(NEED_UNWRAP);
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("COULDNT WRITE WITHOUT UNWRAP".getBytes("UTF-8")).flip();
@@ -208,15 +212,15 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         assertWrittenMessage("COULDNT WRITE WITHOUT UNWRAP");
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertTrue(conduitMock.isWriteResumed());
+        assertFalse(conduitMock.isReadAwaken());
 
-        // everything keeps the same at connectedChannelMock when we try to resume reads
+        // everything keeps the same at conduitMock when we try to resume reads
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
         assertTrue(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertTrue(conduitMock.isWriteResumed());
+        assertFalse(conduitMock.isReadAwaken());
     }
 
     @Test
@@ -225,8 +229,8 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         sslChannel.resumeWrites();
         assertFalse(sslChannel.isReadResumed());
         assertTrue(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteAwaken());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteAwaken());
 
         // write needs to unwrap... try to write
         engineMock.setHandshakeActions(NEED_UNWRAP);
@@ -238,89 +242,76 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         // nothing happens with read/write resumed on START_TLS channel
         assertTrue(sslChannel.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertTrue(conduitMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadAwaken());
 
-        // everything keeps the same at connectedChannelMock when we try to resume writes
+        // everything keeps the same at conduitMock when we try to resume writes
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertTrue(conduitMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadAwaken());
     }
 
     @Test
     public void resumeAndSuspendReadsOnNewChannel() throws Exception {
-        // brand newly created sslChannel, isReadable returns aLWAYS and resuming read will awakeReads for connectedChannelMock
+        // brand newly created sslChannel, isReadable returns aLWAYS and resuming read will awakeReads for conduitMock
         assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
+        assertFalse(conduitMock.isReadAwaken());
         sslChannel.suspendReads();
 
         assertFalse(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isReadResumed());
-        sslChannelHandleWritable();
-        sslChannel.handleReadable();
-        assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
     }
 
     @Test
     public void resumeAndSuspendReads() throws IOException {
         assertEquals(0, sslChannel.read(ByteBuffer.allocate(5)));
 
-        // not a brand newly created sslChannel, isReadable returns OKAY and resuming read will just reasumeReads for connectedChannelMock
+        // not a brand newly created sslChannel, isReadable returns OKAY and resuming read will just reasumeReads for conduitMock
         assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadAwaken());
-        assertTrue(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadAwaken());
+        assertTrue(conduitMock.isReadResumed());
         sslChannel.suspendReads();
         assertFalse(sslChannel.isReadResumed());
-        assertTrue(connectedChannelMock.isReadResumed());
-        sslChannel.handleReadable();
-        assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
     }
 
     @Test
     public void resumeAndSuspendWritesOnNewChannel() throws Exception {
-        // brand newly created sslChannel, isWritable returns aLWAYS and resuming writes will awakeWrites for connectedChannelMock
+        // brand newly created sslChannel, isWritable returns aLWAYS and resuming writes will awakeWrites for conduitMock
         assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteAwaken());
+        assertFalse(conduitMock.isWriteAwaken());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        sslChannelHandleWritable();
-        assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
     }
 
     @Test
     public void resumeAndSuspendWrites() throws Exception {
         assertEquals(0, sslChannel.read(ByteBuffer.allocate(5)));
 
-        // not a brand newly created sslChannel, isWritable returns OKAY and resuming writes will just reasumeWritesfor connectedChannelMock
+        // not a brand newly created sslChannel, isWritable returns OKAY and resuming writes will just reasumeWritesfor conduitMock
         assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteAwaken());
-        assertTrue(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteAwaken());
+        assertTrue(conduitMock.isWriteResumed());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        sslChannelHandleWritable();
-        assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
     }
 
     @Test
@@ -333,21 +324,18 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         assertEquals(5, sslChannel.write(new ByteBuffer[]{buffer}));
         assertWrittenMessage("12345");
         // no read action is forced
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         assertFalse(sslChannel.isReadResumed());
         assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
 
         // try to resume writes
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
+        assertTrue(conduitMock.isWriteResumed());
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        sslChannelHandleWritable();
-        assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
     }
 
     @Test
@@ -355,10 +343,10 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         // resume writes first of all
         sslChannel.resumeWrites();
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
+        assertTrue(conduitMock.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
-        // need unwrap is the first handshake action, and connectedChannelMock has read ops disabled
+        assertFalse(conduitMock.isReadResumed());
+        // need unwrap is the first handshake action, and conduitMock has read ops disabled
         engineMock.setHandshakeActions(HandshakeAction.NEED_UNWRAP, HandshakeAction.FINISH);
 
         // channel can write regardless of the NEED_UNWRAP handshake action, given START_TLS mode is on
@@ -367,19 +355,14 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         assertEquals(1, sslChannel.write(buffer));
         assertWrittenMessage("\0");
         assertTrue(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
+        assertTrue(conduitMock.isWriteResumed());
         assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
 
         // suspendWrites 
         sslChannel.suspendWrites();
         assertFalse(sslChannel.isWriteResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
-        assertFalse(sslChannel.isReadResumed());
-        assertFalse(connectedChannelMock.isReadResumed());
-        sslChannelHandleWritable();
-        assertFalse(sslChannel.isWriteResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isWriteResumed());
     }
 
     @SuppressWarnings("unchecked")
@@ -394,26 +377,26 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
 
         // handshake action: NEED_WRAP
         engineMock.setHandshakeActions(NEED_UNWRAP, FINISH);
-        connectedChannelMock.setReadData(HANDSHAKE_MSG);
-        connectedChannelMock.enableRead(false);
-        connectedChannelMock.enableWrite(false);
+        conduitMock.setReadData(HANDSHAKE_MSG);
+        conduitMock.enableReads(false);
+        conduitMock.enableWrites(false);
 
         final ByteBuffer buffer = ByteBuffer.allocate(100);
         buffer.put("MSG".getBytes("UTF-8")).flip();
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
 
         // start tls
         sslChannel.startHandshake();
 
         // attempt to write... channel is expected to return 0 as it stumbles upon a NEED_UNWRAP that cannot be executed
         assertEquals(0, sslChannel.write(buffer));
-        assertTrue(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
         assertEquals(0, sslChannel.write(buffer));
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
-        connectedChannelMock.enableRead(true);
+        conduitMock.enableReads(true);
         assertEquals(3, sslChannel.write(buffer));
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         assertWrittenMessage(new String[0]);
@@ -423,21 +406,21 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
 
         sslChannel.shutdownWrites();
         assertFalse(sslChannel.flush());
-        assertFalse(connectedChannelMock.isShutdownWrites());
-        connectedChannelMock.enableWrite(true);
+        assertFalse(conduitMock.isWriteShutdown());
+        conduitMock.enableWrites(true);
         assertFalse(sslChannel.flush());
-        assertFalse(connectedChannelMock.isShutdownWrites());
+        assertFalse(conduitMock.isWriteShutdown());
 
-        connectedChannelMock.setReadData(CLOSE_MSG);
+        conduitMock.setReadData(CLOSE_MSG);
         assertTrue(sslChannel.flush());
-        assertTrue(connectedChannelMock.isShutdownWrites());
+        assertTrue(conduitMock.isWriteShutdown());
 
-        assertTrue(connectedChannelMock.isOpen());
+        assertTrue(conduitMock.isOpen());
         sslChannel.close();
-        assertFalse(connectedChannelMock.isOpen());
+        assertFalse(conduitMock.isOpen());
 
         assertWrittenMessage("MSG", CLOSE_MSG);
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
     }
 
     @SuppressWarnings("unchecked")
@@ -452,23 +435,23 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
 
         // handshake action: NEED_WRAP
         engineMock.setHandshakeActions(NEED_WRAP, FINISH);
-        connectedChannelMock.setReadData("MSG");
-        connectedChannelMock.enableRead(true);
-        connectedChannelMock.enableWrite(false);
+        conduitMock.setReadData("MSG");
+        conduitMock.enableReads(true);
+        conduitMock.enableWrites(false);
         
         final ByteBuffer buffer = ByteBuffer.allocate(100);
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertFalse(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
 
         // start tls
         sslChannel.startHandshake();
 
         // attempt to write... channel is expected to return 0 as it stumbles upon a NEED_UNWRAP that cannot be executed
         assertEquals(0, sslChannel.read(buffer));
-        assertFalse(connectedChannelMock.isReadResumed());
-        assertTrue(connectedChannelMock.isWriteResumed());
+        assertFalse(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isWriteResumed());
         assertSame(HandshakeStatus.FINISHED, engineMock.getHandshakeStatus());
-        connectedChannelMock.enableWrite(true);
+        conduitMock.enableWrites(true);
         assertEquals(3, sslChannel.read(new ByteBuffer[]{buffer}));
         assertReadMessage(buffer, "MSG");
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
@@ -478,18 +461,18 @@ public class StartTLSChannelTestCase extends AbstractJsseConnectedSslStreamChann
         assertWrittenMessage(HANDSHAKE_MSG);
 
         sslChannel.shutdownReads();
-        assertFalse(connectedChannelMock.isShutdownWrites());
-        connectedChannelMock.setReadData(CLOSE_MSG);
+        assertFalse(conduitMock.isWriteShutdown());
+        conduitMock.setReadData(CLOSE_MSG);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
-        assertTrue(connectedChannelMock.isShutdownWrites());
+        assertTrue(conduitMock.isWriteShutdown());
 
         // channel is already closed
-        assertFalse(connectedChannelMock.isOpen());
+        assertFalse(conduitMock.isOpen());
         sslChannel.close();
-        assertFalse(connectedChannelMock.isOpen());
+        assertFalse(conduitMock.isOpen());
 
         assertWrittenMessage(HANDSHAKE_MSG, CLOSE_MSG);
-        assertTrue(connectedChannelMock.isFlushed());
+        assertTrue(conduitMock.isFlushed());
     }
 }

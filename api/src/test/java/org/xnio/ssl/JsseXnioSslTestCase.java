@@ -64,7 +64,6 @@ import org.xnio.mock.XnioWorkerMock;
 @SuppressWarnings("deprecation")
 public class JsseXnioSslTestCase {
     private static final Field setterField;
-    private static final Field channelEngineField;
     private static final Field connectionEngineField;
     private static final Field conduitEngineField;
     private static final String KEY_STORE_PROPERTY = "javax.net.ssl.keyStore";
@@ -81,8 +80,6 @@ public class JsseXnioSslTestCase {
             Class<?> delegateSetterClass = JsseXnioSslTestCase.class.getClassLoader().loadClass(ChannelListeners.class.getName()+ "$DelegatingSetter");
             setterField = delegateSetterClass.getDeclaredField("setter");
             setterField.setAccessible(true);
-            channelEngineField = JsseConnectedSslStreamChannel.class.getDeclaredField("engine");
-            channelEngineField.setAccessible(true);
             connectionEngineField = JsseSslStreamConnection.class.getDeclaredField("sslConduitEngine");
             connectionEngineField.setAccessible(true);
             conduitEngineField = JsseSslConduitEngine.class.getDeclaredField("engine");
@@ -387,8 +384,6 @@ public class JsseXnioSslTestCase {
         assertEquals(localAddress, channel.getLocalAddress());
         assertEquals(serverAddress, channel.getPeerAddress());
         assertTrue(channel.getOption(Options.TCP_NODELAY));
-        final SSLEngine engine = (SSLEngine) channelEngineField.get(channel);
-        assertTrue(engine.getEnableSessionCreation());
     }
 
     @Test
@@ -426,11 +421,6 @@ public class JsseXnioSslTestCase {
         assertTrue(boundChannel.getOption(Options.MULTICAST));
         assertEquals(1000, (int) channel.getOption(Options.READ_TIMEOUT));
         assertEquals(1000, (int) boundChannel.getOption(Options.READ_TIMEOUT));
-
-        final SSLEngine engine = (SSLEngine) channelEngineField.get(channel);
-        assertFalse(engine.getEnableSessionCreation());
-        assertArrayEquals(validCipherSuites, engine.getEnabledCipherSuites());
-        assertArrayEquals(validProtocols, engine.getEnabledProtocols());
     }
 
     @Test

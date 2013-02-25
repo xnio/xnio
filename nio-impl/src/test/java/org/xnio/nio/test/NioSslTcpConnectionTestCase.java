@@ -244,12 +244,12 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                                 // really lame, but due to the way SSL shuts down...
                                                                 if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
-                                                                                try {
-                                                                    connection.close();
-                                                                } catch (Throwable t) {
-                                                                    t.printStackTrace();
-                                                                    throw new RuntimeException(t);
-                                                                }
+                                                                    try {
+                                                                        connection.close();
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
                                                                 }
                                                             }
                                                         };
@@ -326,11 +326,11 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                                 // really lame, but due to the way SSL shuts down...
                                                                 if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
                                                                     try {
-                                                                    connection.close();
-                                                                } catch (Throwable t) {
-                                                                    t.printStackTrace();
-                                                                    throw new RuntimeException(t);
-                                                                }
+                                                                        connection.close();
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
                                                                 }
                                                             }
                                                         };
