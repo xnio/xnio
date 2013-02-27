@@ -48,12 +48,13 @@ public final class Conduits {
     public static long transfer(final StreamSourceConduit source, final long count, final ByteBuffer throughBuffer, final WritableByteChannel sink) throws IOException {
         long res;
         long total = 0L;
-        throughBuffer.clear();
+        throughBuffer.limit(0);
         while (total < count) {
-            if (count - total < (long) throughBuffer.remaining()) {
-                throughBuffer.limit((int) (count - total));
-            }
+            throughBuffer.compact();
             try {
+                if (count - total < (long) throughBuffer.remaining()) {
+                    throughBuffer.limit((int) (count - total));
+                }
                 res = source.read(throughBuffer);
                 if (res <= 0) {
                     return total == 0L ? res : total;
@@ -66,12 +67,6 @@ public final class Conduits {
                 return total;
             }
             total += res;
-            if (total < count) {
-                // only compact if nothing is left otherwise we may
-                // end up with a buffer that has a lim == cap even
-                // if it not contain data that we are interested in
-                throughBuffer.compact();
-            }
         }
         return total;
     }
@@ -94,12 +89,13 @@ public final class Conduits {
     public static long transfer(final ReadableByteChannel source, final long count, final ByteBuffer throughBuffer, final StreamSinkConduit sink) throws IOException {
         long res;
         long total = 0L;
-        throughBuffer.clear();
+        throughBuffer.limit(0);
         while (total < count) {
-            if (count - total < (long) throughBuffer.remaining()) {
-                throughBuffer.limit((int) (count - total));
-            }
+            throughBuffer.compact();
             try {
+                if (count - total < (long) throughBuffer.remaining()) {
+                    throughBuffer.limit((int) (count - total));
+                }
                 res = source.read(throughBuffer);
                 if (res <= 0) {
                     return total == 0L ? res : total;
@@ -112,12 +108,6 @@ public final class Conduits {
                 return total;
             }
             total += res;
-            if (total < count) {
-                // only compact if nothing is left otherwise we may
-                // end up with a buffer that has a lim == cap even
-                // if it not contain data that we are interested in
-                throughBuffer.compact();
-            }
         }
         return total;
     }
