@@ -134,7 +134,6 @@ public class EmptyStreamSourceChannelTestCase {
     public void transferToStreamSinkChannel() throws Exception {
         final ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
         assertEquals(-1, channel.transferTo(50, ByteBuffer.allocate(60), channelMock));
-        assertEquals(-1, channel.transferTo(0, null, null));
     }
 
     @Test
