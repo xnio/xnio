@@ -82,6 +82,7 @@ public class EmptyStreamSourceChannel implements StreamSourceChannel, ReadListen
     }
 
     public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
+        throughBuffer.limit(0);
         emptied();
         return -1;
     }

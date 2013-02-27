@@ -54,7 +54,12 @@ public final class BufferedStreamSinkConduit extends AbstractStreamSinkConduit<S
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
         // todo: optimize to include our buffer in the copies
-        return flushLocal() ? super.transferFrom(source, count, throughBuffer) : 0L;
+        if (flushLocal()) {
+            return super.transferFrom(source, count, throughBuffer);
+        } else {
+            throughBuffer.limit(0);
+            return 0L;
+        }
     }
 
     public int write(final ByteBuffer src) throws IOException {

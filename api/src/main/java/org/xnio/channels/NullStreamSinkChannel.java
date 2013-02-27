@@ -90,8 +90,7 @@ public final class NullStreamSinkChannel implements StreamSinkChannel, WriteList
         try {
             return Channels.drain(source, count);
         } finally {
-            throughBuffer.clear();
-            throughBuffer.position(0);
+            throughBuffer.limit(0);
             exitWrite(val);
         }
     }

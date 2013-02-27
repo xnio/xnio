@@ -55,7 +55,7 @@ public final class NullStreamSinkConduit implements StreamSinkConduit {
     }
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
-        throughBuffer.clear();
+        throughBuffer.limit(0);
         return Channels.drain(source, count);
     }
 
