@@ -79,11 +79,11 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
     }
 
     protected void notifyWriteClosed() {
-        terminated(sourceConduit);
+        terminated(sinkConduit);
     }
 
     protected void notifyReadClosed() {
-        terminated(sinkConduit);
+        terminated(sourceConduit);
     }
 
     private void cancelKey(final NioHandle handle) {
