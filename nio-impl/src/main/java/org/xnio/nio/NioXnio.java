@@ -72,28 +72,44 @@ final class NioXnio extends Xnio {
                     if (chosenProvider != null) {
                         try {
                             provider = Class.forName(chosenProvider, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                        } catch (Exception e) {
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
                             // not available
                         }
                     }
                     if (provider == null) {
                         try {
+                            // Mac OS X and BSD
                             provider = Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                        } catch (Exception e) {
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
                             // not available
                         }
                     }
                     if (provider == null) {
                         try {
+                            // Linux
                             provider = Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                        } catch (Exception e) {
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
                             // not available
                         }
                     }
                     if (provider == null) {
                         try {
+                            // Solaris
+                            provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
+                            // not available
+                        }
+                    }
+                    if (provider == null) {
+                        try {
+                            // AIX
                             provider = Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                        } catch (Exception e) {
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
                             // not available
                         }
                     }
