@@ -86,7 +86,7 @@ final class NioXnioWorker extends XnioWorker {
         boolean ok = false;
         try {
             for (int i = 0; i < threadCount; i++) {
-                final WorkerThread workerThread = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s read-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
+                final WorkerThread workerThread = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s I/O-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
                 // Mark as daemon if the Options.THREAD_DAEMON has been set
                 if (markWorkerThreadAsDaemon) {
                     workerThread.setDaemon(true);
