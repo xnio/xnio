@@ -30,7 +30,7 @@
     <description>The NIO implementation of the XNIO project</description>
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
-    <packaging>jar</packaging>
+    <packaging>bundle</packaging>
 
     <parent>
         <groupId>org.jboss.xnio</groupId>
@@ -71,6 +71,24 @@
             </plugin>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+	    <groupId>org.apache.felix</groupId>
+            <artifactId>maven-bundle-plugin</artifactId>
+                <configuration>
+                    <instructions>
+                        <Export-Package>
+                            org.xnio.nio;version=${project.version};-split-package:=error;-noimport:=true
+                        </Export-Package>
+                        <Import-Package>
+                            org.xnio.*;version="[${project.version},${project.version}]",
+                            *
+                        </Import-Package>
+                        <Fragment-Host>
+                            org.jboss.xnio.api
+                        </Fragment-Host>
+                    </instructions>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>

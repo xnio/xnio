@@ -29,7 +29,7 @@
 
     <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-api</artifactId>
-    <packaging>jar</packaging>
+    <packaging>bundle</packaging>
     <name>XNIO API</name>
     <description>The API JAR of the XNIO project</description>
     <url>http://www.jboss.org/xnio</url>
@@ -163,6 +163,17 @@
                     </archive>
                 </configuration>
             </plugin>
+            <plugin>
+	        <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <configuration>
+                    <instructions>
+                        <Export-Package>
+                          org.xnio.*;version=${project.version};-split-package:=error;-noimport:=true
+                        </Export-Package>
+                    </instructions>
+                </configuration>
+	    </plugin>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
             </plugin>
