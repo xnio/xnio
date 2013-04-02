@@ -191,7 +191,7 @@
                     <docletArtifact>
                         <groupId>org.jboss.apiviz</groupId>
                         <artifactId>apiviz</artifactId>
-                        <version>1.3.0.GA</version>
+                        <version>1.3.2.GA</version>
                     </docletArtifact>
                     <doctitle><![CDATA[XNIO API ]]>${project.version}</doctitle>
                     <header><![CDATA[XNIO API ]]>${project.version}</header>
