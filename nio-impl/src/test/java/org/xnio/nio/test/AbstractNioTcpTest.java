@@ -282,6 +282,182 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
     }
 
     @Test
+    public void oneWayTransfer1() throws Exception {
+        log.info("Test: oneWayTransfer1");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientSent = new AtomicInteger(0);
+        final AtomicInteger serverReceived = new AtomicInteger(0);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
+                    public void handleEvent(final ConnectedChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                final ByteBuffer buffer = ByteBuffer.allocate(100);
+                try {
+                    buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
+                setWriteListener(channel, new ChannelListener<W>() {
+                    public void handleEvent(final W sinkChannel) {
+                        try {
+                            int c;
+                            while ((c = sinkChannel.write(buffer)) > 0) {
+                                if (clientSent.addAndGet(c) > 1000) {
+                                    final ChannelListener<StreamSinkChannel> listener = new ChannelListener<StreamSinkChannel>() {
+                                        public void handleEvent(final StreamSinkChannel sinkChannel) {
+                                            try {
+                                                sinkChannel.shutdownWrites();
+                                                channel.close();
+                                            } catch (Throwable t) {
+                                                log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                                                throw new RuntimeException(t);
+                                            }
+                                        }
+                                    };
+                                    sinkChannel.getWriteSetter().set(listener);
+                                    listener.handleEvent(sinkChannel);
+                                    return;
+                                }
+                                buffer.rewind();
+                            }
+                        } catch (Throwable t) {
+                            log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                resumeWrites(channel);
+            }
+        }, new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
+                    public void handleEvent(final ConnectedChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                setReadListener(channel, new ChannelListener<R>() {
+                    public void handleEvent(final R sourceChannel) {
+                        try {
+                            int c;
+                            while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
+                                serverReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                sourceChannel.shutdownReads();
+                                channel.close();
+                            }
+                        } catch (Throwable t) {
+                            log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                resumeReads(channel);
+            }
+        });
+        assertEquals(clientSent.get(), serverReceived.get());
+    }
+
+    @Test
+    public void oneWayTransfer2() throws Exception {
+        log.info("Test: oneWayTransfer2");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientReceived = new AtomicInteger(0);
+        final AtomicInteger serverSent = new AtomicInteger(0);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
+                    public void handleEvent(final ConnectedChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                setReadListener(channel, new ChannelListener<R>() {
+                    public void handleEvent(final R sourceChannel) {
+                        try {
+                            int c;
+                            while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
+                                clientReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                sourceChannel.shutdownReads();
+                                channel.close();
+                            }
+                        } catch (Throwable t) {
+                            log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                resumeReads(channel);
+            }
+        }, new ChannelListener<T>() {
+            public void handleEvent(final T channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
+                    public void handleEvent(final ConnectedChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                final ByteBuffer buffer = ByteBuffer.allocate(100);
+                try {
+                    buffer.put("This Is A Test Gumma\r\n".getBytes("UTF-8")).flip();
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
+                setWriteListener(channel, new ChannelListener<W>() {
+                    public void handleEvent(final W sinkChannel) {
+                        try {
+                            int c;
+                            while ((c = sinkChannel.write(buffer)) > 0) {
+                                if (serverSent.addAndGet(c) > 1000) {
+                                    final ChannelListener<StreamSinkChannel> listener = new ChannelListener<StreamSinkChannel>() {
+                                        public void handleEvent(final StreamSinkChannel sinkChannel) {
+                                            try {
+                                                sinkChannel.shutdownWrites();
+                                                channel.close();
+                                            } catch (Throwable t) {
+                                                log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                                                throw new RuntimeException(t);
+                                            }
+                                        }
+                                    };
+                                    sinkChannel.getWriteSetter().set(listener);
+                                    listener.handleEvent(sinkChannel);
+                                    return;
+                                }
+                                buffer.rewind();
+                            }
+                        } catch (Throwable t) {
+                            log.errorf(t, "Failed to close channel (propagating as RT exception)");
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                resumeWrites(channel);;
+            }
+        });
+        assertEquals(serverSent.get(), clientReceived.get());
+    }
+
+    @Test
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);

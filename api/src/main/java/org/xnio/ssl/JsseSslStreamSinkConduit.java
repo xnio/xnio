@@ -73,6 +73,15 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
     }
 
     @Override
+    public void resumeWrites() {
+        if (tls && sslEngine.isFirstHandshake()) {
+            super.wakeupWrites();
+        } else {
+            super.resumeWrites();
+        }
+    }
+
+    @Override
     public void terminateWrites() throws IOException {
         if (!tls) {
             super.terminateWrites();

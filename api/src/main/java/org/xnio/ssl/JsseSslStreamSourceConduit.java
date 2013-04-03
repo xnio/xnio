@@ -101,6 +101,15 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     }
 
     @Override
+    public void resumeReads() {
+        if (tls && sslEngine.isFirstHandshake()) {
+            super.wakeupReads();
+        } else {
+            super.resumeReads();
+        }
+    }
+
+    @Override
     public void terminateReads() throws IOException {
         if (tls) {
             sslEngine.closeInbound();

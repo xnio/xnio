@@ -69,7 +69,9 @@ final class JsseSslConduitEngine {
     private static final int WRITE_SHUT_DOWN        = 1 << 0x11; // user requested shut down of writes
     private static final int WRITE_COMPLETE         = 1 << 0x12; // flush acknowledged full write shutdown
 
-    private static final int ENGINE_CLOSED          = 1 << 0x13; // engine is fully closed
+    private static final int FIRST_HANDSHAKE          = 1 << 0x16; // first handshake has not been performed
+    private static final int ENGINE_CLOSED          = 1 << 0x17;  // engine is fully closed
+     // engine is fully closed
     @SuppressWarnings("unused")
     private static final int WRITE_FLAGS            = intBitMask(0x10, 0x1F);
 
@@ -133,6 +135,7 @@ final class JsseSslConduitEngine {
         this.sinkConduit = sinkConduit;
         this.sourceConduit = sourceConduit;
         this.engine = engine;
+        this.state = FIRST_HANDSHAKE;
         final SSLSession session = engine.getSession();
         final int packetBufferSize = session.getPacketBufferSize();
         boolean ok = false;
@@ -274,6 +277,7 @@ final class JsseSslConduitEngine {
     private int wrap(final ByteBuffer src, boolean isCloseExpected) throws IOException {
         assert ! Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
+        clearFlags(FIRST_HANDSHAKE);
         final ByteBuffer buffer = sendBuffer.getResource();
         int bytesConsumed = 0;
         boolean run;
@@ -540,6 +544,7 @@ final class JsseSslConduitEngine {
         if (dsts.length == 0 || length == 0) {
             return 0L;
         }
+        clearFlags(FIRST_HANDSHAKE);
         final ByteBuffer buffer = receiveBuffer.getResource();
         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
         long total = 0;
@@ -993,6 +998,10 @@ final class JsseSslConduitEngine {
             // always unpark because we cannot know if our awaken was spurious
             if (next != null) unpark(next);
         }
+    }
+
+    public boolean isFirstHandshake() {
+        return allAreSet(state, FIRST_HANDSHAKE);
     }
 
     /**

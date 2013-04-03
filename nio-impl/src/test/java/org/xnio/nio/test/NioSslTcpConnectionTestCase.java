@@ -187,6 +187,234 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
     }
 
     @Override
+    public void oneWayTransfer1() throws Exception {
+        log.info("Test: oneWayTransfer1");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientSent = new AtomicInteger(0);
+        final AtomicInteger serverReceived = new AtomicInteger(0);
+        final AtomicBoolean serverClosed = new AtomicBoolean(false);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<SslConnection>() {
+            public void handleEvent(final SslConnection connection) {
+                connection.getCloseSetter().set(new ChannelListener<StreamConnection>() {
+                    public void handleEvent(final StreamConnection connection) {
+                        latch.countDown();
+                    }
+                });
+                final ConduitStreamSinkChannel sinkChannel = connection.getSinkChannel();
+                sinkChannel.setWriteListener(new ChannelListener<ConduitStreamSinkChannel>() {
+                    public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            try {
+                                while ((c = sinkChannel.write(buffer)) > 0) {
+                                    if (clientSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
+                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                                                try {
+                                                    if (sinkChannel.flush()) {
+                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
+                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
+                                                                    try {
+                                                                        sinkChannel.shutdownWrites();
+                                                                        if (serverClosed.get()) {
+                                                                            connection.close();
+                                                                        }
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
+                                                                }
+                                                            }
+                                                        };
+                                                        sinkChannel.setWriteListener(listener);
+                                                        listener.handleEvent(sinkChannel);
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
+                                                }
+                                            }
+                                        };
+                                        sinkChannel.setWriteListener(listener);
+                                        listener.handleEvent(sinkChannel);
+                                        return;
+                                    }
+                                    buffer.rewind();
+                                }
+                            } catch (ClosedChannelException e) {
+                                sinkChannel.shutdownWrites();
+                                throw e;
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+
+                sinkChannel.resumeWrites();
+            }
+        }, new ChannelListener<SslConnection>() {
+            public void handleEvent(final SslConnection connection) {
+                connection.getCloseSetter().set(new ChannelListener<StreamConnection>() {
+                    public void handleEvent(final StreamConnection connection) {
+                        latch.countDown();
+                    }
+                });
+                final ConduitStreamSourceChannel sourceChannel = connection.getSourceChannel();
+                sourceChannel.setReadListener(new ChannelListener<ConduitStreamSourceChannel>() {
+                    public void handleEvent(final ConduitStreamSourceChannel sourceChannel) {
+                        try {
+                            int c;
+                            while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
+                                serverReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                sourceChannel.shutdownReads();
+                                connection.close();
+                                serverClosed.set(true);
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                sourceChannel.resumeReads();
+            }
+        });
+        assertEquals(clientSent.get(), serverReceived.get());
+    }
+
+    @Override
+    public void oneWayTransfer2() throws Exception {
+        log.info("Test: oneWayTransfer2");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientReceived = new AtomicInteger(0);
+        final AtomicInteger serverSent = new AtomicInteger(0);
+        final AtomicBoolean clientClosed = new AtomicBoolean(false);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<SslConnection>() {
+            public void handleEvent(final SslConnection connection) {
+                connection.getCloseSetter().set(new ChannelListener<StreamConnection>() {
+                    public void handleEvent(final StreamConnection connection) {
+                        latch.countDown();
+                    }
+                });
+                final ConduitStreamSourceChannel sourceChannel = connection.getSourceChannel();
+                sourceChannel.getReadSetter().set(new ChannelListener<ConduitStreamSourceChannel>() {
+                    public void handleEvent(final ConduitStreamSourceChannel sourceChannel) {
+                        try {
+                            int c;
+                            while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
+                                clientReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                sourceChannel.shutdownReads();
+                                connection.close();
+                                clientClosed.set(true);
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+
+                sourceChannel.resumeReads();
+            }
+        }, new ChannelListener<SslConnection>() {
+            public void handleEvent(final SslConnection connection) {
+                connection.getCloseSetter().set(new ChannelListener<StreamConnection>() {
+                    public void handleEvent(final StreamConnection connection) {
+                        latch.countDown();
+                    }
+                });
+
+                final ConduitStreamSinkChannel sinkChannel = connection.getSinkChannel();
+                sinkChannel.setWriteListener(new ChannelListener<ConduitStreamSinkChannel>() {
+                    public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            try {
+                                while ((c = sinkChannel.write(buffer)) > 0) {
+                                    if (serverSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
+                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                                                try {
+                                                    if (sinkChannel.flush()) {
+                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
+                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
+                                                                    try {
+                                                                        sinkChannel.shutdownWrites();
+                                                                        if (clientClosed.get()) {
+                                                                            connection.close();
+                                                                        }
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
+                                                                }
+                                                            }
+                                                        };
+                                                        sinkChannel.setWriteListener(listener);
+                                                        listener.handleEvent(sinkChannel);
+
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
+                                                }
+                                            }
+                                        };
+                                        sinkChannel.setWriteListener(listener);
+                                        listener.handleEvent(sinkChannel);
+                                        return;
+                                    }
+                                    buffer.rewind();
+                                }
+                            } catch (ClosedChannelException e) {
+                                sinkChannel.shutdownWrites();
+                                throw e;
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                sinkChannel.resumeWrites();
+            }
+        });
+        assertEquals(serverSent.get(), clientReceived.get());
+    }
+
+    @Override
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);

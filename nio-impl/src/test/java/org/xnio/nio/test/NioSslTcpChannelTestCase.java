@@ -188,6 +188,227 @@ public class NioSslTcpChannelTestCase extends AbstractNioTcpTest<ConnectedSslStr
     }
 
     @Override
+    public void oneWayTransfer1() throws Exception {
+        log.info("Test: oneWayTransfer");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientSent = new AtomicInteger(0);
+        final AtomicInteger serverReceived = new AtomicInteger(0);
+        final AtomicBoolean serverClosed = new AtomicBoolean(false);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500000L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+            public void handleEvent(final ConnectedStreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            try {
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (clientSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                try {
+                                                    if (channel.flush()) {
+                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
+                                                                    try {
+                                                                        channel.shutdownWrites();
+                                                                        if (serverClosed.get()) {
+                                                                            channel.close();
+                                                                        }
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
+                                                                }
+                                                            }
+                                                        };
+                                                        channel.getWriteSetter().set(listener);
+                                                        listener.handleEvent(channel);
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
+                                                }
+                                            }
+                                        };
+                                        channel.getWriteSetter().set(listener);
+                                        listener.handleEvent(channel);
+                                        return;
+                                    }
+                                    buffer.rewind();
+                                }
+                            } catch (ClosedChannelException e) {
+                                channel.shutdownWrites();
+                                throw e;
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                channel.resumeWrites();
+            }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+            public void handleEvent(final ConnectedStreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        try {
+                            int c;
+                            while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
+                                serverReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                channel.shutdownReads();
+                                channel.close();
+                                serverClosed.set(true);
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                channel.resumeReads();
+            }
+        });
+        assertEquals(clientSent.get(), serverReceived.get());
+    }
+
+    @Override
+    public void oneWayTransfer2() throws Exception {
+        log.info("Test: oneWayTransfer2");
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger clientReceived = new AtomicInteger(0);
+        final AtomicInteger serverSent = new AtomicInteger(0);
+        final AtomicBoolean clientClosed = new AtomicBoolean(false);
+        doConnectionTest(new Runnable() {
+            public void run() {
+                try {
+                    assertTrue(latch.await(500000L, TimeUnit.MILLISECONDS));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+            public void handleEvent(final ConnectedStreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                channel.getReadSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        try {
+                            int c;
+                            while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
+                                clientReceived.addAndGet(c);
+                            }
+                            if (c == -1) {
+                                channel.shutdownReads();
+                                channel.close();
+                                clientClosed.set(true);
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+
+                channel.resumeReads();
+            }
+        }, new ChannelListener<ConnectedStreamChannel>() {
+            public void handleEvent(final ConnectedStreamChannel channel) {
+                channel.getCloseSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        latch.countDown();
+                    }
+                });
+                channel.getWriteSetter().set(new ChannelListener<ConnectedStreamChannel>() {
+                    public void handleEvent(final ConnectedStreamChannel channel) {
+                        try {
+                            final ByteBuffer buffer = ByteBuffer.allocate(100);
+                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
+                            int c;
+                            try {
+                                while ((c = channel.write(buffer)) > 0) {
+                                    if (serverSent.addAndGet(c) > 1000) {
+                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                try {
+                                                    if (channel.flush()) {
+                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
+                                                            public void handleEvent(final ConnectedStreamChannel channel) {
+                                                                // really lame, but due to the way SSL shuts down...
+                                                                if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
+                                                                    try {
+                                                                        channel.shutdownWrites();
+                                                                        if (clientClosed.get()) {
+                                                                            channel.close();
+                                                                        }
+                                                                    } catch (Throwable t) {
+                                                                        t.printStackTrace();
+                                                                        throw new RuntimeException(t);
+                                                                    }
+                                                                }
+                                                            }
+                                                        };
+                                                        channel.getWriteSetter().set(listener);
+                                                        listener.handleEvent(channel);
+                                                        return;
+                                                    }
+                                                } catch (Throwable t) {
+                                                    t.printStackTrace();
+                                                    throw new RuntimeException(t);
+                                                }
+                                            }
+                                        };
+                                        channel.getWriteSetter().set(listener);
+                                        listener.handleEvent(channel);
+                                        return;
+                                    }
+                                    buffer.rewind();
+                                }
+                            } catch (ClosedChannelException e) {
+                                channel.shutdownWrites();
+                                throw e;
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                            throw new RuntimeException(t);
+                        }
+                    }
+                });
+                channel.resumeWrites();
+            }
+        });
+        assertEquals(serverSent.get(), clientReceived.get());
+    }
+
+    @Override
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
