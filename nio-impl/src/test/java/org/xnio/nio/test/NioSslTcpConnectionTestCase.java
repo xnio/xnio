@@ -192,7 +192,6 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
         final AtomicInteger serverReceived = new AtomicInteger(0);
-        final AtomicBoolean serverClosed = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
@@ -228,9 +227,7 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                                 if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
                                                                     try {
                                                                         sinkChannel.shutdownWrites();
-                                                                        if (serverClosed.get()) {
-                                                                            connection.close();
-                                                                        }
+                                                                        connection.close();
                                                                     } catch (Throwable t) {
                                                                         t.printStackTrace();
                                                                         throw new RuntimeException(t);
@@ -285,7 +282,6 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                             if (c == -1) {
                                 sourceChannel.shutdownReads();
                                 connection.close();
-                                serverClosed.set(true);
                             }
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -305,7 +301,6 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientReceived = new AtomicInteger(0);
         final AtomicInteger serverSent = new AtomicInteger(0);
-        final AtomicBoolean clientClosed = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
@@ -332,7 +327,6 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                             if (c == -1) {
                                 sourceChannel.shutdownReads();
                                 connection.close();
-                                clientClosed.set(true);
                             }
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -371,9 +365,7 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                                 if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
                                                                     try {
                                                                         sinkChannel.shutdownWrites();
-                                                                        if (clientClosed.get()) {
-                                                                            connection.close();
-                                                                        }
+                                                                        connection.close();
                                                                     } catch (Throwable t) {
                                                                         t.printStackTrace();
                                                                         throw new RuntimeException(t);
