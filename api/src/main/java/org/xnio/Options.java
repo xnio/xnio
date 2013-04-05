@@ -512,7 +512,13 @@ public final class Options {
      */
     public static final Option<Integer> CONNECTION_LOW_WATER = Option.simple(Options.class, "CONNECTION_LOW_WATER", Integer.class);
 
+    /**
+     * The compression level to apply for compressing streams and channels.
+     */
     public static final Option<Integer> COMPRESSION_LEVEL = Option.simple(Options.class, "COMPRESSION_LEVEL", Integer.class);
 
+    /**
+     * The compression type to apply for compressing streams and channels.
+     */
     public static final Option<CompressionType> COMPRESSION_TYPE = Option.simple(Options.class, "COMPRESSION_TYPE", CompressionType.class);
 }
