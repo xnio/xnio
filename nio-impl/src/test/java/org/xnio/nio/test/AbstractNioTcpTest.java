@@ -65,6 +65,10 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
 
     protected static final int SERVER_PORT = 12345;
 
+    private OptionMap serverOptionMap = OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE); // any random map
+
+    private OptionMap clientOptionMap = OptionMap.EMPTY;
+
     private int threads = 1;
 
     protected abstract AcceptingChannel<? extends T> createServer(XnioWorker worker, InetSocketAddress address, ChannelListener<AcceptingChannel<T>> openListener, OptionMap optionMap) throws IOException;
@@ -88,10 +92,10 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                     ChannelListeners.<T>openListenerAdapter(new CatchingChannelListener<T>(
                             serverHandler,
                             problems
-                    )), OptionMap.create(Options.REUSE_ADDRESSES, Boolean.TRUE));
+                    )), serverOptionMap);
             server.resumeAccepts();
             try {
-                final IoFuture<? extends T> ioFuture = connect(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingChannelListener<T>(clientHandler, problems), null, OptionMap.EMPTY);
+                final IoFuture<? extends T> ioFuture = connect(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingChannelListener<T>(clientHandler, problems), null, clientOptionMap);
                 final T channel = ioFuture.get();
                 try {
                     body.run();
@@ -122,6 +126,24 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
      */
     protected void setNumberOfThreads(int threads) {
         this.threads = threads;
+    }
+
+    /**
+     * Set the option map used to create the server.
+     * 
+     * @param serverOptionMap the option map that must be used to create server
+     */
+    protected void setServerOptionMap(OptionMap serverOptionMap) {
+        this.serverOptionMap = serverOptionMap;
+    }
+
+    /**
+     * Set the option map used to connect to the server
+     * 
+     * @param clientOptionMap the option map that must be used to connect to the server
+     */
+    protected void setClientOptionMap(OptionMap clientOptionMap) {
+        this.clientOptionMap = clientOptionMap;
     }
 
     @Before

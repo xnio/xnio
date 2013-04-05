@@ -744,15 +744,19 @@ final class JsseSslConduitEngine {
         }
         final ByteBuffer buffer = sendBuffer.getResource();
         if (!engine.isOutboundDone() || !engine.isInboundDone()) {
-            SSLEngineResult result;
-            do {
-                if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
+            try {
+                SSLEngineResult result;
+                do {
+                    if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
+                        return false;
+                    }
+                } while (handleHandshake(result, true));
+                handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+                if (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING || !engine.isOutboundDone()) {
                     return false;
                 }
-            } while (handleHandshake(result, true));
-            handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
-            if (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING || !engine.isOutboundDone()) {
-                return false;
+            } catch (IllegalStateException e) {
+                return true; // TODO review this catch
             }
         }
         return true;
@@ -826,6 +830,13 @@ final class JsseSslConduitEngine {
             return;
         }
         engine.closeOutbound();
+        synchronized (getWrapLock()) {
+            wrapCloseMessage();
+            doFlush();
+        }
+        if (!allAreClear(old, READ_SHUT_DOWN)) {
+            closeEngine(true, true);
+        }
     }
 
     /**
@@ -913,17 +924,6 @@ final class JsseSslConduitEngine {
         int old = setFlags(READ_SHUT_DOWN);
         if (allAreClear(old, READ_SHUT_DOWN)) {
             final boolean writeComplete = allAreSet(old, WRITE_COMPLETE);
-            sourceConduit.terminateReads();
-            if (!allAreSet(old, WRITE_SHUT_DOWN)) {
-                synchronized (getUnwrapLock()) {
-                    engine.closeInbound();
-                }
-                wrap(Buffers.EMPTY_BYTE_BUFFER, true);
-                synchronized (getWrapLock()) {
-                    wrapCloseMessage();
-                    doFlush();
-                }
-            }
             if (writeComplete) {
                 closeEngine(true, true);
             }

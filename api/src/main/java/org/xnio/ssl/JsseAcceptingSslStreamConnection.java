@@ -38,7 +38,7 @@ import org.xnio.channels.SslConnection;
 final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel<SslConnection, StreamConnection> {
 
     JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
-        super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, false);
+        super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, startTls);
     }
 
     @Override

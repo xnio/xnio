@@ -47,6 +47,9 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
 
     void enableTls() {
         tls = true;
+        if (isReadResumed()) {
+            wakeupReads();
+        }
     }
 
     @Override
@@ -112,7 +115,8 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     @Override
     public void terminateReads() throws IOException {
         if (tls) {
-            sslEngine.closeInbound();
+            // do not close inbound, this will have the effect of closing outbound too sslEngine.closeInbound();
+            super.suspendReads();
             return;
         }
         super.terminateReads();

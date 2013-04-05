@@ -467,8 +467,8 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         assertTrue(sslChannel.flush());
         assertTrue(conduitMock.isWriteShutdown());
 
-        // channel is already closed
-        assertFalse(conduitMock.isOpen());
+        // channel not yet closed
+        assertTrue(conduitMock.isOpen());
         sslChannel.close();
         assertFalse(conduitMock.isOpen());
 

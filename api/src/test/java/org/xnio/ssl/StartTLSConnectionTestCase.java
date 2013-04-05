@@ -472,10 +472,10 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         assertTrue(conduitMock.isWriteShutdown());
 
         // channel is already closed
-        assertFalse(conduitMock.isOpen());
-        assertTrue(sourceConduit.isReadShutdown());
+        assertTrue(conduitMock.isOpen());
+        assertFalse(sourceConduit.isReadShutdown());
         assertTrue(sinkConduit.isWriteShutdown());
-        assertTrue(conduitMock.isReadShutdown());
+        assertFalse(conduitMock.isReadShutdown());
         assertTrue(conduitMock.isWriteShutdown());
         connection.close();
         assertFalse(conduitMock.isOpen());
