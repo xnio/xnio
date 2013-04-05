@@ -125,12 +125,22 @@ public class StreamConnectionMock extends StreamConnection implements Mock {
 
     @Override
     protected void notifyWriteClosed() {
-        throw new UnsupportedOperationException();
+        // just for test verification purposes
+        try {
+            this.getSourceChannel().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected void notifyReadClosed() {
-        throw new UnsupportedOperationException();
+        // just for test verification purposes
+        try {
+            this.getSinkChannel().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

@@ -47,6 +47,9 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
 
     void enableTls() {
         tls = true;
+        if (isReadResumed()) {
+            wakeupReads();
+        }
     }
 
     @Override
@@ -54,7 +57,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (!tls) {
             return super.read(dst);
         }
-        if (!dst.hasRemaining() && sslEngine.isInboundClosed()) {
+        if ((!dst.hasRemaining() && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
             return -1;
         }
         final int readResult;
@@ -79,7 +82,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (!tls) {
             return super.read(dsts, offs, len);
         }
-        if (!Buffers.hasRemaining(dsts, offs, len) && sslEngine.isInboundClosed()) {
+        if ((!Buffers.hasRemaining(dsts, offs, len) && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
             return -1;
         }
         final int readResult;
@@ -112,7 +115,8 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     @Override
     public void terminateReads() throws IOException {
         if (tls) {
-            sslEngine.closeInbound();
+            // do not close inbound, this will have the effect of closing outbound too sslEngine.closeInbound();
+            super.suspendReads();
             return;
         }
         super.terminateReads();

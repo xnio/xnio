@@ -224,7 +224,7 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
+                                                                if (serverReceived.get() == clientSent.get()) {
                                                                     try {
                                                                         sinkChannel.shutdownWrites();
                                                                         connection.close();
@@ -362,7 +362,7 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
+                                                                if (clientReceived.get() == serverSent.get()) {
                                                                     try {
                                                                         sinkChannel.shutdownWrites();
                                                                         connection.close();
@@ -433,11 +433,14 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                 sourceChannel.getReadSetter().set(new ChannelListener<ConduitStreamSourceChannel>() {
                     public void handleEvent(final ConduitStreamSourceChannel sourceChannel) {
                         try {
+                            //log.info("client handle readable");
                             int c;
                             while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
                                 clientReceived.addAndGet(c);
+                                //log.info("client received: " + clientReceived.get());
                             }
                             if (c == -1) {
+                                //log.info("client shutdown reads");
                                 sourceChannel.shutdownReads();
                             }
                         } catch (Throwable t) {
@@ -449,12 +452,14 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                 final ConduitStreamSinkChannel sinkChannel = connection.getSinkChannel();
                 sinkChannel.setWriteListener(new ChannelListener<ConduitStreamSinkChannel>() {
                     public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                        //log.info("client handle writable");
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
                             buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
                             try {
                                 while ((c = sinkChannel.write(buffer)) > 0) {
+                                    //log.info("client sent: " + (clientSent.get() + c));
                                     if (clientSent.addAndGet(c) > 1000) {
                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
@@ -463,8 +468,9 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000) {
                                                                     try {
+                                                                        //log.info("client closing connection");
                                                                         connection.close();
                                                                     } catch (Throwable t) {
                                                                         t.printStackTrace();
@@ -513,12 +519,15 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                 final ConduitStreamSourceChannel sourceChannel = connection.getSourceChannel();
                 sourceChannel.setReadListener(new ChannelListener<ConduitStreamSourceChannel>() {
                     public void handleEvent(final ConduitStreamSourceChannel sourceChannel) {
+                        //log.info("server handle readable");
                         try {
                             int c;
                             while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
                                 serverReceived.addAndGet(c);
+                                //log.info("server received: " + serverReceived.get());
                             }
                             if (c == -1) {
+                                //log.info("server shutingdown reads");
                                 sourceChannel.shutdownReads();
                             }
                         } catch (Throwable t) {
@@ -530,12 +539,14 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                 final ConduitStreamSinkChannel sinkChannel = connection.getSinkChannel();
                 sinkChannel.setWriteListener(new ChannelListener<ConduitStreamSinkChannel>() {
                     public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
+                        //log.info("server handle writable");
                         try {
                             final ByteBuffer buffer = ByteBuffer.allocate(100);
                             buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
                             try {
                                 while ((c = sinkChannel.write(buffer)) > 0) {
+                                    //log.info("server sent: " + (serverSent.get() + c));
                                     if (serverSent.addAndGet(c) > 1000) {
                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
@@ -544,8 +555,9 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(clientReceived.get() < serverSent.get() || serverReceived.get() < clientSent.get() || serverSent.get() == 0 || clientSent.get() == 0)) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
                                                                     try {
+                                                                        //log.info("server closing connection");
                                                                         connection.close();
                                                                     } catch (Throwable t) {
                                                                         t.printStackTrace();
@@ -588,7 +600,4 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
         assertEquals(serverSent.get(), clientReceived.get());
         assertEquals(clientSent.get(), serverReceived.get());
     }
-
-    @Override // FIXME
-    public void serverNastyClose() {}
 }

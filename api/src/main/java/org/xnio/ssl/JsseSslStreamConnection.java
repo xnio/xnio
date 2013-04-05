@@ -98,8 +98,10 @@ final class JsseSslStreamConnection extends SslConnection {
     /** {@inheritDoc} */
     @Override
     protected void closeAction() throws IOException {
-        getSourceChannel().close();
-        getSinkChannel().close();
+        if (tls) {
+            sslConduitEngine.closeOutbound();
+            sslConduitEngine.closeInbound();
+        }
         connection.close();
     }
 

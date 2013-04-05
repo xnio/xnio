@@ -46,6 +46,9 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
 
     public void enableTls() {
         tls = true;
+        if (isWriteResumed()) {
+            wakeupWrites();
+        }
     }
 
     @Override
