@@ -124,6 +124,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
         final AtomicInteger clientSent = new AtomicInteger(0);
         final AtomicInteger serverReceived = new AtomicInteger(0);
         final AtomicBoolean clientHandshakeStarted = new AtomicBoolean(false);
+        final AtomicBoolean serverHandshakeStarted = new AtomicBoolean(false);
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
@@ -159,7 +160,6 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                             int c;
                             try {
                                 while (continueWriting(channel) && (c = channel.write(buffer)) > 0) {
-                                    //((ConnectedSslStreamChannel) channel).startHandshake();
                                     if (clientSent.addAndGet(c) > 1000) {
                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                             public void handleEvent(final ConnectedStreamChannel channel) {
@@ -168,7 +168,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
+                                                                if (serverReceived.get() == clientSent.get()) {
                                                                     try {
                                                                         channel.shutdownWrites();
                                                                         channel.close();
@@ -221,8 +221,9 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                         try {
                             int c;
                             while ((c = channel.read(ByteBuffer.allocate(100))) > 0) {
-                                if (serverReceived.addAndGet(c) > 100) {
+                                if (serverReceived.addAndGet(c) > 100 && !serverHandshakeStarted.get()) {
                                     ((ConnectedSslStreamChannel) channel).startHandshake();
+                                    serverHandshakeStarted.set(true);
                                 }
                             }
                             if (c == -1) {
@@ -320,7 +321,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
+                                                                if (clientReceived.get() == serverSent.get()) {
                                                                     try {
                                                                         channel.shutdownWrites();
                                                                         channel.close();
@@ -442,7 +443,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000 && clientSent.get() > 1000) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000) {
                                                                     try {
                                                                         //log.info("client closing channel");
                                                                         channel.close();
@@ -545,7 +546,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                                         final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
                                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000 && clientSent.get() > 1000) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
                                                                     try {
                                                                         //log.info("server closing channel");
                                                                         channel.close();

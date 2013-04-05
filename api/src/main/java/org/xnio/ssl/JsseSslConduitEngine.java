@@ -223,6 +223,10 @@ final class JsseSslConduitEngine {
         if (length < 1) {
             return 0L;
         }
+        if (allAreSet(state, WRITE_COMPLETE)) { // atempted write after shutdown, this is 
+            // a workaround for a bug found in SSLEngine
+            throw new ClosedChannelException();
+        }
         final ByteBuffer buffer = sendBuffer.getResource();
         long bytesConsumed = 0;
         boolean run;
@@ -277,6 +281,10 @@ final class JsseSslConduitEngine {
     private int wrap(final ByteBuffer src, boolean isCloseExpected) throws IOException {
         assert ! Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
+        if (allAreSet(state, WRITE_COMPLETE)) { // atempted write after shutdown, this is 
+            // a workaround for a bug found in SSLEngine
+            throw new ClosedChannelException();
+        }
         clearFlags(FIRST_HANDSHAKE);
         final ByteBuffer buffer = sendBuffer.getResource();
         int bytesConsumed = 0;
@@ -456,6 +464,18 @@ final class JsseSslConduitEngine {
                     }
                     final ByteBuffer buffer = receiveBuffer.getResource();
                     final ByteBuffer unwrappedBuffer = readBuffer.getResource();
+                    // FIXME this if block is a workaround for a bug in SSLEngine
+                   if (result.getHandshakeStatus() == HandshakeStatus.NEED_UNWRAP && engine.isOutboundDone()) {
+                        synchronized (getUnwrapLock()) {
+                            buffer.compact();
+                            sourceConduit.read(buffer);
+                            buffer.flip();
+                            if (buffer.hasRemaining()) {
+                                sourceConduit.wakeupReads();
+                            }
+                            return false;
+                        }
+                    }
                     synchronized (getUnwrapLock()) {
                         // attempt to unwrap
                         int unwrapResult = handleUnwrapResult(result = engineUnwrap(buffer, unwrappedBuffer));
@@ -473,10 +493,11 @@ final class JsseSslConduitEngine {
                             needUnwrap();
                             return false;
                         } else if (unwrapResult == -1 && result.getHandshakeStatus() == HandshakeStatus.NEED_UNWRAP) {
-                            // connection has been closed by peer prior to handshake finished
-                            closeInbound();
-                            closeOutbound();
-                            throw new ClosedChannelException();
+                            if (!allAreSet(state, READ_SHUT_DOWN)) {
+                                // connection has been closed by peer prior to handshake finished
+                                throw new ClosedChannelException();
+                            }
+                            return false;
                         }
                     }
                     continue;
@@ -744,19 +765,16 @@ final class JsseSslConduitEngine {
         }
         final ByteBuffer buffer = sendBuffer.getResource();
         if (!engine.isOutboundDone() || !engine.isInboundDone()) {
-            try {
-                SSLEngineResult result;
-                do {
-                    if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
-                        return false;
-                    }
-                } while (handleHandshake(result, true));
-                handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
-                if (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING || !engine.isOutboundDone()) {
+            SSLEngineResult result;
+            do {
+                if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
                     return false;
                 }
-            } catch (IllegalStateException e) {
-                return true; // TODO review this catch
+            } while (handleHandshake(result, true) && (result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || !engine.isOutboundDone()));
+            handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+            if (!engine.isOutboundDone() || (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING &&
+                    result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP)) {
+                return false;
             }
         }
         return true;
@@ -826,13 +844,12 @@ final class JsseSslConduitEngine {
      */
     public void closeOutbound() throws IOException {
         int old = setFlags(WRITE_SHUT_DOWN);
-        if (!allAreClear(old, WRITE_SHUT_DOWN)) {
-            return;
-        }
-        engine.closeOutbound();
-        synchronized (getWrapLock()) {
-            wrapCloseMessage();
-            doFlush();
+        if (allAreClear(old, WRITE_SHUT_DOWN)) {
+            engine.closeOutbound();
+            synchronized (getWrapLock()) {
+                wrapCloseMessage();
+                flush();
+            }
         }
         if (!allAreClear(old, READ_SHUT_DOWN)) {
             closeEngine(true, true);
@@ -923,10 +940,16 @@ final class JsseSslConduitEngine {
     public void closeInbound() throws IOException {
         int old = setFlags(READ_SHUT_DOWN);
         if (allAreClear(old, READ_SHUT_DOWN)) {
-            final boolean writeComplete = allAreSet(old, WRITE_COMPLETE);
-            if (writeComplete) {
-                closeEngine(true, true);
+            sourceConduit.terminateReads();
+        }
+        if (allAreSet(old, WRITE_SHUT_DOWN) && !allAreSet(old, WRITE_COMPLETE)) {
+            synchronized (getWrapLock()) {
+                wrapCloseMessage();
+                flush();
             }
+        }
+        if (allAreSet(old, WRITE_COMPLETE)) {
+            closeEngine(true, true);
         }
     }
 
@@ -937,6 +960,14 @@ final class JsseSslConduitEngine {
      */
     public boolean isInboundClosed() {
         return allAreSet(state, READ_SHUT_DOWN);
+    }
+
+    /**
+     * Indicates if engine is closed.
+     * 
+     */
+    public boolean isClosed() {
+        return allAreSet(state, ENGINE_CLOSED);
     }
 
     /**

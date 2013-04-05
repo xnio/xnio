@@ -169,7 +169,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (!(serverReceived.get() < clientSent.get() || clientSent.get() == 0)) {
+                                                                if (serverReceived.get() == clientSent.get()) {
                                                                     try {
                                                                         channel.shutdownWrites();
                                                                         connection.close();
@@ -324,7 +324,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                             final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                                 public void handleEvent(final ConduitStreamSinkChannel channel) {
                                                                     // really lame, but due to the way SSL shuts down...
-                                                                    if (!(clientReceived.get() < serverSent.get() || serverSent.get() == 0)) {
+                                                                    if (clientReceived.get() == serverSent.get()) {
                                                                         try {
                                                                             channel.shutdownWrites();
                                                                             connection.close();
@@ -448,7 +448,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000 && clientSent.get() > 1000) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000) {
                                                                     try {
                                                                         //log.info("client closing channel");
                                                                         connection.close();
@@ -551,7 +551,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                         final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
                                                             public void handleEvent(final ConduitStreamSinkChannel channel) {
                                                                 // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000 && clientSent.get() > 1000) {
+                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
                                                                     try {
                                                                         //log.info("server closing channel");
                                                                         connection.close();
