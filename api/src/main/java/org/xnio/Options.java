@@ -521,4 +521,15 @@ public final class Options {
      * The compression type to apply for compressing streams and channels.
      */
     public static final Option<CompressionType> COMPRESSION_TYPE = Option.simple(Options.class, "COMPRESSION_TYPE", CompressionType.class);
+
+    /**
+     * The number of balancing tokens, if connection-balancing is enabled.  Must be less than the number of I/O threads,
+     * or 0 to disable balancing and just accept opportunistically.
+     */
+    public static final Option<Integer> BALANCING_TOKENS = Option.simple(Options.class, "BALANCING_TOKENS", Integer.class);
+
+    /**
+     * The number of connections to create per connection-balancing token, if connection-balancing is enabled.
+     */
+    public static final Option<Integer> BALANCING_CONNECTIONS = Option.simple(Options.class, "BALANCING_CONNECTIONS", Integer.class);
 }

@@ -285,6 +285,16 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
     }
 
+    WorkerThread getNextThread() {
+        final WorkerThread[] all = getWorker().getAll();
+        final int number = getNumber();
+        if (number == all.length - 1) {
+            return all[0];
+        } else {
+            return all[number + 1];
+        }
+    }
+
     static final class ConnectHandle extends NioHandle {
 
         private final FutureResult<StreamConnection> futureResult;

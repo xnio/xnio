@@ -81,6 +81,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     private volatile int readTimeout;
     @SuppressWarnings("unused")
     private volatile int writeTimeout;
+    private volatile int tokenConnectionCount;
     volatile boolean resumed;
 
     private static final long CONN_LOW_MASK     = 0x000000007FFFFFFFL;
@@ -108,6 +109,17 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         final int threadCount = threads.length;
         if (threadCount == 0) {
             throw new IllegalArgumentException("No threads configured");
+        }
+        final int tokens = optionMap.get(Options.BALANCING_TOKENS, -1);
+        final int connections = optionMap.get(Options.BALANCING_CONNECTIONS, 16);
+        if (tokens != -1) {
+            if (tokens < 1 || tokens >= threadCount) {
+                throw new IllegalArgumentException("Balancing token count must be greater than zero and less than thread count");
+            }
+            if (connections < 1) {
+                throw new IllegalArgumentException("Balancing connection count must be greater than zero");
+            }
+            tokenConnectionCount = connections;
         }
         socket = channel.socket();
         final int sendBufferSize = optionMap.get(Options.SEND_BUFFER, DEFAULT_BUFFER_SIZE);
@@ -161,6 +173,11 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             key.attach(handles[i]);
         }
         this.handles = handles;
+        if (tokens > 0) {
+            for (int i = 0; i < threadCount; i ++) {
+                handles[i].setTokenCount(i < tokens ? connections : 0);
+            }
+        }
     }
 
     private static IllegalArgumentException badLowWater(final int highWater) {
@@ -415,5 +432,13 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     @Deprecated
     public XnioExecutor getAcceptThread() {
         return getIoThread();
+    }
+
+    NioTcpServerHandle getHandle(final int number) {
+        return handles[number];
+    }
+
+    int getTokenConnectionCount() {
+        return tokenConnectionCount;
     }
 }

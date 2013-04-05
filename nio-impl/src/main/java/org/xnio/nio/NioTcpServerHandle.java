@@ -27,13 +27,14 @@ import static org.xnio.IoUtils.safeClose;
 /**
 * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
 */
-class NioTcpServerHandle extends NioHandle {
+final class NioTcpServerHandle extends NioHandle {
 
     private final Runnable freeTask;
     private final NioTcpServer server;
     private int count;
     private int low;
     private int high;
+    private int tokenCount = -1;
     private boolean stopped;
 
     NioTcpServerHandle(final NioTcpServer server, final SelectionKey key, final WorkerThread thread, final int low, final int high) {
@@ -100,7 +101,8 @@ class NioTcpServerHandle extends NioHandle {
     }
 
     void freeConnection() {
-        if (count-- <= low && stopped) {
+        assert currentThread() == getWorkerThread();
+        if (count-- <= low && tokenCount != 0 && stopped) {
             stopped = false;
             if (server.resumed) {
                 super.resume(SelectionKey.OP_ACCEPT);
@@ -108,11 +110,37 @@ class NioTcpServerHandle extends NioHandle {
         }
     }
 
+    void setTokenCount(final int newCount) {
+        WorkerThread workerThread = getWorkerThread();
+        if (workerThread == currentThread()) {
+            if (tokenCount == 0) {
+                tokenCount = newCount;
+                return;
+            }
+            workerThread = workerThread.getNextThread();
+        }
+        setThreadNewCount(workerThread, newCount);
+    }
+
+    private void setThreadNewCount(final WorkerThread workerThread, final int newCount) {
+        assert currentThread() != getWorkerThread();
+        final int number = workerThread.getNumber();
+        workerThread.execute(new Runnable() {
+            public void run() {
+                server.getHandle(number).setTokenCount(newCount);
+            }
+        });
+    }
+
     boolean getConnection() {
+        assert currentThread() == getWorkerThread();
         if (stopped) {
             return false;
         }
-        if (++count >= high) {
+        if (tokenCount != -1 && --tokenCount == 0) {
+            setThreadNewCount(getWorkerThread().getNextThread(), server.getTokenConnectionCount());
+        }
+        if (++count >= high || tokenCount == 0) {
             stopped = true;
             super.suspend(SelectionKey.OP_ACCEPT);
         }
