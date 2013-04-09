@@ -19,9 +19,13 @@ package org.xnio.ssl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 
+import org.xnio.channels.StreamSourceChannel;
 import org.xnio.conduits.AbstractStreamSinkConduit;
+import org.xnio.conduits.ConduitWritableByteChannel;
+import org.xnio.conduits.Conduits;
 import org.xnio.conduits.StreamSinkConduit;
 
 /**
@@ -49,6 +53,16 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
         if (isWriteResumed()) {
             wakeupWrites();
         }
+    }
+
+    @Override
+    public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
+        return src.transferTo(position, count, new ConduitWritableByteChannel(this));
+    }
+
+    @Override
+    public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
+        return Conduits.transfer(source, count, throughBuffer, this);
     }
 
     @Override

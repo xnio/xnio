@@ -19,10 +19,14 @@ package org.xnio.ssl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 
 import org.xnio.Buffers;
+import org.xnio.channels.StreamSinkChannel;
 import org.xnio.conduits.AbstractStreamSourceConduit;
+import org.xnio.conduits.ConduitReadableByteChannel;
+import org.xnio.conduits.Conduits;
 import org.xnio.conduits.StreamSourceConduit;
 
 /**
@@ -50,6 +54,16 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (isReadResumed()) {
             wakeupReads();
         }
+    }
+
+    @Override
+    public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
+        return target.transferFrom(new ConduitReadableByteChannel(this), position, count);
+    }
+
+    @Override
+    public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
+        return Conduits.transfer(this, count, throughBuffer, target);
     }
 
     @Override
