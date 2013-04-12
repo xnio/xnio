@@ -314,6 +314,18 @@ public final class Options {
     public static final Option<Integer> SSL_PEER_PORT = Option.simple(Options.class, "SSL_PEER_PORT", Integer.class);
 
     /**
+     * Hint to the SSL engine that the key manager implementation(s) is/are non-blocking, so they can be executed
+     * in the I/O thread, possibly improving performance by decreasing latency.
+     */
+    public static final Option<Boolean> SSL_NON_BLOCKING_KEY_MANAGER = Option.simple(Options.class, "SSL_NON_BLOCKING_KEY_MANAGER", Boolean.class);
+
+    /**
+     * Hint to the SSL engine that the trust manager implementation(s) is/are non-blocking, so they can be executed
+     * in the I/O thread, possibly improving performance by decreasing latency.
+     */
+    public static final Option<Boolean> SSL_NON_BLOCKING_TRUST_MANAGER = Option.simple(Options.class, "SSL_NON_BLOCKING_TRUST_MANAGER", Boolean.class);
+
+    /**
      * Specify whether direct buffers should be used for socket communications.
      *
      * @since 3.0
