@@ -75,6 +75,7 @@ final class NioXnio extends Xnio {
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
+                            provider = null;
                         }
                     }
                     if (provider == null) {
@@ -84,6 +85,7 @@ final class NioXnio extends Xnio {
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
+                            provider = null;
                         }
                     }
                     if (provider == null) {
@@ -93,6 +95,7 @@ final class NioXnio extends Xnio {
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
+                            provider = null;
                         }
                     }
                     if (provider == null) {
@@ -102,6 +105,7 @@ final class NioXnio extends Xnio {
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
+                            provider = null;
                         }
                     }
                     if (provider == null) {
@@ -111,6 +115,7 @@ final class NioXnio extends Xnio {
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
+                            provider = null;
                         }
                     }
                     if (provider == null) {
