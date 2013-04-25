@@ -123,13 +123,26 @@ final class NioTcpServerHandle extends NioHandle {
     }
 
     private void setThreadNewCount(final WorkerThread workerThread, final int newCount) {
-        assert currentThread() != getWorkerThread();
         final int number = workerThread.getNumber();
         workerThread.execute(new Runnable() {
             public void run() {
                 server.getHandle(number).setTokenCount(newCount);
             }
         });
+    }
+
+    void initializeTokenCount(final int newCount) {
+        WorkerThread workerThread = getWorkerThread();
+        final int number = workerThread.getNumber();
+        if (workerThread == currentThread()) {
+            tokenCount = newCount;
+        } else {
+            workerThread.execute(new Runnable() {
+                public void run() {
+                    server.getHandle(number).initializeTokenCount(newCount);
+                }
+            });
+        }
     }
 
     boolean getConnection() {

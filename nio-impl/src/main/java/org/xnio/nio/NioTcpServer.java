@@ -175,7 +175,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         this.handles = handles;
         if (tokens > 0) {
             for (int i = 0; i < threadCount; i ++) {
-                handles[i].setTokenCount(i < tokens ? connections : 0);
+                handles[i].initializeTokenCount(i < tokens ? connections : 0);
             }
         }
     }
