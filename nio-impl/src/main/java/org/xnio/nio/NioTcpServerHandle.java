@@ -136,6 +136,10 @@ final class NioTcpServerHandle extends NioHandle {
         final int number = workerThread.getNumber();
         if (workerThread == currentThread()) {
             tokenCount = newCount;
+            if (newCount == 0) {
+                stopped = true;
+                super.suspend(SelectionKey.OP_ACCEPT);
+            }
         } else {
             workerThread.execute(new Runnable() {
                 public void run() {
