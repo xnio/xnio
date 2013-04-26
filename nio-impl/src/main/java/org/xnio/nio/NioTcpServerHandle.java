@@ -115,6 +115,12 @@ final class NioTcpServerHandle extends NioHandle {
         if (workerThread == currentThread()) {
             if (tokenCount == 0) {
                 tokenCount = newCount;
+                if (count <= low && stopped) {
+                    stopped = false;
+                    if (server.resumed) {
+                        super.resume(SelectionKey.OP_ACCEPT);
+                    }
+                }
                 return;
             }
             workerThread = workerThread.getNextThread();
