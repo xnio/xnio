@@ -18,11 +18,12 @@
 
 package org.xnio.conduits;
 
-import java.nio.channels.Channel;
+import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.channels.ReadListenerSettable;
+import org.xnio.channels.SuspendableReadChannel;
 
 /**
  * A conduit read-ready handler.
@@ -41,7 +42,7 @@ public interface ReadReadyHandler extends TerminateHandler {
      *
      * @param <C> the channel type
      */
-    class ChannelListenerHandler<C extends Channel & ReadListenerSettable<C> & CloseListenerSettable<C>> implements ReadReadyHandler {
+    class ChannelListenerHandler<C extends SuspendableReadChannel & ReadListenerSettable<C> & CloseListenerSettable<C>> implements ReadReadyHandler {
         private final C channel;
 
         /**
@@ -58,7 +59,12 @@ public interface ReadReadyHandler extends TerminateHandler {
         }
 
         public void readReady() {
-            ChannelListeners.invokeChannelListener(channel, channel.getReadListener());
+            final ChannelListener<? super C> readListener = channel.getReadListener();
+            if (readListener == null) {
+                channel.suspendReads();
+            } else {
+                ChannelListeners.invokeChannelListener(channel, readListener);
+            }
         }
 
         public void terminated() {

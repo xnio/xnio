@@ -18,10 +18,11 @@
 
 package org.xnio.conduits;
 
-import java.nio.channels.Channel;
+import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.IoUtils;
 import org.xnio.channels.CloseListenerSettable;
+import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WriteListenerSettable;
 
 /**
@@ -40,7 +41,7 @@ public interface WriteReadyHandler extends TerminateHandler {
      *
      * @param <C> the channel type
      */
-    class ChannelListenerHandler<C extends Channel & WriteListenerSettable<C> & CloseListenerSettable<C>> implements WriteReadyHandler {
+    class ChannelListenerHandler<C extends SuspendableWriteChannel & WriteListenerSettable<C> & CloseListenerSettable<C>> implements WriteReadyHandler {
         private final C channel;
 
         /**
@@ -57,7 +58,12 @@ public interface WriteReadyHandler extends TerminateHandler {
         }
 
         public void writeReady() {
-            ChannelListeners.invokeChannelListener(channel, channel.getWriteListener());
+            final ChannelListener<? super C> writeListener = channel.getWriteListener();
+            if (writeListener == null) {
+                channel.suspendWrites();
+            } else {
+                ChannelListeners.invokeChannelListener(channel, writeListener);
+            }
         }
 
         public void terminated() {
