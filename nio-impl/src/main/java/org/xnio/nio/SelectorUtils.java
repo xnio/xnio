@@ -46,11 +46,12 @@ final class SelectorUtils {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();
         }
-        selectionKey.interestOps(0);
+        selectionKey.cancel();
+        selector.selectNow();
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op, long time, TimeUnit unit) throws IOException {
-        if (time == 0) {
+        if (time <= 0) {
             await(nioXnio, channel, op);
             return;
         }
@@ -68,6 +69,7 @@ final class SelectorUtils {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedIOException();
         }
-        selectionKey.interestOps(0);
+        selectionKey.cancel();
+        selector.selectNow();
     }
 }
