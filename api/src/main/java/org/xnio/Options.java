@@ -429,6 +429,18 @@ public final class Options {
     public static final Option<FileAccess> FILE_ACCESS = Option.simple(Options.class, "FILE_ACCESS", FileAccess.class);
 
     /**
+     * A flag which indicates that opened files should be appended to.  Some platforms do not support both append and
+     * {@link FileAccess#READ_WRITE} at the same time.
+     */
+    public static final Option<Boolean> FILE_APPEND = Option.simple(Options.class, "FILE_APPEND", Boolean.class);
+
+    /**
+     * A flag which indicates that a file should be created if it does not exist ({@code true} by default for writing files,
+     * {@code false} by default for reading files).
+     */
+    public static final Option<Boolean> FILE_CREATE = Option.simple(Options.class, "FILE_CREATE", Boolean.class);
+
+    /**
      * The stack size (in bytes) to attempt to use for worker threads.
      */
     public static final Option<Long> STACK_SIZE = Option.simple(Options.class, "STACK_SIZE", Long.class);

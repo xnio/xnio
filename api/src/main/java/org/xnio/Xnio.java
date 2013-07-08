@@ -19,16 +19,21 @@
 package org.xnio;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.OpenOption;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.ServiceLoader;
 
 import org.jboss.logging.Logger;
@@ -246,10 +251,32 @@ public abstract class Xnio {
 
     private static final class Nio1Opener implements Opener {
         public FileChannel openFile(final File file, final OptionMap options) throws IOException {
-            switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
-                case READ_ONLY: return new XnioFileChannel(new RandomAccessFile(file, "r").getChannel());
-                case READ_WRITE: return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
-                default: throw new IllegalStateException();
+            final FileAccess fileAccess = options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE);
+            final boolean append = options.get(Options.FILE_APPEND, false);
+            final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
+            if (fileAccess == FileAccess.READ_ONLY) {
+                if (append) {
+                    throw new IOException("Read with append is not supported");
+                }
+                if (create) {
+                    throw new IOException("Read with create requires Java 7 or higher");
+                }
+                return new XnioFileChannel(new FileInputStream(file).getChannel());
+            } else if (fileAccess == FileAccess.READ_WRITE) {
+                if (append) {
+                    throw new IOException("Read/write with append requires Java 7 or higher");
+                }
+                if (! create) {
+                    throw new IOException("Read/write without create requires Java 7 or higher");
+                }
+                return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
+            } else if (fileAccess == FileAccess.WRITE_ONLY) {
+                if (! create) {
+                    throw new IOException("Write without create requires Java 7 or higher");
+                }
+                return new XnioFileChannel(new FileOutputStream(file, append).getChannel());
+            } else {
+                throw new IllegalStateException();
             }
         }
     }
@@ -257,11 +284,23 @@ public abstract class Xnio {
     private static final class Nio2Opener implements Opener {
         public FileChannel openFile(final File file, final OptionMap options) throws IOException {
             try {
-                switch (options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE)) {
-                    case READ_ONLY: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ));
-                    case READ_WRITE: return new XnioFileChannel(FileChannel.open(file.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE));
-                    default: throw new IllegalStateException();
+                final FileAccess fileAccess = options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE);
+                final boolean append = options.get(Options.FILE_APPEND, false);
+                final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
+                final EnumSet<StandardOpenOption> openOptions = EnumSet.noneOf(StandardOpenOption.class);
+                if (create) {
+                    openOptions.add(StandardOpenOption.CREATE);
                 }
+                if (fileAccess.isRead()) {
+                    openOptions.add(StandardOpenOption.READ);
+                }
+                if (fileAccess.isWrite()) {
+                    openOptions.add(StandardOpenOption.WRITE);
+                }
+                if (append) {
+                    openOptions.add(StandardOpenOption.APPEND);
+                }
+                return new XnioFileChannel(FileChannel.open(file.toPath(), openOptions.toArray(new StandardOpenOption[openOptions.size()])));
             } catch (NoSuchFileException e) {
                 throw new FileNotFoundException(e.getMessage());
             }
