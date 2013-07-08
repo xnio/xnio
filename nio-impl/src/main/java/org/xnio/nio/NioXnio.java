@@ -119,7 +119,25 @@ final class NioXnio extends Xnio {
                         }
                     }
                     if (provider == null) {
-                        provider = defaultProvider;
+                        try {
+                            defaultProvider.openSelector().close();
+                            provider = defaultProvider;
+                        } catch (Throwable e) {
+                            // not available
+                        }
+                    }
+                    if (provider == null) {
+                        try {
+                            // Nothing else works, not even the default
+                            provider = Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
+                            // not available
+                            provider = null;
+                        }
+                    }
+                    if (provider == null) {
+                        throw new RuntimeException("No functional selector provider is available");
                     }
                     log.tracef("Starting up with selector provider %s", provider.getClass().getCanonicalName());
                     final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(provider.getClass().getName());
