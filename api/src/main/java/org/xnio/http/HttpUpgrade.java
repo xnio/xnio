@@ -175,7 +175,7 @@ public class HttpUpgrade {
 
             final StringBuilder builder = new StringBuilder();
             builder.append("GET ");
-            builder.append(uri.getPath());
+            builder.append(uri.getPath().isEmpty() ? "/" : uri.getPath());
             builder.append(" HTTP/1.1\r\n");
             final Set<String> seen = new HashSet<String>();
             for (Map.Entry<String, String> header : headers.entrySet()) {
