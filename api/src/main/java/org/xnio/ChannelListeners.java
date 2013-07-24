@@ -774,7 +774,7 @@ public final class ChannelListeners {
                             readFailed(e);
                             return;
                         }
-                        if (lres == 0) {
+                        if (lres == 0 && !buffer.hasRemaining()) {
                             this.count = count;
                             return;
                         }
@@ -799,6 +799,9 @@ public final class ChannelListeners {
                                 writeFailed(e);
                                 return;
                             }
+                            if (count != Long.MAX_VALUE) {
+                                count -= ires;
+                            }
                             if (ires == 0) {
                                 this.count = count;
                                 this.state = 1;
@@ -806,6 +809,11 @@ public final class ChannelListeners {
                                 sink.resumeWrites();
                                 return;
                             }
+                        }
+
+                        if(count == 0) {
+                            done();
+                            return;
                         }
                     }
                 }
@@ -819,6 +827,9 @@ public final class ChannelListeners {
                                 writeFailed(e);
                                 return;
                             }
+                            if (count != Long.MAX_VALUE) {
+                                count -= ires;
+                            }
                             if (ires == 0) {
                                 return;
                             }
@@ -829,7 +840,7 @@ public final class ChannelListeners {
                             readFailed(e);
                             return;
                         }
-                        if (lres == 0) {
+                        if (lres == 0 && !buffer.hasRemaining()) {
                             this.count = count;
                             this.state = 0;
                             sink.suspendWrites();
@@ -850,9 +861,15 @@ public final class ChannelListeners {
                         if (count != Long.MAX_VALUE) {
                             count -= lres;
                         }
+
+                        if(count == 0) {
+                            done();
+                            return;
+                        }
                     }
                 }
             }
+
         }
 
         private void writeFailed(final IOException e) {
@@ -941,12 +958,15 @@ public final class ChannelListeners {
         try {
             final ByteBuffer buffer = allocated.getResource();
             long transferred;
-            do {
+            for(;;) {
                 try {
                     transferred = source.transferTo(count, buffer, sink);
                 } catch (IOException e) {
                     invokeChannelExceptionHandler(source, readExceptionHandler, e);
                     return;
+                }
+                if(transferred == 0 && !buffer.hasRemaining()) {
+                    break;
                 }
                 if (transferred == -1) {
                     if (count == Long.MAX_VALUE) {
@@ -990,9 +1010,28 @@ public final class ChannelListeners {
                         sink.resumeWrites();
                         free = false;
                         return;
+                    } else if (count != Long.MAX_VALUE) {
+                        count -= transferred;
                     }
                 }
-            } while (transferred > 0L);
+                if(count == 0) {
+                    //we are done
+                    Channels.setReadListener(source, sourceListener);
+                    if (sourceListener == null) {
+                        source.suspendReads();
+                    } else {
+                        source.wakeupReads();
+                    }
+
+                    Channels.setWriteListener(sink, sinkListener);
+                    if (sinkListener == null) {
+                        sink.suspendWrites();
+                    } else {
+                        sink.wakeupWrites();
+                    }
+                    return;
+                }
+            }
             // read first listener
             final TransferListener<I, O> listener = new TransferListener<I, O>(count, allocated, source, sink, sourceListener, sinkListener, writeExceptionHandler, readExceptionHandler, 0);
             sink.suspendWrites();
