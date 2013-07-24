@@ -61,6 +61,10 @@ public interface StreamSourceChannel extends ReadableByteChannel, ScatteringByte
      * however, if this exception is thrown, the {@link java.io.InterruptedIOException#bytesTransferred} field is
      * guaranteed to be 0.
      *
+     * Note that the return value is the amount of data that was actually transferred to the {@link StreamSinkChannel}.
+     * The actual amount of data read could be larger than this, and can be calculated by adding the return value and
+     * the amount of data left in {@code throughBuffer}.
+     *
      * @param count the number of bytes to be transferred
      * @param throughBuffer the buffer to copy through.
      * @param target the destination to write to
