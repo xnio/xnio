@@ -187,13 +187,15 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
     @Test
     public void awaitReadableAndWritable() throws IOException, InterruptedException {
         initChannels();
-        final TestChannelListener<StreamChannel> readListener = new TestChannelListener<StreamChannel>();
-        final TestChannelListener<StreamChannel> writeListener = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> readListener1 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> writeListener1 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> readListener2 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> writeListener2 = new TestChannelListener<StreamChannel>();
 
-        channel1.getReadSetter().set(readListener);
-        channel1.getWriteSetter().set(writeListener);
-        channel2.getReadSetter().set(readListener);
-        channel2.getWriteSetter().set(writeListener);
+        channel1.getReadSetter().set(readListener1);
+        channel1.getWriteSetter().set(writeListener1);
+        channel2.getReadSetter().set(readListener2);
+        channel2.getWriteSetter().set(writeListener2);
 
         channel1.awaitWritable();
         channel1.awaitWritable(1, TimeUnit.HOURS);
@@ -247,5 +249,24 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
         assertNotNull(channel1.getIoThread());
         assertNotNull(channel2.getWriteThread());
         assertNotNull(channel2.getIoThread());
+    }
+
+    @Test
+    public void awaitWritable() throws IOException, InterruptedException {
+        initChannels();
+        final TestChannelListener<StreamChannel> readListener1 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> writeListener1 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> readListener2 = new TestChannelListener<StreamChannel>();
+        final TestChannelListener<StreamChannel> writeListener2 = new TestChannelListener<StreamChannel>();
+
+        channel1.getReadSetter().set(readListener1);
+        channel1.getWriteSetter().set(writeListener1);
+        channel2.getReadSetter().set(readListener2);
+        channel2.getWriteSetter().set(writeListener2);
+
+        channel1.shutdownWrites();
+        do {
+            channel1.awaitWritable();
+        } while (! channel1.flush());
     }
 }
