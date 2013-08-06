@@ -206,11 +206,17 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void awaitWritable() throws IOException {
         Xnio.checkBlockingAllowed();
+        if (isWriteShutdown()) {
+            return;
+        }
         SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
         Xnio.checkBlockingAllowed();
+        if (isWriteShutdown()) {
+            return;
+        }
         SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
