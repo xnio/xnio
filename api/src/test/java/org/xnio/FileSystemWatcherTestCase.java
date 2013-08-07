@@ -16,22 +16,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.xnio.nio.test;
+package org.xnio;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.xnio.FileChangeCallback;
-import org.xnio.FileChangeEvent;
-import org.xnio.FileSystemWatcher;
-import org.xnio.IoUtils;
-import org.xnio.OptionMap;
-import org.xnio.Options;
-import org.xnio.Xnio;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.mock.XnioMock;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -42,7 +35,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Test file system watcher, non poll based
+ * Test file system watcher, poll based
  *
  * @author Stuart Douglas
  */
@@ -61,7 +54,7 @@ public class FileSystemWatcherTestCase {
     protected AcceptingChannel<? extends ConnectedStreamChannel> server;
 
     private Xnio createXnio() {
-        return Xnio.getInstance("nio", FileSystemWatcherTestCase.class.getClassLoader());
+        return XnioMock.getInstance();
     }
 
     @Before
