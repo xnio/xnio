@@ -21,6 +21,7 @@ package org.xnio.mock;
 
 import java.io.IOException;
 
+import org.xnio.FileSystemWatcher;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
 import org.xnio.XnioProvider;
@@ -28,7 +29,7 @@ import org.xnio.XnioWorker;
 
 /**
  * {@link Xnio} mock.
- * 
+ *
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
 public class XnioMock extends Xnio {

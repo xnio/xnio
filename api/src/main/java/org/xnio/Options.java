@@ -556,4 +556,9 @@ public final class Options {
      * The number of connections to create per connection-balancing token, if connection-balancing is enabled.
      */
     public static final Option<Integer> BALANCING_CONNECTIONS = Option.simple(Options.class, "BALANCING_CONNECTIONS", Integer.class);
+
+    /**
+     * The poll interval for poll based file system watchers.  Defaults to 5000ms.  Ignored on Java 7 and later.
+     */
+    public static final Option<Integer> WATCHER_POLL_INTERVAL = Option.simple(Options.class, "WATCHER_POLL_INTERVAL", Integer.class);
 }

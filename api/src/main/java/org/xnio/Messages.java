@@ -93,6 +93,10 @@ interface Messages {
     @Message(id = 105, value = "Not allowed to read non-XNIO properties")
     SecurityException propReadForbidden();
 
+    @Message(id = 106, value = "Failed to invoke file watch callback")
+    @LogMessage(level = WARN)
+    void failedToInvokeFileWatchCallback(@Cause Throwable cause);
+
     // Trace
 
     @Message(value = "Closing resource %s")

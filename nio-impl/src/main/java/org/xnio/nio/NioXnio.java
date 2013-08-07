@@ -27,7 +27,9 @@ import java.security.PrivilegedAction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import org.jboss.logging.Logger;
+import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
+import org.xnio.Options;
 import org.xnio.Version;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
@@ -190,6 +192,17 @@ final class NioXnio extends Xnio {
         final NioXnioWorker worker = new NioXnioWorker(this, threadGroup, optionMap, terminationTask);
         worker.start();
         return worker;
+    }
+
+    @Override
+    public FileSystemWatcher createFileSystemWatcher(String name, OptionMap options) {
+        try {
+            boolean daemonThread = options.get(Options.THREAD_DAEMON, true);
+            return new WatchServiceFileSystemWatcher(name, daemonThread);
+        } catch (LinkageError e) {
+            //ignore
+        }
+        return super.createFileSystemWatcher(name, options);
     }
 
     private final ThreadLocal<Selector> selectorThreadLocal = new ThreadLocal<Selector>() {
