@@ -1,7 +1,7 @@
 /*
  * JBoss, Home of Professional Open Source.
  *
- * Copyright 2012 Red Hat, Inc. and/or its affiliates, and individual
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates, and individual
  * contributors as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ package org.xnio.mock;
 
 import java.io.IOException;
 
+import org.xnio.FileSystemWatcher;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
 import org.xnio.XnioProvider;
@@ -28,7 +29,7 @@ import org.xnio.XnioWorker;
 
 /**
  * {@link Xnio} mock.
- * 
+ *
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
 public class XnioMock extends Xnio {

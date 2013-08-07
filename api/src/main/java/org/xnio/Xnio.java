@@ -404,6 +404,18 @@ public abstract class Xnio {
      */
     public abstract XnioWorker createWorker(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) throws IOException, IllegalArgumentException;
 
+    /**
+     * Creates a file system watcher, that can be used to monitor file system changes.
+     *
+     * @param name The watcher name
+     * @param options The options to use to create the watcher
+     * @return The file system watcher
+     */
+    public FileSystemWatcher createFileSystemWatcher(final String name, final OptionMap options) {
+        int pollInterval = options.get(Options.WATCHER_POLL_INTERVAL, 5000);
+        boolean daemonThread = options.get(Options.THREAD_DAEMON, true);
+        return new PollingFileSystemWatcher(name, pollInterval, daemonThread);
+    }
     //==================================================
     //
     // General methods
