@@ -187,4 +187,9 @@ final class NioPipeSinkConduit extends NioHandle implements StreamSinkConduit {
     public void setWriteReadyHandler(final WriteReadyHandler handler) {
         writeReadyHandler = handler;
     }
+
+    @Override
+    public WriteReadyHandler getWriteReadyHandler() {
+        return writeReadyHandler;
+    }
 }

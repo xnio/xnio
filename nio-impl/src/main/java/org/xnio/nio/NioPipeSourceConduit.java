@@ -190,4 +190,9 @@ final class NioPipeSourceConduit extends NioHandle implements StreamSourceCondui
     public void setReadReadyHandler(final ReadReadyHandler handler) {
         this.readReadyHandler = handler;
     }
+
+    @Override
+    public ReadReadyHandler getReadReadyHandler() {
+        return readReadyHandler;
+    }
 }

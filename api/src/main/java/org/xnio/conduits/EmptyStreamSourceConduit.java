@@ -52,6 +52,11 @@ public final class EmptyStreamSourceConduit implements StreamSourceConduit {
         readReadyHandler = handler;
     }
 
+    @Override
+    public ReadReadyHandler getReadReadyHandler() {
+        return readReadyHandler;
+    }
+
     public long transferTo(final long position, final long count, final FileChannel target) throws IOException {
         return 0;
     }

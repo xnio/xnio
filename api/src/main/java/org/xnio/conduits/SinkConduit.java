@@ -103,9 +103,16 @@ public interface SinkConduit extends Conduit {
      * Set the handler which should receive readiness notifications.  A filter may
      * pass this invocation on to the filter it wraps, or it may substitute itself.
      *
-     * @param next the filter to receive readiness notifications
+     * @param handler the handler to receive readiness notifications
      */
     void setWriteReadyHandler(WriteReadyHandler handler);
+
+    /**
+     * Gets the handler that will receive readiness notifications
+     *
+     * @return The write ready handler that will receive readiness notifications
+     */
+    WriteReadyHandler getWriteReadyHandler();
 
     /**
      * Terminate writes and discard any outstanding write data.  The conduit is terminated and flushed regardless
