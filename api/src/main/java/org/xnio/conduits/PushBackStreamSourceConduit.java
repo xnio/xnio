@@ -203,7 +203,6 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
 
         public long transferTo(final long count, final ByteBuffer throughBuffer, final StreamSinkChannel target) throws IOException {
             long cnt;
-            throughBuffer.clear();
             final ByteBuffer src;
             try {
                 src = pooledBuffer.getResource();
@@ -212,8 +211,19 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                 if (rem > count) try {
                     // partial empty of our buffer
                     src.limit(pos + (int) count);
-                    throughBuffer.limit(0);
-                    return target.write(src);
+                    int res = target.write(src);
+                    if(res == 0) {
+                        //a bit yuck, but if we have filed to copy anything we need to transfer data into the throughbuffer
+                        //this signals to the called that it was not the read that did not succeed, but the write
+                        throughBuffer.clear();
+                        Buffers.copy(throughBuffer, src);
+                        throughBuffer.flip();
+                    } else {
+                        //make sure throughbuffer is empty
+                        throughBuffer.clear();
+                        throughBuffer.flip();
+                    }
+                    return res;
                 } finally {
                     src.limit(pos + rem);
                 } else {
@@ -224,6 +234,17 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                         current = next;
                         pooledBuffer.free();
                     } else {
+                        if (cnt == 0) {
+                            //a bit yuck, but if we have filed to copy anything we need to transfer data into the throughbuffer
+                            //this signals to the called that it was not the read that did not succeed, but the write
+                            throughBuffer.clear();
+                            Buffers.copy(throughBuffer, src);
+                            throughBuffer.flip();
+                        } else {
+                            //make sure throughbuffer is empty
+                            throughBuffer.clear();
+                            throughBuffer.flip();
+                        }
                         return cnt;
                     }
                 }
