@@ -1035,6 +1035,10 @@ final class JsseSslConduitEngine {
         return allAreSet(state, FIRST_HANDSHAKE);
     }
 
+    SSLEngine getEngine() {
+        return engine;
+    }
+
     /**
      * Indicate that the engine will not be able unwrap before a successful wrap is performed.
      */

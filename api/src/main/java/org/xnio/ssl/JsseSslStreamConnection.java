@@ -142,6 +142,10 @@ final class JsseSslStreamConnection extends SslConnection {
         return handshakeSetter;
     }
 
+    SSLEngine getEngine() {
+        return sslConduitEngine.getEngine();
+    }
+
     /**
      * Callback method for notification of handshake finished.
      */

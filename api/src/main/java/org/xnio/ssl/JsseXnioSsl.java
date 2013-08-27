@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 
+import javax.net.ssl.SSLEngine;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.ChannelListener;
@@ -106,6 +107,19 @@ public final class JsseXnioSsl extends XnioSsl {
     @SuppressWarnings("unused")
     public SSLContext getSslContext() {
         return sslContext;
+    }
+
+    /**
+     * Get the SSL engine for a given connection.
+     *
+     * @return the SSL engine
+     */
+    public static SSLEngine getSslEngine(SslConnection connection) {
+        if (connection instanceof JsseSslStreamConnection) {
+            return ((JsseSslStreamConnection) connection).getEngine();
+        } else {
+            throw new IllegalArgumentException("Connection is not a JSSE connection");
+        }
     }
 
     @SuppressWarnings("deprecation")
