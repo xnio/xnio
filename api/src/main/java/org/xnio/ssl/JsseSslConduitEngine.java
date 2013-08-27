@@ -1031,6 +1031,10 @@ final class JsseSslConduitEngine {
         }
     }
 
+    SSLEngine getEngine() {
+        return engine;
+    }
+
     public boolean isFirstHandshake() {
         return allAreSet(state, FIRST_HANDSHAKE);
     }
