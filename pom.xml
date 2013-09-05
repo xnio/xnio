@@ -28,29 +28,37 @@
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
-        <version>9</version>
+        <version>11</version>
     </parent>
 
     <build>
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <configuration>
-                        <compilerArgument>-Xlint:unchecked</compilerArgument>
-                    </configuration>
-                    <dependencies>
-                        <dependency>
-                            <groupId>org.codehaus.plexus</groupId>
-                            <artifactId>plexus-compiler-javac</artifactId>
-                            <version>1.9.2-jboss-1</version>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.codehaus.plexus</groupId>
-                            <artifactId>plexus-compiler-api</artifactId>
-                            <version>1.9.2-jboss-1</version>
-                        </dependency>
-                    </dependencies>
+                    <groupId>org.jboss.seven2six</groupId>
+                    <artifactId>seven2six</artifactId>
+                    <version>1.1.Final</version>
+                    <executions>
+                        <!-- run after "compile", lets your artifact work on 1.6 -->
+                        <execution>
+                            <id>weave</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>transform</goal>
+                            </goals>
+                        </execution>
+                        <!-- run after "test-compile", lets you run your tests on 1.6 -->
+                        <execution>
+                            <id>weave-tests</id>
+                            <phase>process-test-classes</phase>
+                            <goals>
+                                <goal>transform</goal>
+                            </goals>
+                            <configuration>
+                                <outputDirectory>${project.build.testOutputDirectory}</outputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>

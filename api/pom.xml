@@ -189,6 +189,10 @@
                     </links>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.jboss.seven2six</groupId>
+                <artifactId>seven2six</artifactId>
+            </plugin>
         </plugins>
     </build>
 </project>
