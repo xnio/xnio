@@ -42,9 +42,9 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static org.xnio.IoUtils.safeClose;
+import static org.xnio.nio.Log.tcpServerLog;
 
 final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<StreamConnection>, AcceptListenerSettable<NioTcpServer> {
-    private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
     private static final String FQCN = NioTcpServer.class.getName();
 
     private volatile ChannelListener<? super NioTcpServer> acceptListener;
@@ -414,7 +414,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     }
 
     public void wakeupAccepts() {
-        log.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
+        tcpServerLog.logf(FQCN, Logger.Level.TRACE, null, "Wake up accepts on %s", this);
         resumeAccepts();
         final NioTcpServerHandle[] handles = this.handles;
         final int idx = IoUtils.getThreadLocalRandom().nextInt(handles.length);

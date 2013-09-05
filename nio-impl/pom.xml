@@ -7,7 +7,6 @@
 
     <name>XNIO NIO Implementation</name>
     <description>The NIO implementation of the XNIO project</description>
-    <groupId>org.jboss.xnio</groupId>
     <artifactId>xnio-nio</artifactId>
     <packaging>jar</packaging>
 
@@ -29,6 +28,16 @@
             <groupId>org.jboss.logging</groupId>
             <artifactId>jboss-logging</artifactId>
             <!-- Not part of the API, so set as "provided" -->
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.logging</groupId>
+            <artifactId>jboss-logging-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.logging</groupId>
+            <artifactId>jboss-logging-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>

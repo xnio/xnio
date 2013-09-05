@@ -42,8 +42,8 @@ import org.xnio.channels.SuspendableReadChannel;
 
 import java.util.logging.Handler;
 
-import static org.xnio.Messages.closeMsg;
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.closeMsg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * General I/O utility methods.

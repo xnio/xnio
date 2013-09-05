@@ -26,7 +26,7 @@ import java.util.AbstractList;
 import java.util.List;
 import java.util.RandomAccess;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * An immutable sequence of elements.  Though this class implements {@link java.util.List}, it is in fact

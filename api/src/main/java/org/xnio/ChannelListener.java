@@ -22,6 +22,8 @@ import java.nio.channels.Channel;
 import java.util.EventListener;
 import org.jboss.logging.Logger;
 
+import static org.xnio._private.Messages.listenerMsg;
+
 /**
  * A listener for channel events.  Possible channel events include: channel readable, channel writable, channel
  * opened, channel closed, channel bound, channel unbound.
@@ -66,13 +68,11 @@ public interface ChannelListener<T extends Channel> extends EventListener {
      */
     class SimpleSetter<T extends Channel> implements Setter<T> {
 
-        private static final Logger log = Logger.getLogger("org.xnio.listener");
-
         private ChannelListener<? super T> channelListener;
 
         /** {@inheritDoc} */
         public void set(final ChannelListener<? super T> listener) {
-            log.logf(SimpleSetter.class.getName(), Logger.Level.TRACE, null, "Setting channel listener to %s", listener);
+            listenerMsg.logf(SimpleSetter.class.getName(), Logger.Level.TRACE, null, "Setting channel listener to %s", listener);
             channelListener = listener;
         }
 

@@ -16,27 +16,42 @@
  * limitations under the License.
  */
 
-package org.xnio;
+package org.xnio._private;
 
+import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.channels.Channel;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
+
+import org.jboss.logging.BasicLogger;
 import org.jboss.logging.Logger;
 import org.jboss.logging.annotations.Cause;
 import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
+import org.xnio.IoFuture;
+import org.xnio.channels.AcceptingChannel;
+import org.xnio.channels.ConnectedChannel;
 
 import static org.jboss.logging.Logger.Level.*;
 
 @MessageLogger(projectCode = "XNIO")
-interface Messages {
+public interface Messages extends BasicLogger {
     Messages msg = Logger.getMessageLogger(Messages.class, "org.xnio");
     Messages futureMsg = Logger.getMessageLogger(Messages.class, "org.xnio.future");
     Messages optionParseMsg = Logger.getMessageLogger(Messages.class, "org.xnio.option.parse");
     Messages closeMsg = Logger.getMessageLogger(Messages.class, "org.xnio.safe-close");
+    Messages listenerMsg = Logger.getMessageLogger(Messages.class, "org.xnio.listener");
 
-    // Validation messages
+    // Greeting
+
+    @Message(value = "XNIO version %s")
+    @LogMessage(level = INFO)
+    void greeting(String version);
+
+    // Validation messages - cross-check with xnio-nio
 
     @Message(id = 0, value = "Method parameter '%s' cannot be null")
     IllegalArgumentException nullParameter(String name);
@@ -72,7 +87,10 @@ interface Messages {
     @LogMessage(level = WARN)
     void invalidOptionInProperty(String optionName, String name, /* ! @Cause */ Throwable problem);
 
-    // General run-time messages
+    // id = 11 - task failed to execute
+
+
+    // General run-time messages - cross-check with xnio-nio
 
     @Message(id = 100, value = "Blocking I/O is not allowed on the current thread")
     IllegalStateException blockingNotAllowed();
@@ -94,8 +112,24 @@ interface Messages {
     SecurityException propReadForbidden();
 
     @Message(id = 106, value = "Failed to invoke file watch callback")
-    @LogMessage(level = WARN)
+    @LogMessage(level = ERROR)
     void failedToInvokeFileWatchCallback(@Cause Throwable cause);
+
+    @Message(id = 107, value = "A channel event listener threw an exception")
+    @LogMessage(level = ERROR)
+    void listenerException(@Cause Throwable cause);
+
+    @Message(id = 108, value = "A channel exception handler threw an exception")
+    @LogMessage(level = ERROR)
+    void exceptionHandlerException(@Cause Throwable cause);
+
+    @Message(id = 109, value = "Failed to accept a connection on %s: %s")
+    @LogMessage(level = ERROR)
+    void acceptFailed(AcceptingChannel<? extends ConnectedChannel> channel, IOException reason);
+
+    @Message(id = 110, value = "Failed to submit task to executor: %s (closing %s)")
+    @LogMessage(level = ERROR)
+    void executorSubmitFailed(RejectedExecutionException cause, Channel channel);
 
     // Trace
 

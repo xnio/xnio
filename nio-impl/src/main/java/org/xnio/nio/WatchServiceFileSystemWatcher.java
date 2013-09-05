@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
+import static org.xnio.nio.Log.log;
 
 /**
  * File system watcher service based on JDK7 {@link WatchService}. Instantiating this class will create a new thread,
@@ -101,7 +102,7 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
                                         try {
                                             addWatchedDirectory(pathData, targetFile);
                                         } catch (IOException e) {
-                                            Log.log.debugf(e, "Could not add watched directory %s", targetFile);
+                                            log.debugf(e, "Could not add watched directory %s", targetFile);
                                         }
                                     }
                                 } else if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
@@ -232,7 +233,7 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
         try {
             callback.handleChanges(results);
         } catch (Exception e) {
-            Log.log.error("File watch callback failed", e);
+            log.failedToInvokeFileWatchCallback(e);
         }
     }
 

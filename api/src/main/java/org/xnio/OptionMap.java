@@ -26,10 +26,9 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Properties;
 import java.io.Serializable;
-import org.jboss.logging.Logger;
 
-import static org.xnio.Messages.msg;
-import static org.xnio.Messages.optionParseMsg;
+import static org.xnio._private.Messages.msg;
+import static org.xnio._private.Messages.optionParseMsg;
 
 /**
  * An immutable map of options to option values.  No {@code null} keys or values are permitted.
@@ -250,8 +249,6 @@ public final class OptionMap implements Iterable<Option<?>>, Serializable {
      * A builder for immutable option maps.  Create an instance with the {@link OptionMap#builder()} method.
      */
     public static final class Builder {
-
-        private static final Logger log = Logger.getLogger("org.xnio.option.parse");
 
         private Builder() {
         }

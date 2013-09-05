@@ -26,7 +26,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import org.jboss.logging.Logger;
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
@@ -35,12 +34,12 @@ import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
 
+import static org.xnio.nio.Log.log;
+
 /**
  * An NIO-based XNIO provider for a standalone application.
  */
 final class NioXnio extends Xnio {
-
-    private static final Logger log = Logger.getLogger("org.xnio.nio");
 
     interface SelectorCreator {
         Selector open() throws IOException;
@@ -50,7 +49,7 @@ final class NioXnio extends Xnio {
     final SelectorCreator mainSelectorCreator;
 
     static {
-        log.info("XNIO NIO Implementation Version " + Version.VERSION);
+        log.greeting(Version.VERSION);
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
             public Void run() {
                 final String bugLevel = System.getProperty("sun.nio.ch.bugLevel");
@@ -141,7 +140,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         throw new RuntimeException("No functional selector provider is available");
                     }
-                    log.tracef("Starting up with selector provider %s", provider.getClass().getCanonicalName());
+                    log.selectorProvider(provider);
                     final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(provider.getClass().getName());
                     final String chosenMainSelector = System.getProperty("xnio.nio.selector.main");
                     final String chosenTempSelector = System.getProperty("xnio.nio.selector.temp");
@@ -184,8 +183,7 @@ final class NioXnio extends Xnio {
         );
         tempSelectorCreator = (SelectorCreator) objects[1];
         mainSelectorCreator = (SelectorCreator) objects[2];
-        log.tracef("Using %s for main selectors", mainSelectorCreator);
-        log.tracef("Using %s for temp selectors", tempSelectorCreator);
+        log.selectors(mainSelectorCreator, tempSelectorCreator);
     }
 
     public XnioWorker createWorker(final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException, IllegalArgumentException {

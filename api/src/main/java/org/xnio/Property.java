@@ -21,7 +21,7 @@ package org.xnio;
 
 import java.io.Serializable;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * An immutable property represented by a key and value.

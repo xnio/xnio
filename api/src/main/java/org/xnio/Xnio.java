@@ -27,11 +27,9 @@ import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
 import java.nio.file.NoSuchFileException;
-import java.nio.file.OpenOption;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.ServiceLoader;
@@ -44,7 +42,7 @@ import org.xnio.ssl.XnioSsl;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * The XNIO provider class.
@@ -75,7 +73,7 @@ public abstract class Xnio {
         } catch (Throwable t) {
         }
         NIO2 = nio2;
-        Logger.getLogger("org.xnio").info("XNIO Version " + Version.VERSION);
+        msg.greeting(Version.VERSION);
         final EnumMap<FileAccess, OptionMap> map = new EnumMap<FileAccess, OptionMap>(FileAccess.class);
         for (FileAccess access : FileAccess.values()) {
             map.put(access, OptionMap.create(Options.FILE_ACCESS, access));

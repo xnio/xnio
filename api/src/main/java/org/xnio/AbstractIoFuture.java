@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 
-import static org.xnio.Messages.futureMsg;
+import static org.xnio._private.Messages.futureMsg;
 
 /**
  * An abstract base class for {@code IoFuture} objects.  Used to easily produce implementations.

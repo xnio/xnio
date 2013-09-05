@@ -501,7 +501,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     // Mac and other buggy implementations sometimes spits these out
                     selectorLog.trace("Spurious cancelled key exception");
                 } catch (IOException e) {
-                    selectorLog.warnf("Received an I/O error on selection: %s", e);
+                    selectorLog.selectionError(e);
                     // hopefully transient; should never happen
                 }
                 selectorLog.tracef("Selected on %s", selector);
@@ -548,7 +548,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             log.tracef("Running task %s", command);
             command.run();
         } catch (Throwable t) {
-            log.error("Task failed on channel thread", t);
+            log.taskFailed(command, t);
         }
     }
 
@@ -637,7 +637,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 try {
                     selector.selectNow();
                 } catch (IOException e) {
-                    log.warnf("Received an I/O error on selection: %s", e);
+                    log.selectionError(e);
                 }
             } catch (Throwable t) {
                 log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (same thread)", key, channel);

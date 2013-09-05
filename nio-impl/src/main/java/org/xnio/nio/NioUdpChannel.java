@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.jboss.logging.Logger;
 import org.xnio.Buffers;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
@@ -46,13 +45,12 @@ import org.xnio.channels.UnsupportedOptionException;
 import org.xnio.channels.WriteListenerSettable;
 
 import static org.xnio.Xnio.NIO2;
+import static org.xnio.nio.Log.udpServerChannelLog;
 
 /**
  *
  */
 class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements MulticastMessageChannel, ReadListenerSettable<NioUdpChannel>, WriteListenerSettable<NioUdpChannel> {
-
-    private static final Logger log = Logger.getLogger("org.xnio.nio.udp.server.channel");
 
     private final NioUdpChannelHandle handle;
 
@@ -193,7 +191,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
 
     public void close() throws IOException {
         if (!callFlag.getAndSet(true)) {
-            log.tracef("Closing %s", this);
+            udpServerChannelLog.tracef("Closing %s", this);
             try { cancelKeys(); } catch (Throwable ignored) {}
             try {
                 datagramChannel.close();

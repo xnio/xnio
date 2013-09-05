@@ -23,12 +23,11 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import org.xnio.channels.AssembledStreamChannel;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.StreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * An XNIO thread.

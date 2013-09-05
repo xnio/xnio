@@ -19,7 +19,7 @@
 
 package org.xnio;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>

@@ -29,7 +29,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import org.jboss.logging.Logger;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedChannel;
@@ -38,6 +37,8 @@ import org.xnio.channels.StreamSourceChannel;
 import org.xnio.channels.SuspendableReadChannel;
 import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WritableMessageChannel;
+
+import static org.xnio._private.Messages.listenerMsg;
 
 /**
  * Channel listener utility methods.
@@ -63,7 +64,6 @@ public final class ChannelListeners {
             return "Null channel listener setter";
         }
     };
-    private static final Logger listenerLog = Logger.getLogger("org.xnio.listener");
     private static ChannelListener<Channel> CLOSING_CHANNEL_LISTENER = new ChannelListener<Channel>() {
         public void handleEvent(final Channel channel) {
             IoUtils.safeClose(channel);
@@ -87,10 +87,10 @@ public final class ChannelListeners {
      */
     public static <T extends Channel> boolean invokeChannelListener(T channel, ChannelListener<? super T> channelListener) {
         if (channelListener != null) try {
-            listenerLog.tracef("Invoking listener %s on channel %s", channelListener, channel);
+            listenerMsg.tracef("Invoking listener %s on channel %s", channelListener, channel);
             channelListener.handleEvent(channel);
         } catch (Throwable t) {
-            listenerLog.error("A channel event listener threw an exception", t);
+            listenerMsg.listenerException(t);
             return false;
         }
         return true;
@@ -124,7 +124,7 @@ public final class ChannelListeners {
         try {
             exceptionHandler.handleException(channel, exception);
         } catch (Throwable t) {
-            listenerLog.error("A channel exception handler threw an exception", t);
+            listenerMsg.exceptionHandlerException(t);
         }
     }
 
@@ -290,7 +290,7 @@ public final class ChannelListeners {
                         invokeChannelListener(accepted, openListener);
                     }
                 } catch (IOException e) {
-                    listenerLog.errorf("Failed to accept a connection on %s: %s", channel, e);
+                    listenerMsg.acceptFailed(channel, e);
                 }
             }
 
@@ -382,7 +382,7 @@ public final class ChannelListeners {
                 try {
                     executor.execute(getChannelListenerTask(channel, listener));
                 } catch (RejectedExecutionException e) {
-                    listenerLog.errorf("Failed to submit task to executor: %s (closing %s)", e, channel);
+                    listenerMsg.executorSubmitFailed(e, channel);
                     IoUtils.safeClose(channel);
                 }
             }

@@ -21,7 +21,7 @@ package org.xnio;
 
 import java.net.SocketAddress;
 
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * A socket address which is a local (UNIX domain) socket.

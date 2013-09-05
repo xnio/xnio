@@ -55,7 +55,7 @@ import org.xnio.conduits.StreamSinkChannelWrappingConduit;
 import org.xnio.conduits.StreamSourceChannelWrappingConduit;
 
 import static org.xnio.IoUtils.safeClose;
-import static org.xnio.Messages.msg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * A worker for I/O channel notification.

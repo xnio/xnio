@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.xnio._private.Messages;
+
 /**
  * Polling based file system watcher service, for use on JDK6
  *
