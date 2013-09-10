@@ -24,6 +24,8 @@ import org.xnio.conduits.ConduitStreamSourceChannel;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 
+import static org.xnio._private.Messages.msg;
+
 /**
  * A connection between peers.
  *
@@ -38,7 +40,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
     /**
      * Construct a new instance.
      *
-     * @param worker the XNIO worker
+     * @param thread the I/O thread
      */
     protected StreamConnection(final XnioIoThread thread) {
         super(thread);
@@ -70,7 +72,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
 
     private static <T> T notNull(T orig) throws IllegalStateException {
         if (orig == null) {
-            throw new IllegalStateException("Channel not available");
+            throw msg.channelNotAvailable();
         }
         return orig;
     }

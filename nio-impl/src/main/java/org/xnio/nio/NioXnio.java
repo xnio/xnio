@@ -138,7 +138,7 @@ final class NioXnio extends Xnio {
                         }
                     }
                     if (provider == null) {
-                        throw new RuntimeException("No functional selector provider is available");
+                        throw log.noSelectorProvider();
                     }
                     log.selectorProvider(provider);
                     final boolean defaultIsPoll = "sun.nio.ch.PollSelectorProvider".equals(provider.getClass().getName());
@@ -260,14 +260,10 @@ final class NioXnio extends Xnio {
             } catch (InvocationTargetException e) {
                 try {
                     throw e.getTargetException();
-                } catch (IOException e2) {
-                    throw e2;
-                } catch (RuntimeException e2) {
-                    throw e2;
-                } catch (Error e2) {
+                } catch (IOException | Error | RuntimeException e2) {
                     throw e2;
                 } catch (Throwable t) {
-                    throw new IllegalStateException("Unexpected invocation exception", t);
+                    throw log.unexpectedSelectorOpenProblem(t);
                 }
             }
         }

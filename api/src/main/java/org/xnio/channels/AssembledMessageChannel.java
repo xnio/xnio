@@ -19,6 +19,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +54,7 @@ public class AssembledMessageChannel implements MessageChannel {
      */
     public AssembledMessageChannel(final CloseableChannel closeable, final ReadableMessageChannel readable, final WritableMessageChannel writable) {
         if (readable.getWorker() != writable.getWorker() || readable.getWorker() != closeable.getWorker()) {
-            throw new IllegalArgumentException("All channels must come from the same worker");
+            throw msg.differentWorkers();
         }
         this.closeable = closeable;
         this.readable = readable;

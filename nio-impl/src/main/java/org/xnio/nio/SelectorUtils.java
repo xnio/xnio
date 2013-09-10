@@ -18,6 +18,8 @@
 
 package org.xnio.nio;
 
+import static org.xnio.nio.Log.log;
+
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.channels.ClosedChannelException;
@@ -44,7 +46,7 @@ final class SelectorUtils {
         selector.select();
         selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedIOException();
+            throw log.interruptedIO();
         }
         selectionKey.cancel();
         selector.selectNow();
@@ -67,7 +69,7 @@ final class SelectorUtils {
         selector.select(timeoutInMillis == 0 ? 1: timeoutInMillis);
         selector.selectedKeys().clear();
         if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedIOException();
+            throw log.interruptedIO();
         }
         selectionKey.cancel();
         selector.selectNow();

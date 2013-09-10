@@ -19,6 +19,8 @@
 
 package org.xnio.streams;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -89,7 +91,7 @@ public final class Pipe {
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        throw new InterruptedIOException();
+                        throw msg.interruptedIO();
                     }
                 }
                 lock.notifyAll();
@@ -121,7 +123,7 @@ public final class Pipe {
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        throw new InterruptedIOException();
+                        throw msg.interruptedIO();
                     }
                 }
                 final byte[] buffer = Pipe.this.buffer;
@@ -176,7 +178,7 @@ public final class Pipe {
             final Object lock = Pipe.this.lock;
             synchronized (lock) {
                 if (writeClosed) {
-                    throw new IOException("Stream closed");
+                    throw msg.streamClosed();
                 }
                 final byte[] buffer = Pipe.this.buffer;
                 final int bufLen = buffer.length;
@@ -184,11 +186,11 @@ public final class Pipe {
                     try {
                         lock.wait();
                         if (writeClosed) {
-                            throw new IOException("Stream closed");
+                            throw msg.streamClosed();
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        throw new InterruptedIOException();
+                        throw msg.interruptedIO();
                     }
                 }
                 final int tail = Pipe.this.tail;
@@ -208,7 +210,7 @@ public final class Pipe {
             final Object lock = Pipe.this.lock;
             synchronized (lock) {
                 if (writeClosed) {
-                    throw new IOException("Stream closed");
+                    throw msg.streamClosed();
                 }
                 final byte[] buffer = Pipe.this.buffer;
                 final int bufLen = buffer.length;
@@ -220,13 +222,11 @@ public final class Pipe {
                         try {
                             lock.wait();
                             if (writeClosed) {
-                                throw new IOException("Stream closed");
+                                throw msg.streamClosed();
                             }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
-                            final InterruptedIOException iioe = new InterruptedIOException();
-                            iioe.bytesTransferred = len - remaining;
-                            throw iioe;
+                            throw msg.interruptedIO(len - remaining);
                         }
                     }
                     tail = Pipe.this.tail;

@@ -19,6 +19,8 @@
 
 package org.xnio.sasl;
 
+import static org.xnio._private.Messages.msg;
+
 import java.nio.ByteBuffer;
 import java.security.Provider;
 import java.security.Security;
@@ -160,7 +162,7 @@ public final class SaslUtils {
         result = evaluateChallenge(client, source);
         if (result != null) {
             if (destination == null) {
-                throw new SaslException("Extra challenge data received");
+                throw msg.extraChallenge();
             }
             destination.put(result);
             return false;
@@ -208,7 +210,7 @@ public final class SaslUtils {
         result = evaluateResponse(server, source);
         if (result != null) {
             if (destination == null) {
-                throw new SaslException("Extra response data received");
+                throw msg.extraResponse();
             }
             destination.put(result);
             return server.isComplete();
@@ -228,7 +230,6 @@ public final class SaslUtils {
      * to ensure that the message is properly framed.
      *
      * @param server the SASL server to use to evaluate the response message
-     * @param destination the destination buffer into which the response message should be written, if any
      * @param source the source buffer from which the response message should be read
      * @return {@code true} if negotiation is complete and successful, {@code false} otherwise
      * @throws SaslException if negotiation failed or another error occurred
@@ -278,7 +279,7 @@ public final class SaslUtils {
             source.position(source.position() + len);
             result = client.wrap(array, offs, len);
         } else {
-            result = client.wrap(len == 0 ? EMPTY_BYTES : Buffers.take(source, len), 0, len);
+            result = client.wrap(Buffers.take(source, len), 0, len);
         }
         return result;
     }

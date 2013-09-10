@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -76,7 +78,7 @@ public final class InflatingStreamSourceConduit extends AbstractStreamSourceCond
                     return res;
                 }
                 if (inflater.needsDictionary()) {
-                    throw new IOException("Needs dictionary");
+                    throw msg.inflaterNeedsDictionary();
                 }
                 final ByteBuffer buffer = this.buffer;
                 buffer.clear();
@@ -100,7 +102,7 @@ public final class InflatingStreamSourceConduit extends AbstractStreamSourceCond
                     return res;
                 }
                 if (inflater.needsDictionary()) {
-                    throw new IOException("Needs dictionary");
+                    throw msg.inflaterNeedsDictionary();
                 }
                 final ByteBuffer buffer = this.buffer;
                 buffer.clear();

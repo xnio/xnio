@@ -23,14 +23,13 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import static java.lang.Math.min;
+import static org.xnio._private.Messages.msg;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Bits;
 import org.xnio.Buffers;
 import org.xnio.channels.Channels;
-import org.xnio.channels.ConcurrentStreamChannelAccessException;
-import org.xnio.channels.ReadTimeoutException;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
@@ -61,10 +60,10 @@ public class BufferedChannelInputStream extends InputStream {
      */
     public BufferedChannelInputStream(final StreamSourceChannel channel, final int bufferSize) {
         if (channel == null) {
-            throw new IllegalArgumentException("channel is null");
+            throw msg.nullParameter("channel");
         }
         if (bufferSize < 1) {
-            throw new IllegalArgumentException("Buffer size must be at least one byte");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         this.channel = channel;
         buffer = ByteBuffer.allocate(bufferSize);
@@ -81,16 +80,16 @@ public class BufferedChannelInputStream extends InputStream {
      */
     public BufferedChannelInputStream(final StreamSourceChannel channel, final int bufferSize, final long timeout, final TimeUnit unit) {
         if (channel == null) {
-            throw new IllegalArgumentException("channel is null");
+            throw msg.nullParameter("channel");
         }
         if (unit == null) {
-            throw new IllegalArgumentException("unit is null");
+            throw msg.nullParameter("unit");
         }
         if (bufferSize < 1) {
-            throw new IllegalArgumentException("Buffer size must be at least one byte");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
         }
         this.channel = channel;
         buffer = ByteBuffer.allocate(bufferSize);
@@ -103,7 +102,7 @@ public class BufferedChannelInputStream extends InputStream {
         int old = flags;
         do {
             if (Bits.allAreSet(old, FLAG_ENTERED)) {
-                throw new ConcurrentStreamChannelAccessException();
+                throw msg.concurrentAccess();
             }
         } while (! flagsUpdater.compareAndSet(this, old, old | FLAG_ENTERED));
         return Bits.allAreSet(old, FLAG_EOF);
@@ -127,6 +126,9 @@ public class BufferedChannelInputStream extends InputStream {
      * @return the timeout in the given unit
      */
     public long getReadTimeout(TimeUnit unit) {
+        if (unit == null) {
+            throw msg.nullParameter("unit");
+        }
         return unit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
@@ -138,7 +140,10 @@ public class BufferedChannelInputStream extends InputStream {
      */
     public void setReadTimeout(long timeout, TimeUnit unit) {
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
+        }
+        if (unit == null) {
+            throw msg.nullParameter("unit");
         }
         final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -185,7 +190,7 @@ public class BufferedChannelInputStream extends InputStream {
                 if (timeout == 0L) {
                     channel.awaitReadable();
                 } else if (timeout < elapsed) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw msg.readTimeout();
                 } else {
                     channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -247,7 +252,7 @@ public class BufferedChannelInputStream extends InputStream {
                     if (timeout == 0L) {
                         channel.awaitReadable();
                     } else if (timeout < elapsed) {
-                        throw new ReadTimeoutException("Read timed out");
+                        throw msg.readTimeout();
                     } else {
                         channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }
@@ -308,7 +313,7 @@ public class BufferedChannelInputStream extends InputStream {
                         if (timeout == 0L) {
                             channel.awaitReadable();
                         } else if (timeout < elapsed) {
-                            throw new ReadTimeoutException("Read timed out");
+                            throw msg.readTimeout();
                         } else {
                             channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                         }

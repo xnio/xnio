@@ -18,6 +18,8 @@
 
 package org.xnio.streams;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -26,8 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Bits;
 import org.xnio.channels.Channels;
-import org.xnio.channels.ConcurrentStreamChannelAccessException;
-import org.xnio.channels.ReadTimeoutException;
 import org.xnio.channels.StreamSourceChannel;
 
 /**
@@ -57,7 +57,7 @@ public class ChannelInputStream extends InputStream {
      */
     public ChannelInputStream(final StreamSourceChannel channel) {
         if (channel == null) {
-            throw new IllegalArgumentException("channel is null");
+            throw msg.nullParameter("channel");
         }
         this.channel = channel;
     }
@@ -71,13 +71,13 @@ public class ChannelInputStream extends InputStream {
      */
     public ChannelInputStream(final StreamSourceChannel channel, final long timeout, final TimeUnit timeoutUnit) {
         if (channel == null) {
-            throw new IllegalArgumentException("Null channel");
+            throw msg.nullParameter("channel");
         }
         if (timeoutUnit == null) {
-            throw new IllegalArgumentException("Null timeoutUnit");
+            throw msg.nullParameter("timeoutUnit");
         }
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
         }
         this.channel = channel;
         final long calcTimeout = timeoutUnit.toNanos(timeout);
@@ -88,7 +88,7 @@ public class ChannelInputStream extends InputStream {
         int old = flags;
         do {
             if (Bits.allAreSet(old, FLAG_ENTERED)) {
-                throw new ConcurrentStreamChannelAccessException();
+                throw msg.concurrentAccess();
             }
         } while (! flagsUpdater.compareAndSet(this, old, old | FLAG_ENTERED));
         return Bits.allAreSet(old, FLAG_EOF);
@@ -112,6 +112,9 @@ public class ChannelInputStream extends InputStream {
      * @return the timeout in the given unit
      */
     public long getReadTimeout(TimeUnit unit) {
+        if (unit == null) {
+            throw msg.nullParameter("unit");
+        }
         return unit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
@@ -123,7 +126,10 @@ public class ChannelInputStream extends InputStream {
      */
     public void setReadTimeout(long timeout, TimeUnit unit) {
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
+        }
+        if (unit == null) {
+            throw msg.nullParameter("unit");
         }
         final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -146,7 +152,7 @@ public class ChannelInputStream extends InputStream {
                     if (timeout == 0L) {
                         channel.awaitReadable();
                     } else if (timeout < elapsed) {
-                        throw new ReadTimeoutException("Read timed out");
+                        throw msg.readTimeout();
                     } else {
                         channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }
@@ -184,7 +190,7 @@ public class ChannelInputStream extends InputStream {
                     if (timeout == 0L) {
                         channel.awaitReadable();
                     } else if (timeout < elapsed) {
-                        throw new ReadTimeoutException("Read timed out");
+                        throw msg.readTimeout();
                     } else {
                         channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }
@@ -230,7 +236,7 @@ public class ChannelInputStream extends InputStream {
                         if (timeout == 0L) {
                             channel.awaitReadable();
                         } else if (timeout < elapsed) {
-                            throw new ReadTimeoutException("Read timed out");
+                            throw msg.readTimeout();
                         } else {
                             channel.awaitReadable(timeout - elapsed, TimeUnit.NANOSECONDS);
                         }

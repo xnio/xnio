@@ -49,12 +49,12 @@ public abstract class Option<T> implements Serializable {
 
     Option(final Class<?> declClass, final String name) {
         if (declClass == null) {
-            throw new IllegalArgumentException("declClass is null");
+            throw msg.nullParameter("declClass");
+        }
+        if (name == null) {
+            throw msg.nullParameter("name");
         }
         this.declClass = declClass;
-        if (name == null) {
-            throw new NullPointerException("name is null");
-        }
         this.name = name;
     }
 
@@ -140,7 +140,7 @@ public abstract class Option<T> implements Serializable {
     public static Option<?> fromString(String name, ClassLoader classLoader) throws IllegalArgumentException {
         final int lastDot = name.lastIndexOf('.');
         if (lastDot == -1) {
-            throw new IllegalArgumentException("Invalid option name");
+            throw msg.invalidOptionName(name);
         }
         final String fieldName = name.substring(lastDot + 1);
         final String className = name.substring(0, lastDot);
@@ -170,7 +170,7 @@ public abstract class Option<T> implements Serializable {
             throw msg.fieldNotAccessible(fieldName, clazz);
         }
         if (option == null) {
-            throw new IllegalArgumentException("Invalid null Option");
+            throw msg.invalidNullOption(name);
         }
         return option;
     }
@@ -262,7 +262,7 @@ public abstract class Option<T> implements Serializable {
          */
         public Option.SetBuilder add(Option<?> option) {
             if (option == null) {
-                throw new NullPointerException("option is null");
+                throw msg.nullParameter("option");
             }
             optionSet.add(option);
             return this;
@@ -276,7 +276,7 @@ public abstract class Option<T> implements Serializable {
          */
         public Option.SetBuilder addAll(Collection<Option<?>> options) {
             if (options == null) {
-                throw new NullPointerException("options is null");
+                throw msg.nullParameter("option");
             }
             for (Option<?> option : options) {
                 add(option);
@@ -302,7 +302,7 @@ public abstract class Option<T> implements Serializable {
 
     private static final Option.ValueParser<?> noParser = new Option.ValueParser<Object>() {
         public Object parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
-            throw new IllegalArgumentException("No parser for this value type");
+            throw msg.noOptionParser();
         }
     };
 
@@ -342,7 +342,7 @@ public abstract class Option<T> implements Serializable {
             public Object parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
                 final int idx = string.indexOf('=');
                 if (idx == -1) {
-                    throw new IllegalArgumentException("Invalid format for property value '" + string + "'");
+                    throw msg.invalidOptionPropertyFormat(string);
                 }
                 return Property.of(string.substring(0, idx), string.substring(idx + 1, string.length()));
             }
@@ -356,9 +356,9 @@ public abstract class Option<T> implements Serializable {
                 try {
                     return Class.forName(string, false, classLoader).asSubclass(argType);
                 } catch (ClassNotFoundException e) {
-                    throw new IllegalArgumentException("Class '" + string + "' not found", e);
+                    throw msg.classNotFound(string, e);
                 } catch (ClassCastException e) {
-                    throw new IllegalArgumentException("Class '" + string + "' is not an instance of " + argType);
+                    throw msg.classNotInstance(string, argType);
                 }
             }
         };

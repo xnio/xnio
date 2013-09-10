@@ -116,7 +116,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     public static XnioIoThread requireCurrentThread() throws IllegalStateException {
         final XnioIoThread thread = currentThread();
         if (thread == null) {
-            throw new IllegalStateException("XNIO thread is required");
+            throw msg.xnioThreadRequired();
         }
         return thread;
     }
@@ -163,7 +163,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future connection
      */
     protected IoFuture<StreamConnection> acceptLocalStreamConnection(LocalSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a local stream connection");
+        throw msg.unsupported("acceptLocalStreamConnection");
     }
 
     /**
@@ -177,7 +177,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future connection
      */
     protected IoFuture<StreamConnection> acceptTcpStreamConnection(InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a TCP connection");
+        throw msg.unsupported("acceptTcpStreamConnection");
     }
 
     public IoFuture<MessageConnection> openMessageConnection(final SocketAddress destination, final ChannelListener<? super MessageConnection> openListener, final OptionMap optionMap) {
@@ -193,7 +193,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
 
     public IoFuture<MessageConnection> acceptMessageConnection(final SocketAddress destination, final ChannelListener<? super MessageConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
         if (destination == null) {
-            throw new IllegalArgumentException("destination is null");
+            throw msg.nullParameter("destination");
         }
         if (destination instanceof LocalSocketAddress) {
             return acceptLocalMessageConnection((LocalSocketAddress) destination, openListener, bindListener, optionMap);
@@ -213,7 +213,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future connection
      */
     protected IoFuture<MessageConnection> acceptLocalMessageConnection(LocalSocketAddress destination, ChannelListener<? super MessageConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Accept a local message connection");
+        throw msg.unsupported("acceptLocalMessageConnection");
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, OptionMap optionMap) {
@@ -272,7 +272,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future result of this operation
      */
     protected IoFuture<StreamConnection> openTcpStreamConnection(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to TCP server");
+        throw msg.unsupported("openTcpStreamConnection");
     }
 
     /**
@@ -286,7 +286,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future result of this operation
      */
     protected IoFuture<StreamConnection> openLocalStreamConnection(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to local stream server");
+        throw msg.unsupported("openLocalStreamConnection");
     }
 
     /**
@@ -299,7 +299,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @return the future result of this operation
      */
     protected IoFuture<MessageConnection> openLocalMessageConnection(LocalSocketAddress bindAddress, LocalSocketAddress destinationAddress, ChannelListener<? super MessageConnection> openListener, OptionMap optionMap) {
-        throw new UnsupportedOperationException("Connect to local stream server");
+        throw msg.unsupported("openLocalMessageConnection");
     }
 
     public ChannelPipe<StreamChannel, StreamChannel> createFullDuplexPipe() throws IOException {
@@ -318,10 +318,10 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     }
 
     public ChannelPipe<StreamConnection, StreamConnection> createFullDuplexPipeConnection(final XnioIoFactory peer) throws IOException {
-        throw new UnsupportedOperationException("Create a full-duplex pipe");
+        throw msg.unsupported("createFullDuplexPipeConnection");
     }
 
     public ChannelPipe<StreamSourceChannel, StreamSinkChannel> createHalfDuplexPipe(final XnioIoFactory peer) throws IOException {
-        throw new UnsupportedOperationException("Create a half-duplex pipe");
+        throw msg.unsupported("createHalfDuplexPipe");
     }
 }

@@ -27,6 +27,7 @@ import static org.xnio.Bits.allAreClear;
 import static org.xnio.Bits.allAreSet;
 import static org.xnio.Bits.anyAreSet;
 import static org.xnio.Bits.intBitMask;
+import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -114,22 +115,22 @@ final class JsseSslConduitEngine {
      */
     JsseSslConduitEngine(final JsseSslStreamConnection connection, final StreamSinkConduit sinkConduit, final StreamSourceConduit sourceConduit, final SSLEngine engine, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
         if (connection == null) {
-            throw new IllegalArgumentException("connection is null");
+            throw msg.nullParameter("connection");
         }
         if (sinkConduit == null) {
-            throw new IllegalArgumentException("sinkConduit is null");
+            throw msg.nullParameter("sinkConduit");
         }
         if (sourceConduit == null) {
-            throw new IllegalArgumentException("sourceConduit is null");
+            throw msg.nullParameter("sourceConduit");
         }
         if (engine == null) {
-            throw new IllegalArgumentException("engine is null");
+            throw msg.nullParameter("engine");
         }
         if (socketBufferPool == null) {
-            throw new IllegalArgumentException("socketBufferPool is null");
+            throw msg.nullParameter("socketBufferPool");
         }
         if (applicationBufferPool == null) {
-            throw new IllegalArgumentException("applicationBufferPool is null");
+            throw msg.nullParameter("applicationBufferPool");
         }
         this.connection = connection;
         this.sinkConduit = sinkConduit;
@@ -145,13 +146,13 @@ final class JsseSslConduitEngine {
             sendBuffer = socketBufferPool.allocate();
             try {
                 if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
-                    throw new IllegalArgumentException("Socket buffer is too small (" + receiveBuffer.getResource().capacity() + "). Expected capacity is " + packetBufferSize);
+                    throw msg.socketBufferTooSmall();
                 }
                 final int applicationBufferSize = session.getApplicationBufferSize();
                 readBuffer = applicationBufferPool.allocate();
                 try {
                     if (readBuffer.getResource().capacity() < applicationBufferSize) {
-                        throw new IllegalArgumentException("Application buffer is too small");
+                        throw msg.appBufferTooSmall();
                     }
                     ok = true;
                 } finally {
@@ -281,7 +282,7 @@ final class JsseSslConduitEngine {
     private int wrap(final ByteBuffer src, boolean isCloseExpected) throws IOException {
         assert ! Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
-        if (allAreSet(state, WRITE_COMPLETE)) { // atempted write after shutdown, this is 
+        if (allAreSet(state, WRITE_COMPLETE)) { // attempted write after shutdown, this is
             // a workaround for a bug found in SSLEngine
             throw new ClosedChannelException();
         }
@@ -346,7 +347,7 @@ final class JsseSslConduitEngine {
                 assert result.bytesProduced() == 0;
                 final ByteBuffer buffer = sendBuffer.getResource();
                 if (buffer.position() == 0) {
-                    throw new IOException("SSLEngine required a bigger send buffer but our buffer was already big enough: " + sendBuffer);
+                    throw msg.wrongBufferExpansion();
                 } else {
                     // there's some data in there, so send it first
                     buffer.flip();
@@ -382,7 +383,7 @@ final class JsseSslConduitEngine {
                 break;
             }
             default: {
-                throw new IllegalStateException("Unexpected wrap result status: " + result.getStatus());
+                throw msg.unexpectedWrapResult(result.getStatus());
             }
         }
         return true;
@@ -518,7 +519,7 @@ final class JsseSslConduitEngine {
                     return true;
                 }
                 default:
-                    throw new IOException("Unexpected handshake status: " + result.getHandshakeStatus());
+                    throw msg.unexpectedHandshakeStatus(result.getHandshakeStatus());
             }
         }
     }
@@ -704,7 +705,7 @@ final class JsseSslConduitEngine {
                 return result.bytesConsumed();
             }
             default: {
-                throw new IOException("Unexpected unwrap result status: " + result.getStatus());
+                throw msg.unexpectedUnwrapResult(result.getStatus());
             }
         }
     }
@@ -827,7 +828,7 @@ final class JsseSslConduitEngine {
             }
             synchronized(getWrapLock()) {
                 if (! doFlush()) {
-                    throw new IOException("Unsent data truncated");
+                    throw msg.unflushedData();
                 }
             }
         } finally {
@@ -889,7 +890,7 @@ final class JsseSslConduitEngine {
             }
             park(this);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -924,7 +925,7 @@ final class JsseSslConduitEngine {
             }
             parkNanos(this, duration);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -991,7 +992,7 @@ final class JsseSslConduitEngine {
             }
             park(this);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -1023,7 +1024,7 @@ final class JsseSslConduitEngine {
             }
             parkNanos(this, duration);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious

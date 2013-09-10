@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.xnio.Buffers;
@@ -57,7 +59,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         final boolean longLengths = this.longLengths;
         final int lengthFieldSize = longLengths ? 4 : 2;
         if (remaining > transmitBuffer.capacity() - lengthFieldSize || ! longLengths && remaining > 65535) {
-            throw new IOException("Transmitted message is too large");
+            throw msg.txMsgTooLarge();
         }
         if (transmitBuffer.remaining() < lengthFieldSize + remaining && ! writeBuffer()) {
             return false;
@@ -83,7 +85,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         final boolean longLengths = this.longLengths;
         final int lengthFieldSize = longLengths ? 4 : 2;
         if (remaining > transmitBuffer.capacity() - lengthFieldSize || ! longLengths && remaining > 65535) {
-            throw new IOException("Transmitted message is too large");
+            throw msg.txMsgTooLarge();
         }
         if (transmitBuffer.remaining() < lengthFieldSize + remaining && ! writeBuffer()) {
             return false;

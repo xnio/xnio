@@ -734,7 +734,7 @@ public final class IoUtils {
 
         protected int next(final int bits) {
             if (Thread.currentThread() != thread) {
-                throw new IllegalStateException("Access from wrong thread");
+                throw msg.randomWrongThread();
             }
             return super.next(bits);
         }

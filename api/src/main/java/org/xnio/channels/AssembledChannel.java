@@ -28,6 +28,8 @@ import org.xnio.Option;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 
+import static org.xnio._private.Messages.msg;
+
 /**
  * A closeable view over a read and write side of a suspendable channel.
  *
@@ -79,7 +81,7 @@ public class AssembledChannel implements CloseableChannel {
         this.readChannel = readChannel;
         this.writeChannel = writeChannel;
         if (readChannel.getWorker() != writeChannel.getWorker()) {
-            throw new IllegalArgumentException("Both channels must come from the same worker");
+            throw msg.differentWorkers();
         }
     }
 

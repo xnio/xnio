@@ -27,6 +27,7 @@ import static org.xnio.Bits.allAreClear;
 import static org.xnio.Bits.allAreSet;
 import static org.xnio.Bits.anyAreSet;
 import static org.xnio.Bits.intBitMask;
+import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -141,7 +142,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
      */
     protected TranslatingSuspendableChannel(final W channel) {
         if (channel == null) {
-            throw new IllegalArgumentException("channel is null");
+            throw msg.nullParameter("channel");
         }
         this.channel = channel;
         channel.getReadSetter().set(delegateReadListener);
@@ -773,7 +774,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             park(this);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -801,7 +802,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             parkNanos(this, duration);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -833,7 +834,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             park(this);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious
@@ -861,7 +862,7 @@ public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel
             }
             parkNanos(this, duration);
             if (thread.isInterrupted()) {
-                throw new InterruptedIOException();
+                throw msg.interruptedIO();
             }
         } finally {
             // always unpark because we cannot know if our awaken was spurious

@@ -18,6 +18,8 @@
 
 package org.xnio.streams;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.OutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -25,10 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.xnio.Bits;
-import org.xnio.channels.Channels;
-import org.xnio.channels.ConcurrentStreamChannelAccessException;
 import org.xnio.channels.StreamSinkChannel;
-import org.xnio.channels.WriteTimeoutException;
 
 /**
  * An output stream which writes to a stream sink channel.  All write operations are directly
@@ -58,7 +57,7 @@ public class ChannelOutputStream extends OutputStream {
      */
     public ChannelOutputStream(final StreamSinkChannel channel) {
         if (channel == null) {
-            throw new IllegalArgumentException("Null channel");
+            throw msg.nullParameter("channel");
         }
         this.channel = channel;
     }
@@ -72,28 +71,24 @@ public class ChannelOutputStream extends OutputStream {
      */
     public ChannelOutputStream(final StreamSinkChannel channel, final long timeout, final TimeUnit unit) {
         if (channel == null) {
-            throw new IllegalArgumentException("Null channel");
+            throw msg.nullParameter("channel");
         }
         if (unit == null) {
-            throw new IllegalArgumentException("Null unit");
+            throw msg.nullParameter("unit");
         }
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
         }
         this.channel = channel;
         final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
     }
 
-    private static IOException closed() {
-        return new IOException("The output stream is closed");
-    }
-
     private boolean enter() {
         int old = flags;
         do {
             if (Bits.allAreSet(old, FLAG_ENTERED)) {
-                throw new ConcurrentStreamChannelAccessException();
+                throw msg.concurrentAccess();
             }
         } while (! flagsUpdater.compareAndSet(this, old, old | FLAG_ENTERED));
         return Bits.allAreSet(old, FLAG_CLOSED);
@@ -117,6 +112,9 @@ public class ChannelOutputStream extends OutputStream {
      * @return the timeout in the given unit
      */
     public long getWriteTimeout(TimeUnit unit) {
+        if (unit == null) {
+            throw msg.nullParameter("unit");
+        }
         return unit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
@@ -128,7 +126,10 @@ public class ChannelOutputStream extends OutputStream {
      */
     public void setWriteTimeout(long timeout, TimeUnit unit) {
         if (timeout < 0L) {
-            throw new IllegalArgumentException("Negative timeout");
+            throw msg.parameterOutOfRange("timeout");
+        }
+        if (unit == null) {
+            throw msg.nullParameter("unit");
         }
         final long calcTimeout = unit.toNanos(timeout);
         this.timeout = timeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -138,7 +139,7 @@ public class ChannelOutputStream extends OutputStream {
     public void write(final int b) throws IOException {
         boolean closed = enter();
         try {
-            if (closed) throw closed();
+            if (closed) throw msg.streamClosed();
             final StreamSinkChannel channel = this.channel;
             final ByteBuffer buffer = ByteBuffer.wrap(new byte[] { (byte) b });
             int res = channel.write(buffer);
@@ -151,7 +152,7 @@ public class ChannelOutputStream extends OutputStream {
                     if (timeout == 0L) {
                         channel.awaitWritable();
                     } else if (timeout < elapsed) {
-                        throw new WriteTimeoutException("Write timed out");
+                        throw msg.writeTimeout();
                     } else {
                         channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }
@@ -176,7 +177,7 @@ public class ChannelOutputStream extends OutputStream {
         }
         boolean closed = enter();
         try {
-            if (closed) throw closed();
+            if (closed) throw msg.streamClosed();
             final StreamSinkChannel channel = this.channel;
             final ByteBuffer buffer = ByteBuffer.wrap(b, off, len);
             int res;
@@ -192,7 +193,7 @@ public class ChannelOutputStream extends OutputStream {
                             if (timeout == 0L) {
                                 channel.awaitWritable();
                             } else if (timeout < elapsed) {
-                                throw new WriteTimeoutException("Write timed out");
+                                throw msg.writeTimeout();
                             } else {
                                 channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
                             }
@@ -224,7 +225,7 @@ public class ChannelOutputStream extends OutputStream {
                     if (timeout == 0L) {
                         channel.awaitWritable();
                     } else if (timeout < elapsed) {
-                        throw new WriteTimeoutException("Write timed out");
+                        throw msg.writeTimeout();
                     } else {
                         channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }
@@ -252,7 +253,7 @@ public class ChannelOutputStream extends OutputStream {
                     if (timeout == 0L) {
                         channel.awaitWritable();
                     } else if (timeout < elapsed) {
-                        throw new WriteTimeoutException("Write timed out");
+                        throw msg.writeTimeout();
                     } else {
                         channel.awaitWritable(timeout - elapsed, TimeUnit.NANOSECONDS);
                     }

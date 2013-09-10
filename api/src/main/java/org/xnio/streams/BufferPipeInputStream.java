@@ -18,6 +18,8 @@
 
 package org.xnio.streams;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -124,7 +126,7 @@ public class BufferPipeInputStream extends InputStream {
                     wait();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new InterruptedIOException("Interrupted on read()");
+                    throw msg.interruptedIO();
                 }
             }
             final Pooled<ByteBuffer> entry = queue.peek();
@@ -170,7 +172,7 @@ public class BufferPipeInputStream extends InputStream {
                     wait();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new InterruptedIOException("Interrupted on read()");
+                    throw msg.interruptedIO();
                 }
             }
             int total = 0;
@@ -227,7 +229,7 @@ public class BufferPipeInputStream extends InputStream {
                     wait();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new InterruptedIOException("Interrupted on read()");
+                    throw msg.interruptedIO();
                 }
             }
             long skipped = 0L;

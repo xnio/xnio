@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import static org.xnio._private.Messages.msg;
+
 /**
  * A buffer pooled allocator.  This pool uses a series of buffer regions to back the
  * returned pooled buffers.  When the buffer is no longer needed, it should be freed back into the pool; failure
@@ -93,10 +95,10 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
      */
     public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize, final int threadLocalQueueSize) {
         if (bufferSize <= 0) {
-            throw new IllegalArgumentException("Buffer size must be greater than zero");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         if (maxRegionSize < bufferSize) {
-            throw new IllegalArgumentException("Maximum region size must be greater than or equal to the buffer size");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         buffersPerRegion = maxRegionSize / bufferSize;
         this.bufferSize = bufferSize;
@@ -193,7 +195,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         public ByteBuffer getResource() {
             final ByteBuffer buffer = this.buffer;
             if (buffer == null) {
-                throw new IllegalStateException();
+                throw msg.bufferFreed();
             }
             return buffer;
         }

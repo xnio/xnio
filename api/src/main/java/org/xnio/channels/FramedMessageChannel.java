@@ -19,6 +19,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -97,7 +99,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 final int length = receiveBuffer.getInt();
                 if (length < 0 || length > receiveBuffer.capacity() - 4) {
                     Buffers.unget(receiveBuffer, 4);
-                    throw new IOException("Received an invalid message length of " + length);
+                    throw msg.recvInvalidMsgLength(length);
                 }
                 if (receiveBuffer.remaining() < length) {
                     if (res == -1) {
@@ -162,7 +164,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
                 final int length = receiveBuffer.getInt();
                 if (length < 0 || length > receiveBuffer.capacity() - 4) {
                     Buffers.unget(receiveBuffer, 4);
-                    throw new IOException("Received an invalid message length of " + length);
+                    throw msg.recvInvalidMsgLength(length);
                 }
                 if (receiveBuffer.remaining() < length) {
                     if (res == -1) {
@@ -216,7 +218,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     public boolean send(final ByteBuffer buffer) throws IOException {
         synchronized (transmitBuffer) {
             if (isWriteShutDown()) {
-                throw new EOFException("Writes have been shut down");
+                throw msg.writeShutDown();
             }
             if (!buffer.hasRemaining()) {
                 return true;
@@ -224,7 +226,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
             final int remaining = buffer.remaining();
             if (remaining > transmitBuffer.capacity() - 4) {
-                throw new IOException("Transmitted message is too large");
+                throw msg.txMsgTooLarge();
             }
             log.tracef("Accepting %s into %s", buffer, transmitBuffer);
             if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
@@ -248,7 +250,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
         synchronized (transmitBuffer) {
             if (isWriteShutDown()) {
-                throw new EOFException("Writes have been shut down");
+                throw msg.writeShutDown();
             }
             if (!Buffers.hasRemaining(buffers, offs, len)) {
                 return true;
@@ -256,7 +258,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             final ByteBuffer transmitBuffer = this.transmitBuffer.getResource();
             final long remaining = Buffers.remaining(buffers, offs, len);
             if (remaining > transmitBuffer.capacity() - 4L) {
-                throw new IOException("Transmitted message is too large");
+                throw msg.txMsgTooLarge();
             }
             log.tracef("Accepting multiple buffers into %s", transmitBuffer);
             if (transmitBuffer.remaining() < 4 + remaining && ! doFlushBuffer()) {
@@ -334,7 +336,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             }
         }
         try {
-            if (error) throw new IOException("Unflushed data truncated");
+            if (error) throw msg.unflushedData();
             channel.close();
         } finally {
             IoUtils.safeClose(channel);

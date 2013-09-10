@@ -18,6 +18,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ByteChannel;
@@ -69,10 +71,10 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
      */
     public BlockingByteChannel(final StreamChannel delegate, final long readTimeout, final TimeUnit readTimeoutUnit, final long writeTimeout, final TimeUnit writeTimeoutUnit) {
         if (readTimeout < 0L) {
-            throw new IllegalArgumentException("Negative read timeout");
+            throw msg.parameterOutOfRange("readTimeout");
         }
         if (writeTimeout < 0L) {
-            throw new IllegalArgumentException("Negative write timeout");
+            throw msg.parameterOutOfRange("writeTimeout");
         }
         final long calcReadTimeout = readTimeoutUnit.toNanos(readTimeout);
         this.readTimeout = readTimeout == 0L ? 0L : calcReadTimeout < 1L ? 1L : calcReadTimeout;
@@ -89,7 +91,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
      */
     public void setReadTimeout(long readTimeout, TimeUnit readTimeoutUnit) {
         if (readTimeout < 0L) {
-            throw new IllegalArgumentException("Negative read timeout");
+            throw msg.parameterOutOfRange("readTimeout");
         }
         final long calcTimeout = readTimeoutUnit.toNanos(readTimeout);
         this.readTimeout = readTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -103,7 +105,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
      */
     public void setWriteTimeout(long writeTimeout, TimeUnit writeTimeoutUnit) {
         if (writeTimeout < 0L) {
-            throw new IllegalArgumentException("Negative write timeout");
+            throw msg.parameterOutOfRange("writeTimeout");
         }
         final long calcTimeout = writeTimeoutUnit.toNanos(writeTimeout);
         this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -132,7 +134,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
                 if (readTimeout == 0L || readTimeout == Long.MAX_VALUE) {
                     delegate.awaitReadable();
                 } else if (readTimeout <= elapsed) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw msg.readTimeout();
                 } else {
                     delegate.awaitReadable(readTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -174,7 +176,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
                 if (readTimeout == 0L || readTimeout == Long.MAX_VALUE) {
                     delegate.awaitReadable();
                 } else if (readTimeout <= elapsed) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw msg.readTimeout();
                 } else {
                     delegate.awaitReadable(readTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -207,7 +209,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Write timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -249,7 +251,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Write timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -275,7 +277,7 @@ public class BlockingByteChannel implements ScatteringByteChannel, GatheringByte
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Flush timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }

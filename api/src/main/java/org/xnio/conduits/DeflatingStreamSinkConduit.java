@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -164,7 +166,7 @@ public final class DeflatingStreamSinkConduit extends AbstractStreamSinkConduit<
             res = deflater.deflate(outArray, pos, rem, Deflater.SYNC_FLUSH);
             if (pos == 0 && res == rem) {
                 // hmm, we're stuck (shouldn't be possible)
-                throw new IOException("Cannot flush due to insufficient buffer space");
+                throw msg.flushSmallBuffer();
             } else {
                 if (res > 0) {
                     outBuffer.flip();
@@ -182,7 +184,7 @@ public final class DeflatingStreamSinkConduit extends AbstractStreamSinkConduit<
                     }
                     return next.flush();
                 } else {
-                    throw new IOException("Deflater doesn't need input, but won't produce output");
+                    throw msg.deflaterState();
                 }
             }
         }

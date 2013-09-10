@@ -18,6 +18,8 @@
 
 package org.xnio.nio;
 
+import static org.xnio.nio.Log.log;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -93,9 +95,9 @@ final class NioPipeSinkConduit extends NioHandle implements StreamSinkConduit {
             if (xfer) {
                 lastWrite = System.nanoTime();
             } else {
-                long lastRead = this.lastWrite;
-                if (lastRead > 0L && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                    throw new WriteTimeoutException("Write timed out");
+                long lastWrite = this.lastWrite;
+                if (lastWrite > 0L && ((System.nanoTime() - lastWrite) / 1000000L) > (long) timeout) {
+                    throw log.writeTimeout();
                 }
             }
         }

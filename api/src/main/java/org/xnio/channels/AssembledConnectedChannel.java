@@ -19,6 +19,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.net.SocketAddress;
 import org.xnio.ChannelListener;
 
@@ -40,7 +42,7 @@ public class AssembledConnectedChannel extends AssembledChannel implements Conne
         super(readChannel, writeChannel);
         ConnectedChannel ch = Channels.unwrap(ConnectedChannel.class, readChannel);
         if (ch == null) ch = Channels.unwrap(ConnectedChannel.class, writeChannel);
-        if (ch == null) throw new IllegalArgumentException("At least one specified channel must be a connected channel");
+        if (ch == null) throw msg.oneChannelMustBeConnection();
         connection = ch;
     }
 

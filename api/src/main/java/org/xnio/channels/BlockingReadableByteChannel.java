@@ -18,6 +18,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
@@ -51,7 +53,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
      */
     public BlockingReadableByteChannel(final StreamSourceChannel delegate, final long readTimeout, final TimeUnit readTimeoutUnit) {
         if (readTimeout < 0L) {
-            throw new IllegalArgumentException("Negative read timeout");
+            throw msg.parameterOutOfRange("readTimeout");
         }
         this.delegate = delegate;
         final long calcTimeout = readTimeoutUnit.toNanos(readTimeout);
@@ -66,7 +68,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
      */
     public void setReadTimeout(long readTimeout, TimeUnit readTimeoutUnit) {
         if (readTimeout < 0L) {
-            throw new IllegalArgumentException("Negative read timeout");
+            throw msg.parameterOutOfRange("readTimeout");
         }
         final long calcTimeout = readTimeoutUnit.toNanos(readTimeout);
         this.readTimeout = readTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -95,7 +97,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
                 if (readTimeout == 0L || readTimeout == Long.MAX_VALUE) {
                     delegate.awaitReadable();
                 } else if (readTimeout <= elapsed) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw msg.readTimeout();
                 } else {
                     delegate.awaitReadable(readTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -137,7 +139,7 @@ public class BlockingReadableByteChannel implements ScatteringByteChannel {
                 if (readTimeout == 0L || readTimeout == Long.MAX_VALUE) {
                     delegate.awaitReadable();
                 } else if (readTimeout <= elapsed) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw msg.readTimeout();
                 } else {
                     delegate.awaitReadable(readTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }

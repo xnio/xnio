@@ -18,6 +18,8 @@
 
 package org.xnio.sasl;
 
+import static org.xnio._private.Messages.msg;
+
 import javax.security.sasl.Sasl;
 
 /**
@@ -61,7 +63,7 @@ public enum SaslQop {
         } else if ("auth-conf".equals(name)) {
             return AUTH_CONF;
         } else {
-            throw new IllegalArgumentException("Invalid QOP string given");
+            throw msg.invalidQop(name);
         }
     }
 

@@ -18,7 +18,8 @@
 
 package org.xnio.streams;
 
-import java.io.CharConversionException;
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -90,13 +91,13 @@ public final class ReaderInputStream extends InputStream {
      */
     public ReaderInputStream(final Reader reader, final CharsetEncoder encoder, final int bufferSize) {
         if (reader == null) {
-            throw new IllegalArgumentException("writer is null");
+            throw msg.nullParameter("writer");
         }
         if (encoder == null) {
-            throw new IllegalArgumentException("decoder is null");
+            throw msg.nullParameter("decoder");
         }
         if (bufferSize < 1) {
-            throw new IllegalArgumentException("bufferSize must be larger than 0");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         this.reader = reader;
         this.encoder = encoder;
@@ -161,12 +162,12 @@ public final class ReaderInputStream extends InputStream {
                     }
                     if (result.isError()) {
                         if (result.isMalformed()) {
-                            throw new CharConversionException("Malformed input");
+                            throw msg.malformedInput();
                         }
                         if (result.isUnmappable()) {
-                            throw new CharConversionException("Unmappable character");
+                            throw msg.unmappableCharacter();
                         }
-                        throw new CharConversionException("Character decoding problem");
+                        throw msg.characterDecodingProblem();
                     }
                 }
                 charBuffer.compact();

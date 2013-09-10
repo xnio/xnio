@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
@@ -79,7 +81,7 @@ public final class FramingMessageSourceConduit extends AbstractSourceConduit<Str
             final int length = receiveBuffer.getInt();
             if (length < 0 || length > receiveBuffer.capacity() - 4) {
                 Buffers.unget(receiveBuffer, 4);
-                throw new IOException("Received an invalid message length of " + length);
+                throw msg.recvInvalidMsgLength(length);
             }
             if (receiveBuffer.remaining() < length) {
                 if (res == -1) {
@@ -126,7 +128,7 @@ public final class FramingMessageSourceConduit extends AbstractSourceConduit<Str
             final int length = receiveBuffer.getInt();
             if (length < 0 || length > receiveBuffer.capacity() - 4) {
                 Buffers.unget(receiveBuffer, 4);
-                throw new IOException("Received an invalid message length of " + length);
+                throw msg.recvInvalidMsgLength(length);
             }
             if (receiveBuffer.remaining() < length) {
                 if (res == -1) {

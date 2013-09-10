@@ -26,6 +26,7 @@ import org.xnio.channels.FixedLengthUnderflowException;
 import org.xnio.channels.StreamSourceChannel;
 
 import static java.lang.Math.min;
+import static org.xnio._private.Messages.msg;
 
 /**
  * A stream sink conduit with a limited length.
@@ -48,7 +49,7 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         if (count == 0L) return 0L;
         final long remaining = this.remaining;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -62,7 +63,7 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         if (count == 0L) return 0L;
         final long remaining = this.remaining;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -79,7 +80,7 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         int res = 0;
         final long remaining = this.remaining;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         try {
             final int lim = src.limit();
@@ -107,7 +108,7 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         }
         final long remaining = this.remaining;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -143,14 +144,14 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
     public void terminateWrites() throws IOException {
         next.terminateWrites();
         if (remaining > 0L) {
-            throw new FixedLengthUnderflowException();
+            throw msg.fixedOverflow();
         }
     }
 
     public void truncateWrites() throws IOException {
         next.terminateWrites();
         if (remaining > 0L) {
-            throw new FixedLengthUnderflowException();
+            throw msg.fixedOverflow();
         }
     }
 

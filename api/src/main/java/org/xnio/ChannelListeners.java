@@ -39,6 +39,7 @@ import org.xnio.channels.SuspendableWriteChannel;
 import org.xnio.channels.WritableMessageChannel;
 
 import static org.xnio._private.Messages.listenerMsg;
+import static org.xnio._private.Messages.msg;
 
 /**
  * Channel listener utility methods.
@@ -280,7 +281,7 @@ public final class ChannelListeners {
      */
     public static <C extends ConnectedChannel> ChannelListener<AcceptingChannel<C>> openListenerAdapter(final ChannelListener<? super C> openListener) {
         if (openListener == null) {
-            throw new IllegalArgumentException("openListener is null");
+            throw msg.nullParameter("openListener");
         }
         return new ChannelListener<AcceptingChannel<C>>() {
             public void handleEvent(final AcceptingChannel<C> channel) {
@@ -951,7 +952,7 @@ public final class ChannelListeners {
      */
     public static <I extends StreamSourceChannel, O extends StreamSinkChannel> void initiateTransfer(long count, final I source, final O sink, final ChannelListener<? super I> sourceListener, final ChannelListener<? super O> sinkListener, final ChannelExceptionHandler<? super I> readExceptionHandler, final ChannelExceptionHandler<? super O> writeExceptionHandler, Pool<ByteBuffer> pool) {
         if (pool == null) {
-            throw new IllegalArgumentException("pool is null");
+            throw msg.nullParameter("pool");
         }
         final Pooled<ByteBuffer> allocated = pool.allocate();
         boolean free = true;

@@ -350,7 +350,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             peerThread = (WorkerThread) peer;
             peerThread.getWorker().checkShutdown();
         } else {
-            throw new IllegalArgumentException("Peer must come from NIO provider");
+            throw log.notNioProvider();
         }
         return peerThread;
     }
@@ -554,7 +554,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
 
     public void execute(final Runnable command) {
         if ((state & SHUTDOWN) != 0) {
-            throw new RejectedExecutionException("Thread is terminating");
+            throw log.threadExiting();
         }
         synchronized (workLock) {
             selectorWorkQueue.add(command);
@@ -580,7 +580,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
 
     Key executeAfter(final Runnable command, final long time) {
         if ((state & SHUTDOWN) != 0) {
-            throw new RejectedExecutionException("Thread is terminating");
+            throw log.threadExiting();
         }
         if (time <= 0) {
             execute(command);

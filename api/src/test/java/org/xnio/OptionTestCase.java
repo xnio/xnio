@@ -421,7 +421,7 @@ public class OptionTestCase {
         Exception expected = null;
         try {
             Option.simple(OptionTestCase.class, null, String.class);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -527,7 +527,7 @@ public class OptionTestCase {
         Exception expected = null;
         try {
             Option.sequence(OptionTestCase.class, null, String.class);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -639,7 +639,7 @@ public class OptionTestCase {
         Exception expected = null;
         try {
             Option.type(OptionTestCase.class, null, String.class);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -762,7 +762,7 @@ public class OptionTestCase {
         Exception expected = null;
         try {
             Option.typeSequence(OptionTestCase.class, null, String.class);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -911,10 +911,10 @@ public class OptionTestCase {
         assertTrue(set2.contains(SIMPLE_BYTE_OPTION));
         assertTrue(set2.contains(SIMPLE_COLOR_OPTION));
 
-        NullPointerException expected = null;
+        IllegalArgumentException expected = null;
         try {
             setBuilder.add(NULL_OPTION);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -945,7 +945,7 @@ public class OptionTestCase {
         expected = null;
         try {
             setBuilder.addAll(options);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -953,7 +953,7 @@ public class OptionTestCase {
         expected = null;
         try {
             setBuilder.addAll(null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);

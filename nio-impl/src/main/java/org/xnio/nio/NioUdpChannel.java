@@ -45,6 +45,7 @@ import org.xnio.channels.UnsupportedOptionException;
 import org.xnio.channels.WriteListenerSettable;
 
 import static org.xnio.Xnio.NIO2;
+import static org.xnio.nio.Log.log;
 import static org.xnio.nio.Log.udpServerChannelLog;
 
 /**
@@ -149,7 +150,7 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         final long o = Buffers.remaining(buffers, offset, length);
         if (o > 65535L) {
             // there will never be enough room
-            throw new IllegalArgumentException("Too many bytes written");
+            throw log.bufferTooLarge();
         }
         final ByteBuffer buffer = ByteBuffer.allocate((int) o);
         Buffers.copy(buffer, buffers, offset, length);
@@ -238,11 +239,11 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
     }
 
     public void shutdownReads() throws IOException {
-        throw new UnsupportedOperationException("Shutdown reads");
+        throw log.unsupported("shutdownReads");
     }
 
     public void shutdownWrites() throws IOException {
-        throw new UnsupportedOperationException("Shutdown writes");
+        throw log.unsupported("shutdownWrites");
     }
 
     public void awaitReadable() throws IOException {
@@ -323,14 +324,14 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             old = Integer.valueOf(socket.getReceiveBufferSize());
             int newValue = Options.RECEIVE_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
-                throw new IllegalArgumentException("Receive buffer size must be greater than 0");
+                throw log.optionOutOfRange("RECEIVE_BUFFER");
             }
             socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
             old = Integer.valueOf(socket.getSendBufferSize());
             int newValue = Options.SEND_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
-                throw new IllegalArgumentException("Send buffer size must be greater than 0");
+                throw log.optionOutOfRange("SEND_BUFFER");
             }
             socket.setSendBufferSize(newValue);
         } else if (option == Options.IP_TRAFFIC_CLASS) {

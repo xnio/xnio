@@ -252,7 +252,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @throws IOException if the server could not be created
      */
     protected AcceptingChannel<StreamConnection> createTcpConnectionServer(InetSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("TCP server");
+        throw msg.unsupported("createTcpConnectionServer");
     }
 
     /**
@@ -265,7 +265,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @throws IOException if the server could not be created
      */
     protected AcceptingChannel<StreamConnection> createLocalStreamConnectionServer(LocalSocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("UNIX stream server");
+        throw msg.unsupported("createLocalStreamConnectionServer");
     }
 
     // Connectors
@@ -464,7 +464,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @since 3.0
      */
     public MulticastMessageChannel createUdpServer(InetSocketAddress bindAddress, ChannelListener<? super MulticastMessageChannel> bindListener, OptionMap optionMap) throws IOException {
-        throw new UnsupportedOperationException("UDP Server");
+        throw msg.unsupported("createUdpServer");
     }
 
     /**
@@ -557,7 +557,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         switch (options.get(Options.COMPRESSION_TYPE, CompressionType.DEFLATE)) {
             case DEFLATE: nowrap = false; break;
             case GZIP: nowrap = true; break;
-            default: throw new IllegalArgumentException("Compression format not supported");
+            default: throw msg.badCompressionFormat();
         }
         return getInflatingChannel(delegate, new Inflater(nowrap));
     }
@@ -588,7 +588,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         switch (options.get(Options.COMPRESSION_TYPE, CompressionType.DEFLATE)) {
             case DEFLATE: nowrap = false; break;
             case GZIP: nowrap = true; break;
-            default: throw new IllegalArgumentException("Compression format not supported");
+            default: throw msg.badCompressionFormat();
         }
         return getDeflatingChannel(delegate, new Deflater(level, nowrap));
     }

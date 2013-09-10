@@ -17,6 +17,8 @@
  */
 package org.xnio.ssl;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -42,7 +44,7 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
     protected JsseSslStreamSinkConduit(StreamSinkConduit next, JsseSslConduitEngine sslEngine, boolean tls) {
         super(next);
         if (sslEngine == null) {
-            throw new IllegalArgumentException("sslEngine is null");
+            throw msg.nullParameter("sslEngine");
         }
         this.sslEngine = sslEngine;
         this.tls = tls;

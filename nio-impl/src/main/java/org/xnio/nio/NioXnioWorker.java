@@ -73,11 +73,12 @@ final class NioXnioWorker extends XnioWorker {
             threadCount = Math.max(optionMap.get(Options.WORKER_READ_THREADS, 1), optionMap.get(Options.WORKER_WRITE_THREADS, 1));
         }
         if (threadCount < 0) {
-            throw new IllegalArgumentException("Worker I/O thread count must be >= 0");
+            throw log.optionOutOfRange("WORKER_IO_THREADS");
         }
         final long workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
         if (workerStackSize < 0L) {
-            throw new IllegalArgumentException("Worker stack size must be >= 0");
+            throw log.optionOutOfRange("STACK_SIZE");
+
         }
         String workerName = getName();
         WorkerThread[] workerThreads;
@@ -115,7 +116,7 @@ final class NioXnioWorker extends XnioWorker {
         final WorkerThread[] workerThreads = this.workerThreads;
         final int length = workerThreads.length;
         if (length == 0) {
-            throw new IllegalArgumentException("No I/O threads configured");
+            throw log.noThreads();
         }
         if (length == 1) {
             return workerThreads[0];
@@ -192,7 +193,8 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     void checkShutdown() throws ClosedWorkerException {
-        if (isShutdown()) throw new ClosedWorkerException("Worker is shut down");
+        if (isShutdown())
+            throw log.workerShutDown();
     }
 
     void closeResource() {

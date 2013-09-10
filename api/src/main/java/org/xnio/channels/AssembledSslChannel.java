@@ -19,6 +19,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -49,7 +51,7 @@ public class AssembledSslChannel extends AssembledConnectedChannel implements Ss
         } else if (writeChannel instanceof SslChannel) {
             sslChannel = (SslChannel) writeChannel;
         } else {
-            throw new IllegalArgumentException("At least one specified channel must be an SSL channel");
+            throw msg.oneChannelMustBeSSL();
         }
         handshakeSetter = ChannelListeners.getDelegatingSetter(sslChannel.getHandshakeSetter(), this);
     }

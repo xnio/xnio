@@ -29,6 +29,9 @@ import java.io.Serializable;
 import java.nio.charset.Charset;
 import java.nio.ByteBuffer;
 
+import static org.xnio._private.Messages.msg;
+
+
 /**
  * An immutable string of bytes.  Since instances of this class are guaranteed to be immutable, they are
  * safe to use as {@link Option} values and in an {@link OptionMap}.
@@ -46,8 +49,14 @@ public final class ByteString implements Comparable<ByteString>, Serializable {
         this.bytes = bytes;
         this.offs = offs;
         this.len = len;
-        if (offs + len > bytes.length || offs < 0 || len < 0) {
-            throw new IndexOutOfBoundsException();
+        if (offs < 0) {
+            throw msg.parameterOutOfRange("offs");
+        }
+        if (len < 0) {
+            throw msg.parameterOutOfRange("len");
+        }
+        if (offs + len > bytes.length) {
+            throw msg.parameterOutOfRange("offs");
         }
         hashCode = calcHashCode(bytes, offs, len);
     }

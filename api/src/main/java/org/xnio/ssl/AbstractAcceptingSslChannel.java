@@ -18,6 +18,8 @@
 
 package org.xnio.ssl;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -127,7 +129,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         } else {
             return tcpServer.setOption(option, value);
         }
-        throw new IllegalArgumentException("value is null");
+        throw msg.nullParameter("value");
     }
 
     public XnioWorker getWorker() {

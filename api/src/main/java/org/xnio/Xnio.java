@@ -34,7 +34,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.ServiceLoader;
 
-import org.jboss.logging.Logger;
 import org.xnio.ssl.JsseSslUtils;
 import org.xnio.ssl.JsseXnioSsl;
 import org.xnio.ssl.XnioSsl;
@@ -254,23 +253,23 @@ public abstract class Xnio {
             final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
             if (fileAccess == FileAccess.READ_ONLY) {
                 if (append) {
-                    throw new IOException("Read with append is not supported");
+                    throw msg.readAppendNotSupported();
                 }
                 if (create) {
-                    throw new IOException("Read with create requires Java 7 or higher");
+                    throw msg.openModeRequires7();
                 }
                 return new XnioFileChannel(new FileInputStream(file).getChannel());
             } else if (fileAccess == FileAccess.READ_WRITE) {
                 if (append) {
-                    throw new IOException("Read/write with append requires Java 7 or higher");
+                    throw msg.openModeRequires7();
                 }
                 if (! create) {
-                    throw new IOException("Read/write without create requires Java 7 or higher");
+                    throw msg.openModeRequires7();
                 }
                 return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
             } else if (fileAccess == FileAccess.WRITE_ONLY) {
                 if (! create) {
-                    throw new IOException("Write without create requires Java 7 or higher");
+                    throw msg.openModeRequires7();
                 }
                 return new XnioFileChannel(new FileOutputStream(file, append).getChannel());
             } else {
@@ -314,6 +313,12 @@ public abstract class Xnio {
      * @throws IOException if an I/O error occurs
      */
     public FileChannel openFile(File file, OptionMap options) throws IOException {
+        if (file == null) {
+            throw msg.nullParameter("file");
+        }
+        if (options == null) {
+            throw msg.nullParameter("options");
+        }
         return OPENER.openFile(file, options);
     }
 
@@ -326,6 +331,9 @@ public abstract class Xnio {
      * @throws IOException if an I/O error occurs
      */
     public FileChannel openFile(String fileName, OptionMap options) throws IOException {
+        if (fileName == null) {
+            throw msg.nullParameter("fileName");
+        }
         return openFile(new File(fileName), options);
     }
 
@@ -339,7 +347,7 @@ public abstract class Xnio {
      */
     public FileChannel openFile(File file, FileAccess access) throws IOException {
         if (access == null) {
-            throw new IllegalArgumentException("access is null");
+            throw msg.nullParameter("access");
         }
         return openFile(file, FILE_ACCESS_OPTION_MAPS.get(access));
     }
@@ -354,7 +362,10 @@ public abstract class Xnio {
      */
     public FileChannel openFile(String fileName, FileAccess access) throws IOException {
         if (access == null) {
-            throw new IllegalArgumentException("access is null");
+            throw msg.nullParameter("access");
+        }
+        if (fileName == null) {
+            throw msg.nullParameter("fileName");
         }
         return openFile(new File(fileName), FILE_ACCESS_OPTION_MAPS.get(access));
     }

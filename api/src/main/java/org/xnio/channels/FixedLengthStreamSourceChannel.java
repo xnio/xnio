@@ -32,6 +32,7 @@ import org.xnio.XnioWorker;
 
 import static java.lang.Math.min;
 import static org.xnio.Bits.*;
+import static org.xnio._private.Messages.msg;
 
 /**
  * A channel which reads data of a fixed length and calls a finish listener.  When the finish listener is called,
@@ -113,7 +114,7 @@ public final class FixedLengthStreamSourceChannel implements StreamSourceChannel
         this.guard = guard;
         this.finishListener = finishListener;
         if (contentLength < 0L) {
-            throw new IllegalArgumentException("Content length must be greater than or equal to zero");
+            throw msg.parameterOutOfRange("contentLength");
         }
         this.delegate = delegate;
         remaining = contentLength;

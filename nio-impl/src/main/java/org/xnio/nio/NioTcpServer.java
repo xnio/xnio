@@ -42,6 +42,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
 
 import static org.xnio.IoUtils.safeClose;
+import static org.xnio.nio.Log.log;
 import static org.xnio.nio.Log.tcpServerLog;
 
 final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements AcceptingChannel<StreamConnection>, AcceptListenerSettable<NioTcpServer> {
@@ -108,23 +109,23 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         final WorkerThread[] threads = worker.getAll();
         final int threadCount = threads.length;
         if (threadCount == 0) {
-            throw new IllegalArgumentException("No threads configured");
+            throw log.noThreads();
         }
         final int tokens = optionMap.get(Options.BALANCING_TOKENS, -1);
         final int connections = optionMap.get(Options.BALANCING_CONNECTIONS, 16);
         if (tokens != -1) {
             if (tokens < 1 || tokens >= threadCount) {
-                throw new IllegalArgumentException("Balancing token count must be greater than zero and less than thread count");
+                throw log.balancingTokens();
             }
             if (connections < 1) {
-                throw new IllegalArgumentException("Balancing connection count must be greater than zero");
+                throw log.balancingConnectionCount();
             }
             tokenConnectionCount = connections;
         }
         socket = channel.socket();
         final int sendBufferSize = optionMap.get(Options.SEND_BUFFER, DEFAULT_BUFFER_SIZE);
         if (sendBufferSize < 1) {
-            throw new IllegalArgumentException("Send buffer size must be greater than 0");
+            throw log.parameterOutOfRange("sendBufferSize");
         }
         sendBufferUpdater.set(this, sendBufferSize);
         if (optionMap.contains(Options.KEEP_ALIVE)) {
@@ -238,13 +239,13 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             old = Integer.valueOf(socket.getReceiveBufferSize());
             final int newValue = Options.RECEIVE_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
-                throw new IllegalArgumentException("Receive buffer size must be greater than 0");
+                throw log.optionOutOfRange("RECEIVE_BUFFER");
             }
             socket.setReceiveBufferSize(newValue);
         } else if (option == Options.SEND_BUFFER) {
             final int newValue = Options.SEND_BUFFER.cast(value, Integer.valueOf(DEFAULT_BUFFER_SIZE)).intValue();
             if (newValue < 1) {
-                throw new IllegalArgumentException("Send buffer size must be greater than 0");
+                throw log.optionOutOfRange("SEND_BUFFER");
             }
             final int oldValue = sendBufferUpdater.getAndSet(this, newValue);
             old = oldValue == -1 ? null : Integer.valueOf(oldValue);
@@ -422,11 +423,11 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
     }
 
     public void awaitAcceptable() throws IOException {
-        throw new UnsupportedOptionException("awaitAcceptable");
+        throw log.unsupported("awaitAcceptable");
     }
 
     public void awaitAcceptable(final long time, final TimeUnit timeUnit) throws IOException {
-        throw new UnsupportedOptionException("awaitAcceptable");
+        throw log.unsupported("awaitAcceptable");
     }
 
     @Deprecated

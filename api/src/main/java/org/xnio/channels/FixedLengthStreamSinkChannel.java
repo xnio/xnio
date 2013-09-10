@@ -33,6 +33,7 @@ import org.xnio.XnioWorker;
 import static java.lang.Math.min;
 import static org.xnio.Bits.*;
 import static org.xnio.IoUtils.safeClose;
+import static org.xnio._private.Messages.msg;
 
 /**
  * A channel which writes a fixed amount of data.  A listener is called once the data has been written.
@@ -67,10 +68,10 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
      */
     public FixedLengthStreamSinkChannel(final StreamSinkChannel delegate, final long contentLength, final boolean configurable, final boolean propagateClose, final ChannelListener<? super FixedLengthStreamSinkChannel> finishListener, final Object guard) {
         if (contentLength < 0L) {
-            throw new IllegalArgumentException("Content length must be greater than or equal to zero");
+            throw msg.parameterOutOfRange("contentLength");
         }
         if (delegate == null) {
-            throw new IllegalArgumentException("delegate is null");
+            throw msg.nullParameter("delegate");
         }
         this.guard = guard;
         this.delegate = delegate;
@@ -140,7 +141,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         int res = 0;
         final long remaining = count;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         try {
             final int lim = src.limit();
@@ -175,7 +176,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         }
         final long remaining = count;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -215,7 +216,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (count == 0L) return 0L;
         final long remaining = this.count;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -232,7 +233,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         if (count == 0L) return 0L;
         final long remaining = this.count;
         if (remaining == 0L) {
-            throw new FixedLengthOverflowException();
+            throw msg.fixedOverflow();
         }
         long res = 0L;
         try {
@@ -256,7 +257,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 callFinish();
                 callClosed();
                 if (count != 0) {
-                    throw new FixedLengthUnderflowException(count + " bytes remaining");
+                    throw msg.fixedUnderflow(count);
                 }
             }
         }
@@ -319,7 +320,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 if (allAreSet(state, FLAG_PASS_CLOSE)) {
                     safeClose(delegate);
                 }
-                throw new FixedLengthUnderflowException(count + " bytes remaining");
+                throw msg.fixedUnderflow(count);
             }
             if (allAreSet(state, FLAG_PASS_CLOSE)) {
                 delegate.close();

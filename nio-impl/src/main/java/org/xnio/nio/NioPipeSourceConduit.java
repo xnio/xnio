@@ -18,6 +18,8 @@
 
 package org.xnio.nio;
 
+import static org.xnio.nio.Log.log;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
@@ -96,7 +98,7 @@ final class NioPipeSourceConduit extends NioHandle implements StreamSourceCondui
             } else {
                 long lastRead = this.lastRead;
                 if (lastRead > 0L && ((System.nanoTime() - lastRead) / 1000000L) > (long) timeout) {
-                    throw new ReadTimeoutException("Read timed out");
+                    throw log.readTimeout();
                 }
             }
         }

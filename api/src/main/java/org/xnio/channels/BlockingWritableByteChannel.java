@@ -18,6 +18,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.nio.channels.GatheringByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
@@ -52,7 +54,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
      */
     public BlockingWritableByteChannel(final StreamSinkChannel delegate, final long writeTimeout, final TimeUnit writeTimeoutUnit) {
         if (writeTimeout < 0L) {
-            throw new IllegalArgumentException("Negative write timeout");
+            throw msg.parameterOutOfRange("writeTimeout");
         }
         this.delegate = delegate;
         final long calcTimeout = writeTimeoutUnit.toNanos(writeTimeout);
@@ -67,7 +69,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
      */
     public void setWriteTimeout(long writeTimeout, TimeUnit writeTimeoutUnit) {
         if (writeTimeout < 0L) {
-            throw new IllegalArgumentException("Negative write timeout");
+            throw msg.parameterOutOfRange("writeTimeout");
         }
         final long calcTimeout = writeTimeoutUnit.toNanos(writeTimeout);
         this.writeTimeout = writeTimeout == 0L ? 0L : calcTimeout < 1L ? 1L : calcTimeout;
@@ -96,7 +98,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Write timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -138,7 +140,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Write timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }
@@ -164,7 +166,7 @@ public class BlockingWritableByteChannel implements GatheringByteChannel, Flusha
                 if (writeTimeout == 0L || writeTimeout == Long.MAX_VALUE) {
                     delegate.awaitWritable();
                 } else if (writeTimeout <= elapsed) {
-                    throw new WriteTimeoutException("Flush timed out");
+                    throw msg.writeTimeout();
                 } else {
                     delegate.awaitWritable(writeTimeout - elapsed, TimeUnit.NANOSECONDS);
                 }

@@ -24,6 +24,8 @@ import org.xnio.conduits.ConduitWritableMessageChannel;
 import org.xnio.conduits.MessageSinkConduit;
 import org.xnio.conduits.MessageSourceConduit;
 
+import static org.xnio._private.Messages.msg;
+
 /**
  * A message-oriented connection between peers.
  *
@@ -38,7 +40,7 @@ public abstract class MessageConnection extends Connection implements CloseListe
     /**
      * Construct a new instance.
      *
-     * @param worker the XNIO worker
+     * @param thread the I/O thread
      */
     protected MessageConnection(final XnioIoThread thread) {
         super(thread);
@@ -70,7 +72,7 @@ public abstract class MessageConnection extends Connection implements CloseListe
 
     private static <T> T notNull(T orig) throws IllegalStateException {
         if (orig == null) {
-            throw new IllegalStateException("Channel not available");
+            throw msg.channelNotAvailable();
         }
         return orig;
     }

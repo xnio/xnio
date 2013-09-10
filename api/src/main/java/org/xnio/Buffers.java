@@ -153,7 +153,7 @@ public final class Buffers {
     public static ByteBuffer slice(ByteBuffer buffer, int sliceSize) {
         final int oldRem = buffer.remaining();
         if (sliceSize > oldRem || sliceSize < -oldRem) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -189,7 +189,7 @@ public final class Buffers {
     public static ByteBuffer copy(ByteBuffer buffer, int count, BufferAllocator<ByteBuffer> allocator) {
         final int oldRem = buffer.remaining();
         if (count > oldRem || count < -oldRem) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -467,7 +467,7 @@ public final class Buffers {
      */
     public static ByteBuffer fill(ByteBuffer buffer, int value, int count) {
         if (count > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         if (buffer.hasArray()) {
             final int offs = buffer.arrayOffset();
@@ -491,7 +491,7 @@ public final class Buffers {
      */
     public static CharBuffer slice(CharBuffer buffer, int sliceSize) {
         if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -526,7 +526,7 @@ public final class Buffers {
      */
     public static CharBuffer fill(CharBuffer buffer, int value, int count) {
         if (count > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         if (buffer.hasArray()) {
             final int offs = buffer.arrayOffset();
@@ -550,7 +550,7 @@ public final class Buffers {
      */
     public static ShortBuffer slice(ShortBuffer buffer, int sliceSize) {
         if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -585,7 +585,7 @@ public final class Buffers {
      */
     public static ShortBuffer fill(ShortBuffer buffer, int value, int count) {
         if (count > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         if (buffer.hasArray()) {
             final int offs = buffer.arrayOffset();
@@ -609,7 +609,7 @@ public final class Buffers {
      */
     public static IntBuffer slice(IntBuffer buffer, int sliceSize) {
         if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -644,7 +644,7 @@ public final class Buffers {
      */
     public static IntBuffer fill(IntBuffer buffer, int value, int count) {
         if (count > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         if (buffer.hasArray()) {
             final int offs = buffer.arrayOffset();
@@ -668,7 +668,7 @@ public final class Buffers {
      */
     public static LongBuffer slice(LongBuffer buffer, int sliceSize) {
         if (sliceSize > buffer.remaining() || sliceSize < -buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         final int oldPos = buffer.position();
         final int oldLim = buffer.limit();
@@ -703,7 +703,7 @@ public final class Buffers {
      */
     public static LongBuffer fill(LongBuffer buffer, long value, int count) {
         if (count > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         if (buffer.hasArray()) {
             final int offs = buffer.arrayOffset();
@@ -729,10 +729,10 @@ public final class Buffers {
      */
     public static <T extends Buffer> T skip(T buffer, int cnt) throws BufferUnderflowException {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         if (cnt > buffer.remaining()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         buffer.position(buffer.position() + cnt);
         return buffer;
@@ -748,7 +748,7 @@ public final class Buffers {
      */
     public static int trySkip(Buffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final int rem = buffer.remaining();
         if (cnt > rem) {
@@ -770,13 +770,19 @@ public final class Buffers {
      */
     public static long trySkip(Buffer[] buffers, int offs, int len, long cnt) {
         if (cnt < 0L) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         if (len < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("len");
         }
-        if (offs < 0 || offs > buffers.length || offs + len > buffers.length) {
-            throw new IllegalArgumentException();
+        if (offs < 0) {
+            throw msg.parameterOutOfRange("offs");
+        }
+        if (offs > buffers.length) {
+            throw msg.parameterOutOfRange("offs");
+        }
+        if (offs + len > buffers.length) {
+            throw msg.parameterOutOfRange("offs");
         }
         long c = 0L;
         for (int i = 0; i < len; i ++) {
@@ -805,10 +811,10 @@ public final class Buffers {
      */
     public static <T extends Buffer> T unget(T buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         if (cnt > buffer.position()) {
-            throw new BufferUnderflowException();
+            throw msg.bufferUnderflow();
         }
         buffer.position(buffer.position() - cnt);
         return buffer;
@@ -823,7 +829,7 @@ public final class Buffers {
      */
     public static byte[] take(ByteBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final byte[] bytes = new byte[cnt];
         buffer.get(bytes);
@@ -839,7 +845,7 @@ public final class Buffers {
      */
     public static char[] take(CharBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final char[] chars = new char[cnt];
         buffer.get(chars);
@@ -855,7 +861,7 @@ public final class Buffers {
      */
     public static short[] take(ShortBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final short[] shorts = new short[cnt];
         buffer.get(shorts);
@@ -871,7 +877,7 @@ public final class Buffers {
      */
     public static int[] take(IntBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final int[] ints = new int[cnt];
         buffer.get(ints);
@@ -887,7 +893,7 @@ public final class Buffers {
      */
     public static long[] take(LongBuffer buffer, int cnt) {
         if (cnt < 0) {
-            throw new IllegalArgumentException();
+            throw msg.parameterOutOfRange("cnt");
         }
         final long[] longs = new long[cnt];
         buffer.get(longs);
@@ -996,10 +1002,10 @@ public final class Buffers {
      */
     public static Object createDumper(final ByteBuffer buffer, final int indent, final int columns) {
         if (columns <= 0) {
-            throw new IllegalArgumentException("columns must be positive");
+            throw msg.parameterOutOfRange("columns");
         }
         if (indent < 0) {
-            throw new IllegalArgumentException("indent must be non-negative");
+            throw msg.parameterOutOfRange("indent");
         }
         return new Object() {
             public String toString() {
@@ -1025,10 +1031,10 @@ public final class Buffers {
      */
     public static void dump(final ByteBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
         if (columns <= 0) {
-            throw new IllegalArgumentException("columns must be positive");
+            throw msg.parameterOutOfRange("columns");
         }
         if (indent < 0) {
-            throw new IllegalArgumentException("indent must be non-negative");
+            throw msg.parameterOutOfRange("indent");
         }
         final int pos = buffer.position();
         final int remaining = buffer.remaining();
@@ -1108,10 +1114,10 @@ public final class Buffers {
      */
     public static Object createDumper(final CharBuffer buffer, final int indent, final int columns) {
         if (columns <= 0) {
-            throw new IllegalArgumentException("columns must be positive");
+            throw msg.parameterOutOfRange("columns");
         }
         if (indent < 0) {
-            throw new IllegalArgumentException("indent must be non-negative");
+            throw msg.parameterOutOfRange("indent");
         }
         return new Object() {
             public String toString() {
@@ -1137,10 +1143,10 @@ public final class Buffers {
      */
     public static void dump(final CharBuffer buffer, final Appendable dest, final int indent, final int columns) throws IOException {
         if (columns <= 0) {
-            throw new IllegalArgumentException("columns must be positive");
+            throw msg.parameterOutOfRange("columns");
         }
         if (indent < 0) {
-            throw new IllegalArgumentException("indent must be non-negative");
+            throw msg.parameterOutOfRange("indent");
         }
         final int pos = buffer.position();
         final int remaining = buffer.remaining();
@@ -1993,16 +1999,16 @@ public final class Buffers {
         for (int i = 0; i < length; i ++) {
             final Buffer buffer = buffers[i + offset];
             if (buffer == null) {
-                throw new IllegalArgumentException("buffer is null");
+                throw msg.nullParameter("buffer");
             }
             if (buffer.isDirect()) {
                 if (foundHeap) {
-                    throw new IllegalArgumentException("Mixed direct and heap buffers");
+                    throw msg.mixedDirectAndHeap();
                 }
                 foundDirect = true;
             } else {
                 if (foundDirect) {
-                    throw new IllegalArgumentException("Mixed direct and heap buffers");
+                    throw msg.mixedDirectAndHeap();
                 }
                 foundHeap = true;
             }
@@ -2021,7 +2027,7 @@ public final class Buffers {
     public static void assertWritable(Buffer[] buffers, int offs, int len) throws ReadOnlyBufferException {
         for (int i = 0; i < len; i ++) {
             if (buffers[i + offs].isReadOnly()) {
-                throw new ReadOnlyBufferException();
+                throw msg.readOnlyBuffer();
             }
         }
     }

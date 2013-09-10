@@ -18,7 +18,8 @@
 
 package org.xnio.streams;
 
-import java.io.CharConversionException;
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
@@ -69,13 +70,13 @@ public final class WriterOutputStream extends OutputStream {
      */
     public WriterOutputStream(final Writer writer, final CharsetDecoder decoder, int bufferSize) {
         if (writer == null) {
-            throw new IllegalArgumentException("writer is null");
+            throw msg.nullParameter("writer");
         }
         if (decoder == null) {
-            throw new IllegalArgumentException("decoder is null");
+            throw msg.nullParameter("decoder");
         }
         if (bufferSize < 1) {
-            throw new IllegalArgumentException("bufferSize must be larger than 0");
+            throw msg.parameterOutOfRange("bufferSize");
         }
         this.writer = writer;
         this.decoder = decoder;
@@ -114,7 +115,7 @@ public final class WriterOutputStream extends OutputStream {
 
     /** {@inheritDoc} */
     public void write(final int b) throws IOException {
-        if (closed) throw new IOException("Stream closed");
+        if (closed) throw msg.streamClosed();
         final ByteBuffer byteBuffer = this.byteBuffer;
         if (! byteBuffer.hasRemaining()) {
             doFlush(false);
@@ -124,7 +125,7 @@ public final class WriterOutputStream extends OutputStream {
 
     /** {@inheritDoc} */
     public void write(final byte[] b, int off, int len) throws IOException {
-        if (closed) throw new IOException("Stream closed");
+        if (closed) throw msg.streamClosed();
         final ByteBuffer byteBuffer = this.byteBuffer;
         // todo Correct first, fast later
         while (len > 0) {
@@ -162,12 +163,12 @@ public final class WriterOutputStream extends OutputStream {
                 }
                 if (result.isError()) {
                     if (result.isMalformed()) {
-                        throw new CharConversionException("Malformed input");
+                        throw msg.malformedInput();
                     }
                     if (result.isUnmappable()) {
-                        throw new CharConversionException("Unmappable character");
+                        throw msg.unmappableCharacter();
                     }
-                    throw new CharConversionException("Character decoding problem");
+                    throw msg.characterDecodingProblem();
                 }
             }
         } finally {
@@ -177,7 +178,7 @@ public final class WriterOutputStream extends OutputStream {
 
     /** {@inheritDoc} */
     public void flush() throws IOException {
-        if (closed) throw new IOException("Stream closed");
+        if (closed) throw msg.streamClosed();
         doFlush(false);
         writer.flush();
     }

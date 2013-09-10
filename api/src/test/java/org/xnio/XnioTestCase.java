@@ -305,7 +305,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile(file.getAbsolutePath(), (OptionMap) null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -313,7 +313,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile((String) null, FileAccess.READ_WRITE);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -321,7 +321,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile((String) null, OptionMap.EMPTY);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -337,7 +337,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile(file, (OptionMap) null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -345,7 +345,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile((File) null, FileAccess.READ_WRITE);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);
@@ -353,7 +353,7 @@ public class XnioTestCase {
         expected = null;
         try {
             xnio.openFile((File) null, OptionMap.EMPTY);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             expected = e;
         }
         assertNotNull(expected);

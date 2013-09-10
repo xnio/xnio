@@ -18,6 +18,8 @@
 
 package org.xnio.http;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -150,15 +152,16 @@ public class HttpUpgrade {
             InetSocketAddress address = new InetSocketAddress(uri.getHost(), uri.getPort());
 
             final ChannelListener<StreamConnection> connectListener = new ConnectionOpenListener();
-            if (uri.getScheme().equals("http")) {
+            final String scheme = uri.getScheme();
+            if (scheme.equals("http")) {
                 if (bindAddress == null) {
                     worker.openStreamConnection(address, connectListener, bindListener, optionMap);
                 } else {
                     worker.openStreamConnection(bindAddress, address, connectListener, bindListener, optionMap);
                 }
-            } else if (uri.getScheme().equals("https")) {
+            } else if (scheme.equals("https")) {
                 if (ssl == null) {
-                    throw new IllegalArgumentException("XnioSsl was null for a https address");
+                    throw msg.missingSslProvider();
                 }
                 if (bindAddress == null) {
                     ssl.openSslConnection(worker, address, connectListener, bindListener, optionMap);
@@ -166,12 +169,12 @@ public class HttpUpgrade {
                     ssl.openSslConnection(worker, bindAddress, address, connectListener, bindListener, optionMap);
                 }
             } else {
-                throw new IllegalArgumentException("Unknown scheme " + uri.getScheme() + " must be http or https");
+                throw msg.invalidURLScheme(scheme);
             }
             return future.getIoFuture();
         }
 
-        private final String buildHttpRequest() {
+        private String buildHttpRequest() {
 
             final StringBuilder builder = new StringBuilder();
             builder.append("GET ");
@@ -276,7 +279,7 @@ public class HttpUpgrade {
                             channel.resumeReads();
                             return;
                         } else if (r == -1) {
-                            throw new IOException("Connection closed reading response");
+                            throw msg.connectionClosedEarly();
                         }
                         buffer.flip();
                         parser.parse(buffer);

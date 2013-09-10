@@ -19,6 +19,8 @@
 
 package org.xnio.ssl;
 
+import static org.xnio._private.Messages.msg;
+
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.security.KeyManagementException;
@@ -118,14 +120,10 @@ public final class JsseSslUtils {
     private static <T> T instantiate(Class<T> clazz) {
         try {
             return clazz.getConstructor().newInstance();
-        } catch (InstantiationException e) {
-            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
-        } catch (IllegalAccessException e) {
-            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException e) {
+            throw msg.cantInstantiate(clazz, e);
         } catch (InvocationTargetException e) {
-            throw new IllegalArgumentException("Cannot instantiate " + clazz, e.getCause());
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Cannot instantiate " + clazz, e);
+            throw msg.cantInstantiate(clazz, e.getCause());
         }
     }
 

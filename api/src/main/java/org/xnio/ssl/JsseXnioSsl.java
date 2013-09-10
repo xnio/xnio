@@ -20,6 +20,7 @@
 package org.xnio.ssl;
 
 import static org.xnio.IoUtils.safeClose;
+import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -118,7 +119,7 @@ public final class JsseXnioSsl extends XnioSsl {
         if (connection instanceof JsseSslStreamConnection) {
             return ((JsseSslStreamConnection) connection).getEngine();
         } else {
-            throw new IllegalArgumentException("Connection is not a JSSE connection");
+            throw msg.notFromThisProvider();
         }
     }
 

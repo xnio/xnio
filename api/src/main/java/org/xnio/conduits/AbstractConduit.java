@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import static org.xnio._private.Messages.msg;
+
 import org.xnio.XnioWorker;
 
 /**
@@ -39,7 +41,7 @@ public abstract class AbstractConduit<D extends Conduit> implements Conduit {
      */
     protected AbstractConduit(final D next) {
         if (next == null) {
-            throw new IllegalArgumentException("next is null");
+            throw msg.nullParameter("next");
         }
         this.next = next;
     }

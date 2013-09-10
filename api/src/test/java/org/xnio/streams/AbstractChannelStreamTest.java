@@ -57,7 +57,6 @@ public abstract class AbstractChannelStreamTest <T extends Closeable> {
      * 
      * @param timeout             the operation timeout
      * @param timeUnit            the operation timeout unit
-     * @param internalBufferSize  the size of the stream's internal buffer size, if applicable
      * @return                    the created channel stream
      */
     protected abstract T createChannelStream(long timeout, TimeUnit timeUnit);
@@ -79,7 +78,7 @@ public abstract class AbstractChannelStreamTest <T extends Closeable> {
         setOperationTimeoutException = null;
         try {
             setOperationTimeout(stream, 5, null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             setOperationTimeoutException = e;
         }
         assertNotNull(setOperationTimeoutException);
@@ -87,7 +86,7 @@ public abstract class AbstractChannelStreamTest <T extends Closeable> {
         Exception getOperationTimeoutException = null;
         try {
             getOperationTimeout(stream, null);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             getOperationTimeoutException = e;
         }
         assertNotNull(getOperationTimeoutException);

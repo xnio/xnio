@@ -19,6 +19,8 @@
 
 package org.xnio.streams;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -105,7 +107,7 @@ public final class LimitedInputStream extends InputStream {
     public void reset() throws IOException {
         final long mark = this.mark;
         if (mark == -1L) {
-            throw new IOException("Mark not set");
+            throw msg.markNotSet();
         }
         delegate.reset();
         remaining = mark;

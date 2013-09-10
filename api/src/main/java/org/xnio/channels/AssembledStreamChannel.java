@@ -19,6 +19,8 @@
 
 package org.xnio.channels;
 
+import static org.xnio._private.Messages.msg;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -53,7 +55,7 @@ public class AssembledStreamChannel implements StreamChannel {
      */
     public AssembledStreamChannel(final CloseableChannel closeable, final StreamSourceChannel source, final StreamSinkChannel sink) {
         if (source.getWorker() != sink.getWorker() || source.getWorker() != closeable.getWorker()) {
-            throw new IllegalArgumentException("All channels must come from the same worker");
+            throw msg.differentWorkers();
         }
         this.closeable = closeable;
         this.source = source;
