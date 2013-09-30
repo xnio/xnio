@@ -22,6 +22,7 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -54,6 +55,7 @@ import org.xnio.conduits.InflatingStreamSourceConduit;
 import org.xnio.conduits.StreamSinkChannelWrappingConduit;
 import org.xnio.conduits.StreamSourceChannelWrappingConduit;
 
+import static java.security.AccessController.doPrivileged;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
@@ -80,6 +82,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
     private static final AtomicInteger seq = new AtomicInteger(1);
 
+    private static final RuntimePermission CREATE_WORKER_PERMISSION = new RuntimePermission("createXnioWorker");
+
     private int getNextSeq() {
         return taskSeqUpdater.incrementAndGet(this);
     }
@@ -91,11 +95,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param xnio the XNIO provider which produced this worker instance
      * @param threadGroup the thread group for worker threads
      * @param optionMap the option map to use to configure this worker
-     * @param terminationTask
+     * @param terminationTask an optional runnable task to run when the worker shutdown completes
      */
     protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) {
         this.xnio = xnio;
         this.terminationTask = terminationTask;
+        final SecurityManager sm = System.getSecurityManager();
+        if (sm != null) {
+            sm.checkPermission(CREATE_WORKER_PERMISSION);
+        }
         String workerName = optionMap.get(Options.WORKER_NAME);
         if (workerName == null) {
             workerName = "XNIO-" + seq.getAndIncrement();
@@ -104,21 +112,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<Runnable>();
         this.coreSize = optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4);
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
+        final int threadCount = optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16);
         taskPool = new TaskPool(
-            optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16), // ignore core threads setting, always fill to max
-            optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
+            threadCount, // ignore core threads setting, always fill to max
+            threadCount,
             optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60), TimeUnit.MILLISECONDS,
             taskQueue,
-            new ThreadFactory() {
-                public Thread newThread(final Runnable r) {
-                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
-                    // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
-                    if (markThreadAsDaemon) {
-                        taskThread.setDaemon(true);
-                    }
-                    return taskThread;
-                }
-            }, new ThreadPoolExecutor.AbortPolicy());
+            new WorkerThreadFactory(threadGroup, optionMap, markThreadAsDaemon),
+            new ThreadPoolExecutor.AbortPolicy());
     }
 
     //==================================================
@@ -885,5 +886,31 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             attachment.setException(exception);
         }
     };
+
+    class WorkerThreadFactory implements ThreadFactory {
+
+        private final ThreadGroup threadGroup;
+        private final OptionMap optionMap;
+        private final boolean markThreadAsDaemon;
+
+        WorkerThreadFactory(final ThreadGroup threadGroup, final OptionMap optionMap, final boolean markThreadAsDaemon) {
+            this.threadGroup = threadGroup;
+            this.optionMap = optionMap;
+            this.markThreadAsDaemon = markThreadAsDaemon;
+        }
+
+        public Thread newThread(final Runnable r) {
+            return doPrivileged(new PrivilegedAction<Thread>() {
+                public Thread run() {
+                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
+                    // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
+                    if (markThreadAsDaemon) {
+                        taskThread.setDaemon(true);
+                    }
+                    return taskThread;
+                }
+            });
+        }
+    }
 }
 
