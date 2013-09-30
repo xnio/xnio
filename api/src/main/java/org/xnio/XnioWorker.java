@@ -22,6 +22,8 @@ package org.xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -111,7 +113,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             taskQueue,
             new ThreadFactory() {
                 public Thread newThread(final Runnable r) {
-                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
+                    //we create the thread in a privileged context, to prevent the access control context
+                    //of a caller from being inherited
+                    final Thread taskThread = AccessController.doPrivileged(new PrivilegedAction<Thread>() {
+                        @Override
+                        public Thread run() {
+                            return new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
+                        }
+                    });
                     // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
                     if (markThreadAsDaemon) {
                         taskThread.setDaemon(true);
