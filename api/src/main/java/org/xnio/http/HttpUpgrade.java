@@ -37,7 +37,7 @@ import org.xnio.Pooled;
 import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.BoundChannel;
-import org.xnio.channels.SslConnection;
+import org.xnio.ssl.SslConnection;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
 import org.xnio.conduits.PushBackStreamSourceConduit;

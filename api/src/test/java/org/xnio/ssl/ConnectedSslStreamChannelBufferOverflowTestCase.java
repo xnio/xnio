@@ -36,7 +36,6 @@ import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
-import org.xnio.channels.SslConnection;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;

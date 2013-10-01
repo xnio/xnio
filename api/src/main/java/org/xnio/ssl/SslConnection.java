@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.xnio.channels;
+package org.xnio.ssl;
 
 import java.io.IOException;
 
@@ -24,6 +24,7 @@ import javax.net.ssl.SSLSession;
 import org.xnio.ChannelListener;
 import org.xnio.StreamConnection;
 import org.xnio.XnioIoThread;
+import org.xnio.channels.SslChannel;
 
 /**
  * A stream connection which can use SSL/TLS to negotiate a security layer.

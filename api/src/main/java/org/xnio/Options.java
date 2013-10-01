@@ -27,6 +27,7 @@ import org.xnio.sasl.SaslStrength;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import javax.security.sasl.Sasl;
+import org.xnio.ssl.SslConnection;
 
 /**
  * Common channel options.
@@ -144,7 +145,7 @@ public final class Options {
     /**
      * Specify whether SSL should be enabled.  If specified in conjunction with {@link #SSL_STARTTLS} then SSL will not
      * be negotiated until {@link org.xnio.channels.SslChannel#startHandshake()} or
-     * {@link org.xnio.channels.SslConnection#startHandshake()}  is called.
+     * {@link SslConnection#startHandshake()}  is called.
      *
      * @since 3.0
      */

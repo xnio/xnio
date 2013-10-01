@@ -29,7 +29,6 @@ import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
-import org.xnio.channels.SslConnection;
 import org.xnio.mock.ConduitMock;
 import org.xnio.mock.StreamConnectionMock;
 

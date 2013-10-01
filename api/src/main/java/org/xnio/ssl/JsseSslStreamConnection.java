@@ -30,7 +30,6 @@ import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.StreamConnection;
-import org.xnio.channels.SslConnection;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 

@@ -40,7 +40,7 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.Channels;
-import org.xnio.channels.SslConnection;
+import org.xnio.ssl.SslConnection;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
 import org.xnio.ssl.XnioSsl;

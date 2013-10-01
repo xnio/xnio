@@ -32,7 +32,6 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
-import org.xnio.channels.SslConnection;
 
 /**
  * An SSL provider for XNIO.

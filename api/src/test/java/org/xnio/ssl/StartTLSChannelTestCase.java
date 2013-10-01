@@ -46,7 +46,6 @@ import org.xnio.Pool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.SslChannel;
-import org.xnio.channels.SslConnection;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
 /**

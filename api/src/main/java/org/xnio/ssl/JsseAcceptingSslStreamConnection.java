@@ -27,7 +27,6 @@ import org.xnio.OptionMap;
 import org.xnio.Pool;
 import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
-import org.xnio.channels.SslConnection;
 
 /**
  * Accepting channel for StreamConnections with SSL.

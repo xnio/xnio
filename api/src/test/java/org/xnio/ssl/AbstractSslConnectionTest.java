@@ -27,7 +27,6 @@ import org.xnio.AssertReadWrite;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
-import org.xnio.channels.SslConnection;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 import org.xnio.mock.ConduitMock;

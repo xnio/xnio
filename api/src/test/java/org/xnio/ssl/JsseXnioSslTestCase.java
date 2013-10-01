@@ -53,7 +53,6 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.SslConnection;
 import org.xnio.mock.XnioWorkerMock;
 
 /**

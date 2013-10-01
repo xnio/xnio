@@ -34,7 +34,7 @@ import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.channels.ConnectedChannel;
-import org.xnio.channels.SslConnection;
+import org.xnio.ssl.SslConnection;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
 

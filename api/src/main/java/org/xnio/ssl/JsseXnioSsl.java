@@ -55,7 +55,6 @@ import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
-import org.xnio.channels.SslConnection;
 
 /**
  * An XNIO SSL provider based on JSSE.  Works with any XNIO provider.
