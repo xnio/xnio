@@ -117,10 +117,15 @@ public final class JsseSslUtils {
         return sslContext;
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     private static <T> T instantiate(Class<T> clazz) {
         try {
             return clazz.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException e) {
+        } catch (InstantiationException e) {
+            throw msg.cantInstantiate(clazz, e);
+        } catch (IllegalAccessException e) {
+            throw msg.cantInstantiate(clazz, e);
+        } catch (NoSuchMethodException e) {
             throw msg.cantInstantiate(clazz, e);
         } catch (InvocationTargetException e) {
             throw msg.cantInstantiate(clazz, e.getCause());
