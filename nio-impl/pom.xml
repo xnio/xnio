@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.jboss.xnio</groupId>
         <artifactId>xnio-all</artifactId>
-        <version>3.1.0.Final</version>
+        <version>3.1.1.Final-SNAPSHOT</version>
     </parent>
     
     <properties>
