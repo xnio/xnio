@@ -688,6 +688,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //==================================================
 
     /**
+     * Get an I/O thread from this worker.  The thread may be chosen based on arbitrary rules.
+     *
+     * @return the I/O thread
+     */
+    public final XnioIoThread getIoThread() {
+        return chooseThread();
+    }
+
+    /**
      * Get the user task to run once termination is complete.
      *
      * @return the termination task
