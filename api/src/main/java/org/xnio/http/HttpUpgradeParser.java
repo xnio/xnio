@@ -21,6 +21,7 @@ package org.xnio.http;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -74,7 +75,7 @@ class HttpUpgradeParser {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             if (b == '\r' || b == '\n') {
-                headers.put(headerName.toLowerCase(), current.toString().trim());
+                headers.put(headerName.toLowerCase(Locale.ENGLISH), current.toString().trim());
                 parseState--;
                 current.setLength(0);
                 return;
