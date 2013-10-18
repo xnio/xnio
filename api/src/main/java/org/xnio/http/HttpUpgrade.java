@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -186,7 +187,7 @@ public class HttpUpgrade {
                 builder.append(": ");
                 builder.append(header.getValue());
                 builder.append("\r\n");
-                seen.add(header.getKey().toLowerCase());
+                seen.add(header.getKey().toLowerCase(Locale.ENGLISH));
             }
             if (!seen.contains("host")) {
                 builder.append("Host: ");
