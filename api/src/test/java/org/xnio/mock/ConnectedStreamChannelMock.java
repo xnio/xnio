@@ -37,6 +37,7 @@ import org.xnio.OptionMap;
 import org.xnio.XnioExecutor;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
+import org.xnio.channels.Channels;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -751,6 +752,21 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     @Override
     public Setter<? extends ConnectedStreamChannel> getCloseSetter() {
         return closeListenerSetter;
+    }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return Channels.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return Channels.writeFinalBasic(this, srcs, offset, length);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return Channels.writeFinalBasic(this, srcs, 0, srcs.length);
     }
 
     public ChannelListener<? super ConnectedStreamChannel> getReadListener() {

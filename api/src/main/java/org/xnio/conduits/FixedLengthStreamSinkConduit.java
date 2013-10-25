@@ -73,7 +73,27 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
         }
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return write(src, true);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return write(srcs, offset, length, true);
+    }
+
+    @Override
     public int write(final ByteBuffer src) throws IOException {
+        return write(src, false);
+    }
+
+    @Override
+    public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+        return write(srcs, offs, len, false);
+    }
+
+    private int write(final ByteBuffer src, final boolean writeFinal) throws IOException {
         if (! src.hasRemaining()) {
             return 0;
         }
@@ -88,23 +108,23 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
             if (lim - pos > remaining) {
                 src.limit((int) (remaining - (long) pos));
                 try {
-                    return res = next.write(src);
+                    return res = doWrite(src, writeFinal);
                 } finally {
                     src.limit(lim);
                 }
             } else {
-                return res = next.write(src);
+                return res = doWrite(src, writeFinal);
             }
         } finally {
             this.remaining = remaining - res;
         }
     }
 
-    public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+    private long write(final ByteBuffer[] srcs, final int offs, final int len, boolean writeFinal) throws IOException {
         if (len == 0) {
             return 0L;
         } else if (len == 1) {
-            return write(srcs[offs]);
+            return write(srcs[offs], writeFinal);
         }
         final long remaining = this.remaining;
         if (remaining == 0L) {
@@ -124,7 +144,7 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
                     // only read up to this point, and trim the last buffer by the number of extra bytes
                     buffer.limit(lim - (int) (t - (remaining)));
                     try {
-                        return res = next.write(srcs, offs, i + 1);
+                        return res = doWrite(srcs, offs, i + 1, writeFinal);
                     } finally {
                         // restore the original limit
                         buffer.limit(lim);
@@ -135,9 +155,25 @@ public final class FixedLengthStreamSinkConduit extends AbstractStreamSinkCondui
                 return 0L;
             }
             // the total buffer space is less than the remaining count.
-            return res = next.write(srcs, offs, len);
+            return res = doWrite(srcs, offs, len, writeFinal);
         } finally {
             this.remaining = remaining - res;
+        }
+    }
+
+    private long doWrite(ByteBuffer[] srcs, int offs, int len, boolean writeFinal) throws IOException {
+        if(writeFinal) {
+            return next.writeFinal(srcs, offs, len);
+        } else {
+            return next.write(srcs, offs, len);
+        }
+    }
+
+    private int doWrite(ByteBuffer src, boolean writeFinal) throws IOException {
+        if(writeFinal) {
+            return next.writeFinal(src);
+        } else {
+            return next.write(src);
         }
     }
 

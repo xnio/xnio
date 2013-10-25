@@ -947,6 +947,42 @@ public final class Channels {
         }
     }
 
+    /**
+     * Writes out the data in the buffer to the channel. If all the data is written out
+     * then the channel will have its writes shutdown.
+     *
+     * @param channel The channel
+     * @param src The buffer
+     * @return The number of bytes written
+     * @throws IOException
+     */
+    public static int writeFinalBasic(StreamSinkChannel channel, ByteBuffer src) throws IOException {
+        int res = channel.write(src);
+        if(!src.hasRemaining()) {
+            channel.shutdownWrites();
+        }
+        return res;
+    }
+
+    /**
+     * Writes out the data in the buffer to the channel. If all the data is written out
+     * then the channel will have its writes shutdown.
+     *
+     * @param channel The channel
+     * @param srcs The buffers
+     * @param offset The offset into the srcs array
+     * @param length The number buffers to write
+     * @return The number of bytes written
+     * @throws IOException
+     */
+    public static long writeFinalBasic(StreamSinkChannel channel, ByteBuffer[] srcs, int offset, int length) throws IOException {
+        final long res = channel.write(srcs, offset, length);
+        if (!Buffers.hasRemaining(srcs, offset, length)) {
+            channel.shutdownWrites();
+        }
+        return res;
+    }
+
     static {
         NULL_FILE_CHANNEL = AccessController.doPrivileged(new PrivilegedAction<FileChannel>() {
             public FileChannel run() {

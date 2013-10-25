@@ -36,6 +36,7 @@ import org.xnio.XnioWorker;
 import org.xnio.channels.AssembledConnectedStreamChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+import org.xnio.conduits.Conduits;
 import org.xnio.conduits.ReadReadyHandler;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
@@ -698,6 +699,16 @@ public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock
             return bytes;
         }
         return 0;
+    }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return Conduits.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return Conduits.writeFinalBasic(this, srcs, offset, length);
     }
 
     @Override

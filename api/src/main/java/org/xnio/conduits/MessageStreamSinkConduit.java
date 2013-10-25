@@ -57,4 +57,14 @@ public final class MessageStreamSinkConduit extends AbstractSinkConduit<MessageS
         final long remaining = Buffers.remaining(srcs, offs, len);
         return next.send(srcs, offs, len) ? remaining : 0L;
     }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return Conduits.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return Conduits.writeFinalBasic(this, srcs, offset, length);
+    }
 }

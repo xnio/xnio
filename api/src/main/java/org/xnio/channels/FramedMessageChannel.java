@@ -273,6 +273,33 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
         }
     }
 
+    @Override
+    public boolean sendFinal(ByteBuffer buffer) throws IOException {
+        if(send(buffer)) {
+            shutdownWrites();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers) throws IOException {
+        if(send(buffers)) {
+            shutdownWrites();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers, int offs, int len) throws IOException {
+        if(send(buffers, offs, len)) {
+            shutdownWrites();
+            return true;
+        }
+        return false;
+    }
+
     protected boolean flushAction(final boolean shutDown) throws IOException {
         synchronized (transmitBuffer) {
             return (doFlushBuffer()) && channel.flush();

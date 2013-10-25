@@ -31,7 +31,7 @@ public interface MessageSinkConduit extends SinkConduit {
     /**
      * Send a complete message.
      *
-     * @param buffer the message to send
+     * @param src the message to send
      * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
      * @throws IOException if an I/O error occurs
      */
@@ -40,11 +40,32 @@ public interface MessageSinkConduit extends SinkConduit {
     /**
      * Send a complete message.
      *
-     * @param buffers the buffers holding the message to send
+     * @param srcs the buffers holding the message to send
      * @param offs the offset into the buffer array of the first buffer
      * @param len the number of buffers that contain data to send
      * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
      * @throws IOException if an I/O error occurs
      */
     boolean send(ByteBuffer[] srcs, int offs, int len) throws IOException;
+
+
+    /**
+     * Send a complete message. If the message is successfully sent then the sink will have its writes terminated.
+     *
+     * @param src the message to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
+    boolean sendFinal(ByteBuffer src) throws IOException;
+
+    /**
+     * Send a complete message. If the message is successfully sent then the sink will have its writes terminated.
+     *
+     * @param srcs the buffers holding the message to send
+     * @param offs the offset into the buffer array of the first buffer
+     * @param len the number of buffers that contain data to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
+    boolean sendFinal(ByteBuffer[] srcs, int offs, int len) throws IOException;
 }

@@ -109,6 +109,21 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         return new CloseListenerSettable.Setter<FixedLengthStreamSinkChannel>(this);
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return write(src, true);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return write(srcs, offset, length, true);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return write(srcs, 0, srcs.length, true);
+    }
+
     public StreamSinkChannel getChannel(final Object guard) {
         final Object ourGuard = this.guard;
         if (ourGuard == null || guard == ourGuard) {
@@ -131,7 +146,12 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
         return delegate.getWorker();
     }
 
+    @Override
     public int write(final ByteBuffer src) throws IOException {
+        return write(src, false);
+    }
+
+    private int write(final ByteBuffer src, final boolean finalWrite) throws IOException {
         if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
@@ -149,12 +169,12 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
             if (lim - pos > remaining) {
                 src.limit((int) (remaining - (long) pos));
                 try {
-                    return res = delegate.write(src);
+                    return res = doWrite(src, finalWrite);
                 } finally {
                     src.limit(lim);
                 }
             } else {
-                return res = delegate.write(src);
+                return res = doWrite(src, finalWrite);
             }
         } finally {
             count = remaining - res;
@@ -166,6 +186,10 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
+        return write(srcs, offset, length, false);
+    }
+
+    private long write(final ByteBuffer[] srcs, final int offset, final int length, boolean writeFinal) throws IOException {
         if (allAreSet(state, FLAG_CLOSE_REQUESTED)) {
             throw new ClosedChannelException();
         }
@@ -192,7 +216,7 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                     // only read up to this point, and trim the last buffer by the number of extra bytes
                     buffer.limit(lim - (int) (t - (remaining)));
                     try {
-                        return res = delegate.write(srcs, offset, i + 1);
+                        return res = doWrite(srcs, offset, i + 1, writeFinal);
                     } finally {
                         // restore the original limit
                         buffer.limit(lim);
@@ -203,10 +227,24 @@ public final class FixedLengthStreamSinkChannel implements StreamSinkChannel, Pr
                 return 0L;
             }
             // the total buffer space is less than the remaining count.
-            return res = delegate.write(srcs, offset, length);
+            return res = doWrite(srcs, offset, length, writeFinal);
         } finally {
             count = remaining - res;
         }
+    }
+
+    private long doWrite(ByteBuffer[] srcs, int offset, int length, final boolean writeFinal) throws IOException {
+        if(writeFinal) {
+            return delegate.writeFinal(srcs, offset, length);
+        }
+        return delegate.write(srcs, offset, length);
+    }
+
+    private int doWrite(ByteBuffer src, boolean finalWrite) throws IOException {
+        if(finalWrite) {
+            return delegate.writeFinal(src);
+        }
+        return delegate.write(src);
     }
 
     public long transferFrom(final FileChannel src, final long position, final long count) throws IOException {

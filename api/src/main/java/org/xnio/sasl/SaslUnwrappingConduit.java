@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.xnio.Buffers;
 import org.xnio.conduits.AbstractMessageSinkConduit;
+import org.xnio.conduits.Conduits;
 import org.xnio.conduits.MessageSinkConduit;
 
 /**
@@ -57,6 +58,16 @@ public final class SaslUnwrappingConduit extends AbstractMessageSinkConduit<Mess
             this.buffer = wrapped;
         }
         return true;
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer src) throws IOException {
+        return Conduits.sendFinalBasic(this, src);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] srcs, int offs, int len) throws IOException {
+        return Conduits.sendFinalBasic(this, srcs, offs, len);
     }
 
     private boolean doSend() throws IOException {

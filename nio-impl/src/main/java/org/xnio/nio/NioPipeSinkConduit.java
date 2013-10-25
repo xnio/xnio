@@ -128,6 +128,16 @@ final class NioPipeSinkConduit extends NioHandle implements StreamSinkConduit {
         return res;
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return Conduits.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return Conduits.writeFinalBasic(this, srcs, offset, length);
+    }
+
     public boolean flush() throws IOException {
         return true;
     }

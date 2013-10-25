@@ -207,6 +207,21 @@ public class AssembledStreamChannel implements StreamChannel {
         return closeSetter;
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return sink.writeFinal(src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return sink.writeFinal(srcs, offset, length);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return sink.writeFinal(srcs);
+    }
+
     public XnioWorker getWorker() {
         return closeable.getWorker();
     }

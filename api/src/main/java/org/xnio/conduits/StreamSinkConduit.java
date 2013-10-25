@@ -77,4 +77,49 @@ public interface StreamSinkConduit extends SinkConduit {
      * @throws IOException if an error occurs
      */
     long write(ByteBuffer[] srcs, int offs, int len) throws IOException;
+
+
+    /**
+     *
+     * Writes some data to the conduit, with the same semantics as
+     * {@link #write(java.nio.ByteBuffer)}. If all the data is written
+     * out then the conduit will have its writes terminated. Semantically this
+     * method is equivalent to:
+     *
+     * <code>
+     *     int rem = src.remaining();
+     *     int written = conduit.write(src);
+     *     if(written == rem) {
+     *         conduit.terminateWrites()
+     *     }
+     * </code>
+     *
+     * @param src The data to write
+     * @return The amount of data that was actually written.
+     */
+    public int writeFinal(ByteBuffer src) throws IOException;
+
+    /**
+     *
+     * Writes some data to the conduit, with the same semantics as
+     * {@link #write(java.nio.ByteBuffer[], int, int)}. If all the data is written
+     * out then the conduit will have its writes terminated.
+     *
+     *
+     * @param  srcs
+     *         The buffers from which bytes are to be retrieved
+     *
+     * @param  offset
+     *         The offset within the buffer array of the first buffer from
+     *         which bytes are to be retrieved; must be non-negative and no
+     *         larger than <tt>srcs.length</tt>
+     *
+     * @param  length
+     *         The maximum number of buffers to be accessed; must be
+     *         non-negative and no larger than
+     *         <tt>srcs.length</tt>&nbsp;-&nbsp;<tt>offset</tt>
+     *
+     * @return The amount of data that was actually written
+     */
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException;
 }

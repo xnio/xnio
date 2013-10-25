@@ -119,6 +119,21 @@ public final class NullStreamSinkChannel implements StreamSinkChannel, WriteList
         return new CloseListenerSettable.Setter<NullStreamSinkChannel>(this) ;
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return Channels.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return Channels.writeFinalBasic(this, srcs, offset, length);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return Channels.writeFinalBasic(this, srcs, 0, srcs.length);
+    }
+
     public int write(final ByteBuffer src) throws IOException {
         int val = enterWrite();
         try {

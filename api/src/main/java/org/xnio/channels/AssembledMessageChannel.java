@@ -181,6 +181,21 @@ public class AssembledMessageChannel implements MessageChannel {
         return writable.send(buffers, offs, len);
     }
 
+    @Override
+    public boolean sendFinal(ByteBuffer buffer) throws IOException {
+        return writable.sendFinal(buffer);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers) throws IOException {
+        return writable.sendFinal(buffers);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers, int offs, int len) throws IOException {
+        return writable.sendFinal(buffers, offs, len);
+    }
+
     public boolean flush() throws IOException {
         return writable.flush();
     }
