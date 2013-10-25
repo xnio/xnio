@@ -221,41 +221,17 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
     }
 
-    private final class Ref extends PhantomReference<ByteBuffer> {
+    final class Ref extends AutomaticReference<ByteBuffer> {
         private final Slice region;
 
         private Ref(final ByteBuffer referent, final Slice region) {
-            super(referent, QueueThread.REFERENCE_QUEUE);
+            super(referent, AutomaticReference.PERMIT);
             this.region = region;
         }
 
-        void free() {
+        protected void free() {
             doFree(region);
             refSet.remove(this);
-        }
-    }
-
-    private static final class QueueThread extends Thread {
-        private static final ReferenceQueue<ByteBuffer> REFERENCE_QUEUE = new ReferenceQueue<ByteBuffer>();
-        private static final QueueThread INSTANCE;
-
-        static {
-            INSTANCE = new QueueThread();
-            INSTANCE.start();
-        }
-
-        private QueueThread() {
-            setDaemon(true);
-            setName("Buffer reclamation thread");
-        }
-
-        public void run() {
-            for (;;) try {
-                final Ref reference = (Ref) REFERENCE_QUEUE.remove();
-                reference.free();
-            } catch (InterruptedException e) {
-                // ignore
-            }
         }
     }
 }
