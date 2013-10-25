@@ -99,6 +99,21 @@ public final class ConduitStreamSinkChannel implements StreamSinkChannel, WriteL
         return new CloseListenerSettable.Setter<ConduitStreamSinkChannel>(this);
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return conduit.writeFinal(src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return conduit.writeFinal(srcs, offset, length);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return conduit.writeFinal(srcs, 0, srcs.length);
+    }
+
     public void suspendWrites() {
         conduit.suspendWrites();
     }

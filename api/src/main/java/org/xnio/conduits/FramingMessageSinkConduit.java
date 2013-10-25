@@ -28,6 +28,8 @@ import org.xnio.Pooled;
 /**
  * A message sink conduit which implements a simple message framing protocol over a stream conduit.
  *
+ *
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamSinkConduit> implements MessageSinkConduit {
@@ -49,7 +51,7 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
     }
 
     public boolean send(final ByteBuffer src) throws IOException {
-        final ByteBuffer buffer = transmitBuffer.getResource();
+        final ByteBuffer buffer = src;
         if (!buffer.hasRemaining()) {
             // no zero messages
             return false;
@@ -98,6 +100,17 @@ public final class FramingMessageSinkConduit extends AbstractSinkConduit<StreamS
         Buffers.copy(transmitBuffer, srcs, offs, len);
         writeBuffer();
         return true;
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer src) throws IOException {
+        //TODO: non-naive implementation
+        return Conduits.sendFinalBasic(this, src);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] srcs, int offs, int len) throws IOException {
+        return Conduits.sendFinalBasic(this, srcs, offs, len);
     }
 
     private boolean writeBuffer() throws IOException {

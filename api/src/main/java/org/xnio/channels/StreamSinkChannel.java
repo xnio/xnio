@@ -74,4 +74,76 @@ public interface StreamSinkChannel extends WritableByteChannel, GatheringByteCha
 
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends StreamSinkChannel> getCloseSetter();
+
+    /**
+     *
+     * Writes some data to the channel, with the same semantics as
+     * {@link #write(java.nio.ByteBuffer)}. If all the data is written
+     * out then the channel will have its writes shutdown. Semantically this
+     * method is equivalent to:
+     * <code>
+     *     int rem = src.remaining();
+     *     int written = channel.write(src);
+     *     if(written == rem) {
+     *         channel.shutdownWrites()
+     *     }
+     * </code>
+     *
+     * If an exception is thrown the caller is still responsible for closing the channel.
+     *
+     * @see WritableByteChannel#write(java.nio.ByteBuffer)
+     * @see SuspendableWriteChannel#shutdownWrites()
+     * @param src The data to write
+     * @return The amount of data that was actually written.
+     */
+    public int writeFinal(ByteBuffer src) throws IOException;
+
+    /**
+     *
+     * Writes some data to the channel, with the same semantics as
+     * {@link #write(java.nio.ByteBuffer[], int, int)}. If all the data is written
+     * out then the channel will have its writes shutdown.
+     *
+     * If an exception is thrown the caller is still responsible for closing the channel.
+     *
+     * @see GatheringByteChannel#write(java.nio.ByteBuffer[], int, int)
+     *
+     * @see SuspendableWriteChannel#shutdownWrites()
+     *
+     * @param  srcs
+     *         The buffers from which bytes are to be retrieved
+     *
+     * @param  offset
+     *         The offset within the buffer array of the first buffer from
+     *         which bytes are to be retrieved; must be non-negative and no
+     *         larger than <tt>srcs.length</tt>
+     *
+     * @param  length
+     *         The maximum number of buffers to be accessed; must be
+     *         non-negative and no larger than
+     *         <tt>srcs.length</tt>&nbsp;-&nbsp;<tt>offset</tt>
+     *
+     * @return The amount of data that was actually written
+     */
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length)
+            throws IOException;
+
+    /**
+     *
+     * Writes some data to the channel, with the same semantics as
+     * {@link #write(java.nio.ByteBuffer[])}. If all the data is written
+     * out then the channel will have its writes shutdown.
+     *
+     * If an exception is thrown the caller is still responsible for closing the channel.
+     *
+     * @see GatheringByteChannel#write(java.nio.ByteBuffer[])
+     *
+     * @see SuspendableWriteChannel#shutdownWrites()
+     *
+     * @param  srcs
+     *         The buffers from which bytes are to be retrieved
+     *
+     * @return The amount of data that was actually written
+     */
+    public long writeFinal(ByteBuffer[] srcs) throws IOException;
 }

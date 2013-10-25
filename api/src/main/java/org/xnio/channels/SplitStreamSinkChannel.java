@@ -96,6 +96,21 @@ public final class SplitStreamSinkChannel implements StreamSinkChannel, WriteLis
         return new CloseListenerSettable.Setter<SplitStreamSinkChannel>(this);
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return delegate.writeFinal(src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return delegate.writeFinal(srcs, offset, length);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs) throws IOException {
+        return delegate.writeFinal(srcs);
+    }
+
     public ChannelListener.Setter<? extends SplitStreamSinkChannel> getWriteSetter() {
         return new WriteListenerSettable.Setter<SplitStreamSinkChannel>(this);
     }

@@ -133,6 +133,21 @@ public final class ConduitWritableMessageChannel implements WritableMessageChann
         return conduit.send(dsts, offs, len);
     }
 
+    @Override
+    public boolean sendFinal(ByteBuffer buffer) throws IOException {
+        return conduit.sendFinal(buffer);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers) throws IOException {
+        return conduit.sendFinal(buffers, 0, buffers.length);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] buffers, int offs, int len) throws IOException {
+        return conduit.sendFinal(buffers, offs, len);
+    }
+
     public boolean flush() throws IOException {
         return conduit.flush();
     }

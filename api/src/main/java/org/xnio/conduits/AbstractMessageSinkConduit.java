@@ -44,4 +44,14 @@ public abstract class AbstractMessageSinkConduit<D extends MessageSinkConduit> e
     public boolean send(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
         return next.send(srcs, offs, len);
     }
+
+    @Override
+    public boolean sendFinal(ByteBuffer[] srcs, int offs, int len) throws IOException {
+        return next.sendFinal(srcs, offs, len);
+    }
+
+    @Override
+    public boolean sendFinal(ByteBuffer src) throws IOException {
+        return next.sendFinal(src);
+    }
 }

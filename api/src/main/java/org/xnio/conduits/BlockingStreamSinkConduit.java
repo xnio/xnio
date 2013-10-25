@@ -51,22 +51,58 @@ public final class BlockingStreamSinkConduit extends AbstractStreamSinkConduit<S
         return res;
     }
 
+    @Override
     public int write(final ByteBuffer src) throws IOException {
-        if (resumed) return next.write(src);
+        return write(src, false);
+    }
+
+    @Override
+    public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+        return write(srcs, offs, len, false);
+    }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return write(src, true);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return write(srcs, offset, length, true);
+    }
+
+    private int write(final ByteBuffer src, final boolean writeFinal) throws IOException {
+        if (resumed) {
+            return doWrite(src, writeFinal);
+        }
         int res;
-        while ((res = next.write(src)) == 0L) {
+        while ((res = doWrite(src, writeFinal)) == 0L) {
             next.awaitWritable();
         }
         return res;
     }
 
-    public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
-        if (resumed) return next.write(srcs, offs, len);
+    private long write(final ByteBuffer[] srcs, final int offs, final int len, final boolean writeFinal) throws IOException {
+        if (resumed) return doWrite(srcs, offs, len, writeFinal);
         long res;
         while ((res = next.write(srcs, offs, len)) == 0L) {
             next.awaitWritable();
         }
         return res;
+    }
+
+    private int doWrite(ByteBuffer src, boolean writeFinal) throws IOException {
+        if(writeFinal) {
+            return next.writeFinal(src);
+        }
+        return next.write(src);
+    }
+
+    private long doWrite(ByteBuffer[] srcs,final int offs, final int len,  boolean writeFinal) throws IOException {
+        if(writeFinal) {
+            return next.writeFinal(srcs, offs, len);
+        }
+        return next.write(srcs, offs, len);
     }
 
     public boolean flush() throws IOException {

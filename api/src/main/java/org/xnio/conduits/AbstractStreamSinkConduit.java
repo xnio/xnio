@@ -54,4 +54,14 @@ public abstract class AbstractStreamSinkConduit<D extends StreamSinkConduit> ext
     public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
         return next.write(srcs, offs, len);
     }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return next.writeFinal(src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return next.writeFinal(srcs, offset, length);
+    }
 }

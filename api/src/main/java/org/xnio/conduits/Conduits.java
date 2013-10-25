@@ -18,6 +18,8 @@
 
 package org.xnio.conduits;
 
+import org.xnio.Buffers;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -110,5 +112,67 @@ public final class Conduits {
             total += res;
         }
         return total;
+    }
+
+    /**
+     * Writes the buffer to the conduit, and terminates writes if all the data is written
+     * @param conduit The conduit to write to
+     * @param src The data to write
+     * @return The number of bytes written
+     * @throws IOException
+     */
+    public static int writeFinalBasic(StreamSinkConduit conduit, ByteBuffer src) throws IOException {
+        int res = conduit.write(src);
+        if(!src.hasRemaining()) {
+            conduit.terminateWrites();
+        }
+        return res;
+    }
+
+    /**
+     * Writes the buffer to the conduit, and terminates writes if all the data is written
+     * @param conduit The conduit to write to
+     * @param srcs The data to write
+     * @param offset The offset into the data array
+     * @param length The number of buffers to write
+     * @return The number of bytes written
+     * @throws IOException
+     */
+    public static long writeFinalBasic(StreamSinkConduit conduit, ByteBuffer[] srcs, int offset, int length) throws IOException {
+        final long res = conduit.write(srcs, offset, length);
+        if (!Buffers.hasRemaining(srcs, offset, length)) {
+            conduit.terminateWrites();
+        }
+        return res;
+    }
+
+    /**
+     * Writes a message to the conduit, and terminates writes if the send was successfully.
+     * @param conduit The conduit
+     * @param src The message buffer
+     * @return <code>true</code> if the message was sent successfully
+     */
+    public static boolean sendFinalBasic(MessageSinkConduit conduit, ByteBuffer src) throws IOException {
+        if(conduit.send(src)) {
+            conduit.terminateWrites();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Writes a message to the conduit, and terminates writes if the send was successfully.
+     * @param conduit The conduit
+     * @param srcs The message buffers
+     * @param offset The offset in the message buffers
+     * @param length The number of buffers to send
+     * @return <code>true</code> if the message was sent successfully
+     */
+    public static boolean sendFinalBasic(MessageSinkConduit conduit, ByteBuffer[] srcs, int offset, int length) throws IOException {
+        if(conduit.send(srcs, offset, length)) {
+            conduit.terminateWrites();
+            return true;
+        }
+        return false;
     }
 }

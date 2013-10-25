@@ -61,6 +61,16 @@ public final class StreamSinkChannelWrappingConduit implements StreamSinkConduit
         return channel.write(srcs, offs, len);
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return channel.writeFinal(src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return channel.writeFinal(srcs, offset, length);
+    }
+
     public void terminateWrites() throws IOException {
         channel.shutdownWrites();
     }

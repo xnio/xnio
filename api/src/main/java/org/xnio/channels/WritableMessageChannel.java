@@ -55,6 +55,35 @@ public interface WritableMessageChannel extends SuspendableWriteChannel, Configu
      */
     boolean send(ByteBuffer[] buffers, int offs, int len) throws IOException;
 
+    /**
+     * Send a complete message. If the message was successfully sent the channel with have its writes shutdown.
+     *
+     * @param buffer the message to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
+    boolean sendFinal(ByteBuffer buffer) throws IOException;
+
+    /**
+     * Send a complete message. If the message was successfully sent the channel with have its writes shutdown.
+     *
+     * @param buffers the buffers holding the message to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
+    boolean sendFinal(ByteBuffer[] buffers) throws IOException;
+
+    /**
+     * Send a complete message. If the message was successfully sent the channel with have its writes shutdown.
+     *
+     * @param buffers the buffers holding the message to send
+     * @param offs the offset into the buffer array of the first buffer
+     * @param len the number of buffers that contain data to send
+     * @return the result of the send operation; {@code true} if the message was sent, or {@code false} if it would block
+     * @throws IOException if an I/O error occurs
+     */
+    boolean sendFinal(ByteBuffer[] buffers, int offs, int len) throws IOException;
+
     /** {@inheritDoc} */
     ChannelListener.Setter<? extends WritableMessageChannel> getWriteSetter();
 

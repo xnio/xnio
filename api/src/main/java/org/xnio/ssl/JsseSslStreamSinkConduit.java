@@ -69,24 +69,50 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
 
     @Override
     public int write(ByteBuffer src) throws IOException {
-        if (!tls) {
-            return super.write(src);
-        }
-        final int wrappedBytes = sslEngine.wrap(src);
-        if (wrappedBytes > 0) {
-                writeWrappedBuffer();
-        }
-        return wrappedBytes;
+        return write(src, false);
     }
 
     @Override
     public long write(ByteBuffer[] srcs, int offs, int len) throws IOException {
+        return write(srcs, offs, len, false);
+    }
+
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        return write(src, true);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        return write(srcs, offset, length, true);
+    }
+
+    private int write(ByteBuffer src, boolean writeFinal) throws IOException {
         if (!tls) {
-            return super.write(srcs, offs, len);
+            if(writeFinal) {
+                return next.writeFinal(src);
+            } else {
+                return next.write(src);
+            }
+        }
+        final int wrappedBytes = sslEngine.wrap(src);
+        if (wrappedBytes > 0) {
+                writeWrappedBuffer(writeFinal);
+        }
+        return wrappedBytes;
+    }
+
+    private long write(ByteBuffer[] srcs, int offs, int len, boolean writeFinal) throws IOException {
+        if (!tls) {
+            if(writeFinal) {
+                return super.writeFinal(srcs, offs, len);
+            } else {
+                return super.write(srcs, offs, len);
+            }
         }
         final long wrappedBytes = sslEngine.wrap(srcs, offs, len);
         if (wrappedBytes > 0) {
-            writeWrappedBuffer();
+            writeWrappedBuffer(writeFinal);
         }
         return wrappedBytes;
     }
@@ -148,17 +174,17 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
             return super.flush();
         }
         if (sslEngine.isOutboundClosed()) {
-            if (sslEngine.flush() && writeWrappedBuffer() && super.flush()) {
+            if (sslEngine.flush() && writeWrappedBuffer(false) && super.flush()) {
                 super.terminateWrites();
                 return true;
             } else {
                 return false;
             }
         }
-        return sslEngine.flush() && writeWrappedBuffer() && super.flush();
+        return sslEngine.flush() && writeWrappedBuffer(false) && super.flush();
     }
 
-    private boolean writeWrappedBuffer() throws IOException {
+    private boolean writeWrappedBuffer(boolean writeFinal) throws IOException {
         synchronized (sslEngine.getWrapLock()) {
             final ByteBuffer wrapBuffer = sslEngine.getWrappedBuffer();
             for (;;) {
@@ -166,8 +192,14 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
                     if (!wrapBuffer.flip().hasRemaining()) {
                         return true;
                     }
-                    if (super.write(wrapBuffer) == 0) {
-                        return false;
+                    if(writeFinal) {
+                        if (super.writeFinal(wrapBuffer) == 0) {
+                            return false;
+                        }
+                    } else {
+                        if (super.write(wrapBuffer) == 0) {
+                            return false;
+                        }
                     }
                 } finally {
                     wrapBuffer.compact();

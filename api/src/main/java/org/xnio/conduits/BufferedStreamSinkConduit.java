@@ -170,6 +170,18 @@ public final class BufferedStreamSinkConduit extends AbstractStreamSinkConduit<S
         }
     }
 
+    @Override
+    public int writeFinal(ByteBuffer src) throws IOException {
+        //todo: non-naive implementations of this
+        return Conduits.writeFinalBasic(this, src);
+    }
+
+    @Override
+    public long writeFinal(ByteBuffer[] srcs, int offset, int length) throws IOException {
+        //todo: non-naive implementations of this
+        return Conduits.writeFinalBasic(this, srcs, offset, length);
+    }
+
     public boolean flush() throws IOException {
         return flushLocal() && super.flush();
     }
