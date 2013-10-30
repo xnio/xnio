@@ -143,8 +143,10 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (tls) {
             sslEngine.awaitCanUnwrap();
         }
-        if(sslEngine.getUnwrapBuffer().hasRemaining()) {
-            return;
+        synchronized (sslEngine.getUnwrapLock()) {
+            if(sslEngine.getUnwrapBuffer().hasRemaining()) {
+                return;
+            }
         }
         super.awaitReadable();
     }
@@ -155,8 +157,10 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
             super.awaitReadable(time, timeUnit);
             return;
         }
-        if(sslEngine.getUnwrapBuffer().hasRemaining()) {
-            return;
+        synchronized (sslEngine.getUnwrapLock()) {
+            if(sslEngine.getUnwrapBuffer().hasRemaining()) {
+                return;
+            }
         }
         long duration = timeUnit.toNanos(time);
         long awaited = System.nanoTime();
