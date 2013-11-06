@@ -41,6 +41,9 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
+import static org.xnio.FileChangeEvent.Type.MODIFIED;
+import static org.xnio.FileChangeEvent.Type.REMOVED;
+
 /**
  * Test file system watcher, non poll based
  *
@@ -115,22 +118,22 @@ public class FileSystemWatcherTestCase {
             touchFile(added);
             checkResult(added, FileChangeEvent.Type.ADDED);
             added.setLastModified(500);
-            checkResult(added, FileChangeEvent.Type.MODIFIED);
+            checkResult(added, MODIFIED);
             added.delete();
             Thread.sleep(1);
-            checkResult(added, FileChangeEvent.Type.REMOVED);
+            checkResult(added, REMOVED);
             added = new File(existingSubDir, "newSubDirFile.txt");
             touchFile(added);
             checkResult(added, FileChangeEvent.Type.ADDED);
             added.setLastModified(500);
-            checkResult(added, FileChangeEvent.Type.MODIFIED);
+            checkResult(added, MODIFIED);
             added.delete();
             Thread.sleep(1);
-            checkResult(added, FileChangeEvent.Type.REMOVED);
+            checkResult(added, REMOVED);
             File existing = new File(rootDir, EXISTING_FILE_NAME);
             existing.delete();
             Thread.sleep(1);
-            checkResult(existing, FileChangeEvent.Type.REMOVED);
+            checkResult(existing, REMOVED);
             File newDir = new File(rootDir, "newlyCreatedDirectory");
             newDir.mkdir();
             checkResult(newDir, FileChangeEvent.Type.ADDED);
@@ -138,10 +141,10 @@ public class FileSystemWatcherTestCase {
             touchFile(added);
             checkResult(added, FileChangeEvent.Type.ADDED);
             added.setLastModified(500);
-            checkResult(added, FileChangeEvent.Type.MODIFIED);
+            checkResult(added, MODIFIED);
             added.delete();
             Thread.sleep(1);
-            checkResult(added, FileChangeEvent.Type.REMOVED);
+            checkResult(added, REMOVED);
 
 
         } finally {
@@ -158,15 +161,19 @@ public class FileSystemWatcherTestCase {
         Assert.assertEquals(1, secondResults.size());
         FileChangeEvent res = results.iterator().next();
         FileChangeEvent res2 = secondResults.iterator().next();
-        if (type == FileChangeEvent.Type.REMOVED && res.getType() == FileChangeEvent.Type.MODIFIED) {
+        long endTime = System.currentTimeMillis() + 10000;
+        while (type == REMOVED
+                && (res.getType() == MODIFIED || res2.getType() == MODIFIED)
+                && System.currentTimeMillis() < endTime) {
             //sometime OS's will give a MODIFIED event before the REMOVED one
-            results = this.results.poll(10, TimeUnit.SECONDS);
-            secondResults = this.secondResults.poll(10, TimeUnit.SECONDS);
+            results = this.results.poll(1, TimeUnit.SECONDS);
+            secondResults = this.secondResults.poll(1, TimeUnit.SECONDS);
             Assert.assertNotNull(results);
             Assert.assertNotNull(secondResults);
             Assert.assertEquals(1, results.size());
             Assert.assertEquals(1, secondResults.size());
             res = results.iterator().next();
+            res2 = secondResults.iterator().next();
         }
         Assert.assertEquals(file, res.getFile());
         Assert.assertEquals(type, res.getType());
