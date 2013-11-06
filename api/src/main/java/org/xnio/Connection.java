@@ -39,15 +39,15 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
     @SuppressWarnings("unused")
     private volatile int state;
 
-    private static final int FLAG_READ_CLOSED = 1;
-    private static final int FLAG_WRITE_CLOSED = 2;
+    private static final int FLAG_READ_CLOSED           = 0b0001;
+    private static final int FLAG_WRITE_CLOSED          = 0b0010;
 
     private static final AtomicIntegerFieldUpdater<Connection> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(Connection.class, "state");
 
     /**
      * Construct a new instance.
      *
-     * @param thread
+     * @param thread the I/O thread of this connection
      */
     protected Connection(final XnioIoThread thread) {
         this.thread = thread;
@@ -73,6 +73,11 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
         return thread;
     }
 
+    /**
+     * Indicate that reads have been closed on this connection.
+     *
+     * @return {@code true} if read closure was successfully indicated; {@code false} if this method has already been called
+     */
     protected boolean readClosed() {
         int oldVal, newVal;
         do {
@@ -91,6 +96,11 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
         return true;
     }
 
+    /**
+     * Indicate that writes have been closed on this connection.
+     *
+     * @return {@code true} if write closure was successfully indicated; {@code false} if this method has already been called
+     */
     protected boolean writeClosed() {
         int oldVal, newVal;
         do {
@@ -133,10 +143,20 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
         }
     }
 
+    /**
+     * Determine whether reads have been shut down on this connection.
+     *
+     * @return {@code true} if reads were shut down
+     */
     public boolean isReadShutdown() {
         return allAreSet(state, FLAG_READ_CLOSED);
     }
 
+    /**
+     * Determine whether writes have been shut down on this connection.
+     *
+     * @return {@code true} if writes were shut down
+     */
     public boolean isWriteShutdown() {
         return allAreSet(state, FLAG_WRITE_CLOSED);
     }
@@ -145,12 +165,23 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
         return anyAreClear(state, FLAG_READ_CLOSED | FLAG_WRITE_CLOSED);
     }
 
+    /**
+     * Indicate to conduit handlers that writes have been closed.
+     */
     protected abstract void notifyWriteClosed();
 
+    /**
+     * Indicate to conduit handlers that reads have been closed.
+     */
     protected abstract void notifyReadClosed();
 
     abstract void invokeCloseListener();
 
+    /**
+     * The close action to perform on this connection.
+     *
+     * @throws IOException if close fails
+     */
     protected void closeAction() throws IOException {}
 
     public boolean supportsOption(final Option<?> option) {
@@ -162,19 +193,6 @@ public abstract class Connection implements CloseableChannel, ConnectedChannel {
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return null;
-    }
-
-    /**
-     * Get a strongly-typed attachment of the given type.  If more than one attachment
-     * matches the type, only the first is returned.  If no attachment matches, {@code null} is
-     * returned.
-     *
-     * @param type the attachment case class instance
-     * @param <T> the attachment type
-     * @return the attachment, or {@code null} if none matches
-     */
-    public <T> T getAttachment(final Class<T> type) {
         return null;
     }
 }

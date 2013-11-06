@@ -20,10 +20,17 @@ package org.xnio.conduits;
 
 import org.xnio.Buffers;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Locale;
 
 /**
  * General utility methods for manipulating conduits.
@@ -174,5 +181,62 @@ public final class Conduits {
             return true;
         }
         return false;
+    }
+
+    private static final FileChannel NULL_FILE_CHANNEL;
+    private static final ByteBuffer DRAIN_BUFFER = ByteBuffer.allocateDirect(16384);
+
+    /**
+     * Attempt to drain the given number of bytes from the stream source conduit.
+     *
+     * @param conduit the conduit to drain
+     * @param count the number of bytes
+     * @return the number of bytes drained, 0 if reading the conduit would block, or -1 if the EOF was reached
+     * @throws IOException if an error occurs
+     */
+    public static long drain(StreamSourceConduit conduit, long count) throws IOException {
+        long total = 0L, lres;
+        int ires;
+        ByteBuffer buffer = null;
+        for (;;) {
+            if (count == 0L) return total;
+            if (NULL_FILE_CHANNEL != null) {
+                while (count > 0) {
+                    if ((lres = conduit.transferTo(0, count, NULL_FILE_CHANNEL)) == 0L) {
+                        break;
+                    }
+                    total += lres;
+                    count -= lres;
+                }
+                // jump out quick if we drained the fast way
+                if (total > 0L) return total;
+            }
+            if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+            if ((long) buffer.limit() > count) buffer.limit((int) count);
+            ires = conduit.read(buffer);
+            buffer.clear();
+            switch (ires) {
+                case -1: return total == 0L ? -1L : total;
+                case 0: return total;
+                default: total += (long) ires;
+            }
+        }
+    }
+
+    static {
+        NULL_FILE_CHANNEL = AccessController.doPrivileged(new PrivilegedAction<FileChannel>() {
+            public FileChannel run() {
+                final String osName = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
+                try {
+                    if (osName.contains("windows")) {
+                        return new FileOutputStream("NUL:").getChannel();
+                    } else {
+                        return new FileOutputStream("/dev/null").getChannel();
+                    }
+                } catch (FileNotFoundException e) {
+                    throw new IOError(e);
+                }
+            }
+        });
     }
 }

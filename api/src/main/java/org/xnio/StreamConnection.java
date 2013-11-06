@@ -58,10 +58,20 @@ public abstract class StreamConnection extends Connection implements CloseListen
         return new Setter<StreamConnection>(this);
     }
 
+    /**
+     * Set the source conduit for this channel.  The source channel will automatically be updated.
+     *
+     * @param conduit the source conduit for this channel
+     */
     protected void setSourceConduit(StreamSourceConduit conduit) {
         this.sourceChannel = conduit == null ? null : new ConduitStreamSourceChannel(this, conduit);
     }
 
+    /**
+     * Set the sink conduit for this channel.  The sink channel will automatically be updated.
+     *
+     * @param conduit the sink conduit for this channel
+     */
     protected void setSinkConduit(StreamSinkConduit conduit) {
         this.sinkChannel = conduit == null ? null : new ConduitStreamSinkChannel(this, conduit);
     }

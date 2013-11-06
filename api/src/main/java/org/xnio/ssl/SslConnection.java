@@ -22,6 +22,7 @@ import java.io.IOException;
 import javax.net.ssl.SSLSession;
 
 import org.xnio.ChannelListener;
+import org.xnio.Options;
 import org.xnio.StreamConnection;
 import org.xnio.XnioIoThread;
 import org.xnio.channels.SslChannel;
@@ -34,14 +35,20 @@ import org.xnio.channels.SslChannel;
  */
 public abstract class SslConnection extends StreamConnection implements SslChannel {
 
+    /**
+     * Construct a new instance.
+     *
+     * @param thread the I/O thread of this connection
+     */
     protected SslConnection(XnioIoThread thread) {
         super(thread);
     }
 
     /**
      * Start or restart the SSL/TLS handshake. To force a complete SSL/TLS session renegotiation, the current session
-     * should be invalidated prior to calling this method. This method is not needed for the initial handshake as
-     * sending or receiving over the channel will automatically initiate it.
+     * should be invalidated prior to calling this method. This method is not needed for the initial handshake unless
+     * the {@link Options#SSL_STARTTLS} option is set as sending or receiving over the channel will automatically
+     * initiate it.  This method must not be called while a read or write operation is taking place.
      *
      * @throws IOException if an I/O error occurs
      */
