@@ -304,13 +304,13 @@ final class NioXnioWorker extends XnioWorker {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
             channel.socket().bind(bindAddress);
-            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel);
+            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel, (InetSocketAddress) channel.socket().getLocalSocketAddress(), destinationAddress);
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
-                // not unsafe - http://youtrack.jetbrains.net/issue/IDEA-59290
-                //noinspection unchecked
-                connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
+                if (openListener != null) {
+                    connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
+                }
                 return new FinishedIoFuture<ConnectedStreamChannel>(tcpChannel);
             }
             final SimpleSetter<NioTcpChannel> setter = connectHandle.getHandlerSetter();
@@ -413,7 +413,7 @@ final class NioXnioWorker extends XnioWorker {
             final SocketChannel accepted = channel.accept();
             if (accepted != null) {
                 IoUtils.safeClose(channel);
-                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted);
+                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted, destination, (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
                 tcpChannel.configureFrom(optionMap);
                 //noinspection unchecked
                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
@@ -443,7 +443,7 @@ final class NioXnioWorker extends XnioWorker {
                         try {
                             accepted.configureBlocking(false);
                             final NioTcpChannel tcpChannel;
-                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, accepted);
+                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, accepted, destination, (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
                             tcpChannel.configureFrom(optionMap);
                             futureResult.setResult(tcpChannel);
                             ok = true;

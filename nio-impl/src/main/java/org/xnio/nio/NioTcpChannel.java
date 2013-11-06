@@ -23,6 +23,7 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
@@ -49,6 +50,8 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
 
     private final SocketChannel socketChannel;
     private final Socket socket;
+    private final InetSocketAddress localAddress;
+    private final InetSocketAddress peerAddress;
 
     private volatile int closeBits = 0;
 
@@ -64,9 +67,11 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
             .add(Options.IP_TRAFFIC_CLASS)
             .create();
 
-    NioTcpChannel(final NioXnioWorker worker, final SocketChannel socketChannel) throws ClosedChannelException {
+    NioTcpChannel(final NioXnioWorker worker, final SocketChannel socketChannel, final InetSocketAddress localAddress, final InetSocketAddress peerAddress) throws ClosedChannelException {
         super(worker);
         this.socketChannel = socketChannel;
+        this.localAddress = localAddress;
+        this.peerAddress = peerAddress;
         socket = socketChannel.socket();
         start();
     }
@@ -203,21 +208,19 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
     }
 
     public SocketAddress getPeerAddress() {
-        return socket.getRemoteSocketAddress();
+        return peerAddress;
     }
 
     public <A extends SocketAddress> A getPeerAddress(final Class<A> type) {
-        final SocketAddress address = getPeerAddress();
-        return type.isInstance(address) ? type.cast(address) : null;
+        return type == InetSocketAddress.class ? type.cast(peerAddress) : null;
     }
 
     public SocketAddress getLocalAddress() {
-        return socket.getLocalSocketAddress();
+        return localAddress;
     }
 
     public <A extends SocketAddress> A getLocalAddress(final Class<A> type) {
-        final SocketAddress address = getLocalAddress();
-        return type.isInstance(address) ? type.cast(address) : null;
+        return type == InetSocketAddress.class ? type.cast(localAddress) : null;
     }
 
     public boolean supportsOption(final Option<?> option) {

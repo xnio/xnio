@@ -23,10 +23,10 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -44,8 +44,6 @@ import org.xnio.Options;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
-
-import static org.xnio.nio.Log.log;
 
 final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
     private static final Logger log = Logger.getLogger("org.xnio.nio.tcp.server");
@@ -214,7 +212,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         final NioTcpChannel newChannel;
         boolean ok = false;
         try {
-            newChannel = new NioTcpChannel(worker, accepted);
+            newChannel = new NioTcpChannel(worker, accepted, (InetSocketAddress) accepted.socket().getLocalSocketAddress(), (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
             newChannel.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
             newChannel.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
             ok = true;
