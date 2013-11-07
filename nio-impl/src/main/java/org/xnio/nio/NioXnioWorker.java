@@ -308,6 +308,7 @@ final class NioXnioWorker extends XnioWorker {
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
+                tcpChannel.configureFrom(optionMap);
                 if (openListener != null) {
                     connectHandle.getWorkerThread().execute(ChannelListeners.getChannelListenerTask(tcpChannel, openListener));
                 }
