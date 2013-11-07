@@ -284,6 +284,8 @@ final class NioXnioWorker extends XnioWorker {
         final ServerSocketChannel channel = ServerSocketChannel.open();
         try {
             channel.configureBlocking(false);
+            if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+            if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
             channel.socket().bind(bindAddress);
             final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
             final ChannelListener.SimpleSetter<NioTcpServer> setter = server.getAcceptSetter();
@@ -303,6 +305,10 @@ final class NioXnioWorker extends XnioWorker {
         try {
             final SocketChannel channel = SocketChannel.open();
             channel.configureBlocking(false);
+            if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+            if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
+            if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
+            if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, 0));
             channel.socket().bind(bindAddress);
             final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel, (InetSocketAddress) channel.socket().getLocalSocketAddress(), destinationAddress);
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
@@ -365,6 +371,8 @@ final class NioXnioWorker extends XnioWorker {
         final WorkerThread connectThread = choose(optionMap.get(Options.WORKER_ESTABLISH_WRITING, false));
         try {
             final ServerSocketChannel channel = ServerSocketChannel.open();
+            if (optionMap.contains(Options.REUSE_ADDRESSES)) channel.socket().setReuseAddress(optionMap.get(Options.REUSE_ADDRESSES, false));
+            if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
             channel.configureBlocking(false);
             channel.socket().bind(destination);
             final NioSetter<NioTcpChannel> closeSetter = new NioSetter<NioTcpChannel>();
