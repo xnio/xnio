@@ -80,6 +80,7 @@ final class NioXnio extends Xnio {
         final Object[] objects = AccessController.doPrivileged(
             new PrivilegedAction<Object[]>() {
                 public Object[] run() {
+                    final String osName = System.getProperty("os.name", "unknown");
                     final SelectorProvider defaultProvider = SelectorProvider.provider();
                     final String chosenProvider = System.getProperty("xnio.nio.selector.provider");
                     SelectorProvider provider = null;
@@ -92,44 +93,47 @@ final class NioXnio extends Xnio {
                             provider = null;
                         }
                     }
-                    if (provider == null) {
-                        try {
-                            // Mac OS X and BSD
-                            provider = Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                            provider.openSelector().close();
-                        } catch (Throwable e) {
-                            // not available
-                            provider = null;
+                    // skip IBM OS/400 because it segfaults when you create a pollset selector instance
+                    if (! osName.contains("OS/400")) {
+                        if (provider == null) {
+                            try {
+                                // Mac OS X and BSD
+                                provider = Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                                provider.openSelector().close();
+                            } catch (Throwable e) {
+                                // not available
+                                provider = null;
+                            }
                         }
-                    }
-                    if (provider == null) {
-                        try {
-                            // Linux
-                            provider = Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                            provider.openSelector().close();
-                        } catch (Throwable e) {
-                            // not available
-                            provider = null;
+                        if (provider == null) {
+                            try {
+                                // Linux
+                                provider = Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                                provider.openSelector().close();
+                            } catch (Throwable e) {
+                                // not available
+                                provider = null;
+                            }
                         }
-                    }
-                    if (provider == null) {
-                        try {
-                            // Solaris
-                            provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                            provider.openSelector().close();
-                        } catch (Throwable e) {
-                            // not available
-                            provider = null;
+                        if (provider == null) {
+                            try {
+                                // Solaris
+                                provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                                provider.openSelector().close();
+                            } catch (Throwable e) {
+                                // not available
+                                provider = null;
+                            }
                         }
-                    }
-                    if (provider == null) {
-                        try {
-                            // AIX
-                            provider = Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
-                            provider.openSelector().close();
-                        } catch (Throwable e) {
-                            // not available
-                            provider = null;
+                        if (provider == null) {
+                            try {
+                                // AIX
+                                provider = Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                                provider.openSelector().close();
+                            } catch (Throwable e) {
+                                // not available
+                                provider = null;
+                            }
                         }
                     }
                     if (provider == null) {
