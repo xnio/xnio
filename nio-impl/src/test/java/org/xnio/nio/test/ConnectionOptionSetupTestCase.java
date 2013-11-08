@@ -56,7 +56,7 @@ public class ConnectionOptionSetupTestCase extends TcpServerTest {
 
         assertTrue(server.getOption(Options.REUSE_ADDRESSES));
         assertTrue((int) server.getOption(Options.RECEIVE_BUFFER) > 0);
-        assertEquals(0x10000, (int) server.getOption(Options.SEND_BUFFER));
+        assertEquals(null, server.getOption(Options.SEND_BUFFER));
         assertFalse(server.getOption(Options.KEEP_ALIVE));
         assertFalse(server.getOption(Options.TCP_OOB_INLINE));
         assertFalse(server.getOption(Options.TCP_NODELAY));

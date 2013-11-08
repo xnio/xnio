@@ -123,11 +123,13 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             tokenConnectionCount = connections;
         }
         socket = channel.socket();
-        final int sendBufferSize = optionMap.get(Options.SEND_BUFFER, DEFAULT_BUFFER_SIZE);
-        if (sendBufferSize < 1) {
-            throw log.parameterOutOfRange("sendBufferSize");
+        if (optionMap.contains(Options.SEND_BUFFER)) {
+            final int sendBufferSize = optionMap.get(Options.SEND_BUFFER, DEFAULT_BUFFER_SIZE);
+            if (sendBufferSize < 1) {
+                throw log.parameterOutOfRange("sendBufferSize");
+            }
+            sendBufferUpdater.set(this, sendBufferSize);
         }
-        sendBufferUpdater.set(this, sendBufferSize);
         if (optionMap.contains(Options.KEEP_ALIVE)) {
             keepAliveUpdater.lazySet(this, optionMap.get(Options.KEEP_ALIVE, false) ? 1 : 0);
         }
