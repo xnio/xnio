@@ -643,13 +643,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (same thread)", key, channel);
             }
         } else if (OLD_LOCKING) {
-            log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
+            log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (same thread, old locking)", key, channel);
             final SynchTask task = new SynchTask();
             queueTask(task);
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
                 key.cancel();
+            } catch (Throwable t) {
+                log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (same thread, old locking)", key, channel);
             } finally {
                 task.done();
             }
