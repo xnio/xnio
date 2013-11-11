@@ -324,7 +324,7 @@ final class WorkerThread extends Thread implements XnioExecutor {
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
-                cancelKey(key);
+                key.cancel();
             } finally {
                 task.done();
             }
