@@ -157,6 +157,13 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
     }
 
+    /**
+     * Return the size of the {@link ByteBuffer}s that are returned by {@link #allocate()}.
+     */
+    public int getBufferSize() {
+        return bufferSize;
+    }
+
     private void doFree(Slice region) {
         final ArrayDeque<Slice> localQueue = localQueueHolder.get();
         if (localQueue.size() == LOCAL_LENGTH) {
