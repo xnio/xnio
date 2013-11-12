@@ -20,6 +20,7 @@ package org.xnio.ssl;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.util.Set;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
@@ -29,6 +30,7 @@ import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
+import org.xnio.SslClientAuthMode;
 import org.xnio.StreamConnection;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
@@ -115,19 +117,38 @@ final class JsseSslStreamConnection extends SslConnection {
     /** {@inheritDoc} */
     @Override
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        return connection.setOption(option, value);
+        if (option == Options.SSL_CLIENT_AUTH_MODE) {
+            final SSLEngine engine = sslConduitEngine.getEngine();
+            try {
+                return option.cast(engine.getNeedClientAuth() ? SslClientAuthMode.REQUIRED : engine.getWantClientAuth() ? SslClientAuthMode.REQUESTED : SslClientAuthMode.NOT_REQUESTED);
+            } finally {
+                engine.setNeedClientAuth(value == SslClientAuthMode.REQUIRED);
+                engine.setWantClientAuth(value == SslClientAuthMode.REQUESTED);
+            }
+        } else if (option == Options.SECURE) {
+            throw new IllegalArgumentException();
+        } else {
+            return connection.setOption(option, value);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T getOption(final Option<T> option) throws IOException {
-        return option == Options.SECURE ? option.cast(Boolean.valueOf(tls)) : connection.getOption(option);
+        if (option == Options.SSL_CLIENT_AUTH_MODE) {
+            final SSLEngine engine = sslConduitEngine.getEngine();
+            return option.cast(engine.getNeedClientAuth() ? SslClientAuthMode.REQUIRED : engine.getWantClientAuth() ? SslClientAuthMode.REQUESTED : SslClientAuthMode.NOT_REQUESTED);
+        } else {
+            return option == Options.SECURE ? option.cast(Boolean.valueOf(tls)) : connection.getOption(option);
+        }
     }
+
+    private static final Set<Option<?>> SUPPORTED_OPTIONS = Option.setBuilder().add(Options.SECURE, Options.SSL_CLIENT_AUTH_MODE).create();
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsOption(final Option<?> option) {
-        return option == Options.SECURE || connection.supportsOption(option);
+        return SUPPORTED_OPTIONS.contains(option) || connection.supportsOption(option);
     }
 
     /** {@inheritDoc} */
