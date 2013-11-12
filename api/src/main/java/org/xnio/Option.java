@@ -269,6 +269,65 @@ public abstract class Option<T> implements Serializable {
         }
 
         /**
+         * Add options to this set.
+         *
+         * @param option1 the first option to add
+         * @param option2 the second option to add
+         * @return this builder
+         */
+        public Option.SetBuilder add(Option<?> option1, Option<?> option2) {
+            if (option1 == null) {
+                throw msg.nullParameter("option1");
+            }
+            if (option2 == null) {
+                throw msg.nullParameter("option2");
+            }
+            optionSet.add(option1);
+            optionSet.add(option2);
+            return this;
+        }
+
+        /**
+         * Add options to this set.
+         *
+         * @param option1 the first option to add
+         * @param option2 the second option to add
+         * @param option3 the third option to add
+         * @return this builder
+         */
+        public Option.SetBuilder add(Option<?> option1, Option<?> option2, Option<?> option3) {
+            if (option1 == null) {
+                throw msg.nullParameter("option1");
+            }
+            if (option2 == null) {
+                throw msg.nullParameter("option2");
+            }
+            if (option3 == null) {
+                throw msg.nullParameter("option3");
+            }
+            optionSet.add(option1);
+            optionSet.add(option2);
+            optionSet.add(option3);
+            return this;
+        }
+
+        /**
+         * Add options to this set.
+         *
+         * @param options the options to add
+         * @return this builder
+         */
+        public Option.SetBuilder add(Option<?>... options) {
+            if (options == null) {
+                throw msg.nullParameter("options");
+            }
+            for (Option<?> option : options) {
+                add(option);
+            }
+            return this;
+        }
+
+        /**
          * Add all options from a collection to this set.
          *
          * @param options the options to add
