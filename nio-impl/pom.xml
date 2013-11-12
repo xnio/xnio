@@ -40,6 +40,7 @@
     
     <properties>
         <test.level>INFO</test.level>
+        <xnio.nio.old-locking>false</xnio.nio.old-locking>
     </properties>
 
     <dependencies>
@@ -83,6 +84,10 @@
                         <property>
                             <name>test.level</name>
                             <value>${test.level}</value>
+                        </property>
+                        <property>
+                            <name>xnio.nio.old-locking</name>
+                            <value>${xnio.nio.old-locking}</value>
                         </property>
                     </systemProperties>
                     <enableAssertions>true</enableAssertions>
