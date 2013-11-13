@@ -319,21 +319,19 @@ public class HttpUpgrade {
                 }
 
                 //ok, we have a response
-                if (parser.getResponseCode() == 101) {
+                if (parser.getResponseCode() == 101) { // Switching Protocols
                     handleUpgrade(parser, channel);
-                } else if (parser.getResponseCode() == 301 ||
-                        parser.getResponseCode() == 302 ||
-                        parser.getResponseCode() == 303 ||
-                        parser.getResponseCode() == 307 ||
-                        parser.getResponseCode() == 308) {
+                } else if (parser.getResponseCode() == 301 || // Moved Permanently
+                        parser.getResponseCode() == 302 || // Found
+                        parser.getResponseCode() == 303 || // See Other
+                        parser.getResponseCode() == 307 || // Temporary Redirect
+                        parser.getResponseCode() == 308) { // Permanent Redirect
                     handleRedirect(parser, channel);
                 } else {
                     IoUtils.safeClose(channel);
                     future.setException(new IOException("Invalid response code " + parser.getResponseCode()));
                 }
-
             }
-
 
         }
 
@@ -359,7 +357,7 @@ public class HttpUpgrade {
 
         private void handleRedirect(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
             IoUtils.safeClose(channel);
-            future.setException(new IOException("Redirects are not implemented yet"));
+            future.setException(msg.redirect(parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
     }
