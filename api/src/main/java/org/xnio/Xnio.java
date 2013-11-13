@@ -370,6 +370,20 @@ public abstract class Xnio {
         return openFile(new File(fileName), FILE_ACCESS_OPTION_MAPS.get(access));
     }
 
+    /**
+     * Unwrap an XNIO-wrapped file channel.  For use by providers.
+     *
+     * @param src the possibly wrapped file channel
+     * @return the unwrapped file channel
+     */
+    protected FileChannel unwrapFileChannel(FileChannel src) {
+        if (src instanceof XnioFileChannel) {
+            return ((XnioFileChannel)src).getDelegate();
+        } else {
+            return src;
+        }
+    }
+
     //==================================================
     //
     // Worker methods
@@ -425,6 +439,7 @@ public abstract class Xnio {
         boolean daemonThread = options.get(Options.THREAD_DAEMON, true);
         return new PollingFileSystemWatcher(name, pollInterval, daemonThread);
     }
+
     //==================================================
     //
     // General methods

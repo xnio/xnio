@@ -111,4 +111,8 @@ final class XnioFileChannel extends FileChannel {
     public void implCloseChannel() throws IOException {
         delegate.close();
     }
+
+    FileChannel getDelegate() {
+        return delegate;
+    }
 }
