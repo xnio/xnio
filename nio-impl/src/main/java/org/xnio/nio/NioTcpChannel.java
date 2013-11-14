@@ -78,8 +78,10 @@ final class NioTcpChannel extends AbstractNioStreamChannel<NioTcpChannel> implem
 
     void configureFrom(final OptionMap optionMap) throws IOException {
         for (Option<?> option : optionMap) {
-            if (supportsOption(option)) {
+            if (supportsOption(option)) try {
                 doSetOption(option, optionMap);
+            } catch (IOException ignored) {
+                // some platforms don't really support all the options all the time
             }
         }
     }
