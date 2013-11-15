@@ -43,6 +43,13 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     void resumeAccepts();
 
     /**
+     * Determine whether accepts are resumed.
+     *
+     * @return {@code true} if accepts are resumed, {@code false} if accepts are suspended
+     */
+    boolean isAcceptResumed();
+
+    /**
      * {@link #resumeAccepts()} Resume accepts} on this channel, and force the accept listener to be triggered even if the
      * channel isn't actually ready.
      */

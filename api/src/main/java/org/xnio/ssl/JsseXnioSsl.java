@@ -210,6 +210,10 @@ public final class JsseXnioSsl extends XnioSsl {
                 server.resumeAccepts();
             }
 
+            public boolean isAcceptResumed() {
+                return server.isAcceptResumed();
+            }
+
             public void wakeupAccepts() {
                 server.wakeupAccepts();
             }

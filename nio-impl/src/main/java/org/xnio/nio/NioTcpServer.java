@@ -404,6 +404,10 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         doResume(SelectionKey.OP_ACCEPT);
     }
 
+    public boolean isAcceptResumed() {
+        return resumed;
+    }
+
     private void doResume(final int op) {
         if (op == 0) {
             for (NioTcpServerHandle handle : handles) {
