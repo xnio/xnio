@@ -172,6 +172,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                 server.resumeAccepts();
             }
 
+            public boolean isAcceptResumed() {
+                return server.isAcceptResumed();
+            }
+
             public void wakeupAccepts() {
                 server.wakeupAccepts();
             }

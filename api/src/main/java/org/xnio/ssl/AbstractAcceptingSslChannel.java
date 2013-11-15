@@ -243,6 +243,11 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         tcpServer.resumeAccepts();
     }
 
+    @Override
+    public boolean isAcceptResumed() {
+       return tcpServer.isAcceptResumed();
+    }
+
     public void wakeupAccepts() {
         tcpServer.wakeupAccepts();
     }
