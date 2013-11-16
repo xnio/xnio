@@ -221,7 +221,7 @@ public class HttpUpgrade {
                     try {
                         r = channel.getSinkChannel().write(buffer);
                         if (r == 0) {
-                            channel.getSinkChannel().getWriteSetter().set(new StringWriteListener(buffer));
+                            channel.getSinkChannel().getWriteSetter().set(new RequestWriteListener(buffer));
                             channel.getSinkChannel().resumeWrites();
                             return;
                         }
@@ -234,11 +234,11 @@ public class HttpUpgrade {
             }
         }
 
-        private final class StringWriteListener implements ChannelListener<StreamSinkChannel> {
+        private final class RequestWriteListener implements ChannelListener<StreamSinkChannel> {
 
             final ByteBuffer buffer;
 
-            private StringWriteListener(final ByteBuffer buffer) {
+            private RequestWriteListener(final ByteBuffer buffer) {
                 this.buffer = buffer;
             }
 
@@ -249,7 +249,7 @@ public class HttpUpgrade {
                     try {
                         r = channel.write(buffer);
                         if (r == 0) {
-                            channel.getWriteSetter().set(new StringWriteListener(buffer));
+                            channel.getWriteSetter().set(new RequestWriteListener(buffer));
                             channel.resumeWrites();
                             return;
                         }
