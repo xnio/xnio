@@ -29,16 +29,74 @@ public class RedirectException extends IOException {
     private final int statusCode;
     private final String location;
 
-    public RedirectException(String message, int statusCode, String location) {
-        super(message);
+    /**
+     * Constructs a new {@code RedirectException} instance.  The message is left blank ({@code null}), and no cause is
+     * specified.
+     *
+     * @param statusCode the status code
+     * @param location the redirection location, if any
+     */
+    public RedirectException(final int statusCode, final String location) {
         this.statusCode = statusCode;
         this.location = location;
     }
 
+    /**
+     * Constructs a new {@code RedirectException} instance with an initial message.  No cause is specified.
+     *
+     * @param msg the message
+     * @param statusCode the status code
+     * @param location the redirection location, if any
+     */
+    public RedirectException(final String msg, final int statusCode, final String location) {
+        super(msg);
+        this.statusCode = statusCode;
+        this.location = location;
+    }
+
+    /**
+     * Constructs a new {@code RedirectException} instance with an initial cause.  If a non-{@code null} cause is
+     * specified, its message is used to initialize the message of this {@code RedirectException}; otherwise the message
+     * is left blank ({@code null}).
+     *
+     * @param cause the cause
+     * @param statusCode the status code
+     * @param location the redirection location, if any
+     */
+    public RedirectException(final Throwable cause, final int statusCode, final String location) {
+        super(cause);
+        this.statusCode = statusCode;
+        this.location = location;
+    }
+
+    /**
+     * Constructs a new {@code RedirectException} instance with an initial message and cause.
+     *
+     * @param msg the message
+     * @param cause the cause
+     * @param statusCode the status code
+     * @param location the redirection location, if any
+     */
+    public RedirectException(final String msg, final Throwable cause, final int statusCode, final String location) {
+        super(msg, cause);
+        this.statusCode = statusCode;
+        this.location = location;
+    }
+
+    /**
+     * Get the HTTP status code.  This is the reason for the redirect.
+     *
+     * @return the status code
+     */
     public int getStatusCode() {
         return statusCode;
     }
 
+    /**
+     * Get the redirection target location.
+     *
+     * @return the redirection target location
+     */
     public String getLocation() {
         return location;
     }

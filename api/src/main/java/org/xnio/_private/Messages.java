@@ -282,7 +282,7 @@ public interface Messages extends BasicLogger {
 
     // 815 - worker shut down
 
-    @Message(id = 815, value = "Redirect encountered establishing connection")
+    @Message(id = 816, value = "Redirect encountered establishing connection")
     RedirectException redirect(@Param int responseCode, @Param String location);
 
     // Unsupported implementation operations - cross-check with xnio-nio
