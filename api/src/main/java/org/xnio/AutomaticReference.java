@@ -23,6 +23,9 @@ import static java.security.AccessController.doPrivileged;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.security.PrivilegedAction;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 /**
  * An automatic reference is a phantom reference which is automatically freed by a background thread when it is
@@ -34,6 +37,9 @@ import java.security.PrivilegedAction;
 public abstract class AutomaticReference<T> extends PhantomReference<T> {
 
     static final Object PERMIT = new Object();
+
+    // todo: we can do better than this...
+    private static final Set<AutomaticReference<?>> LIVE_SET = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<AutomaticReference<?>, Boolean>()));
 
     /**
      * Get the security authorization permit to create automatic references.
@@ -104,6 +110,7 @@ public abstract class AutomaticReference<T> extends PhantomReference<T> {
      */
     protected AutomaticReference(final T referent, final Object permit) {
         super(referent, checkPermit(permit));
+        LIVE_SET.add(this);
     }
 
     /**
@@ -129,8 +136,14 @@ public abstract class AutomaticReference<T> extends PhantomReference<T> {
         }
 
         public void run() {
+            AutomaticReference<?> ref;
             for (;;) try {
-                ((AutomaticReference<?>) QUEUE.remove()).free();
+                ref = (AutomaticReference<?>) QUEUE.remove();
+                try {
+                    ref.free();
+                } finally {
+                    LIVE_SET.remove(ref);
+                }
             } catch (Throwable ignored) {
             }
         }
