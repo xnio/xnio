@@ -49,6 +49,18 @@ public interface XnioExecutor extends Executor {
     Key executeAfter(Runnable command, long time, TimeUnit unit);
 
     /**
+     * Execute a command repeatedly at a time interval until it is cancelled.  At least the amount of time given in
+     * {@code time} will have elapsed when the task is first run, and again for each subsequent run.  The returned key
+     * may be used to cancel the task before it runs.
+     *
+     * @param command the command to execute
+     * @param time the amount of time to delay, or {@code 0} to run immediately
+     * @param unit the time unit to apply to {@code time}
+     * @return a key which may be used to cancel this task before it executes
+     */
+    Key executeAtInterval(Runnable command, long time, TimeUnit unit);
+
+    /**
      * A task key for a timeout task.
      */
     interface Key {

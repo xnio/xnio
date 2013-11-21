@@ -36,9 +36,11 @@ import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.jboss.logging.Logger;
 import org.xnio.Cancellable;
 import org.xnio.ChannelListener;
@@ -78,12 +80,13 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
     private static final String FQCN = WorkerThread.class.getName();
     private static final boolean OLD_LOCKING;
     private static final boolean THREAD_SAFE_SELECTION_KEYS;
+    private static final long START_TIME = System.nanoTime();
 
     private final Selector selector;
     private final Object workLock = new Object();
 
     private final Queue<Runnable> selectorWorkQueue = new ArrayDeque<Runnable>();
-    private final Set<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
+    private final TreeSet<TimeKey> delayWorkQueue = new TreeSet<TimeKey>();
 
     private volatile int state;
 
@@ -421,7 +424,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             log.tracef("Starting worker thread %s", this);
             final Object lock = workLock;
             final Queue<Runnable> workQueue = selectorWorkQueue;
-            final Set<TimeKey> delayQueue = delayWorkQueue;
+            final TreeSet<TimeKey> delayQueue = delayWorkQueue;
             log.debugf("Started channel thread '%s', selector %s", currentThread().getName(), selector);
             Runnable task;
             Iterator<TimeKey> iterator;
@@ -442,11 +445,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                                 final long now = nanoTime();
                                 do {
                                     final TimeKey key = iterator.next();
-                                    if (key.deadline <= now) {
+                                    if (key.deadline <= (now - START_TIME)) {
                                         workQueue.add(key.command);
                                         iterator.remove();
                                     } else {
-                                        delayTime = key.deadline - now;
+                                        delayTime = key.deadline - (now - START_TIME);
                                         // the rest are in the future
                                         break;
                                     }
@@ -575,21 +578,18 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
     }
 
     public Key executeAfter(final Runnable command, final long time, final TimeUnit unit) {
-        return executeAfter(command, unit.toMillis(time));
-    }
-
-    Key executeAfter(final Runnable command, final long time) {
+        final long millis = unit.toMillis(time);
         if ((state & SHUTDOWN) != 0) {
             throw log.threadExiting();
         }
-        if (time <= 0) {
+        if (millis <= 0) {
             execute(command);
-            return XnioExecutor.Key.IMMEDIATE;
+            return Key.IMMEDIATE;
         }
-        final long deadline = nanoTime() + Math.min(time, LONGEST_DELAY) * 1000000L;
+        final long deadline = (nanoTime() - START_TIME) + Math.min(millis, LONGEST_DELAY) * 1000000L;
         final TimeKey key = new TimeKey(deadline, command);
         synchronized (workLock) {
-            final Set<TimeKey> queue = delayWorkQueue;
+            final TreeSet<TimeKey> queue = delayWorkQueue;
             queue.add(key);
             if (queue.iterator().next() == key) {
                 // we're the next one up; poke the selector to update its delay time
@@ -597,6 +597,51 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             }
             return key;
         }
+    }
+
+    class RepeatKey implements Key, Runnable {
+        private final Runnable command;
+        private final long millis;
+        private final AtomicReference<Key> current = new AtomicReference<>();
+
+        RepeatKey(final Runnable command, final long millis) {
+            this.command = command;
+            this.millis = millis;
+        }
+
+        public boolean remove() {
+            final Key removed = current.getAndSet(this);
+            // removed key should not be null because remove cannot be called before it is populated.
+            assert removed != null;
+            return removed != this && removed.remove();
+        }
+
+        void setFirst(Key key) {
+            current.compareAndSet(null, key);
+        }
+
+        public void run() {
+            try {
+                command.run();
+            } finally {
+                Key o, n;
+                o = current.get();
+                if (o != this) {
+                    n = executeAfter(this, millis, TimeUnit.MILLISECONDS);
+                    if (!current.compareAndSet(o, n)) {
+                        n.remove();
+                    }
+                }
+            }
+        }
+    }
+
+    public Key executeAtInterval(final Runnable command, final long time, final TimeUnit unit) {
+        final long millis = unit.toMillis(time);
+        final RepeatKey repeatKey = new RepeatKey(command, millis);
+        final Key firstKey = executeAfter(repeatKey, millis, TimeUnit.MILLISECONDS);
+        repeatKey.setFirst(firstKey);
+        return repeatKey;
     }
 
     SelectionKey registerChannel(final AbstractSelectableChannel channel) throws ClosedChannelException {
@@ -722,8 +767,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         return identityHashCode(this);
     }
 
+    static final AtomicLong seqGen = new AtomicLong();
+
     final class TimeKey implements XnioExecutor.Key, Comparable<TimeKey> {
         private final long deadline;
+        private final long seq = seqGen.incrementAndGet();
         private final Runnable command;
 
         TimeKey(final long deadline, final Runnable command) {
@@ -738,7 +786,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
 
         public int compareTo(final TimeKey o) {
-            return (int) Math.signum(deadline - o.deadline);
+            int r = Long.signum(deadline - o.deadline);
+            if (r == 0) r = Long.signum(seq - o.seq);
+            return r;
         }
     }
 

@@ -67,6 +67,11 @@ public class XnioIoThreadMock extends XnioIoThread implements XnioExecutor {
     }
 
     @Override
+    public Key executeAtInterval(final Runnable command, final long time, final TimeUnit unit) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
     protected IoFuture<StreamConnection> acceptLocalStreamConnection(LocalSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         return internalAcceptStream(destination, openListener, bindListener, optionMap, XnioWorkerMock.LOCAL_CHANNEL_INFO);
     }
