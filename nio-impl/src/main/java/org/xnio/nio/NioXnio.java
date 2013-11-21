@@ -19,6 +19,7 @@
 
 package org.xnio.nio;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.channels.Selector;
 import java.nio.channels.spi.SelectorProvider;
@@ -33,6 +34,9 @@ import org.xnio.Version;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
+import org.xnio.management.XnioProviderMXBean;
+import org.xnio.management.XnioServerMXBean;
+import org.xnio.management.XnioWorkerMXBean;
 
 import static org.xnio.nio.Log.log;
 
@@ -184,6 +188,15 @@ final class NioXnio extends Xnio {
         tempSelectorCreator = (SelectorCreator) objects[1];
         mainSelectorCreator = (SelectorCreator) objects[2];
         log.selectors(mainSelectorCreator, tempSelectorCreator);
+        register(new XnioProviderMXBean() {
+            public String getName() {
+                return "nio";
+            }
+
+            public String getVersion() {
+                return Version.VERSION;
+            }
+        });
     }
 
     public XnioWorker createWorker(final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException, IllegalArgumentException {
@@ -271,5 +284,13 @@ final class NioXnio extends Xnio {
         public String toString() {
             return String.format("Selector creator %s for provider %s", constructor.getDeclaringClass(), provider.getClass());
         }
+    }
+
+    protected static Closeable register(XnioWorkerMXBean workerMXBean) {
+        return Xnio.register(workerMXBean);
+    }
+
+    protected static Closeable register(XnioServerMXBean serverMXBean) {
+        return Xnio.register(serverMXBean);
     }
 }

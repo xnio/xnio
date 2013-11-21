@@ -18,22 +18,36 @@
 
 package org.xnio;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
+import java.security.PrivilegedAction;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.ServiceLoader;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
+import org.xnio.management.XnioProviderMXBean;
+import org.xnio.management.XnioServerMXBean;
+import org.xnio.management.XnioWorkerMXBean;
 import org.xnio.ssl.JsseSslUtils;
 import org.xnio.ssl.JsseXnioSsl;
 import org.xnio.ssl.XnioSsl;
@@ -41,6 +55,7 @@ import org.xnio.ssl.XnioSsl;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 
+import static java.security.AccessController.doPrivileged;
 import static org.xnio._private.Messages.msg;
 
 /**
@@ -57,6 +72,8 @@ public abstract class Xnio {
     private static final EnumMap<FileAccess, OptionMap> FILE_ACCESS_OPTION_MAPS;
 
     private static final RuntimePermission ALLOW_BLOCKING_SETTING = new RuntimePermission("changeThreadBlockingSetting");
+
+    private static final MBeanServer MBEAN_SERVER;
 
     /**
      * A flag indicating the presence of NIO.2 (JDK 7).
@@ -78,6 +95,11 @@ public abstract class Xnio {
             map.put(access, OptionMap.create(Options.FILE_ACCESS, access));
         }
         FILE_ACCESS_OPTION_MAPS = map;
+        MBEAN_SERVER = doPrivileged(new PrivilegedAction<MBeanServer>() {
+            public MBeanServer run() {
+                return ManagementFactory.getPlatformMBeanServer();
+            }
+        });
     }
 
     /**
@@ -500,6 +522,70 @@ public abstract class Xnio {
             return AccessController.doPrivileged(new ReadPropertyAction(name, defaultValue));
         } else {
             return System.getProperty(name, defaultValue);
+        }
+    }
+
+    /**
+     * Register an MBean.  If the MBean cannot be registered, this method will simply return.
+     *
+     * @param providerMXBean the provider MBean to register
+     * @return a handle which may be used to remove the registration
+     */
+    protected static Closeable register(XnioProviderMXBean providerMXBean) {
+        try {
+            final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(providerMXBean.getName()))));
+            MBEAN_SERVER.registerMBean(providerMXBean, objectName);
+            return new MBeanCloseable(objectName);
+        } catch (Exception ignored) {
+            return IoUtils.nullCloseable();
+        }
+    }
+
+    /**
+     * Register an MBean.  If the MBean cannot be registered, this method will simply return.
+     *
+     * @param workerMXBean the worker MBean to register
+     * @return a handle which may be used to remove the registration
+     */
+    protected static Closeable register(XnioWorkerMXBean workerMXBean) {
+        try {
+            final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(workerMXBean.getProviderName())), ObjectProperties.property("worker", ObjectName.quote(workerMXBean.getName()))));
+            MBEAN_SERVER.registerMBean(workerMXBean, objectName);
+            return new MBeanCloseable(objectName);
+        } catch (Exception ignored) {
+            return IoUtils.nullCloseable();
+        }
+    }
+
+    /**
+     * Register an MBean.  If the MBean cannot be registered, this method will simply return.
+     *
+     * @param serverMXBean the server MBean to register
+     * @return a handle which may be used to remove the registration
+     */
+    protected static Closeable register(XnioServerMXBean serverMXBean) {
+        try {
+            final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(serverMXBean.getProviderName())), ObjectProperties.property("worker", ObjectName.quote(serverMXBean.getWorkerName())), ObjectProperties.property("address", ObjectName.quote(serverMXBean.getBindAddress()))));
+            MBEAN_SERVER.registerMBean(serverMXBean, objectName);
+            return new MBeanCloseable(objectName);
+        } catch (Exception ignored) {
+            return IoUtils.nullCloseable();
+        }
+    }
+
+    static class MBeanCloseable extends AtomicBoolean implements Closeable {
+
+        private final ObjectName objectName;
+
+        MBeanCloseable(final ObjectName objectName) {
+            this.objectName = objectName;
+        }
+
+        public void close() {
+            if (! getAndSet(true)) try {
+                MBEAN_SERVER.unregisterMBean(objectName);
+            } catch (Exception ignored) {
+            }
         }
     }
 }

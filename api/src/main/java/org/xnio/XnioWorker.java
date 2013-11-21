@@ -829,6 +829,24 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected abstract XnioIoThread chooseThread();
 
+    /**
+     * Get the core worker pool size.
+     *
+     * @return the core worker pool size
+     */
+    protected final int getCoreWorkerPoolSize() {
+        return coreSize;
+    }
+
+    /**
+     * Get the maximum worker pool size.
+     *
+     * @return the maximum worker pool size
+     */
+    protected final int getMaxWorkerPoolSize() {
+        return taskPool.getMaximumPoolSize();
+    }
+
     final class TaskPool extends ThreadPoolExecutor {
 
         TaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final RejectedExecutionHandler handler) {

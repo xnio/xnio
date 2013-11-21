@@ -18,6 +18,7 @@
 
 package org.xnio.nio;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.DatagramChannel;
@@ -39,6 +40,7 @@ import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.management.XnioWorkerMXBean;
 
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.nio.Log.log;
@@ -55,6 +57,7 @@ final class NioXnioWorker extends XnioWorker {
     private volatile int state = 1;
 
     private final WorkerThread[] workerThreads;
+    private final Closeable mbeanHandle;
 
     @SuppressWarnings("unused")
     private volatile Thread shutdownWaiter;
@@ -80,7 +83,7 @@ final class NioXnioWorker extends XnioWorker {
             throw log.optionOutOfRange("STACK_SIZE");
 
         }
-        String workerName = getName();
+        final String workerName = getName();
         WorkerThread[] workerThreads;
         workerThreads = new WorkerThread[threadCount];
         final boolean markWorkerThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
@@ -103,6 +106,31 @@ final class NioXnioWorker extends XnioWorker {
             }
         }
         this.workerThreads = workerThreads;
+        mbeanHandle = NioXnio.register(new XnioWorkerMXBean() {
+            public String getProviderName() {
+                return "nio";
+            }
+
+            public String getName() {
+                return workerName;
+            }
+
+            public boolean isShutdownRequested() {
+                return isShutdown();
+            }
+
+            public int getCoreWorkerPoolSize() {
+                return NioXnioWorker.this.getCoreWorkerPoolSize();
+            }
+
+            public int getMaxWorkerPoolSize() {
+                return NioXnioWorker.this.getMaxWorkerPoolSize();
+            }
+
+            public int getIoThreadCount() {
+                return threadCount;
+            }
+        });
     }
 
     void start() {
@@ -300,6 +328,7 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected void taskPoolTerminated() {
+        safeClose(mbeanHandle);
         closeResource();
     }
 

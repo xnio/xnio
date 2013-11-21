@@ -190,4 +190,9 @@ final class NioTcpServerHandle extends NioHandle {
             });
         }
     }
+
+    int getConnectionCount() {
+        assert currentThread() == getWorkerThread();
+        return count;
+    }
 }

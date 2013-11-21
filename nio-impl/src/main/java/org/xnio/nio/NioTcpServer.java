@@ -18,6 +18,7 @@
 
 package org.xnio.nio;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -26,7 +27,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.jboss.logging.Logger;
@@ -40,6 +43,7 @@ import org.xnio.XnioExecutor;
 import org.xnio.channels.AcceptListenerSettable;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.UnsupportedOptionException;
+import org.xnio.management.XnioServerMXBean;
 
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.nio.Log.log;
@@ -54,6 +58,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     private final ServerSocketChannel channel;
     private final ServerSocket socket;
+    private final Closeable mbeanHandle;
 
     private static final Set<Option<?>> options = Option.setBuilder()
             .add(Options.REUSE_ADDRESSES)
@@ -181,6 +186,46 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 handles[i].initializeTokenCount(i < tokens ? connections : 0);
             }
         }
+        mbeanHandle = NioXnio.register(new XnioServerMXBean() {
+            public String getProviderName() {
+                return "nio";
+            }
+
+            public String getWorkerName() {
+                return worker.getName();
+            }
+
+            public String getBindAddress() {
+                return String.valueOf(getLocalAddress());
+            }
+
+            public int getConnectionCount() {
+                final AtomicInteger counter = new AtomicInteger();
+                final CountDownLatch latch = new CountDownLatch(handles.length);
+                for (final NioTcpServerHandle handle : handles) {
+                    handle.getWorkerThread().execute(new Runnable() {
+                        public void run() {
+                            counter.getAndAdd(handle.getConnectionCount());
+                            latch.countDown();
+                        }
+                    });
+                }
+                try {
+                    latch.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return counter.get();
+            }
+
+            public int getConnectionLimitHighWater() {
+                return getHighWater(connectionStatus);
+            }
+
+            public int getConnectionLimitLowWater() {
+                return getLowWater(connectionStatus);
+            }
+        });
     }
 
     private static IllegalArgumentException badLowWater(final int highWater) {
@@ -198,6 +243,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             for (NioTcpServerHandle handle : handles) {
                 handle.getWorkerThread().cancelKey(handle.getSelectionKey());
             }
+            safeClose(mbeanHandle);
         }
     }
 
