@@ -40,7 +40,6 @@ import org.jboss.logging.annotations.Field;
 import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
-import org.jboss.logging.annotations.Param;
 import org.xnio.IoFuture;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConcurrentStreamChannelAccessException;
@@ -49,7 +48,6 @@ import org.xnio.channels.FixedLengthOverflowException;
 import org.xnio.channels.FixedLengthUnderflowException;
 import org.xnio.channels.ReadTimeoutException;
 import org.xnio.channels.WriteTimeoutException;
-import org.xnio.http.RedirectException;
 
 import static org.jboss.logging.Logger.Level.*;
 
@@ -283,7 +281,7 @@ public interface Messages extends BasicLogger {
     // 815 - worker shut down
 
     @Message(id = 816, value = "Redirect encountered establishing connection")
-    RedirectException redirect(@Param int responseCode, @Param String location);
+    String redirect();
 
     // Unsupported implementation operations - cross-check with xnio-nio
 

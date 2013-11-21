@@ -362,7 +362,7 @@ public class HttpUpgrade {
 
         private void handleRedirect(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
             IoUtils.safeClose(channel);
-            future.setException(msg.redirect(parser.getResponseCode(), parser.getHeaders().get("location")));
+            future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
     }
