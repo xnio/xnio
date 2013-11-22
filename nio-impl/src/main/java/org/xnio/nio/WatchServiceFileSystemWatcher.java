@@ -20,6 +20,7 @@ package org.xnio.nio;
 import org.xnio.FileChangeCallback;
 import org.xnio.FileChangeEvent;
 import org.xnio.FileSystemWatcher;
+import org.xnio.IoUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -206,6 +207,7 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
     public void close() throws IOException {
         this.stopped = true;
         watchThread.interrupt();
+        IoUtils.safeClose(watchService);
     }
 
 
