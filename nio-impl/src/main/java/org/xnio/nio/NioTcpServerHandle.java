@@ -81,7 +81,7 @@ final class NioTcpServerHandle extends NioHandle {
     void suspend() {
         final WorkerThread thread = getWorkerThread();
         if (thread == currentThread()) {
-            if (! stopped && ! server.resumed) super.suspend(SelectionKey.OP_ACCEPT);
+            if (stopped || ! server.resumed) super.suspend(SelectionKey.OP_ACCEPT);
         } else {
             thread.execute(new Runnable() {
                 public void run() {
