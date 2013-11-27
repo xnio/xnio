@@ -22,6 +22,7 @@ package org.xnio.ssl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -72,7 +73,12 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
         conduitMock = new ConduitMock();
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
-        final JsseSslStreamConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, false);
+        final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
+        try {
+            connection.startHandshake();
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
         this.sinkConduit = connection.getSinkChannel().getConduit();
         this.sourceConduit = connection.getSourceChannel().getConduit();
     }

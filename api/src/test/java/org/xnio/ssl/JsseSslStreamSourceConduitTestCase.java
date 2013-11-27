@@ -234,11 +234,17 @@ public class JsseSslStreamSourceConduitTestCase extends AbstractSslConnectionTes
         assertReadMessage(buffer, " read a lo");
         buffer.clear();
 
-        assertEquals(10, sourceConduit.read(buffer));
+        assertEquals(2, sourceConduit.read(buffer));
+        // tasks
+        sourceConduit.awaitReadable();
+        assertEquals(8, sourceConduit.read(buffer));
         assertReadMessage(buffer, "t read a l");
         buffer.clear();
 
-        assertEquals(10, sourceConduit.read(buffer));
+        assertEquals(3, sourceConduit.read(buffer));
+        // tasks
+        sourceConduit.awaitReadable();
+        assertEquals(7, sourceConduit.read(buffer));
         assertReadMessage(buffer, "ot  read a");
         buffer.clear();
 
@@ -282,7 +288,9 @@ public class JsseSslStreamSourceConduitTestCase extends AbstractSslConnectionTes
         assertReadMessage(buffer, "a lot", "lot", "re");
         buffer.clear();
 
-        assertEquals(10, sourceConduit.read(buffer));
+        assertEquals(2, sourceConduit.read(buffer));
+        sourceConduit.awaitReadable();
+        assertEquals(8, sourceConduit.read(buffer));
         assertReadMessage(buffer, "ad", "lot", "a lot");
         buffer.clear();
 
@@ -290,7 +298,9 @@ public class JsseSslStreamSourceConduitTestCase extends AbstractSslConnectionTes
         assertReadMessage(buffer, "nothing", "a l");
         buffer.clear();
 
-        assertEquals(9, sourceConduit.read(buffer));
+        assertEquals(2, sourceConduit.read(buffer));
+        sourceConduit.awaitReadable();
+        assertEquals(7, sourceConduit.read(buffer));
         assertReadMessage(buffer, "ot", "nothing");
         buffer.clear();
 

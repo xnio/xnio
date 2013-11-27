@@ -24,6 +24,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HANDSHAKE_MSG;
@@ -60,7 +61,7 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
     protected ConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, true);
+        final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         final ConnectedSslStreamChannel channel = new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
         channel.getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
         channel.getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
@@ -407,15 +408,23 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         assertFalse(sslChannel.flush());
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.enableWrites(true);
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
-        assertFalse(conduitMock.isWriteShutdown());
 
-        conduitMock.setReadData(CLOSE_MSG);
+        /* One might assume that this flush should return false, since the close message has not yet been
+           received; however, this is not part of the write shutdown contract.  Thus as soon as we flush our own
+           write termination message to the wire, we consider writes to be fully shut down, and that's that.  It
+           is up to the reader side to make sure that read is carried through to EOF before terminating reads.  If
+           a read termination is received before flushing the write shutdown, then shutdown will close the channel.
+           If the read termination comes after, then upon reading the -1, when reads are terminated, the channel will
+           close at that time. */
         assertTrue(sslChannel.flush());
         assertTrue(conduitMock.isWriteShutdown());
 
-        assertTrue(conduitMock.isOpen());
-        sslChannel.close();
+        conduitMock.setReadData(CLOSE_MSG);
+        buffer.clear();
+        assertEquals(-1, sslChannel.read(buffer));
+        sslChannel.shutdownReads();
+        assertTrue(conduitMock.isReadShutdown());
+
         assertFalse(conduitMock.isOpen());
 
         assertWrittenMessage("MSG", CLOSE_MSG);

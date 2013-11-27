@@ -20,6 +20,8 @@
 package org.xnio.ssl.mock;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -404,10 +406,7 @@ public class SSLEngineMock extends SSLEngine {
         }
 
         private boolean hasEnoughSpace(ByteBuffer[] dsts, int offset, int length, int dataLength) {
-            for (int i = offset; i < length && dataLength > 0; i++) {
-                dataLength -= dsts[i].remaining();
-            }
-            return dataLength <= 0;
+            return Buffers.remaining(dsts, offset, length) > dataLength;
         }
 
         public SSLEngineResult unwrap(ByteBuffer[] dsts, int offset, int length, ByteBuffer src, boolean needUnwrap,int actionIndex) {
@@ -457,7 +456,7 @@ public class SSLEngineMock extends SSLEngine {
 
         private String unwrapBytes(ByteBuffer[] dsts, int offset, int length, ByteBuffer src, boolean readHandshakeMsg) {
             // define unwrapped data to be written to dsts
-            String wrapped = Buffers.getModifiedUtf8(src);
+            String wrapped = new String(Buffers.take(src), StandardCharsets.ISO_8859_1);
             int wrappedEndIndex = wrapped.length();
             int wrappedLeftOver = -1;
             while (wrappedEndIndex > 0 && !unwrapMap.containsKey(wrapped.substring(0, wrappedEndIndex))) {
@@ -501,26 +500,12 @@ public class SSLEngineMock extends SSLEngine {
                     return null;
                 }
                 // check if there is enough space to write unwrapped data, if not, do not write
-                if (!hasEnoughSpace(dsts, offset, length, unwrapped.length())) {
+                if (Buffers.remaining(dsts, offset, length) < unwrapped.length()) {
                     src.position(src.position() - wrapped.length());
                     return null;
                 }
                 // copy data to dsts
-                int unwrappedSliceIndex = 0;
-                int dstsLength = offset + length;
-                for (int i = offset; i < dstsLength; i++) {
-                    String unwrappedData = unwrapped;
-                    boolean done = true;
-                    if (dsts[i].remaining() < unwrapped.length()) {
-                        unwrappedData = unwrapped.substring(unwrappedSliceIndex, dsts[i].remaining());
-                        unwrappedSliceIndex += dsts[i].remaining();
-                        done = false;
-                    }
-                    Buffers.putModifiedUtf8(dsts[i], unwrappedData);
-                    if (done) {
-                        break;
-                    }
-                }
+                Buffers.copy(dsts, offset, length, ByteBuffer.wrap(unwrapped.getBytes(StandardCharsets.ISO_8859_1)));
             }
             return unwrapped;
         }

@@ -19,6 +19,7 @@
 
 package org.xnio.ssl;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -57,13 +58,13 @@ public abstract class AbstractSslConnectionTest extends AbstractSslTest {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
-        return new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, false);
-    }
-
-    protected JsseSslConduitEngine createSslConduitEngine(StreamSinkConduit sinkConduit, StreamSourceConduit sourceConduit) {
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        return new JsseSslConduitEngine((JsseSslStreamConnection) connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, applicationBufferPool);
+        final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
+        try {
+            connection.startHandshake();
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
+        return connection;
     }
 
     @Override

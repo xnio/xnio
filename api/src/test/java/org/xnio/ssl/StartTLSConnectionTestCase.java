@@ -31,6 +31,7 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -59,7 +60,12 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
-        SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, true);
+        final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
+        try {
+            connection.startHandshake();
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
         connection.getSourceChannel().getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
         connection.getSinkChannel().getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
         return connection;

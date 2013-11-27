@@ -30,7 +30,6 @@ import static org.xnio.Bits.intBitMask;
 import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.channels.Channel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;

@@ -41,6 +41,7 @@ import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.ssl.mock.SSLEngineMock;
 
 
@@ -234,11 +235,13 @@ public class ConnectedSslStreamChannelReadTestCase extends AbstractConnectedSslS
         assertReadMessage(buffer, " read a lo");
         buffer.clear();
 
-        assertEquals(10, sslChannel.read(buffer));
+        assertEquals(2, sslChannel.read(buffer));
+        assertEquals(8, sslChannel.read(buffer));
         assertReadMessage(buffer, "t read a l");
         buffer.clear();
 
-        assertEquals(10, sslChannel.read(buffer));
+        assertEquals(3, sslChannel.read(buffer));
+        assertEquals(7, sslChannel.read(buffer));
         assertReadMessage(buffer, "ot  read a");
         buffer.clear();
 
@@ -282,7 +285,8 @@ public class ConnectedSslStreamChannelReadTestCase extends AbstractConnectedSslS
         assertReadMessage(buffer, "a lot", "lot", "re");
         buffer.clear();
 
-        assertEquals(10, sslChannel.read(buffer));
+        assertEquals(2, sslChannel.read(buffer));
+        assertEquals(8, sslChannel.read(buffer));
         assertReadMessage(buffer, "ad", "lot", "a lot");
         buffer.clear();
 
@@ -290,7 +294,8 @@ public class ConnectedSslStreamChannelReadTestCase extends AbstractConnectedSslS
         assertReadMessage(buffer, "nothing", "a l");
         buffer.clear();
 
-        assertEquals(9, sslChannel.read(buffer));
+        assertEquals(2, sslChannel.read(buffer));
+        assertEquals(7, sslChannel.read(buffer));
         assertReadMessage(buffer, "ot", "nothing");
         buffer.clear();
 

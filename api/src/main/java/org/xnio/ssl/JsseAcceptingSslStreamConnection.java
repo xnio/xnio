@@ -42,6 +42,6 @@ final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel
 
     @Override
     public SslConnection accept(StreamConnection tcpConnection, SSLEngine engine) {
-        return new JsseSslStreamConnection(tcpConnection, engine, socketBufferPool, applicationBufferPool, startTls);
+        return new JsseSslConnection(tcpConnection, engine, socketBufferPool, applicationBufferPool);
     }
 }

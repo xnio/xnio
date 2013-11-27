@@ -19,6 +19,7 @@
 
 package org.xnio.ssl;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -33,7 +34,7 @@ import org.xnio.mock.ConduitMock;
 import org.xnio.mock.StreamConnectionMock;
 
 /**
- * Abstract test for {@link #AssembledConnectedSslStreamChannel}.
+ * Abstract test.
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
@@ -56,7 +57,12 @@ public abstract class AbstractConnectedSslStreamChannelTest extends AbstractSslT
     protected ConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final SslConnection connection = new JsseSslStreamConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool, false);
+        final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
+        try {
+            connection.startHandshake();
+        } catch (IOException e) {
+            throw new IOError(e);
+        }
         return new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
     }
 

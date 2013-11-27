@@ -206,7 +206,8 @@ public class JsseSslStreamSinkConduitTestCase extends AbstractSslConnectionTest 
 
         // conduit should not be able to terminate writes... for that, it must receive a close message
         sinkConduit.terminateWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sinkConduit.flush());
+        // FIXME workaround for bug found in SSLEngine
+        assertFalse(sinkConduit.flush());
         // send the close message
         conduitMock.setReadData("{message closed}");
         conduitMock.enableReads(true);

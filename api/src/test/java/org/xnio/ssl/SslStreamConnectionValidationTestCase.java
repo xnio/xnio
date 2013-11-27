@@ -48,52 +48,6 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
     }
 
     @Test
-    public void invalidSinkConduitConstructorParameters() {
-        final JsseSslConduitEngine conduitEngine = createSslConduitEngine(sinkConduit, sourceConduit);
-
-        // null next conduit
-        boolean failed = false;
-        try {
-            new JsseSslStreamSinkConduit(null, conduitEngine, true);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null ssl conduit engine
-        failed = false;
-        try {
-            new JsseSslStreamSinkConduit(sinkConduit, null, true);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-    }
-
-    @Test
-    public void invalidSourceConduitConstructorParameters() {
-        final JsseSslConduitEngine conduitEngine = createSslConduitEngine(sinkConduit, sourceConduit);
-
-        // null next conduit
-        boolean failed = false;
-        try {
-            new JsseSslStreamSourceConduit(null, conduitEngine, true);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null ssl conduit engine
-        failed = false;
-        try {
-            new JsseSslStreamSourceConduit(sourceConduit, null, true);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-    }
-
-    @Test
     public void invalidConduitEngineParameters() {
         final JsseSslStreamConnection connection = (JsseSslStreamConnection) this.connection;
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
