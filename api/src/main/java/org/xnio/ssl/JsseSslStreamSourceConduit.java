@@ -143,10 +143,8 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (tls) {
             sslEngine.awaitCanUnwrap();
         }
-        synchronized (sslEngine.getUnwrapLock()) {
-            if(sslEngine.getUnwrapBuffer().hasRemaining()) {
-                return;
-            }
+        if(sslEngine.isDataAvailable()) {
+            return;
         }
         super.awaitReadable();
     }
