@@ -1103,4 +1103,10 @@ final class JsseSslConduitEngine {
         } while (! stateUpdater.compareAndSet(this, oldState, oldState & ~flags));
         return oldState;
     }
+
+    public boolean isDataAvailable() {
+        synchronized (getUnwrapLock()) {
+            return readBuffer.getResource().hasRemaining() || receiveBuffer.getResource().hasRemaining();
+        }
+    }
 }
