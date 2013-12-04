@@ -493,7 +493,7 @@ public abstract class Xnio {
      * @return the property value, or {@code null} if it wasn't found
      * @since 1.2
      */
-    protected String getProperty(final String name) {
+    protected static String getProperty(final String name) {
         if (! name.startsWith("xnio.")) {
             throw msg.propReadForbidden();
         }
@@ -513,7 +513,7 @@ public abstract class Xnio {
      * @return the property value, or {@code defaultValue} if it wasn't found
      * @since 1.2
      */
-    protected String getProperty(final String name, final String defaultValue) {
+    protected static String getProperty(final String name, final String defaultValue) {
         if (! name.startsWith("xnio.")) {
             throw msg.propReadForbidden();
         }

@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.FutureResult;
@@ -53,6 +54,7 @@ import org.xnio.conduits.ConduitStreamSourceChannel;
 public class NioTcpConnectionTestCase extends AbstractNioTcpTest<StreamConnection, ConduitStreamSourceChannel, ConduitStreamSinkChannel> {
 
     @Test
+    @Ignore("Does not follow thread model")
     public void acceptor() throws Exception {
         log.info("Test: acceptor");
         final CountDownLatch ioLatch = new CountDownLatch(4);

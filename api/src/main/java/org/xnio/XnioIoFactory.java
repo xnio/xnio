@@ -16,6 +16,8 @@ public interface XnioIoFactory {
 
     /**
      * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
+     * If an open listener is used, the channel should not be accessed via the returned
+     * {@code IoFuture}, and vice-versa.
      *
      * @param destination the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
@@ -26,6 +28,8 @@ public interface XnioIoFactory {
 
     /**
      * Connect to a remote stream server.  The protocol family is determined by the type of the socket address given.
+     * If an open listener is used, the channel should not be accessed via the returned
+     * {@code IoFuture}, and vice-versa.
      *
      * @param destination the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
@@ -37,7 +41,8 @@ public interface XnioIoFactory {
 
     /**
      * Connect to a remote stream server.  The protocol family is determined by the type of the socket addresses given
-     * (which must match).
+     * (which must match).  If an open listener is used, the channel should not be accessed via the returned
+     * {@code IoFuture}, and vice-versa.
      *
      * @param bindAddress the local address to bind to
      * @param destination the destination address
@@ -62,6 +67,8 @@ public interface XnioIoFactory {
 
     /**
      * Connect to a remote message server.  The protocol family is determined by the type of the socket address given.
+     * If an open listener is used, the channel should not be accessed via the returned
+     * {@code IoFuture}, and vice-versa.
      *
      * @param destination the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
@@ -72,7 +79,8 @@ public interface XnioIoFactory {
 
     /**
      * Accept a message connection at a destination address.  If a wildcard address is specified, then a destination address
-     * is chosen in a manner specific to the OS and/or channel type.
+     * is chosen in a manner specific to the OS and/or channel type.  If an open listener is used, the channel should
+     * not be accessed via the returned {@code IoFuture}, and vice-versa.
      *
      * @param destination the destination (bind) address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none

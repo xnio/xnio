@@ -74,16 +74,14 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
         return super.writeClosed();
     }
 
-    private void terminated(final NioHandle conduit) {
-        if (conduit != null) conduit.terminated();
-    }
-
     protected void notifyWriteClosed() {
-        terminated(sinkConduit);
+        final NioPipeSinkConduit conduit = sinkConduit;
+        if (conduit != null) conduit.writeTerminated();
     }
 
     protected void notifyReadClosed() {
-        terminated(sourceConduit);
+        final NioPipeSourceConduit conduit = sourceConduit;
+        if (conduit != null) conduit.readTerminated();
     }
 
     private void cancelKey(final NioHandle handle) {

@@ -149,6 +149,7 @@ final class NioPipeSourceConduit extends NioHandle implements StreamSourceCondui
     }
 
     void readTerminated() {
+        shutdown();
         final ReadReadyHandler readReadyHandler = this.readReadyHandler;
         if (readReadyHandler != null) try {
             readReadyHandler.terminated();

@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.Buffers;
 import org.xnio.ChannelPipe;
@@ -320,6 +321,7 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
     }
 
     @Test
+    @Ignore("Does not follow thread model")
     public void suspendResumeReadsAndWrites() throws IOException, InterruptedException {
         initChannels();
         assertFalse(sourceChannel.isReadResumed());

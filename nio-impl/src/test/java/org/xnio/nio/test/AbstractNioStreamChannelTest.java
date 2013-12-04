@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.Buffers;
 import org.xnio.OptionMap;
@@ -120,6 +121,7 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
     }
 
     @Test
+    @Ignore("Does not follow thread model")
     public void suspendResumeReadsAndWrites() throws IOException, InterruptedException {
         initChannels();
         assertFalse(channel1.isReadResumed());

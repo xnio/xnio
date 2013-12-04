@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.Buffers;
 import org.xnio.LocalSocketAddress;
@@ -112,6 +113,7 @@ public class UdpChannelTestCase {
     }
 
     @Test
+    @Ignore("Does not follow thread model")
     public void testChannelWithOneThreadOnly() throws IllegalArgumentException, IOException {
         final XnioWorker xnioWorker1 = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, 1));
         final XnioWorker xnioWorker2 = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, 1));

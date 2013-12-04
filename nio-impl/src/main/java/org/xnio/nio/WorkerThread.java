@@ -528,7 +528,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                             if (handle == null) {
                                 cancelKey(key);
                             } else {
-                                handle.handleReady(key.readyOps());
+                                handle.preHandleReady(key.readyOps());
                             }
                         }
                     } catch (CancelledKeyException ignored) {

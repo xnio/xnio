@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -480,6 +481,7 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
     }
 
     @Test
+    @Ignore("Does not follow thread model")
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
