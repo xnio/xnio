@@ -471,7 +471,7 @@ final class JsseSslConduitEngine {
                             buffer.compact();
                             sourceConduit.read(buffer);
                             buffer.flip();
-                            if (buffer.hasRemaining()) {
+                            if (buffer.hasRemaining() && sourceConduit.isReadResumed()) {
                                 sourceConduit.wakeupReads();
                             }
                             return false;
@@ -480,7 +480,7 @@ final class JsseSslConduitEngine {
                     synchronized (getUnwrapLock()) {
                         // attempt to unwrap
                         int unwrapResult = handleUnwrapResult(result = engineUnwrap(buffer, unwrappedBuffer));
-                        if (buffer.hasRemaining()) {
+                        if (buffer.hasRemaining() && sourceConduit.isReadResumed()) {
                             sourceConduit.wakeupReads();
                         }
                         if (unwrapResult >= 0) {
@@ -580,7 +580,7 @@ final class JsseSslConduitEngine {
         do {
             synchronized (getUnwrapLock()) {
                 if (! Buffers.hasRemaining(dsts, offset, length)) {
-                    if (unwrappedBuffer.hasRemaining()) {
+                    if (unwrappedBuffer.hasRemaining() && sourceConduit.isReadResumed()) {
                         sourceConduit.wakeupReads();
                     }
                     return total;
