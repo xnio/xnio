@@ -562,7 +562,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         synchronized (workLock) {
             selectorWorkQueue.add(command);
         }
-        selector.wakeup();
+        if(currentThread() != this) {
+            selector.wakeup();
+        }
     }
 
     void shutdown() {
@@ -574,7 +576,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 return;
             }
         } while (! stateUpdater.compareAndSet(this, oldState, oldState | SHUTDOWN));
-        selector.wakeup();
+        if(currentThread() != this) {
+            selector.wakeup();
+        }
     }
 
     public Key executeAfter(final Runnable command, final long time, final TimeUnit unit) {
@@ -593,7 +597,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             queue.add(key);
             if (queue.iterator().next() == key) {
                 // we're the next one up; poke the selector to update its delay time
-                selector.wakeup();
+                if(currentThread() != this) {
+                    selector.wakeup();
+                }
             }
             return key;
         }
