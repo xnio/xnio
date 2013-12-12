@@ -173,11 +173,9 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
     }
 
-    private static final AtomicReferenceFieldUpdater<PooledByteBuffer, ByteBuffer> bufferUpdater = AtomicReferenceFieldUpdater.newUpdater(PooledByteBuffer.class, ByteBuffer.class, "buffer");
-
     private final class PooledByteBuffer implements Pooled<ByteBuffer> {
         private final Slice region;
-        volatile ByteBuffer buffer;
+        ByteBuffer buffer;
 
         PooledByteBuffer(final Slice region, final ByteBuffer buffer) {
             this.region = region;
@@ -185,7 +183,8 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
 
         public void discard() {
-            final ByteBuffer buffer = bufferUpdater.getAndSet(this, null);
+            final ByteBuffer buffer = this.buffer;
+            this.buffer = null;
             if (buffer != null) {
                 // free when GC'd, no sooner
                 refSet.add(new Ref(buffer, region));
@@ -193,7 +192,9 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
 
         public void free() {
-            if (bufferUpdater.getAndSet(this, null) != null) {
+            ByteBuffer buffer = this.buffer;
+            this.buffer = null;
+            if (buffer != null) {
                 // trust the user, repool the buffer
                 doFree(region);
             }
