@@ -63,8 +63,7 @@ import org.xnio.channels.ConnectedStreamChannel;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public final class JsseXnioSsl extends XnioSsl {
-    private final Pool<ByteBuffer> socketBufferPool;
-    private final Pool<ByteBuffer> applicationBufferPool;
+    private static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 17 * 1024, 17 * 1024 * 128);
     private final SSLContext sslContext;
 
     /**
@@ -89,13 +88,6 @@ public final class JsseXnioSsl extends XnioSsl {
      */
     public JsseXnioSsl(final Xnio xnio, final OptionMap optionMap, final SSLContext sslContext) {
         super(xnio, sslContext, optionMap);
-        // todo - find out better default values
-        final int appBufSize = optionMap.get(Options.SSL_APPLICATION_BUFFER_SIZE, 17000);
-        final int pktBufSize = optionMap.get(Options.SSL_PACKET_BUFFER_SIZE, 17000);
-        final int appBufRegionSize = optionMap.get(Options.SSL_APPLICATION_BUFFER_REGION_SIZE, appBufSize * 16);
-        final int pktBufRegionSize = optionMap.get(Options.SSL_PACKET_BUFFER_REGION_SIZE, pktBufSize * 16);
-        socketBufferPool = new ByteBufferSlicePool(optionMap.get(Options.USE_DIRECT_BUFFERS, false) ? BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR : BufferAllocator.BYTE_BUFFER_ALLOCATOR, pktBufSize, pktBufRegionSize);
-        applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, appBufSize, appBufRegionSize);
         this.sslContext = sslContext;
     }
 
@@ -156,7 +148,7 @@ public final class JsseXnioSsl extends XnioSsl {
         final FutureResult<SslConnection> futureResult = new FutureResult<SslConnection>(worker);
         final IoFuture<StreamConnection> connection = worker.openStreamConnection(bindAddress, destination, new ChannelListener<StreamConnection>() {
             public void handleEvent(final StreamConnection connection) {
-                final SslConnection wrappedConnection = new JsseSslStreamConnection(connection, JsseSslUtils.createSSLEngine(sslContext, optionMap, destination), socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
+                final SslConnection wrappedConnection = new JsseSslStreamConnection(connection, JsseSslUtils.createSSLEngine(sslContext, optionMap, destination), bufferPool, bufferPool, optionMap.get(Options.SSL_STARTTLS, false));
                 if (! futureResult.setResult(wrappedConnection)) {
                     IoUtils.safeClose(connection);
                 } else {
@@ -264,7 +256,7 @@ public final class JsseXnioSsl extends XnioSsl {
     }
 
     public AcceptingChannel<SslConnection> createSslConnectionServer(final XnioWorker worker, final InetSocketAddress bindAddress, final ChannelListener<? super AcceptingChannel<SslConnection>> acceptListener, final OptionMap optionMap) throws IOException {
-       final JsseAcceptingSslStreamConnection server = new JsseAcceptingSslStreamConnection(sslContext, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, socketBufferPool, applicationBufferPool, optionMap.get(Options.SSL_STARTTLS, false));
+       final JsseAcceptingSslStreamConnection server = new JsseAcceptingSslStreamConnection(sslContext, worker.createStreamConnectionServer(bindAddress,  null,  optionMap), optionMap, bufferPool, bufferPool, optionMap.get(Options.SSL_STARTTLS, false));
         if (acceptListener != null) server.getAcceptSetter().set(acceptListener);
         return server;
     }
