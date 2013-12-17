@@ -45,8 +45,6 @@ import static org.xnio.nio.Log.log;
  */
 final class NioXnio extends Xnio {
 
-    static final boolean REPORT_VIOLATIONS;
-
     interface SelectorCreator {
         Selector open() throws IOException;
     }
@@ -63,7 +61,6 @@ final class NioXnio extends Xnio {
                 return null;
             }
         });
-        REPORT_VIOLATIONS = Boolean.parseBoolean(Xnio.getProperty("xnio.nio.report-violations", "false"));
     }
 
     /**

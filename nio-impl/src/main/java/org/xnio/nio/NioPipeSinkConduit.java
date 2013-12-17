@@ -156,7 +156,6 @@ final class NioPipeSinkConduit extends NioHandle implements StreamSinkConduit {
     }
 
     void writeTerminated() {
-        shutdown();
         final WriteReadyHandler writeReadyHandler = this.writeReadyHandler;
         if (writeReadyHandler != null) try {
             writeReadyHandler.terminated();

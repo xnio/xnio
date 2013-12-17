@@ -190,7 +190,6 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     }
 
     void writeTerminated() {
-        shutdown();
         final WriteReadyHandler writeReadyHandler = this.writeReadyHandler;
         if (writeReadyHandler != null) try {
             writeReadyHandler.terminated();
@@ -311,7 +310,6 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     }
 
     void readTerminated() {
-        shutdown();
         final ReadReadyHandler readReadyHandler = this.readReadyHandler;
         if (readReadyHandler != null) try {
             readReadyHandler.terminated();
