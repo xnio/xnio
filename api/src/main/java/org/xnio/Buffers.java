@@ -831,6 +831,18 @@ public final class Buffers {
         if (cnt < 0) {
             throw msg.parameterOutOfRange("cnt");
         }
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            if (lim - pos < cnt) {
+                throw new BufferUnderflowException();
+            }
+            final byte[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(pos + cnt);
+            final int start = offset + pos;
+            return Arrays.copyOfRange(array, start, start + cnt);
+        }
         final byte[] bytes = new byte[cnt];
         buffer.get(bytes);
         return bytes;
@@ -846,6 +858,18 @@ public final class Buffers {
     public static char[] take(CharBuffer buffer, int cnt) {
         if (cnt < 0) {
             throw msg.parameterOutOfRange("cnt");
+        }
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            if (lim - pos < cnt) {
+                throw new BufferUnderflowException();
+            }
+            final char[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(pos + cnt);
+            final int start = offset + pos;
+            return Arrays.copyOfRange(array, start, start + cnt);
         }
         final char[] chars = new char[cnt];
         buffer.get(chars);
@@ -863,6 +887,18 @@ public final class Buffers {
         if (cnt < 0) {
             throw msg.parameterOutOfRange("cnt");
         }
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            if (lim - pos < cnt) {
+                throw new BufferUnderflowException();
+            }
+            final short[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(pos + cnt);
+            final int start = offset + pos;
+            return Arrays.copyOfRange(array, start, start + cnt);
+        }
         final short[] shorts = new short[cnt];
         buffer.get(shorts);
         return shorts;
@@ -878,6 +914,18 @@ public final class Buffers {
     public static int[] take(IntBuffer buffer, int cnt) {
         if (cnt < 0) {
             throw msg.parameterOutOfRange("cnt");
+        }
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            if (lim - pos < cnt) {
+                throw new BufferUnderflowException();
+            }
+            final int[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(pos + cnt);
+            final int start = offset + pos;
+            return Arrays.copyOfRange(array, start, start + cnt);
         }
         final int[] ints = new int[cnt];
         buffer.get(ints);
@@ -895,6 +943,18 @@ public final class Buffers {
         if (cnt < 0) {
             throw msg.parameterOutOfRange("cnt");
         }
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            if (lim - pos < cnt) {
+                throw new BufferUnderflowException();
+            }
+            final long[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(pos + cnt);
+            final int start = offset + pos;
+            return Arrays.copyOfRange(array, start, start + cnt);
+        }
         final long[] longs = new long[cnt];
         buffer.get(longs);
         return longs;
@@ -911,6 +971,14 @@ public final class Buffers {
     public static byte[] take(ByteBuffer buffer) {
         final int remaining = buffer.remaining();
         if (remaining == 0) return NO_BYTES;
+        if (buffer.hasArray()) {
+            final int pos = buffer.position();
+            final int lim = buffer.limit();
+            final byte[] array = buffer.array();
+            final int offset = buffer.arrayOffset();
+            buffer.position(lim);
+            return Arrays.copyOfRange(array, offset + pos, offset + lim);
+        }
         final byte[] bytes = new byte[remaining];
         buffer.get(bytes);
         return bytes;
