@@ -23,6 +23,7 @@ import java.io.InterruptedIOException;
 import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListener;
 import org.xnio.XnioExecutor;
+import org.xnio.XnioIoThread;
 
 /**
  * A suspendable accept channel.  This type of channel is associated with a listener which can suspend and resume
@@ -83,6 +84,13 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
      */
     @Deprecated
     XnioExecutor getAcceptThread();
+
+    /**
+     * Get an accept thread for this channel.  If more than one is configured, any of them may be returned.
+     *
+     * @return the thread
+     */
+    XnioIoThread getIoThread();
 
     /**
      * Get the setter which can be used to change the accept listener for this channel.
