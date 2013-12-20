@@ -37,7 +37,7 @@ public final class SynchronizedStreamSinkConduit<D extends StreamSinkConduit> ex
      *
      * @param next the next conduit in the chain
      */
-    protected SynchronizedStreamSinkConduit(final D next) {
+    public SynchronizedStreamSinkConduit(final D next) {
         super(next);
     }
 
@@ -47,7 +47,7 @@ public final class SynchronizedStreamSinkConduit<D extends StreamSinkConduit> ex
      * @param next the next conduit in the chain
      * @param lock the lock object to use
      */
-    protected SynchronizedStreamSinkConduit(final D next, final Object lock) {
+    public SynchronizedStreamSinkConduit(final D next, final Object lock) {
         super(next, lock);
     }
 

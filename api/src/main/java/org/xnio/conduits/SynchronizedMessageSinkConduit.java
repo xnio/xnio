@@ -34,7 +34,7 @@ public final class SynchronizedMessageSinkConduit<D extends MessageSinkConduit> 
      *
      * @param next the next conduit in the chain
      */
-    protected SynchronizedMessageSinkConduit(final D next) {
+    public SynchronizedMessageSinkConduit(final D next) {
         super(next);
     }
 
@@ -44,7 +44,7 @@ public final class SynchronizedMessageSinkConduit<D extends MessageSinkConduit> 
      * @param next the next conduit in the chain
      * @param lock the lock object to use
      */
-    protected SynchronizedMessageSinkConduit(final D next, final Object lock) {
+    public SynchronizedMessageSinkConduit(final D next, final Object lock) {
         super(next, lock);
     }
 
