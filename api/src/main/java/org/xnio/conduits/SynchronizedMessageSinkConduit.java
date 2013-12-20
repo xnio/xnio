@@ -27,14 +27,14 @@ import java.nio.ByteBuffer;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class SynchronizedMessageSinkConduit<D extends MessageSinkConduit> extends AbstractSynchronizedSinkConduit<D> implements MessageSinkConduit {
+public final class SynchronizedMessageSinkConduit extends AbstractSynchronizedSinkConduit<MessageSinkConduit> implements MessageSinkConduit {
 
     /**
      * Construct a new instance.  A new lock object is created.
      *
      * @param next the next conduit in the chain
      */
-    public SynchronizedMessageSinkConduit(final D next) {
+    public SynchronizedMessageSinkConduit(final MessageSinkConduit next) {
         super(next);
     }
 
@@ -44,7 +44,7 @@ public final class SynchronizedMessageSinkConduit<D extends MessageSinkConduit> 
      * @param next the next conduit in the chain
      * @param lock the lock object to use
      */
-    public SynchronizedMessageSinkConduit(final D next, final Object lock) {
+    public SynchronizedMessageSinkConduit(final MessageSinkConduit next, final Object lock) {
         super(next, lock);
     }
 

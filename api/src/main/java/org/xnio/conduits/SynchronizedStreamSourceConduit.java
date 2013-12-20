@@ -30,14 +30,14 @@ import org.xnio.channels.StreamSinkChannel;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public final class SynchronizedStreamSourceConduit<D extends StreamSourceConduit> extends AbstractSynchronizedSourceConduit<D> implements StreamSourceConduit {
+public final class SynchronizedStreamSourceConduit extends AbstractSynchronizedSourceConduit<StreamSourceConduit> implements StreamSourceConduit {
 
     /**
      * Construct a new instance.  A new lock object is created.
      *
      * @param next the next conduit in the chain
      */
-    public SynchronizedStreamSourceConduit(final D next) {
+    public SynchronizedStreamSourceConduit(final StreamSourceConduit next) {
         super(next);
     }
 
@@ -47,7 +47,7 @@ public final class SynchronizedStreamSourceConduit<D extends StreamSourceConduit
      * @param next the next conduit in the chain
      * @param lock the lock object to use
      */
-    public SynchronizedStreamSourceConduit(final D next, final Object lock) {
+    public SynchronizedStreamSourceConduit(final StreamSourceConduit next, final Object lock) {
         super(next, lock);
     }
 
