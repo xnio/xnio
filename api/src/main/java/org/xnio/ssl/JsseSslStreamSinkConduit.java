@@ -132,8 +132,16 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
             super.terminateWrites();
             return;
         }
-        sslEngine.closeOutbound();
-        flush();
+        try {
+            sslEngine.closeOutbound();
+            flush();
+        } catch (IOException e) {
+            try {
+                super.truncateWrites();
+            } catch (IOException ignored) {
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -162,8 +170,14 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
 
     @Override
     public void truncateWrites() throws IOException {
-        if (tls) {
+        if (tls) try {
             sslEngine.closeOutbound();
+        } catch (IOException e) {
+            try {
+                super.truncateWrites();
+            } catch (IOException ignored) {
+            }
+            throw e;
         }
         super.truncateWrites();
     }

@@ -17,6 +17,8 @@
  */
 package org.xnio.ssl;
 
+import static org.xnio.IoUtils.safeClose;
+
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -100,8 +102,22 @@ final class JsseSslStreamConnection extends SslConnection {
     @Override
     protected void closeAction() throws IOException {
         if (tls) {
-            sslConduitEngine.closeOutbound();
-            sslConduitEngine.closeInbound();
+            try {
+                sslConduitEngine.closeOutbound();
+            } catch (IOException e) {
+                try {
+                    sslConduitEngine.closeInbound();
+                } catch (IOException ignored) {
+                }
+                safeClose(connection);
+                throw e;
+            }
+            try {
+                sslConduitEngine.closeInbound();
+            } catch (IOException e) {
+                safeClose(connection);
+                throw e;
+            }
         }
         connection.close();
     }
