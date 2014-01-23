@@ -18,6 +18,7 @@
 
 package org.xnio.http;
 
+import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
@@ -33,7 +34,6 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
 import org.xnio.IoFuture;
-import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Pooled;
 import org.xnio.StreamConnection;
@@ -239,6 +239,7 @@ public class HttpUpgrade {
                             return;
                         }
                     } catch (IOException e) {
+                        safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -267,6 +268,7 @@ public class HttpUpgrade {
                             return;
                         }
                     } catch (IOException e) {
+                        safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -298,6 +300,7 @@ public class HttpUpgrade {
                         buffer.flip();
                         parser.parse(buffer);
                     } catch (IOException e) {
+                        safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -352,6 +355,7 @@ public class HttpUpgrade {
                 try {
                     handshakeChecker.checkHandshake(parser.getHeaders());
                 } catch (IOException e) {
+                    safeClose(connection);
                     future.setException(e);
                     return;
                 }
@@ -361,7 +365,7 @@ public class HttpUpgrade {
         }
 
         private void handleRedirect(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
-            IoUtils.safeClose(channel);
+            safeClose(channel);
             future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
