@@ -53,7 +53,10 @@ public interface SuspendableAcceptChannel extends CloseableChannel {
     /**
      * {@link #resumeAccepts()} Resume accepts} on this channel, and force the accept listener to be triggered even if the
      * channel isn't actually ready.
+     *
+     * @deprecated Users should instead submit {@code Runnable} tasks to the channel thread when this functionality is needed.
      */
+    @Deprecated
     void wakeupAccepts();
 
     /**

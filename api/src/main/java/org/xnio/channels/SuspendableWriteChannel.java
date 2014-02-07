@@ -51,7 +51,10 @@ public interface SuspendableWriteChannel extends CloseableChannel {
     /**
      * {@link #resumeWrites() Resume writes} on this channel, and force the write listener to be triggered even if the
      * channel isn't actually writable.
+     *
+     * @deprecated Users should instead submit {@code Runnable} tasks to the channel thread when this functionality is needed.
      */
+    @Deprecated
     void wakeupWrites();
 
     /**

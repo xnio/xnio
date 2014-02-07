@@ -50,7 +50,10 @@ public interface SuspendableReadChannel extends CloseableChannel {
     /**
      * {@link #resumeReads() Resume reads} on this channel, and force the read listener to be triggered even if the
      * channel isn't actually readable.
+     *
+     * @deprecated Users should instead submit {@code Runnable} tasks to the channel thread when this functionality is needed.
      */
+    @Deprecated
     void wakeupReads();
 
     /**
