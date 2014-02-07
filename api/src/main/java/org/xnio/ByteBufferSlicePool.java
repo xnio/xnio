@@ -208,6 +208,10 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             return buffer;
         }
 
+        public void close() {
+            free();
+        }
+
         public String toString() {
             return "Pooled buffer " + buffer;
         }

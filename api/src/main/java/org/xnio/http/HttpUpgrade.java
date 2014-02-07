@@ -326,6 +326,11 @@ public class HttpUpgrade {
                         public ByteBuffer getResource() throws IllegalStateException {
                             return buffer;
                         }
+
+                        @Override
+                        public void close() {
+                            free();
+                        }
                     });
                     connection.getSourceChannel().setConduit(pushBack);
                 }

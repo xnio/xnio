@@ -25,7 +25,7 @@ package org.xnio;
  * @param <T> the pooled resource type
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
-public interface Pooled<T> {
+public interface Pooled<T> extends AutoCloseable {
 
     /**
      * Discard this resource.  Any backing resources corresponding to this pooled resource will be rendered unavailable
@@ -46,4 +46,9 @@ public interface Pooled<T> {
      * @throws IllegalStateException if the resource has been freed or discarded already
      */
     T getResource() throws IllegalStateException;
+
+    /**
+     * Delegates to {@link #free()}.
+     */
+    void close();
 }

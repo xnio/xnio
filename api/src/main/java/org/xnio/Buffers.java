@@ -1299,6 +1299,9 @@ public final class Buffers {
             return EMPTY_BYTE_BUFFER;
         }
 
+        public void close() {
+        }
+
         public String toString() {
             return "empty pooled byte buffer";
         }
@@ -1951,6 +1954,10 @@ public final class Buffers {
                 return buffer;
             }
 
+            public void close() {
+                free();
+            }
+
             public String toString() {
                 return "Pooled wrapper around " + buffer;
             }
@@ -2283,6 +2290,10 @@ public final class Buffers {
         public ByteBuffer getResource() throws IllegalStateException {
             // trust the delegate to handle illegal state since we can't do it securely by ourselves
             return allocated.getResource();
+        }
+
+        public void close() {
+            free();
         }
 
         public String toString() {
