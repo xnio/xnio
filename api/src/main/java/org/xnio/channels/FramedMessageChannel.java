@@ -36,8 +36,11 @@ import org.xnio.Pooled;
  * by a four-byte length field.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ *
+ * @deprecated This class is deprecated; use conduits instead.
  */
 @SuppressWarnings("unused")
+@Deprecated
 public class FramedMessageChannel extends TranslatingSuspendableChannel<ConnectedMessageChannel, ConnectedStreamChannel> implements ConnectedMessageChannel {
 
     private static final Logger log = Logger.getLogger("org.xnio.channels.framed");

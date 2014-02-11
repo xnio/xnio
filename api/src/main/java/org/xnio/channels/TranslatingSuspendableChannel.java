@@ -51,7 +51,10 @@ import org.xnio.XnioWorker;
  * @param <W> the channel type being wrapped by this class
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ *
+ * @deprecated This class is deprecated; use conduits instead.
  */
+@Deprecated
 public abstract class TranslatingSuspendableChannel<C extends SuspendableChannel, W extends SuspendableChannel> implements SuspendableChannel, WrappedChannel<W>, ReadListenerSettable<C>, WriteListenerSettable<C>, CloseListenerSettable<C> {
 
     /**
