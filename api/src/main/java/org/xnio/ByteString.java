@@ -231,7 +231,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
      * @param offs the destination offset
      */
     public void copyTo(byte[] dst, int offs) {
-        copyTo(dst, offs, length());
+        copyTo(dst, offs, dst.length - offs);
     }
 
     /**
@@ -240,7 +240,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
      * @param dst  the destination
      */
     public void copyTo(byte[] dst) {
-        copyTo(dst, offs, length());
+        copyTo(dst, 0, dst.length);
     }
 
     /**
@@ -455,7 +455,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
      */
     public boolean equals(final ByteString other) {
         final int len = this.len;
-        return this == other || other != null && len == other.len && hashCode == other.hashCode && equals(bytes, offs, other.bytes, other.offs, len);
+        return this == other || other != null && len == other.len && equals(bytes, offs, other.bytes, other.offs, len);
     }
 
     /**
@@ -466,7 +466,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
      */
     public boolean equalsIgnoreCase(final ByteString other) {
         final int len = this.len;
-        return this == other || other != null && len == other.len && hashCode == other.hashCode && equalsIgnoreCase(bytes, offs, other.bytes, other.offs, len);
+        return this == other || other != null && len == other.len && equalsIgnoreCase(bytes, offs, other.bytes, other.offs, len);
     }
 
     /**
