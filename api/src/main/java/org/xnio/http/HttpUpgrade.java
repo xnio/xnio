@@ -347,10 +347,18 @@ public class HttpUpgrade {
 
         private void handleUpgrade(final HttpUpgradeParser parser) {
             final String contentLength = parser.getHeaders().get("content-length");
-            if (!"0".equals(contentLength)) {
-                future.setException(new IOException("For now upgrade responses must have a content length of zero."));
+            if (contentLength != null) {
+                if (!"0".equals(contentLength)) {
+                    future.setException(new IOException("Upgrade responses must have a content length of zero."));
+                    return;
+                }
+            }
+            final String transferCoding = parser.getHeaders().get("transfer-encoding");
+            if (transferCoding != null) {
+                future.setException(new IOException("Upgrade responses cannot have a transfer coding"));
                 return;
             }
+
             if (handshakeChecker != null) {
                 try {
                     handshakeChecker.checkHandshake(parser.getHeaders());
