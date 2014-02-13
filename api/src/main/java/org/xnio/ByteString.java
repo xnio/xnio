@@ -21,6 +21,7 @@ package org.xnio;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.io.UnsupportedEncodingException;
 import java.io.Serializable;
@@ -71,7 +72,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
         for (int i = offs; i < end; i++) {
             hc = (hc << 5) - hc + (bytes[i] & 0xff);
         }
-        return hc == 0 ? Integer.MAX_VALUE - 1 : hc;
+        return hc == 0 ? Integer.MAX_VALUE : hc;
     }
 
     private static int calcHashCodeIgnoreCase(final byte[] bytes, final int offs, final int len) {
@@ -80,7 +81,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
         for (int i = offs; i < end; i++) {
             hc = (hc << 5) - hc + (upperCase(bytes[i]) & 0xff);
         }
-        return hc == 0 ? Integer.MAX_VALUE - 1 : hc;
+        return hc == 0 ? Integer.MAX_VALUE : hc;
     }
 
     private ByteString(final byte[] bytes) {
@@ -130,6 +131,17 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
      */
     public static ByteString getBytes(String str, Charset charset) {
         return new ByteString(str.getBytes(charset));
+    }
+
+    /**
+     * Get a byte string from the bytes of the character string.  The string must be a Latin-1 string.
+     *
+     * @param str the character string
+     * @return the byte string
+     */
+    public static ByteString getBytes(String str) {
+        final int length = str.length();
+        return new ByteString(getStringBytes(false, new byte[length], 0, str, 0, length), 0, length);
     }
 
     /**
@@ -360,6 +372,15 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
     @SuppressWarnings("deprecation")
     public String toString() {
         return new String(bytes, 0, offs, len);
+    }
+
+    /**
+     * Decode this byte string as a UTF-8 string.
+     *
+     * @return the UTF-8-decoded version of this string
+     */
+    public String toUtf8String() {
+        return new String(bytes, offs, len, StandardCharsets.UTF_8);
     }
 
     /**
@@ -1248,7 +1269,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
     }
 
     @SuppressWarnings("deprecation")
-    private static void getStringBytes(final boolean trust, final byte[] dst, final int dstOffs, final String src, final int srcOffs, final int len) {
+    private static byte[] getStringBytes(final boolean trust, final byte[] dst, final int dstOffs, final String src, final int srcOffs, final int len) {
         if (trust) {
             src.getBytes(srcOffs, srcOffs + len, dst, dstOffs);
         } else {
@@ -1260,6 +1281,7 @@ public final class ByteString implements Comparable<ByteString>, Serializable, C
                 dst[i + dstOffs] = (byte) c;
             }
         }
+        return dst;
     }
 
     public ByteString concat(String suffix, int offs, int len) {
