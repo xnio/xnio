@@ -32,6 +32,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.AccessController;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
@@ -478,8 +479,12 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         }
                     }
                     // shut em down
-                    for (SelectionKey key : keys) {
-                        if (key == null) break; //end of list
+                    for (int i = 0; i < keys.length; i++) {
+                        SelectionKey key = keys[i];
+                        keys[i] = null;
+                        if (key == null) {
+                            break; //end of list
+                        }
                         final NioHandle attachment = (NioHandle) key.attachment();
                         if (attachment != null) {
                             safeClose(key.channel());
@@ -517,8 +522,12 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectedKeys.clear();
                     }
                 }
-                for (SelectionKey key : keys) {
-                    if (key == null) break; //end of list
+                for (int i = 0; i < keys.length; i++) {
+                    SelectionKey key = keys[i];
+                    keys[i] = null;
+                    if (key == null) {
+                        break; //end of list
+                    }
                     final int ops;
                     try {
                         ops = key.interestOps();
