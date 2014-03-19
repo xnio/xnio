@@ -32,6 +32,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.security.AccessController;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
@@ -475,6 +476,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         final Set<SelectionKey> keySet = selector.keys();
                         synchronized (keySet) {
                             keys = keySet.toArray(keys);
+                            Arrays.fill(keys, keySet.size(), keys.length, null);
                         }
                     }
                     // shut em down
@@ -514,6 +516,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     synchronized (selectedKeys) {
                         // copy so that handlers can safely cancel keys
                         keys = selectedKeys.toArray(keys);
+                        Arrays.fill(keys, selectedKeys.size(), keys.length, null);
                         selectedKeys.clear();
                     }
                 }
