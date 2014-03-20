@@ -480,14 +480,17 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         }
                     }
                     // shut em down
-                    for (SelectionKey key : keys) {
+                    for (int i = 0; i < keys.length; i++) {
+                        final SelectionKey key = keys[i];
                         if (key == null) break; //end of list
+                        keys[i] = null;
                         final NioHandle attachment = (NioHandle) key.attachment();
                         if (attachment != null) {
                             safeClose(key.channel());
                             attachment.forceTermination();
                         }
                     }
+                    Arrays.fill(keys, 0, keys.length, null);
                 }
                 // perform select
                 try {
@@ -520,8 +523,10 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectedKeys.clear();
                     }
                 }
-                for (SelectionKey key : keys) {
+                for (int i = 0; i < keys.length; i++) {
+                    final SelectionKey key = keys[i];
                     if (key == null) break; //end of list
+                    keys[i] = null;
                     final int ops;
                     try {
                         ops = key.interestOps();
