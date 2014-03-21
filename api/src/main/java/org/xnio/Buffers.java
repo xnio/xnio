@@ -2216,6 +2216,35 @@ public final class Buffers {
     }
 
     /**
+     * Get a debug-friendly description of the buffer.
+     *
+     * @param buffer the buffer to describe
+     * @return the string
+     */
+    public static String debugString(ByteBuffer buffer) {
+        StringBuilder b = new StringBuilder();
+        b.append("1 buffer of ").append(buffer.remaining()).append(" bytes");
+        return b.toString();
+    }
+
+    /**
+     * Get a debug-friendly description of the buffer.
+     *
+     * @param buffers the buffers to describe
+     * @param offs the offset into the array
+     * @param len the number of buffers
+     * @return the string
+     */
+    public static String debugString(ByteBuffer[] buffers, int offs, int len) {
+        StringBuilder b = new StringBuilder();
+        b.append(len).append(" buffer(s)");
+        if (len > 0) {
+            b.append(" of ").append(Buffers.remaining(buffers, offs, len)).append(" bytes");
+        }
+        return b.toString();
+    }
+
+    /**
      * Empty a buffer to an output stream.  Specially optimized for heap buffers.  If a partial transfer occurs
      * due to interruption, the buffer's position is updated accordingly.
      *
