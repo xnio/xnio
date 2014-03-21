@@ -1288,24 +1288,7 @@ public final class Buffers {
     /**
      * The empty pooled byte buffer.  Freeing or discarding this buffer has no effect.
      */
-    public static final Pooled<ByteBuffer> EMPTY_POOLED_BYTE_BUFFER = new Pooled<ByteBuffer>() {
-        public void discard() {
-        }
-
-        public void free() {
-        }
-
-        public ByteBuffer getResource() throws IllegalStateException {
-            return EMPTY_BYTE_BUFFER;
-        }
-
-        public void close() {
-        }
-
-        public String toString() {
-            return "empty pooled byte buffer";
-        }
-    };
+    public static final Pooled<ByteBuffer> EMPTY_POOLED_BYTE_BUFFER = emptyPooledByteBuffer();
 
     /**
      * Determine whether any of the buffers has remaining data.
@@ -1960,6 +1943,29 @@ public final class Buffers {
 
             public String toString() {
                 return "Pooled wrapper around " + buffer;
+            }
+        };
+    }
+
+    /**
+     * Create a "pooled" empty buffer.  Discarding or freeing the buffer has no effect; the returned buffer is
+     * always empty.
+     *
+     * @return a new pooled empty buffer
+     */
+    public static Pooled<ByteBuffer> emptyPooledByteBuffer() {
+        return new Pooled<ByteBuffer>() {
+            public void discard() {
+            }
+
+            public void free() {
+            }
+
+            public ByteBuffer getResource() throws IllegalStateException {
+                return EMPTY_BYTE_BUFFER;
+            }
+
+            public void close() {
             }
         };
     }
