@@ -282,6 +282,7 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
             return -1;
         }
         if (res != -1) checkReadTimeout(res > 0);
+        else terminateReads();
         return res;
     }
 
@@ -296,6 +297,7 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
             return -1L;
         }
         if (res != -1L) checkReadTimeout(res > 0L);
+        else terminateReads();
         return res;
     }
 
