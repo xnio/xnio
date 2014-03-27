@@ -1,7 +1,7 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2013 Red Hat, Inc., and individual contributors
- * as indicated by the @author tags.
+ * JBoss, Home of Professional Open Source
+ *
+ * Copyright 2014 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
-import org.xnio.Version;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
@@ -53,7 +52,7 @@ final class NioXnio extends Xnio {
     final SelectorCreator mainSelectorCreator;
 
     static {
-        log.greeting(Version.VERSION);
+        log.greeting(Version.getVersionString());
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
             public Void run() {
                 final String bugLevel = System.getProperty("sun.nio.ch.bugLevel");
@@ -194,7 +193,7 @@ final class NioXnio extends Xnio {
             }
 
             public String getVersion() {
-                return Version.VERSION;
+                return Version.getVersionString();
             }
         });
     }

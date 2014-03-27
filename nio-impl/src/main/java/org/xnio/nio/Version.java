@@ -1,3 +1,4 @@
+
 /*
  * JBoss, Home of Professional Open Source
  *
@@ -16,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.xnio;
+package org.xnio.nio;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,12 +40,12 @@ public final class Version {
      * @param args ignored
      */
     public static void main(String[] args) {
-        System.out.print(VERSION);
+        System.out.print(VERSION_STRING);
     }
 
-    private static final String JAR_NAME;
 
-    public static final String VERSION;
+    private static final String JAR_NAME;
+    private static final String VERSION_STRING;
 
     static {
         final Enumeration<URL> resources;
@@ -60,7 +61,7 @@ public final class Version {
                     if (stream != null) try {
                         final Manifest manifest = new Manifest(stream);
                         final Attributes mainAttributes = manifest.getMainAttributes();
-                        if (mainAttributes != null && "XNIO API".equals(mainAttributes.getValue("Specification-Title"))) {
+                        if (mainAttributes != null && "XNIO NIO Implementation".equals(mainAttributes.getValue("Specification-Title"))) {
                             jarName = mainAttributes.getValue("Jar-Name");
                             versionString = mainAttributes.getValue("Jar-Version");
                         }
@@ -74,7 +75,7 @@ public final class Version {
             }
         } catch (IOException ignored) {}
         JAR_NAME = jarName;
-        VERSION = versionString;
+        VERSION_STRING = versionString;
     }
 
     /**
@@ -92,6 +93,6 @@ public final class Version {
      * @return the version string
      */
     public static String getVersionString() {
-        return VERSION;
+        return VERSION_STRING;
     }
 }
