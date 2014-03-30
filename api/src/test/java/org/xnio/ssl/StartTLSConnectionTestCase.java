@@ -413,7 +413,6 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         assertFalse(sinkConduit.flush());
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.enableWrites(true);
-        // FIXME workaround for bug found in SSLEngine assertFalse(sinkConduit.flush());
         assertFalse(conduitMock.isWriteShutdown());
 
         conduitMock.setReadData(CLOSE_MSG);

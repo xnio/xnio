@@ -247,7 +247,7 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
 
         writeFuture.get();
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         conduitMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -305,7 +305,7 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
 
         writeFuture.get();
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         conduitMock.setReadData("CLOSE_MSG");
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -346,7 +346,7 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
 
         writeFuture.get();
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         conduitMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
@@ -391,7 +391,7 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
 
         writeFuture.get();
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         conduitMock.setReadData("[_)(*&^%$#@!]");
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);

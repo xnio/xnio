@@ -65,7 +65,7 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
         assertFalse(buffer.hasRemaining());
         // channel should not be able to shutdown writes... for that, it must receive a close message
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         // send the close message
         conduitMock.setReadData(CLOSE_MSG);
         conduitMock.enableReads(true);
@@ -92,7 +92,7 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
         assertFalse(buffer.hasRemaining());
         // channel should not be able to shutdown writes... for that, it must receive a close message
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         // send the close message
         conduitMock.setReadData(CLOSE_MSG);
         conduitMock.enableReads(true);
@@ -209,7 +209,7 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
 
         // channel should not be able to shutdown writes... for that, it must receive a close message
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         // send the close message
         conduitMock.setReadData("{message closed}");
         conduitMock.enableReads(true);
@@ -238,7 +238,7 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
         // channel should not be able to shutdown writes... for that, it must receive a close message
         sslChannel.shutdownWrites();
-        // FIXME workaround for bug found in SSLEngine assertFalse(sslChannel.flush());
+        assertFalse(sslChannel.flush());
         // close channel
         sslChannel.close();
         // data expected to have been written to 'conduitMock' by 'sslChannel'
