@@ -24,7 +24,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
 import static org.xnio.ssl.mock.SSLEngineMock.HANDSHAKE_MSG;
@@ -32,6 +31,7 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -417,13 +417,15 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
            If the read termination comes after, then upon reading the -1, when reads are terminated, the channel will
            close at that time. */
         assertTrue(sslChannel.flush());
-        assertTrue(conduitMock.isWriteShutdown());
+        assertTrue(sslChannel.flush());
 
         conduitMock.setReadData(CLOSE_MSG);
         buffer.clear();
         assertEquals(-1, sslChannel.read(buffer));
         sslChannel.shutdownReads();
+        assertTrue(sslChannel.flush());
         assertTrue(conduitMock.isReadShutdown());
+        assertTrue(conduitMock.isWriteShutdown());
 
         assertFalse(conduitMock.isOpen());
 
@@ -435,7 +437,7 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
     @Test
     public void startTLSWithReadNeedsWrap() throws IOException {
         //set a handshake listener
-        final ChannelListener<SslChannel> listener = context.mock(ChannelListener.class, "read needs unwrap");
+        final ChannelListener<SslChannel> listener = context.mock(ChannelListener.class, "read needs wrap");
         context.checking(new Expectations() {{
             atLeast(1).of(listener).handleEvent(sslChannel);
         }});
@@ -454,30 +456,34 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         // start tls
         sslChannel.startHandshake();
 
-        // attempt to write... channel is expected to return 0 as it stumbles upon a NEED_UNWRAP that cannot be executed
-        assertEquals(0, sslChannel.read(buffer));
-        assertFalse(conduitMock.isReadResumed());
-        assertFalse(conduitMock.isWriteResumed());
-        assertSame(HandshakeStatus.FINISHED, engineMock.getHandshakeStatus());
-        conduitMock.enableWrites(true);
+        // attempt to write... channel is expected to return 3 regardless of the fact it cannot flush
+        assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
         assertEquals(3, sslChannel.read(new ByteBuffer[]{buffer}));
         assertReadMessage(buffer, "MSG");
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
-        assertWrittenMessage(HANDSHAKE_MSG);
+        assertWrittenMessage("");
 
+        assertFalse(sslChannel.flush());
+        // enable writes and hence flush handshake message
+        conduitMock.enableWrites(true);
         assertTrue(sslChannel.flush());
         assertWrittenMessage(HANDSHAKE_MSG);
 
-        sslChannel.shutdownReads();
+        EOFException expected = null;
+        try {
+            sslChannel.shutdownReads();
+        } catch (EOFException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.setReadData(CLOSE_MSG);
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
         assertTrue(conduitMock.isWriteShutdown());
 
-        // channel not yet closed
-        assertTrue(conduitMock.isOpen());
-        sslChannel.close();
+        // channel closed
         assertFalse(conduitMock.isOpen());
 
         assertWrittenMessage(HANDSHAKE_MSG, CLOSE_MSG);

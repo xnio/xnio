@@ -31,7 +31,7 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
-import java.io.IOError;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -61,11 +61,6 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
-        try {
-            connection.startHandshake();
-        } catch (IOException e) {
-            throw new IOError(e);
-        }
         connection.getSourceChannel().getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
         connection.getSinkChannel().getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
         return connection;
@@ -454,21 +449,27 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         // start tls
         startHandshake();
 
-        // attempt to write... channel is expected to return 0 as it stumbles upon a NEED_UNWRAP that cannot be executed
-        assertEquals(0, sourceConduit.read(buffer));
-        assertFalse(conduitMock.isReadResumed());
-        assertFalse(conduitMock.isWriteResumed());
-        assertSame(HandshakeStatus.FINISHED, engineMock.getHandshakeStatus());
-        conduitMock.enableWrites(true);
+        // attempt to write... channel is expected to return 3 regardless of the fact it cannot flush
+        assertSame(HandshakeStatus.NEED_WRAP, engineMock.getHandshakeStatus());
         assertEquals(3, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 1));
         assertReadMessage(buffer, "MSG");
         assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
-        assertWrittenMessage(HANDSHAKE_MSG);
+        assertWrittenMessage("");
 
+        assertFalse(sinkConduit.flush());
+        // enable writes and hence flush handshake message
+        conduitMock.enableWrites(true);
         assertTrue(sinkConduit.flush());
         assertWrittenMessage(HANDSHAKE_MSG);
 
-        sourceConduit.terminateReads();
+        EOFException expected = null;
+        try {
+            sourceConduit.terminateReads();
+        } catch (EOFException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
+
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.setReadData(CLOSE_MSG);
         sinkConduit.terminateWrites();
@@ -476,12 +477,6 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         assertTrue(conduitMock.isWriteShutdown());
 
         // channel is already closed
-        assertTrue(conduitMock.isOpen());
-        assertFalse(sourceConduit.isReadShutdown());
-        assertTrue(sinkConduit.isWriteShutdown());
-        assertFalse(conduitMock.isReadShutdown());
-        assertTrue(conduitMock.isWriteShutdown());
-        connection.close();
         assertFalse(conduitMock.isOpen());
         assertTrue(sourceConduit.isReadShutdown());
         assertTrue(sinkConduit.isWriteShutdown());
