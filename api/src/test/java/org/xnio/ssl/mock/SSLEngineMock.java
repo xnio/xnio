@@ -413,7 +413,7 @@ public class SSLEngineMock extends SSLEngine {
 
         public SSLEngineResult unwrap(ByteBuffer[] dsts, int offset, int length, ByteBuffer src, boolean needUnwrap,int actionIndex) {
             if (!src.hasRemaining()) {
-                return new SSLEngineResult(closed && closeMessageUnwrapped? Status.CLOSED: Status.BUFFER_UNDERFLOW, HandshakeStatus.NEED_UNWRAP, 0, 0);
+                return new SSLEngineResult(closed && closeMessageUnwrapped? Status.CLOSED: Status.BUFFER_UNDERFLOW, needUnwrap? HandshakeStatus.NEED_UNWRAP: HandshakeStatus.NOT_HANDSHAKING, 0, 0);
             }
             Status okStatus = closed && closeMessageUnwrapped? Status.CLOSED: Status.OK;
             // amount of bytes available at src
