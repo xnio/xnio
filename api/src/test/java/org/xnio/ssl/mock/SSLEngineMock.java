@@ -351,6 +351,7 @@ public class SSLEngineMock extends SSLEngine {
                 }
                 return new SSLEngineResult(Status.OK, SSLEngineResult.HandshakeStatus.NEED_WRAP, 0, 0);
             case NOT_HANDSHAKING: 
+                actionAccountedFor(HandshakeAction.PERFORM_REQUESTED_ACTION, currentActionIndex);
                 return wrapper.unwrap(dsts, offset, length, src, false, currentActionIndex);
             default:
                 throw new IllegalStateException("Unexpected handshake status: " + getHandshakeStatus());
@@ -380,6 +381,7 @@ public class SSLEngineMock extends SSLEngine {
             case NEED_WRAP:
                 return wrapper.wrap(dst, srcs, offset, length, true, currentActionIndex);
             case NOT_HANDSHAKING: {
+                actionAccountedFor(HandshakeAction.PERFORM_REQUESTED_ACTION, currentActionIndex);
                 return wrapper.wrap(dst, srcs, offset, length, false, currentActionIndex);
             }
             default:
