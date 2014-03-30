@@ -26,12 +26,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 
-import org.jmock.Expectations;
 import org.junit.After;
 import org.junit.Test;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
-import org.xnio.Pool;
 import org.xnio.ssl.mock.SSLEngineMock;
 
 /**
@@ -45,115 +41,6 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
     @After @Override
     public void checkContext() {
         // do not check context... not all methods will be invoked on sessions created for invalid scenarios
-    }
-
-    @Test
-    public void invalidConduitEngineParameters() {
-        final JsseSslStreamConnection connection = (JsseSslStreamConnection) this.connection;
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-
-        // null connection
-        boolean failed = false;
-        try {
-            new JsseSslConduitEngine(null, sinkConduit, sourceConduit, engineMock, socketBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null sinkConduit
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, null, sourceConduit, engineMock, socketBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null source conduit
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, null, engineMock, socketBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null engine
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, null, socketBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null socket buffer pool
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, null, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // null application buffer pool
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, null);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // small length for socket buffer pool
-        failed = false;
-
-        final Pool<ByteBuffer> smallBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 16000, 16000 * 16);
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, smallBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // socket buffer pool will create a good sized receiveBuffer, but a small sized sendBuffer
-        failed = false;
-        @SuppressWarnings("unchecked")
-        final Pool<ByteBuffer> invalidReadBufferPool = context.mock(Pool.class, "PoolByteBuffer allocates different buffer sizes");
-        context.checking(new Expectations() {{
-            oneOf(invalidReadBufferPool).allocate();
-            will(returnValue(socketBufferPool.allocate()));
-            oneOf(invalidReadBufferPool).allocate();
-            will(returnValue(smallBufferPool.allocate()));
-        }});
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, invalidReadBufferPool, applicationBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // applicationBufferPool creates buffers too short
-        failed = false;
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, smallBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-
-        // applicationBufferPool will produce a buffer that is greater than SslEngine.session's packet buffer size,
-        // but smaller than SslEngine.session's application buffer size
-        failed = false;
-        final Pool<ByteBuffer> mediumBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 16920, 16920 * 16);
-        try {
-            new JsseSslConduitEngine(connection, sinkConduit, sourceConduit, engineMock, socketBufferPool, mediumBufferPool);
-        } catch (IllegalArgumentException e) {
-            failed = true;
-        }
-        assertTrue(failed);
     }
 
     @Test
