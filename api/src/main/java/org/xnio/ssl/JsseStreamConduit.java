@@ -1257,10 +1257,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                 remaining -= userProduced;
                             }
                             // if unwrap processed any data, it should return bytes produced instead of -1
-                            if (xfer == 0) {
-                                state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
-                                eof = true;
-                            }
+                            state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
+                            eof = true;
                             unwrap = false;
                             if (goal == IO_GOAL_FLUSH) {
                                 wrap = true;
