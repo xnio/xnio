@@ -21,6 +21,7 @@ package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
@@ -32,6 +33,7 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.PERFORM_REQUESTED_ACTION;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -431,7 +433,13 @@ public class JsseSslStreamSinkConduitTestCase extends AbstractSslConnectionTest 
         ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("abc".getBytes("UTF-8")).flip();
         sinkConduit.write(buffer);
-        sourceConduit.terminateReads();
+        EOFException expected = null;
+        try {
+            sourceConduit.terminateReads();
+        } catch (EOFException e) {
+            expected = e;
+        }
+        assertNotNull(expected);
         assertWrittenMessage("abc");
     }
 }
