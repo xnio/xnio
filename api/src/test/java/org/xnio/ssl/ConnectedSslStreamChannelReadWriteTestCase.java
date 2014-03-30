@@ -73,11 +73,6 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
-        // FIXME: move shutdownWrites to write thread, and shutdown reads to read thread after the issue involving
-        // those operations is worked around 
-        // MORE INFO: we have to shutdown write and read only after channel has read and written everything...
-        // the mock here only mimics the behavior we find in SSLEngine implementation: the channel cannot do read
-        // nor write after either read or write have been shutdown
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
         sslChannel.shutdownReads();

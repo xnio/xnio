@@ -70,11 +70,6 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
         final ByteBuffer readBuffer = readFuture.get();
-        // FIXME: move terminateWrites to write thread, and terminateReads to read thread after the issue involving
-        // those operations is worked around 
-        // MORE INFO: we have to terminate write and read only after conduit has read and written everything...
-        // the mock here only mimics the behavior we find in SSLEngine implementation: the connection cannot do read
-        // nor write after either read or write have been terminated
         sinkConduit.terminateWrites();
         assertTrue(sinkConduit.flush());
         sourceConduit.terminateReads();
