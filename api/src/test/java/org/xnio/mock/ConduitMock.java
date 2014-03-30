@@ -566,7 +566,6 @@ public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock
         writesTerminated = true;
         final Thread waiter;
         synchronized (this) {
-            eof = true;
             if (readWaiter == null) {
                 return;
             }
