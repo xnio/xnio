@@ -244,9 +244,6 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-
-        // make sure that the conduits managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // terminate reads
         sourceConduit.terminateReads();
         sinkConduit.terminateWrites();
@@ -303,8 +300,6 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that conduits managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // terminate reads
         sourceConduit.terminateReads();
         sinkConduit.terminateWrites();
@@ -344,8 +339,6 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that the conduits managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // terminate reads
         sourceConduit.terminateReads();
         sinkConduit.terminateWrites();
@@ -389,8 +382,6 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that the conduits managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // terminate reads
         sourceConduit.terminateReads();
         sinkConduit.terminateWrites();
@@ -496,7 +487,7 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
             int totalBytes = 0;
             try {
                 for (int i = 0; i < text.length; i++) {
-                // attempt to write... sinkConduit is expected to write the entire message without any issues
+                    // attempt to write... sinkConduit is expected to write the entire message without any issues
                     buffer[i] = ByteBuffer.allocate(50);
                     buffer[i].put(text[i].getBytes("UTF-8")).flip();
                     totalBytes += text[i].length();

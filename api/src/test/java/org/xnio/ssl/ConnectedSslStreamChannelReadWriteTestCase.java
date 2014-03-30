@@ -257,9 +257,6 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-
-        // make sure that channel managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
         sslChannel.shutdownWrites();
@@ -318,8 +315,6 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that channel managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
         sslChannel.shutdownWrites();
@@ -361,8 +356,6 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that channel managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
         sslChannel.shutdownWrites();
@@ -408,8 +401,6 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
-        // make sure that channel managed to do the WRAP and there is no more handshake actions left
-        assertSame(HandshakeStatus.NOT_HANDSHAKING, engineMock.getHandshakeStatus());
         // shutdown reads
         sslChannel.shutdownReads();
         sslChannel.shutdownWrites();
