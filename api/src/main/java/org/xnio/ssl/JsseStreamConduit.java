@@ -1113,6 +1113,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                         state &= ~FLAG_FLUSH_NEEDED;
                                     }
                                 }
+                                if (goal == IO_GOAL_FLUSH && allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
+                                    state |= WRITE_FLAG_SHUTDOWN2;
+                                }
                             }
                             // move to handshake result
                             break;
