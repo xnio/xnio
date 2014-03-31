@@ -1079,7 +1079,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         try {
             for (;;) {
                 if (TRACE_SSL) msg.tracef("TLS operation loop head");
-                if (goal == IO_GOAL_READ && remaining > 0) {
+                if (goal == IO_GOAL_READ && remaining > 0 && readBuffer.position() > 0) {
                     // read data
                     readBuffer.flip();
                     try {
