@@ -1188,6 +1188,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                         if (goal == IO_GOAL_FLUSH || sinkConduit.flush()) {
                                             state |= WRITE_FLAG_FINISHED;
                                         }
+                                        sinkConduit.terminateWrites();
                                     }
                                 }
                             }
