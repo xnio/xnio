@@ -844,8 +844,23 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
 
     public int read(final ByteBuffer dst) throws IOException {
         final int state = this.state;
-        if (anyAreSet(state, READ_FLAG_EOF | READ_FLAG_SHUTDOWN)) {
+        if (anyAreSet(state, READ_FLAG_SHUTDOWN)) {
             return -1;
+        }
+        if (anyAreSet(state, READ_FLAG_EOF)) {
+            // read data
+            if (readBuffer.getResource().position() > 0) {
+                final ByteBuffer readBufferResource = readBuffer.getResource();
+                readBufferResource.flip();
+                try {
+                    if (TRACE_SSL) msg.tracef("TLS read data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dst));
+                    return Buffers.copy(dst, readBufferResource);
+                } finally {
+                    readBufferResource.compact();
+                }
+            }
+            return -1;
+            
         } else if (allAreClear(state, FLAG_TLS)) {
             int res = sourceConduit.read(dst);
             if (res == 0) {
@@ -864,7 +879,19 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
 
     public long read(final ByteBuffer[] dsts, final int offs, final int len) throws IOException {
         final int state = this.state;
-        if (anyAreSet(state, READ_FLAG_EOF | READ_FLAG_SHUTDOWN)) {
+        if (anyAreSet(state, READ_FLAG_SHUTDOWN)) {
+            return -1;
+        } else if (anyAreSet(state, READ_FLAG_EOF)){
+            if (readBuffer.getResource().position() > 0) {
+                final ByteBuffer readBufferResource = readBuffer.getResource();
+                readBufferResource.flip();
+                try {
+                    if (TRACE_SSL) msg.tracef("TLS read data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dsts, offs, len));
+                    return Buffers.copy(dsts, offs, len, readBufferResource);
+                } finally {
+                    readBufferResource.compact();
+                }
+            }
             return -1;
         } else if (allAreClear(state, FLAG_TLS)) {
             long res = sourceConduit.read(dsts, offs, len);
