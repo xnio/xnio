@@ -221,22 +221,13 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
-                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (serverReceived.get() == clientSent.get()) {
-                                                                    try {
-                                                                        sinkChannel.shutdownWrites();
-                                                                        connection.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        sinkChannel.setWriteListener(listener);
-                                                        listener.handleEvent(sinkChannel);
+                                                        try {
+                                                            sinkChannel.shutdownWrites();
+                                                            connection.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
@@ -359,23 +350,13 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
-                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get()) {
-                                                                    try {
-                                                                        sinkChannel.shutdownWrites();
-                                                                        connection.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        sinkChannel.setWriteListener(listener);
-                                                        listener.handleEvent(sinkChannel);
-
+                                                        try {
+                                                            sinkChannel.shutdownWrites();
+                                                            connection.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
@@ -465,22 +446,13 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
-                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000) {
-                                                                    try {
-                                                                        //log.info("client closing connection");
-                                                                        connection.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        sinkChannel.setWriteListener(listener);
-                                                        listener.handleEvent(sinkChannel);
+                                                        try {
+                                                            //log.info("client closing connection");
+                                                            connection.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
@@ -552,23 +524,13 @@ public class NioSslTcpConnectionTestCase extends AbstractNioTcpTest<SslConnectio
                                             public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        final ChannelListener<ConduitStreamSinkChannel> listener = new ChannelListener<ConduitStreamSinkChannel>() {
-                                                            public void handleEvent(final ConduitStreamSinkChannel sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
-                                                                    try {
-                                                                        //log.info("server closing connection");
-                                                                        connection.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        sinkChannel.setWriteListener(listener);
-                                                        listener.handleEvent(sinkChannel);
-
+                                                        try {
+                                                            //log.info("server closing connection");
+                                                            connection.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {

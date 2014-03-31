@@ -165,22 +165,13 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                 try {
                                                     if (channel.flush()) {
-                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
-                                                            public void handleEvent(final ConnectedStreamChannel channel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (serverReceived.get() == clientSent.get()) {
-                                                                    try {
-                                                                        channel.shutdownWrites();
-                                                                        channel.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        channel.getWriteSetter().set(listener);
-                                                        listener.handleEvent(channel);
+                                                        try {
+                                                            channel.shutdownWrites();
+                                                            channel.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
@@ -440,22 +431,13 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                 try {
                                                     if (channel.flush()) {
-                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
-                                                            public void handleEvent(final ConnectedStreamChannel channel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && serverSent.get() > 1000) {
-                                                                    try {
-                                                                        //log.info("client closing channel");
-                                                                        channel.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        channel.getWriteSetter().set(listener);
-                                                        listener.handleEvent(channel);
+                                                        try {
+                                                            //log.info("client closing channel");
+                                                            channel.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
@@ -543,22 +525,13 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
                                             public void handleEvent(final ConnectedStreamChannel channel) {
                                                 try {
                                                     if (channel.flush()) {
-                                                        final ChannelListener<ConnectedStreamChannel> listener = new ChannelListener<ConnectedStreamChannel>() {
-                                                            public void handleEvent(final ConnectedStreamChannel channel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
-                                                                    try {
-                                                                        //log.info("server closing channel");
-                                                                        channel.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        };
-                                                        channel.getWriteSetter().set(listener);
-                                                        listener.handleEvent(channel);
+                                                        try {
+                                                            //log.info("server closing channel");
+                                                            channel.close();
+                                                        } catch (Throwable t) {
+                                                            t.printStackTrace();
+                                                            throw new RuntimeException(t);
+                                                        }
                                                         return;
                                                     }
                                                 } catch (Throwable t) {
