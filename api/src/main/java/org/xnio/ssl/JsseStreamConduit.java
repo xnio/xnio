@@ -757,6 +757,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         exception.addSuppressed(e);
                     }
                     throw exception;
+                } else {
+                    sourceConduit.terminateReads();
                 }
             }
         }
