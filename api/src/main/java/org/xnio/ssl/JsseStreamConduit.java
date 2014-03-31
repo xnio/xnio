@@ -1043,6 +1043,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         boolean eof = false;
         boolean readBlocked = false;
         boolean writeBlocked = false;
+        boolean copiedUnwrappedBytes = false;
         SSLEngineResult result;
         SSLEngineResult.HandshakeStatus handshakeStatus;
         int rv = 0;
@@ -1061,6 +1062,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         readBuffer.compact();
                     }
                     if (rv > 0) {
+                        copiedUnwrappedBytes = true;
                         xfer += rv;
                         if ((remaining -= rv) == 0L) {
                             return actualIOResult(xfer, goal, flushed, eof);
@@ -1211,6 +1213,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             assert result.bytesProduced() == 0;
                             assert userProduced == 0;
                             // not enough space in destination buffer; caller should consume the data they have first
+                            if (!copiedUnwrappedBytes) { // realDsts is too small for message to unwrap 
+                                return actualIOResult(xfer, goal, flushed, eof);
+                            }
                             unwrap = false;
                             break;
                         }
