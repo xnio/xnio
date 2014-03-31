@@ -38,19 +38,14 @@ final class JsseSslConnection extends SslConnection {
     }
 
     protected void closeAction() throws IOException {
-        final SSLEngine engine = conduit.getEngine();
-        conduit.markTerminated();
-        engine.closeOutbound();
-        try {
-            engine.closeInbound();
-        } catch (IOException e1) {
-            try {
-                streamConnection.close();
-            } catch (IOException e2) {
-                e1.addSuppressed(e2);
-            }
-            throw e1;
+        if (!conduit.isReadShutdown()) {
+            conduit.terminateReads();
         }
+        if (!conduit.isWriteShutdown()) {
+            conduit.terminateWrites();
+        }
+        conduit.flush();
+        conduit.markTerminated();
         streamConnection.close();
     }
 
