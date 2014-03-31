@@ -849,7 +849,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 final ByteBuffer readBufferResource = readBuffer.getResource();
                 readBufferResource.flip();
                 try {
-                    if (TRACE_SSL) msg.tracef("TLS read data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dst));
+                    if (TRACE_SSL) msg.tracef("TLS copy unwrapped data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dst));
                     return Buffers.copy(dst, readBufferResource);
                 } finally {
                     readBufferResource.compact();
@@ -882,7 +882,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 final ByteBuffer readBufferResource = readBuffer.getResource();
                 readBufferResource.flip();
                 try {
-                    if (TRACE_SSL) msg.tracef("TLS read data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dsts, offs, len));
+                    if (TRACE_SSL) msg.tracef("TLS copy unwrapped data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dsts, offs, len));
                     return Buffers.copy(dsts, offs, len, readBufferResource);
                 } finally {
                     readBufferResource.compact();
@@ -1072,14 +1072,15 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         int rv = 0;
         // amount of data moved to/from the user buffers (remember only zero or one of srcs/dsts can be given)
         long xfer = 0L;
+        if (TRACE_SSL) msg.trace("TLS perform IO");
         try {
             for (;;) {
-                if (TRACE_SSL) msg.tracef("TLS operation loop head");
+                if (TRACE_SSL) msg.trace("TLS begin IO operation");
                 if (goal == IO_GOAL_READ && remaining > 0 && readBuffer.position() > 0) {
                     // read data
                     readBuffer.flip();
                     try {
-                        if (TRACE_SSL) msg.tracef("TLS read data from %s to %s", Buffers.debugString(readBuffer), Buffers.debugString(dsts, dstOff, dstLen));
+                        if (TRACE_SSL) msg.tracef("TLS copy unwrapped data from %s to %s", Buffers.debugString(readBuffer), Buffers.debugString(dsts, dstOff, dstLen));
                         rv = Buffers.copy(dsts, dstOff, dstLen, readBuffer);
                     } finally {
                         readBuffer.compact();
@@ -1101,13 +1102,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             assert result.bytesConsumed() == 0;
                             assert result.bytesProduced() == 0;
                             // move directly to handshake result
-                            if (TRACE_SSL) msg.tracef("TLS wrap operation UNDERFLOW");
+                            if (TRACE_SSL) msg.trace("TLS wrap operation UNDERFLOW");
                             break;
                         }
                         case BUFFER_OVERFLOW: {
                             assert result.bytesConsumed() == 0;
                             assert result.bytesProduced() == 0;
-                            if (TRACE_SSL) msg.tracef("TLS wrap operation OVERFLOW");
+                            if (TRACE_SSL) msg.trace("TLS wrap operation OVERFLOW");
                             if (sendBuffer.position() == 0) {
                                 // our buffer is empty, and definitely large enough, so just throw an exception
                                 throw msg.wrongBufferExpansion();
@@ -1144,6 +1145,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break;
                         }
                         case CLOSED: {
+                            if (TRACE_SSL) msg.trace("TLS wrap operation CLOSED");
                             if (allAreClear(state, WRITE_FLAG_SHUTDOWN) && result.bytesProduced() == 0) {
                                 // attempted write after shutdown (should not be possible)
                                 state &= ~(WRITE_FLAG_NEEDS_READ | READ_FLAG_NEEDS_WRITE);
@@ -1163,6 +1165,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // fall thru!!!
                         }
                         case OK: {
+                            if (TRACE_SSL) msg.tracef("TLS wrap operation OK consumed: %d produced: %d", result.bytesConsumed(), result.bytesProduced());
                             state &= ~(WRITE_FLAG_NEEDS_READ | READ_FLAG_NEEDS_WRITE);
                             final int consumed = result.bytesConsumed();
                             if (goal == IO_GOAL_READ) {
@@ -1226,6 +1229,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         }
                     }
                 } else if (unwrap) {
+                    if (TRACE_SSL) msg.tracef("TLS unwrap from %s to %s", Buffers.debugString(receiveBuffer), Buffers.debugString(realDsts, 0, dstLen + 1));
                     // use dstLen + 1 so that any leftovers are unwrapped into our read buffer to avoid underflow
                     // * offset is 0 because realDsts is a copyOfRange of the original dsts with one extra buf at the end
                     assert realDsts.length == 1 || realDsts[0] == dsts[dstOff];
@@ -1239,6 +1243,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             assert result.bytesConsumed() == 0;
                             assert result.bytesProduced() == 0;
                             assert userProduced == 0;
+                            if (TRACE_SSL) msg.trace("TLS unwrap operation OVERFLOW");
                             // not enough space in destination buffer; caller should consume the data they have first
                             if (!copiedUnwrappedBytes) { // realDsts is too small for message to unwrap 
                                 return actualIOResult(xfer, goal, flushed, eof);
@@ -1250,11 +1255,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             assert result.bytesConsumed() == 0;
                             assert result.bytesProduced() == 0;
                             assert userProduced == 0;
+                            if (TRACE_SSL) msg.trace("TLS unwrap operation UNDERFLOW");
                             // fill the rest of the buffer, then retry!
                             receiveBuffer.compact();
                             try {
                                 int res;
                                 res = sourceConduit.read(receiveBuffer);
+                                if (TRACE_SSL) msg.tracef("TLS unwrap operation read %s", Buffers.debugString(receiveBuffer));
                                 if (res == -1) {
                                     state &= ~READ_FLAG_READY;
                                     engine.closeInbound();
@@ -1283,6 +1290,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break;
                         }
                         case CLOSED: {
+                            if (TRACE_SSL) msg.trace("TLS unwrap operation CLOSED");
                             state &= ~(WRITE_FLAG_NEEDS_READ | READ_FLAG_NEEDS_WRITE);
                             if (goal == IO_GOAL_READ) {
                                 xfer += userProduced;
@@ -1298,6 +1306,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break;
                         }
                         case OK: {
+                            if (TRACE_SSL) msg.tracef("TLS unwrap operation OK consumed: %d produced: %d", result.bytesConsumed(), result.bytesProduced());
                             if (allAreClear(state, READ_FLAG_READY)) {
                                 // make sure the caller keeps reading until the unwrapped data is consumed
                                 state |= READ_FLAG_READY;
@@ -1327,6 +1336,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     switch (handshakeStatus) {
 
                         case FINISHED: {
+                            if (TRACE_SSL) msg.trace("TLS handshake FINISHED");
                             connection.invokeHandshakeListener();
                             // try original op again
                             break HS;
@@ -1336,6 +1346,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break HS;
                         }
                         case NEED_TASK: {
+                            if (TRACE_SSL) msg.trace("TLS handshake NEED_TASK");
                             if (xfer != 0L) {
                                 // only queue a task if the user isn't going to retry an I/O op immediately after
                                 return actualIOResult(xfer, goal, flushed, eof);
@@ -1383,6 +1394,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             }
                         }
                         case NEED_WRAP: {
+                            if (TRACE_SSL) msg.trace("TLS handshake NEED_WRAP");
                             state |= READ_FLAG_NEEDS_WRITE | FLAG_FLUSH_NEEDED;
                             if (writeBlocked) {
                                 return actualIOResult(xfer, goal, flushed, eof);
@@ -1392,6 +1404,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break HS;
                         }
                         case NEED_UNWRAP: {
+                            if (TRACE_SSL) msg.trace("TLS handshake NEED_UNWRAP");
                             if (wrap && ! flushed && ! sinkConduit.flush()) {
                                 // our wrap operation was probably actually a handshake msg, but we couldn't flush it
                                 // we need to flush it to proceed else the other side may never send us a response
