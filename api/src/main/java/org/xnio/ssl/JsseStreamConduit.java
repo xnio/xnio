@@ -358,13 +358,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         //     be doing something in another thread and we could end up overwriting each others' changes.
                         // level-triggering
                         if (allAreSet(state, WRITE_FLAG_RESUMED)) {
-                            if (allAreSet(state, WRITE_FLAG_READY)) {
-                                if (allAreClear(state, FLAG_TASK_QUEUED)) {
-                                    state |= FLAG_TASK_QUEUED;
-                                    modify = true;
-                                    getWriteThread().execute(this);
-                                }
-                            } else if (allAreSet(state, WRITE_FLAG_NEEDS_READ) && allAreClear(state, READ_FLAG_UP_RESUMED)) {
+                            if (!allAreSet(state, WRITE_FLAG_READY) && allAreSet(state, WRITE_FLAG_NEEDS_READ) && allAreClear(state, READ_FLAG_UP_RESUMED)) {
                                 state |= READ_FLAG_UP_RESUMED;
                                 modify = true;
                                 sourceConduit.resumeReads();
