@@ -310,7 +310,7 @@ final class NioXnioWorker extends XnioWorker {
             if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
             if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, 0));
             channel.socket().bind(bindAddress);
-            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel, (InetSocketAddress) channel.socket().getLocalSocketAddress(), destinationAddress);
+            final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel);
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
             if (channel.connect(destinationAddress)) {
@@ -422,7 +422,7 @@ final class NioXnioWorker extends XnioWorker {
             final SocketChannel accepted = channel.accept();
             if (accepted != null) {
                 IoUtils.safeClose(channel);
-                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted, destination, (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
+                final NioTcpChannel tcpChannel = new NioTcpChannel(this, accepted);
                 tcpChannel.configureFrom(optionMap);
                 //noinspection unchecked
                 ChannelListeners.invokeChannelListener(tcpChannel, openListener);
@@ -452,7 +452,7 @@ final class NioXnioWorker extends XnioWorker {
                         try {
                             accepted.configureBlocking(false);
                             final NioTcpChannel tcpChannel;
-                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, accepted, destination, (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
+                            tcpChannel = new NioTcpChannel(NioXnioWorker.this, accepted);
                             tcpChannel.configureFrom(optionMap);
                             futureResult.setResult(tcpChannel);
                             ok = true;

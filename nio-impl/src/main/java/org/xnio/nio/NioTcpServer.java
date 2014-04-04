@@ -23,7 +23,6 @@
 package org.xnio.nio;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -212,7 +211,7 @@ final class NioTcpServer implements AcceptingChannel<NioTcpChannel> {
         final NioTcpChannel newChannel;
         boolean ok = false;
         try {
-            newChannel = new NioTcpChannel(worker, accepted, (InetSocketAddress) accepted.socket().getLocalSocketAddress(), (InetSocketAddress) accepted.socket().getRemoteSocketAddress());
+            newChannel = new NioTcpChannel(worker, accepted);
             newChannel.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
             newChannel.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
             ok = true;
