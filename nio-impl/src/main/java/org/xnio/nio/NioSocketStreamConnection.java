@@ -19,6 +19,8 @@
 package org.xnio.nio;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
@@ -45,11 +47,13 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
     }
 
     public SocketAddress getPeerAddress() {
-        return conduit.getSocketChannel().socket().getRemoteSocketAddress();
+        final Socket socket = conduit.getSocketChannel().socket();
+        return new InetSocketAddress(socket.getInetAddress(), socket.getPort());
     }
 
     public SocketAddress getLocalAddress() {
-        return conduit.getSocketChannel().socket().getLocalSocketAddress();
+        final Socket socket = conduit.getSocketChannel().socket();
+        return new InetSocketAddress(socket.getLocalAddress(), socket.getLocalPort());
     }
 
     private static final Set<Option<?>> OPTIONS = Option.setBuilder()
