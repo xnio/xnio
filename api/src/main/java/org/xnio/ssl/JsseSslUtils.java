@@ -22,6 +22,7 @@ package org.xnio.ssl;
 import static org.xnio._private.Messages.msg;
 
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -41,6 +42,7 @@ import javax.net.ssl.TrustManager;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.Sequence;
+import org.xnio.Xnio;
 
 /**
  * Utility methods for creating JSSE constructs and configuring them via XNIO option maps.
@@ -142,7 +144,7 @@ public final class JsseSslUtils {
      */
     public static SSLEngine createSSLEngine(SSLContext sslContext, OptionMap optionMap, InetSocketAddress peerAddress) {
         final SSLEngine engine = sslContext.createSSLEngine(
-                optionMap.get(Options.SSL_PEER_HOST_NAME, peerAddress.isUnresolved() ? peerAddress.getAddress().getHostAddress() : peerAddress.getHostName()),
+                optionMap.get(Options.SSL_PEER_HOST_NAME, getHostNameNoResolve(peerAddress)),
                 optionMap.get(Options.SSL_PEER_PORT, peerAddress.getPort())
         );
         engine.setUseClientMode(true);
@@ -170,5 +172,28 @@ public final class JsseSslUtils {
             engine.setEnabledProtocols(finalList.toArray(new String[finalList.size()]));
         }
         return engine;
+    }
+
+    static String getHostNameNoResolve(InetSocketAddress socketAddress) {
+        if (Xnio.NIO2) {
+            return socketAddress.getHostString();
+        } else {
+            String hostName;
+            if (socketAddress.isUnresolved()) {
+                hostName = socketAddress.getHostName();
+            } else {
+                final InetAddress address = socketAddress.getAddress();
+                final String string = address.toString();
+                final int slash = string.indexOf('/');
+                if (slash == -1 || slash == 0) {
+                    // unresolved both ways
+                    hostName = string.substring(slash + 1);
+                } else {
+                    // has a cached host name
+                    hostName = string.substring(0, slash);
+                }
+            }
+            return hostName;
+        }
     }
 }
