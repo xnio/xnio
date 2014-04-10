@@ -142,7 +142,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
             return null;
         }
         final InetSocketAddress peerAddress = tcpConnection.getPeerAddress(InetSocketAddress.class);
-        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
+        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.isUnresolved() ? peerAddress.getAddress().getHostAddress() : peerAddress.getHostName(), peerAddress.getPort());
         final boolean clientMode = useClientMode != 0;
         engine.setUseClientMode(clientMode);
         if (! clientMode) {
