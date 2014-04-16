@@ -43,6 +43,7 @@ import java.util.concurrent.TimeoutException;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.jmock.integration.junit4.JMock;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.Buffers;
@@ -55,6 +56,7 @@ import org.xnio.ssl.mock.SSLEngineMock;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 @RunWith(JMock.class)
+@Ignore // ignoring for now as these tests hang more consistently than they pass
 public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
 
     @Test
