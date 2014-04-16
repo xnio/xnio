@@ -102,33 +102,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>1.0.1</version>
-                <executions>
-                    <execution>
-                        <!-- Enforce Java 7 version -->
-                        <id>enforce-java-7-version</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${skip.enforcer}</skip>
-                            <rules>
-                                <requireJavaVersion>
-                                    <!-- version >= 1.7 -->
-                                    <version>[1.7,)</version>
-                                    <message>Java 7 or higher required to build this project</message>
-                                </requireJavaVersion>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-            <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <excludes>
@@ -146,10 +119,8 @@
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-            <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>${version.surefire.plugin}</version>
                 <configuration>
                     <systemProperties>
                         <property>
@@ -178,9 +149,9 @@
                     <doctitle><![CDATA[XNIO API ]]>${project.version}</doctitle>
                     <header><![CDATA[XNIO API ]]>${project.version}</header>
                     <footer><![CDATA[XNIO API ]]>${project.version}</footer>
-                    <bottom><![CDATA[<i>Copyright &#169; 2010 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
+                    <bottom><![CDATA[<i>Copyright &#169; 2014 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
                     <links>
-                        <link>http://java.sun.com/javase/6/docs/api/</link>
+                        <link>http://java.sun.com/javase/7/docs/api/</link>
                     </links>
                 </configuration>
             </plugin>
