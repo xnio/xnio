@@ -135,15 +135,6 @@ public class XnioTestCase {
         final Xnio xnio = Xnio.getInstance();
         assertNotNull(xnio);
         assertSame(xnio, Xnio.getInstance(getClass().getClassLoader()));
-
-        ServiceConfigurationError expectedError = null;
-        try {
-            Xnio.getInstance((ClassLoader) null);
-        } catch (ServiceConfigurationError e) {
-            expectedError = e;
-        }
-        assertNotNull(expectedError);
-
         assertSame(xnio, Xnio.getInstance("xnio-mock"));
 
         IllegalArgumentException expectedException = null;
