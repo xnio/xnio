@@ -138,7 +138,9 @@ public class XnioTestCase {
 
         ServiceConfigurationError expectedError = null;
         try {
-            Xnio.getInstance((ClassLoader) null);
+            if ((Xnio.getInstance((ClassLoader) null)) == null){
+                expectedError = new ServiceConfigurationError("Could not find provider");
+            }
         } catch (ServiceConfigurationError e) {
             expectedError = e;
         }
