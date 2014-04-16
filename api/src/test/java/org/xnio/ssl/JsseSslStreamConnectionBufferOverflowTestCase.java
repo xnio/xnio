@@ -30,6 +30,7 @@ import javax.net.ssl.SSLSession;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
+import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Before;
 import org.junit.Test;
 import org.xnio.BufferAllocator;
@@ -63,7 +64,9 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
 
     @Before
     public void createChannelMock() throws IOException {
-        context = new JUnit4Mockery();
+        context = new JUnit4Mockery() {{
+                    setThreadingPolicy(new Synchroniser());
+                }};
         engineMock = new SSLEngineMockSmallPacketSize(context);
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
