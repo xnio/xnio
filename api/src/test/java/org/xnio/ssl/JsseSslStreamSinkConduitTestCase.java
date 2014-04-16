@@ -37,10 +37,9 @@ import java.nio.ByteBuffer;
 
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
-import org.jmock.integration.junit4.JMock;
-import org.junit.Ignore;
+import org.jmock.integration.junit4.JUnitRuleMockery;
+import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.xnio.ssl.mock.SSLEngineMock;
 
 
@@ -49,9 +48,9 @@ import org.xnio.ssl.mock.SSLEngineMock;
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-@RunWith(JMock.class)
 public class JsseSslStreamSinkConduitTestCase extends AbstractSslConnectionTest {
-
+    @Rule
+    public final JUnitRuleMockery context = new JUnitRuleMockery();
     @Test
     public void writeWithoutHandshake() throws IOException {
         // no handshake actions for engineMock this time, meaning that it will just wrap and unwrap without any handshake

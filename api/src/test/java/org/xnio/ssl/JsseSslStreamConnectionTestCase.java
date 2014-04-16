@@ -20,7 +20,6 @@
 package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -42,10 +41,9 @@ import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
-import org.jmock.integration.junit4.JMock;
-import org.junit.Ignore;
+import org.jmock.integration.junit4.JUnitRuleMockery;
+import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.xnio.Buffers;
 import org.xnio.ssl.mock.SSLEngineMock;
 
@@ -55,9 +53,9 @@ import org.xnio.ssl.mock.SSLEngineMock;
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-@RunWith(JMock.class)
-@Ignore // ignoring for now as these tests hang more consistently than they pass
 public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
+    @Rule
+    public final JUnitRuleMockery context = new JUnitRuleMockery();
 
     @Test
     public void simpleReadAndWrite() throws Exception {

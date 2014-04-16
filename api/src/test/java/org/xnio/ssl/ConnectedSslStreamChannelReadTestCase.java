@@ -37,6 +37,8 @@ import java.nio.ByteBuffer;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.jmock.integration.junit4.JMock;
+import org.jmock.integration.junit4.JUnitRuleMockery;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.ssl.mock.SSLEngineMock;
@@ -47,8 +49,9 @@ import org.xnio.ssl.mock.SSLEngineMock;
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-@RunWith(JMock.class)
 public class ConnectedSslStreamChannelReadTestCase extends AbstractConnectedSslStreamChannelTest{
+    @Rule
+    public final JUnitRuleMockery context = new JUnitRuleMockery();
 
     @Test
     public void readWithoutHandshake() throws IOException {

@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
+import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.After;
 import org.junit.Before;
 import org.xnio.Buffers;
@@ -47,7 +48,9 @@ public abstract class AbstractSslTest {
 
     @Before
     public void createChannelMock() throws IOException {
-        context = new JUnit4Mockery();
+        context = new JUnit4Mockery() {{
+            setThreadingPolicy(new Synchroniser());
+        }};
         engineMock = new SSLEngineMock(context);
     }
 

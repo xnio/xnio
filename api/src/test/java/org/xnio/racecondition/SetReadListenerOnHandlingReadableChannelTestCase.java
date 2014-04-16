@@ -27,6 +27,7 @@ import org.jboss.byteman.contrib.bmunit.BMUnitRunner;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
+import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.ChannelListener;
@@ -49,7 +50,9 @@ public class SetReadListenerOnHandlingReadableChannelTestCase {
     @Test
     public void test() throws Exception {
         // create mockery context
-        final Mockery context = new JUnit4Mockery();
+        final Mockery context = new JUnit4Mockery() {{
+            setThreadingPolicy(new Synchroniser());
+        }};
         // creating channel and threads
         final MyTranslatingSuspendableChannel channel = new MyTranslatingSuspendableChannel();
         final Thread setReadListenerThread = new Thread(new SetReadListener(channel, context));
