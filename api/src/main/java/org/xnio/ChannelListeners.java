@@ -812,7 +812,7 @@ public final class ChannelListeners {
                             }
                         }
 
-                        if(count == 0) {
+                        if (count == 0) {
                             done();
                             return;
                         }
@@ -863,7 +863,7 @@ public final class ChannelListeners {
                             count -= lres;
                         }
 
-                        if(count == 0) {
+                        if (count == 0) {
                             done();
                             return;
                         }
@@ -966,7 +966,7 @@ public final class ChannelListeners {
                     invokeChannelExceptionHandler(source, readExceptionHandler, e);
                     return;
                 }
-                if(transferred == 0 && !buffer.hasRemaining()) {
+                if (transferred == 0 && !buffer.hasRemaining()) {
                     break;
                 }
                 if (transferred == -1) {
@@ -1012,10 +1012,10 @@ public final class ChannelListeners {
                         free = false;
                         return;
                     } else if (count != Long.MAX_VALUE) {
-                        count -= transferred;
+                        count -= res;
                     }
                 }
-                if(count == 0) {
+                if (count == 0) {
                     //we are done
                     Channels.setReadListener(source, sourceListener);
                     if (sourceListener == null) {
