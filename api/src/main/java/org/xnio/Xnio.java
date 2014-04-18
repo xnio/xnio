@@ -35,6 +35,7 @@ import java.security.GeneralSecurityException;
 import java.security.PrivilegedAction;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -218,11 +219,22 @@ public abstract class Xnio {
     }
 
     private static Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
-        for (XnioProvider xnioProvider : serviceLoader) try {
-            if (provider == null || provider.equals(xnioProvider.getName())) {
-                return xnioProvider.getInstance();
+        final Iterator<XnioProvider> iterator = serviceLoader.iterator();
+        for (;;) {
+            try {
+                if (! iterator.hasNext()) break;
+                final XnioProvider xnioProvider = iterator.next();
+                try {
+                    if (provider == null || provider.equals(xnioProvider.getName())) {
+                        return xnioProvider.getInstance();
+                    }
+                } catch (Throwable t) {
+                    msg.debugf(t, "Not loading provider %s", xnioProvider.getName());
+                }
+            } catch (Throwable t) {
+                msg.debugf(t, "Skipping non-loadable provider");
             }
-        } catch (Throwable ignored) {}
+        }
         throw msg.noProviderFound();
     }
 
