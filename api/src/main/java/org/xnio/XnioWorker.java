@@ -89,7 +89,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         taskPool = new TaskPool(
             optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4),
             optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
-            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60), TimeUnit.MILLISECONDS,
+            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60000), TimeUnit.MILLISECONDS,
             taskQueue,
             new ThreadFactory() {
                 public Thread newThread(final Runnable r) {
