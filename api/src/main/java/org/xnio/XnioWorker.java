@@ -116,7 +116,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         taskPool = new TaskPool(
             threadCount, // ignore core threads setting, always fill to max
             threadCount,
-            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60), TimeUnit.MILLISECONDS,
+            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60000), TimeUnit.MILLISECONDS,
             taskQueue,
             new WorkerThreadFactory(threadGroup, optionMap, markThreadAsDaemon),
             new ThreadPoolExecutor.AbortPolicy());
