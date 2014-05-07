@@ -277,6 +277,7 @@ public class JsseXnioSslTestCase {
     }
 
     @Test
+    @Ignore
     public void connectSsl4() throws Exception {
         final InetSocketAddress localAddress = new InetSocketAddress(600);
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
