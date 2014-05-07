@@ -19,8 +19,6 @@
 
 package org.xnio;
 
-import java.lang.ref.PhantomReference;
-import java.lang.ref.ReferenceQueue;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.util.ArrayDeque;
@@ -29,7 +27,6 @@ import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static org.xnio._private.Messages.msg;
 
@@ -61,27 +58,20 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     private final int bufferSize;
     private final int buffersPerRegion;
     private final int threadLocalQueueSize;
-    private final ThreadLocal<ArrayDeque<Slice>> localQueueHolder = new ThreadLocal<ArrayDeque<Slice>>() {
-        protected ArrayDeque<Slice> initialValue() {
+    private final ThreadLocal<ThreadLocalCache> localQueueHolder = new ThreadLocal<ThreadLocalCache>() {
+        protected ThreadLocalCache initialValue() {
             //noinspection serial
-            return new ArrayDeque<Slice>(threadLocalQueueSize) {
-
-                /**
-                 * This sucks but there's no other way to ensure these buffers are returned to the pool.
-                 */
-                protected void finalize() {
-                    remove();
-                }
-            };
+            return new ThreadLocalCache(this);
         }
 
         public void remove() {
-            final ArrayDeque<Slice> deque = get();
+            final ArrayDeque<Slice> deque = get().queue;
             Slice slice = deque.poll();
             while (slice != null) {
                 doFree(slice);
                 slice = deque.poll();
             }
+            super.remove();
         }
     };
 
@@ -130,7 +120,11 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
-        Slice slice = localQueueHolder.get().poll();
+        ThreadLocalCache localCache = localQueueHolder.get();
+        if(localCache.outstanding != LOCAL_LENGTH) {
+            localCache.outstanding++;
+        }
+        Slice slice = localCache.queue.poll();
         if (slice != null) {
             return new PooledByteBuffer(slice, slice.slice());
         }
@@ -165,8 +159,14 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     }
 
     private void doFree(Slice region) {
-        final ArrayDeque<Slice> localQueue = localQueueHolder.get();
-        if (localQueue.size() == LOCAL_LENGTH) {
+        final ThreadLocalCache localCache = localQueueHolder.get();
+        boolean cacheOk = false;
+        if(localCache.outstanding > 0) {
+            localCache.outstanding--;
+            cacheOk = true;
+        }
+        ArrayDeque<Slice> localQueue = localCache.queue;
+        if (localQueue.size() == LOCAL_LENGTH || !cacheOk) {
             sliceQueue.add(region);
         } else {
             localQueue.add(region);
@@ -240,6 +240,27 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         protected void free() {
             doFree(region);
             refSet.remove(this);
+        }
+    }
+
+    private final class ThreadLocalCache {
+
+        private final ThreadLocal<ThreadLocalCache> threadLocal;
+
+        final ArrayDeque<Slice> queue =  new ArrayDeque<Slice>(threadLocalQueueSize) {
+
+            /**
+             * This sucks but there's no other way to ensure these buffers are returned to the pool.
+             */
+            protected void finalize() {
+                threadLocal.remove();
+            }
+        };
+
+        int outstanding = 0;
+
+        private ThreadLocalCache(ThreadLocal<ThreadLocalCache> threadLocal) {
+            this.threadLocal = threadLocal;
         }
     }
 }
