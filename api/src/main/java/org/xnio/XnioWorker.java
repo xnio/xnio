@@ -83,7 +83,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     private static final AtomicInteger seq = new AtomicInteger(1);
 
     private static final RuntimePermission CREATE_WORKER_PERMISSION = new RuntimePermission("createXnioWorker");
-    private final BlockingQueue<Runnable> taskQueue;
 
     private int getNextSeq() {
         return taskSeqUpdater.incrementAndGet(this);
@@ -110,7 +109,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
-        taskQueue = new LinkedBlockingQueue<Runnable>();
+        BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<Runnable>();
         this.coreSize = optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4);
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
         final int threadCount = optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16);
@@ -846,15 +845,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected final int getMaxWorkerPoolSize() {
         return taskPool.getMaximumPoolSize();
-    }
-
-    /**
-     * Get an estimate of the number of tasks in the worker queue.
-     *
-     * @return the estimated number of tasks
-     */
-    protected final int getWorkerQueueSize() {
-        return taskQueue.size();
     }
 
     final class TaskPool extends ThreadPoolExecutor {
