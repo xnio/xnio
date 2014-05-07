@@ -130,6 +130,10 @@ final class NioXnioWorker extends XnioWorker {
             public int getIoThreadCount() {
                 return threadCount;
             }
+
+            public int getWorkerQueueSize() {
+                return NioXnioWorker.this.getWorkerQueueSize();
+            }
         });
     }
 
