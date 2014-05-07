@@ -64,4 +64,11 @@ public interface XnioWorkerMXBean {
      * @return the I/O thread count
      */
     int getIoThreadCount();
+
+    /**
+     * Get an estimate of the number of tasks in the worker queue.
+     *
+     * @return the task count estimate
+     */
+    int getWorkerQueueSize();
 }
