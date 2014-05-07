@@ -215,17 +215,13 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private final class Slice {
         private final ByteBuffer parent;
-        private final int start;
-        private final int size;
 
         private Slice(final ByteBuffer parent, final int start, final int size) {
-            this.parent = parent;
-            this.start = start;
-            this.size = size;
+            this.parent = (ByteBuffer)parent.duplicate().position(start).limit(start+size);
         }
 
         ByteBuffer slice() {
-            return ((ByteBuffer)parent.duplicate().position(start).limit(start+size)).slice();
+            return parent.slice();
         }
     }
 
