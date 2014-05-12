@@ -27,6 +27,10 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
@@ -50,6 +54,12 @@ final class NioXnio extends Xnio {
 
     final SelectorCreator tempSelectorCreator;
     final SelectorCreator mainSelectorCreator;
+    final int maxSelectors = Integer.getInteger("xnio.nio.selectors", 50); //TODO: what is a reasonable default here?
+
+    private final Deque<Selector> selectorCache = new ConcurrentLinkedDeque<>();
+    @SuppressWarnings("unused")
+    private volatile int cacheSize;
+    private static final AtomicIntegerFieldUpdater<NioXnio> cacheSizeUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnio.class, "cacheSize");
 
     static {
         log.greeting(Version.getVersionString());
@@ -215,22 +225,26 @@ final class NioXnio extends Xnio {
         return super.createFileSystemWatcher(name, options);
     }
 
-    private final ThreadLocal<Selector> selectorThreadLocal = new ThreadLocal<Selector>() {
-        public void remove() {
-            // if no selector was created, none will be closed
-            IoUtils.safeClose(get());
-            super.remove();
-        }
-    };
-
     Selector getSelector() throws IOException {
-        final ThreadLocal<Selector> threadLocal = selectorThreadLocal;
-        Selector selector = threadLocal.get();
+        final Deque<Selector> cache = selectorCache;
+
+        Selector selector = cache.poll();
         if (selector == null) {
             selector = tempSelectorCreator.open();
-            threadLocal.set(selector);
         }
         return selector;
+    }
+
+    void returnSelector(Selector selector) {
+        int size;
+        do {
+            size = cacheSizeUpdater.get(this);
+            if(size >= maxSelectors) {
+                IoUtils.safeClose(selector);
+                return;
+            }
+        } while (cacheSizeUpdater.compareAndSet(this, size, size + 1));
+        selectorCache.add(selector);
     }
 
     private static class DefaultSelectorCreator implements SelectorCreator {

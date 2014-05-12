@@ -21,7 +21,6 @@ package org.xnio.nio;
 import static org.xnio.nio.Log.log;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -37,19 +36,23 @@ final class SelectorUtils {
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op) throws IOException {
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
-        final SelectionKey selectionKey;
         try {
-            selectionKey = channel.register(selector, op);
-        } catch (ClosedChannelException e) {
-            return;
+            final SelectionKey selectionKey;
+            try {
+                selectionKey = channel.register(selector, op);
+            } catch (ClosedChannelException e) {
+                return;
+            }
+            selector.select();
+            selector.selectedKeys().clear();
+            if (Thread.currentThread().isInterrupted()) {
+                throw log.interruptedIO();
+            }
+            selectionKey.cancel();
+            selector.selectNow();
+        } finally {
+            nioXnio.returnSelector(selector);
         }
-        selector.select();
-        selector.selectedKeys().clear();
-        if (Thread.currentThread().isInterrupted()) {
-            throw log.interruptedIO();
-        }
-        selectionKey.cancel();
-        selector.selectNow();
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op, long time, TimeUnit unit) throws IOException {
@@ -59,19 +62,23 @@ final class SelectorUtils {
         }
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
-        final SelectionKey selectionKey;
         try {
-            selectionKey = channel.register(selector, op);
-        } catch (ClosedChannelException e) {
-            return;
+            final SelectionKey selectionKey;
+            try {
+                selectionKey = channel.register(selector, op);
+            } catch (ClosedChannelException e) {
+                return;
+            }
+            long timeoutInMillis = unit.toMillis(time);
+            selector.select(timeoutInMillis == 0 ? 1 : timeoutInMillis);
+            selector.selectedKeys().clear();
+            if (Thread.currentThread().isInterrupted()) {
+                throw log.interruptedIO();
+            }
+            selectionKey.cancel();
+            selector.selectNow();
+        } finally {
+            nioXnio.returnSelector(selector);
         }
-        long timeoutInMillis = unit.toMillis(time);
-        selector.select(timeoutInMillis == 0 ? 1: timeoutInMillis);
-        selector.selectedKeys().clear();
-        if (Thread.currentThread().isInterrupted()) {
-            throw log.interruptedIO();
-        }
-        selectionKey.cancel();
-        selector.selectNow();
     }
 }
