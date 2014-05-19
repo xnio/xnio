@@ -329,6 +329,9 @@ public interface Messages extends BasicLogger {
     @LogMessage(level = ERROR)
     void executorSubmitFailed(RejectedExecutionException cause, Channel channel);
 
+    @Message(id = 1011, value = "Unknown element %s found in expression %s")
+    @LogMessage(level = WARN)
+    void unknowElementFoundDuringParsing(String element, String expression);
     // Trace
 
     @Message(value = "Closing resource %s")

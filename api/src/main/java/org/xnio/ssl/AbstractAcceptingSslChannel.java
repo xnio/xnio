@@ -64,6 +64,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
     private volatile int useClientMode;
     private volatile int enableSessionCreation;
     private volatile String[] cipherSuites;
+    private volatile String openSSLCipherSuites;
     private volatile String[] protocols;
 
     @SuppressWarnings("rawtypes")
@@ -74,6 +75,8 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
     private static final AtomicIntegerFieldUpdater<AbstractAcceptingSslChannel> enableSessionCreationUpdater = AtomicIntegerFieldUpdater.newUpdater(AbstractAcceptingSslChannel.class, "enableSessionCreation");
     @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<AbstractAcceptingSslChannel, String[]> cipherSuitesUpdater = AtomicReferenceFieldUpdater.newUpdater(AbstractAcceptingSslChannel.class, String[].class, "cipherSuites");
+    @SuppressWarnings("rawtypes")
+    private static final AtomicReferenceFieldUpdater<AbstractAcceptingSslChannel, String> openSSLCipherSuitesUpdater = AtomicReferenceFieldUpdater.newUpdater(AbstractAcceptingSslChannel.class, String.class, "openSSLCipherSuites");
     @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<AbstractAcceptingSslChannel, String[]> protocolsUpdater = AtomicReferenceFieldUpdater.newUpdater(AbstractAcceptingSslChannel.class, String[].class, "protocols");
 
@@ -95,6 +98,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         enableSessionCreation = optionMap.get(Options.SSL_ENABLE_SESSION_CREATION, true) ? 1 : 0;
         final Sequence<String> enabledCipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
         cipherSuites = enabledCipherSuites != null ? enabledCipherSuites.toArray(new String[enabledCipherSuites.size()]) : null;
+        openSSLCipherSuites = optionMap.get(Options.CIPHER_SUITE_FILTER);
         final Sequence<String> enabledProtocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
         protocols = enabledProtocols != null ? enabledProtocols.toArray(new String[enabledProtocols.size()]) : null;
         //noinspection ThisEscapedInObjectConstruction
@@ -108,6 +112,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
             .add(Options.SSL_USE_CLIENT_MODE)
             .add(Options.SSL_ENABLE_SESSION_CREATION)
             .add(Options.SSL_ENABLED_CIPHER_SUITES)
+            .add(Options.CIPHER_SUITE_FILTER)
             .add(Options.SSL_ENABLED_PROTOCOLS)
             .create();
 
@@ -123,6 +128,9 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         } else if (option == Options.SSL_ENABLED_CIPHER_SUITES) {
             final Sequence<String> seq = Options.SSL_ENABLED_CIPHER_SUITES.cast(value);
             return option.cast(cipherSuitesUpdater.getAndSet(this, seq == null ? null : seq.toArray(new String[seq.size()])));
+        } else if (option == Options.CIPHER_SUITE_FILTER) {
+            final String seq = Options.CIPHER_SUITE_FILTER.cast(value);
+            return option.cast(openSSLCipherSuitesUpdater.getAndSet(this, seq));
         } else if (option == Options.SSL_ENABLED_PROTOCOLS) {
             final Sequence<String> seq = Options.SSL_ENABLED_PROTOCOLS.cast(value);
             return option.cast(protocolsUpdater.getAndSet(this, seq == null ? null : seq.toArray(new String[seq.size()])));
@@ -163,10 +171,17 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         }
         engine.setEnableSessionCreation(enableSessionCreation != 0);
         final String[] cipherSuites = AbstractAcceptingSslChannel.this.cipherSuites;
-        if (cipherSuites != null) {
+        final String openSSLCipherSuites  = AbstractAcceptingSslChannel.this.openSSLCipherSuites;
+        if (cipherSuites != null || openSSLCipherSuites != null) {
+            List<String> cipherFilter;
+            if (cipherSuites != null) {
+                cipherFilter = Arrays.asList(cipherSuites);                
+            } else { //(openSSLCipherSuites != null) 
+                cipherFilter = OpenSSLCipherConfigurationParser.parseExpression(openSSLCipherSuites);               
+            }            
             final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
             final List<String> finalList = new ArrayList<String>();
-            for (String name : cipherSuites) {
+            for (String name : cipherFilter) {
                 if (supported.contains(name)) {
                     finalList.add(name);
                 }
@@ -215,6 +230,8 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         } else if (option == Options.SSL_ENABLED_CIPHER_SUITES) {
             final String[] cipherSuites = this.cipherSuites;
             return cipherSuites == null ? null : option.cast(Sequence.of(cipherSuites));
+        } else if (option == Options.CIPHER_SUITE_FILTER) {
+            return option.cast(openSSLCipherSuites);
         } else if (option == Options.SSL_ENABLED_PROTOCOLS) {
             final String[] protocols = this.protocols;
             return protocols == null ? null : option.cast(Sequence.of(protocols));
