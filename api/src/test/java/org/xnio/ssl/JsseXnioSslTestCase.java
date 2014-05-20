@@ -44,6 +44,7 @@ import javax.net.ssl.SSLEngine;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -228,6 +229,7 @@ public class JsseXnioSslTestCase {
         assertTrue(engine.getEnableSessionCreation());
     }
 
+    @Ignore
     @Test
     public void connectSsl4() throws Exception {
         final InetSocketAddress localAddress = new InetSocketAddress(600);

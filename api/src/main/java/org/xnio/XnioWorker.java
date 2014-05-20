@@ -31,7 +31,6 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -64,6 +63,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     private final Runnable terminationTask;
 
     private final AtomicInteger taskSeq = new AtomicInteger(1);
+    private final AtomicInteger coreSize = new AtomicInteger();
+
     private static final AtomicInteger seq = new AtomicInteger(1);
 
     /**
@@ -73,7 +74,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @param xnio the XNIO provider which produced this worker instance
      * @param threadGroup the thread group for worker threads
      * @param optionMap the option map to use to configure this worker
-     * @param terminationTask
+     * @param terminationTask an optional runnable task to run when the worker shutdown completes
      */
     protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) {
         this.xnio = xnio;
@@ -83,12 +84,13 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
-        final int taskLimit = optionMap.get(Options.WORKER_TASK_LIMIT, 0x4000);
-        final LimitedBlockingQueue<Runnable> taskQueue = new LimitedBlockingQueue<Runnable>(new LinkedBlockingQueue<Runnable>(taskLimit), taskLimit >> 2);
+        final BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<Runnable>();
+        this.coreSize.set(optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4));
         final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
+        final int threadCount = optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16);
         taskPool = new TaskPool(
-            optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4),
-            optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16),
+            threadCount, // ignore core threads setting, always fill to max
+            threadCount,
             optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60000), TimeUnit.MILLISECONDS,
             taskQueue,
             new ThreadFactory() {
@@ -100,14 +102,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                     }
                     return taskThread;
                 }
-            }, new RejectedExecutionHandler() {
-                public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor) {
-                    if (! taskQueue.offerUnchecked(r)) {
-                        throw new RejectedExecutionException("Task limit exceeded (server may be too busy to handle request)");
-                    }
-                }
-            }
-        );
+            }, new ThreadPoolExecutor.AbortPolicy());
     }
 
     //==================================================
@@ -595,7 +590,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
     public <T> T getOption(final Option<T> option) throws IOException {
         if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
+            return option.cast(Integer.valueOf(coreSize.get()));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
@@ -607,11 +602,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
         if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            final int old = taskPool.getCorePoolSize();
-            taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
-            return option.cast(Integer.valueOf(old));
+            return option.cast(Integer.valueOf(coreSize.getAndSet(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue())));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             final int old = taskPool.getMaximumPoolSize();
+            taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
             taskPool.setMaximumPoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
             return option.cast(Integer.valueOf(old));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
