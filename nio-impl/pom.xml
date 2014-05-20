@@ -35,7 +35,7 @@
     <parent>
         <groupId>org.jboss.xnio</groupId>
         <artifactId>xnio-all</artifactId>
-        <version>3.0.10.GA</version>
+        <version>3.0.11.GA-SNAPSHOT</version>
     </parent>
     
     <properties>
