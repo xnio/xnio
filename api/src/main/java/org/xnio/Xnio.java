@@ -235,6 +235,9 @@ public abstract class Xnio {
                 msg.debugf(t, "Skipping non-loadable provider");
             }
         }
+        if (XnioProviderHolder.getProvider() != null) {
+            return XnioProviderHolder.getProvider().getInstance();
+        }
         throw msg.noProviderFound();
     }
 

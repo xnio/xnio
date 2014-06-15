@@ -114,13 +114,7 @@
                         <exclude>java/**</exclude>
                     </excludes>
                     <archive>
-                        <manifest>
-                            <mainClass>org.xnio.Version</mainClass>
-                        </manifest>
-                        <manifestEntries>
-                            <Jar-Version>${project.version}</Jar-Version>
-                            <Jar-Name>${project.artifactId}</Jar-Name>
-                        </manifestEntries>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
                 </configuration>
             </plugin>
@@ -160,6 +154,31 @@
                         <link>http://java.sun.com/javase/7/docs/api/</link>
                     </links>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <Export-Package>
+                            !org.xnio._private, org.xnio.*;version=${project.version};-split-package:=error
+                        </Export-Package>
+                        <Service-Component>OSGI-INF/*</Service-Component>
+                        <Main-Class>org.xnio.Version</Main-Class>
+                        <Jar-Version>${project.version}</Jar-Version>
+                        <Jar-Name>${project.artifactId}</Jar-Name>
+                    </instructions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>bundle-manifest</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
