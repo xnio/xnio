@@ -1106,7 +1106,7 @@ public final class Buffers {
         }
         final int pos = buffer.position();
         final int remaining = buffer.remaining();
-        final int rowLength = (8 << (columns - 1));
+        final int rowLength = columns * 8;
         final int n = Math.max(Integer.toString(buffer.remaining(), 16).length(), 4);
         for (int idx = 0; idx < remaining; idx += rowLength) {
             // state: start of line
