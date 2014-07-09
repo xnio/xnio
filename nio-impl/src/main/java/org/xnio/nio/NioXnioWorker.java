@@ -20,7 +20,10 @@ package org.xnio.nio;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.StandardProtocolFamily;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.util.List;
@@ -189,7 +192,17 @@ final class NioXnioWorker extends XnioWorker {
     /** {@inheritDoc} */
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
         checkShutdown();
-        final DatagramChannel channel = DatagramChannel.open();
+        final DatagramChannel channel;
+        if (NioXnio.NIO2 && bindAddress != null) {
+            InetAddress address = bindAddress.getAddress();
+            if (address instanceof Inet6Address) {
+                channel = DatagramChannel.open(StandardProtocolFamily.INET6);
+            } else {
+                channel = DatagramChannel.open(StandardProtocolFamily.INET);
+            }
+        } else {
+            channel = DatagramChannel.open();
+        }
         channel.configureBlocking(false);
         if (optionMap.contains(Options.BROADCAST)) channel.socket().setBroadcast(optionMap.get(Options.BROADCAST, false));
         if (optionMap.contains(Options.IP_TRAFFIC_CLASS)) channel.socket().setTrafficClass(optionMap.get(Options.IP_TRAFFIC_CLASS, -1));
