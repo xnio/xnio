@@ -62,7 +62,7 @@ public interface Messages extends BasicLogger {
     // Greeting
 
     @Message(value = "XNIO version %s")
-    @LogMessage(level = INFO)
+    @LogMessage(level = DEBUG)
     void greeting(String version);
 
     // Validation messages - cross-check with xnio-nio
