@@ -18,11 +18,13 @@
 
 package org.xnio.ssl;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Pool;
 import org.xnio.StreamConnection;
@@ -41,7 +43,16 @@ final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel
     }
 
     @Override
-    public SslConnection accept(StreamConnection tcpConnection, SSLEngine engine) {
-        return new JsseSslConnection(tcpConnection, engine, socketBufferPool, applicationBufferPool);
+    public SslConnection accept(StreamConnection tcpConnection, SSLEngine engine) throws IOException {
+        JsseSslConnection connection = new JsseSslConnection(tcpConnection, engine, socketBufferPool, applicationBufferPool);
+        if (!startTls) {
+            try {
+                connection.startHandshake();
+            } catch (IOException e) {
+                IoUtils.safeClose(connection);
+                throw e;
+            }
+        }
+        return connection;
     }
 }

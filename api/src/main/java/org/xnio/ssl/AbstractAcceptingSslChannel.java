@@ -187,7 +187,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         return accept(tcpConnection, engine);
     }
 
-    protected abstract C accept(S tcpServer, SSLEngine sslEngine);
+    protected abstract C accept(S tcpServer, SSLEngine sslEngine) throws IOException;
 
     public ChannelListener.Setter<? extends AcceptingChannel<C>> getCloseSetter() {
         return closeSetter;
