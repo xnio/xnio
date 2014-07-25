@@ -38,15 +38,29 @@ final class JsseSslConnection extends SslConnection {
     }
 
     protected void closeAction() throws IOException {
-        if (!conduit.isReadShutdown()) {
-            conduit.terminateReads();
+        try {
+            if (!conduit.isWriteShutdown()) {
+                conduit.terminateWrites();
+            }
+            if (!conduit.isReadShutdown()) {
+                conduit.terminateReads();
+            }
+            conduit.flush();
+            conduit.markTerminated();
+            streamConnection.close();
+        } catch (Throwable t) {
+            // just make sure the connection is not left inconsistent
+            try {
+                if (!conduit.isReadShutdown()) {
+                    conduit.terminateReads();
+                }
+            } catch (Throwable ignored) {}
+            try {
+                conduit.markTerminated();
+                streamConnection.close();
+            } catch (Throwable ignored) {}
+            throw t;
         }
-        if (!conduit.isWriteShutdown()) {
-            conduit.terminateWrites();
-        }
-        conduit.flush();
-        conduit.markTerminated();
-        streamConnection.close();
     }
 
     protected void notifyWriteClosed() {}
