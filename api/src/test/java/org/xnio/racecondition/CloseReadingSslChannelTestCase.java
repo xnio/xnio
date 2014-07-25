@@ -20,7 +20,7 @@
 package org.xnio.racecondition;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,7 +28,6 @@ import java.nio.channels.ClosedChannelException;
 
 import org.jboss.byteman.contrib.bmunit.BMScript;
 import org.jboss.byteman.contrib.bmunit.BMUnitRunner;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xnio.channels.ConnectedSslStreamChannel;
@@ -41,7 +40,6 @@ import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
-@Ignore
 @RunWith(BMUnitRunner.class)
 @BMScript(dir="src/test/resources")
 public class CloseReadingSslChannelTestCase extends AbstractConnectedSslStreamChannelTest {
@@ -49,7 +47,7 @@ public class CloseReadingSslChannelTestCase extends AbstractConnectedSslStreamCh
     public void test() throws InterruptedException {
         conduitMock.setReadData("read data");
         conduitMock.enableReads(true);
-        engineMock.setHandshakeActions(HandshakeAction.NEED_WRAP, HandshakeAction.FINISH);
+        engineMock.setHandshakeActions(HandshakeAction.NEED_WRAP, HandshakeAction.NEED_WRAP, HandshakeAction.FINISH);
         ReadFromChannel readRunnable = new ReadFromChannel(sslChannel);
         Thread readThread = new Thread(readRunnable);
         Thread closeThread = new Thread(new CloseChannel(sslChannel));
@@ -57,7 +55,7 @@ public class CloseReadingSslChannelTestCase extends AbstractConnectedSslStreamCh
         closeThread.start();
         readThread.join();
         closeThread.join();
-        assertTrue(readRunnable.hasFailed());
+        assertFalse(readRunnable.hasFailed());
     }
 
     private static class ReadFromChannel implements Runnable {

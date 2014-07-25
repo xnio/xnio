@@ -1,35 +1,35 @@
 
 RULE handling NEED_WRAP
-CLASS org.xnio.ssl.JsseConnectedSslStreamChannel
-METHOD handleHandshake
-#AT INVOKE org.xnio.ssl.JsseConnectedSslStreamChannel.handleWrapResult
-AFTER INVOKE org.xnio.Pooled.getResource 1
-IF TRUE
+CLASS org.xnio.ssl.JsseStreamConduit
+METHOD performIO
+AT INVOKE javax.net.ssl.SSLEngine.wrap 1
+#AFTER INVOKE org.xnio.Pooled.getResource 1
+IF incrementCounter("apply NEED_WRAP rule only once") == 2
 DO
     debug("Read is trying to wrap as a result of NEED_WRAP... wait for the channel to be closed"),
-    signalWake("handleHandshake at invoke handleWrapResult", true),
-    waitFor("channel closed"),
-    debug("Proceeding with handleWrapResult")
+    signalWake("read at invoke SSLEngine.wrap", true),
+    waitFor("channel closed", 600),
+    debug("Proceeding with read")
 ENDRULE
 
 RULE before close channel
-CLASS org.xnio.ssl.JsseConnectedSslStreamChannel
+CLASS org.xnio.ssl.JsseSslConnection
 METHOD closeAction
 AT ENTRY
 IF TRUE 
 DO
-    debug("Channel is closing... waiting for handleHandshake first"),
-    waitFor("handleHandshake at invoke handleWrapResult"),
+    debug("Channel is closing... waiting for read handle handshake first"),
+    waitFor("read at invoke SSLEngine.wrap"),
     debug("Proceeding with closeAction")
 ENDRULE
 
 
 RULE after close channel
-CLASS org.xnio.ssl.JsseConnectedSslStreamChannel
+CLASS org.xnio.ssl.JsseSslConnection
 METHOD closeAction
 AT EXIT
 IF TRUE 
 DO
     debug("Channel is closed... waking read"),
-    signalWake("channel closed", true)
+    signalWake("channel closed", false)
 ENDRULE
