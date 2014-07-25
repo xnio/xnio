@@ -238,6 +238,8 @@ public class JsseSslStreamSinkConduitTestCase extends AbstractSslConnectionTest 
         // conduit should not be able to shutdown writes... for that, it must receive a close message
         sinkConduit.terminateWrites();
         assertFalse(sinkConduit.flush());
+        conduitMock.setReadData(HANDSHAKE_MSG);
+        conduitMock.enableReads(true);
         // close connection
         sourceConduit.terminateReads();
         // data expected to have been written to 'conduitMock' by 'sinkConduit'
@@ -433,13 +435,7 @@ public class JsseSslStreamSinkConduitTestCase extends AbstractSslConnectionTest 
         ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("abc".getBytes("UTF-8")).flip();
         sinkConduit.write(buffer);
-        EOFException expected = null;
-        try {
-            sourceConduit.terminateReads();
-        } catch (EOFException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-        assertWrittenMessage("abc");
+        sourceConduit.terminateReads();
+        assertWrittenMessage("abc", CLOSE_MSG);
     }
 }

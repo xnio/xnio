@@ -31,7 +31,6 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -46,6 +45,7 @@ import org.xnio.Options;
 import org.xnio.Pool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
+import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.SslChannel;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
@@ -56,14 +56,18 @@ import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
  */
 public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTest {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected ConnectedSslStreamChannel createSslChannel() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         final ConnectedSslStreamChannel channel = new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
-        channel.getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
+        final ChannelListener readListener = context.mock(ChannelListener.class, "read listener");
+        channel.getReadSetter().set(readListener);
+        context.checking(new Expectations() {{
+            allowing(readListener).handleEvent(with(any(ConnectedStreamChannel.class)));
+        }});
         channel.getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
         return channel;
     }
@@ -129,7 +133,7 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         // attempt to read... channel is expected to return 0 as it stumbles upon a NEED_WRAP that cannot be executed
         assertEquals(0, sslChannel.read(new ByteBuffer[]{buffer}));
         // everything is kept the same
-        assertTrue(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         assertTrue(sslChannel.isReadResumed());
         assertFalse(conduitMock.isWriteResumed());
         assertFalse(sslChannel.isWriteResumed());
@@ -279,7 +283,7 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         sslChannel.resumeReads();
         assertTrue(sslChannel.isReadResumed());
         assertFalse(conduitMock.isReadAwaken());
-        assertTrue(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         sslChannel.suspendReads();
         assertFalse(sslChannel.isReadResumed());
         assertFalse(conduitMock.isReadResumed());
@@ -469,13 +473,7 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
         assertTrue(sslChannel.flush());
         assertWrittenMessage(HANDSHAKE_MSG);
 
-        EOFException expected = null;
-        try {
-            sslChannel.shutdownReads();
-        } catch (EOFException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
+        sslChannel.shutdownReads();
 
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.setReadData(CLOSE_MSG);

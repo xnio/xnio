@@ -31,7 +31,6 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.FINISH;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -44,6 +43,8 @@ import org.xnio.ByteBufferSlicePool;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
 import org.xnio.Pool;
+import org.xnio.conduits.ConduitStreamSinkChannel;
+import org.xnio.conduits.ConduitStreamSourceChannel;
 import org.xnio.mock.StreamConnectionMock;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
@@ -54,14 +55,19 @@ import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
  */
 public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected SslConnection createSslConnection() {
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
-        connection.getSourceChannel().getReadSetter().set(context.mock(ChannelListener.class, "read listener"));
+        final ChannelListener readListener = context.mock(ChannelListener.class, "read listener");
+        connection.getSourceChannel().getReadSetter().set(readListener);
+        context.checking(new Expectations() {{
+            allowing(readListener).handleEvent(with(any(ConduitStreamSinkChannel.class)));
+            allowing(readListener).handleEvent(with(any(ConduitStreamSourceChannel.class)));
+        }});
         connection.getSinkChannel().getWriteSetter().set(context.mock(ChannelListener.class, "write listener"));
         return connection;
     }
@@ -127,7 +133,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         // attempt to read... channel is expected to return 0 as it stumbles upon a NEED_WRAP that cannot be executed
         assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 1));
         // everything is kept the same
-        assertTrue(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         assertTrue(sourceConduit.isReadResumed());
         assertFalse(conduitMock.isWriteResumed());
         assertFalse(sinkConduit.isWriteResumed());
@@ -277,7 +283,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         sourceConduit.resumeReads();
         assertTrue(sourceConduit.isReadResumed());
         assertFalse(conduitMock.isReadAwaken());
-        assertTrue(conduitMock.isReadResumed());
+        assertFalse(conduitMock.isReadResumed());
         sourceConduit.suspendReads();
         assertFalse(sourceConduit.isReadResumed());
         assertFalse(conduitMock.isReadResumed());
@@ -462,13 +468,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
         assertTrue(sinkConduit.flush());
         assertWrittenMessage(HANDSHAKE_MSG);
 
-        EOFException expected = null;
-        try {
-            sourceConduit.terminateReads();
-        } catch (EOFException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
+        sourceConduit.terminateReads();
 
         assertFalse(conduitMock.isWriteShutdown());
         conduitMock.setReadData(CLOSE_MSG);

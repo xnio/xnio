@@ -21,7 +21,6 @@ package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.xnio.ssl.mock.SSLEngineMock.CLOSE_MSG;
@@ -33,7 +32,6 @@ import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_UNWRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.NEED_WRAP;
 import static org.xnio.ssl.mock.SSLEngineMock.HandshakeAction.PERFORM_REQUESTED_ACTION;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -238,9 +236,12 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
         assertEquals(0, sslChannel.write(buffer));
         // make sure that channel managed to do the WRAP and got stalled on NEED_UNWRAP handshake status
         assertSame(HandshakeStatus.NEED_UNWRAP, engineMock.getHandshakeStatus());
-        // channel should not be able to shutdown writes... for that, it must receive a close message
+        // channel should not be able to shutdown writes... for that, it must receive a handshake message
         sslChannel.shutdownWrites();
         assertFalse(sslChannel.flush());
+        conduitMock.setReadData(HANDSHAKE_MSG);
+        conduitMock.enableReads(true);
+        sslChannel.shutdownWrites();
         // close channel
         sslChannel.close();
         // data expected to have been written to 'conduitMock' by 'sslChannel'
@@ -436,13 +437,7 @@ public class ConnectedSslStreamChannelWriteTestCase extends AbstractConnectedSsl
         ByteBuffer buffer = ByteBuffer.allocate(10);
         buffer.put("abc".getBytes("UTF-8")).flip();
         sslChannel.write(buffer);
-        EOFException expected = null;
-        try {
-            sslChannel.shutdownReads();
-        } catch (EOFException e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-        assertWrittenMessage("abc");
+        sslChannel.shutdownReads();
+        assertWrittenMessage("abc", CLOSE_MSG);
     }
 }
