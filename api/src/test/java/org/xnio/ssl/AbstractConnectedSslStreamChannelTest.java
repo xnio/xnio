@@ -23,6 +23,7 @@ import java.io.IOError;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.junit.After;
 import org.junit.Before;
 import org.xnio.AssertReadWrite;
 import org.xnio.BufferAllocator;
@@ -32,6 +33,8 @@ import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.mock.ConduitMock;
 import org.xnio.mock.StreamConnectionMock;
+import org.xnio.mock.XnioIoThreadMock;
+import org.xnio.mock.XnioWorkerMock;
 
 /**
  * Abstract test.
@@ -45,13 +48,23 @@ public abstract class AbstractConnectedSslStreamChannelTest extends AbstractSslT
     protected StreamConnectionMock connectionMock;
     // the underlying conduit used as a delegate by the test target
     protected ConduitMock conduitMock;
+    // the xnio IO thread
+    protected XnioIoThreadMock threadMock;
 
     @Override @Before
     public void createChannelMock() throws IOException {
         super.createChannelMock();
-        conduitMock = new ConduitMock();
+        final XnioWorkerMock worker = new XnioWorkerMock();
+        threadMock = worker.chooseThread();
+        threadMock.start();
+        conduitMock = new ConduitMock(worker, threadMock);
         connectionMock = new StreamConnectionMock(conduitMock);
         sslChannel = createSslChannel();
+    }
+
+    @After
+    public void closeIoThread() {
+        threadMock.closeIoThread();
     }
 
     protected ConnectedSslStreamChannel createSslChannel() {

@@ -75,7 +75,7 @@ public class XnioWorkerMock extends XnioWorker {
     // has this worker been shut down
     private boolean shutdown;
 
-    protected XnioWorkerMock() {
+    public XnioWorkerMock() {
         this(Xnio.getInstance(), null, OptionMap.EMPTY, null);
     }
 
@@ -93,7 +93,7 @@ public class XnioWorkerMock extends XnioWorker {
     }
 
     @Override
-    protected XnioIoThread chooseThread() {
+    public XnioIoThreadMock chooseThread() {
         return mockThread;
     }
 

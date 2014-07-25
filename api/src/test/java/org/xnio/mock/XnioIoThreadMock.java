@@ -22,6 +22,7 @@ package org.xnio.mock;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.xnio.AbstractIoFuture;
@@ -52,13 +53,70 @@ import org.xnio.channels.StreamSourceChannel;
  */
 public class XnioIoThreadMock extends XnioIoThread implements XnioExecutor {
 
+    private Runnable command;
+    private static final Runnable CLOSE_THREAD = new Runnable() {public void run() {}};
+
     public XnioIoThreadMock(final XnioWorker worker) {
-        super(worker, 0);
+        super(worker, 0, "XNIO IO THREAD MOCK");
     }
 
     @Override
-    public void execute(Runnable command) {
-        command.run();
+    public void run() {
+        while(true) {
+            Runnable currentCommand;
+            synchronized(this) {
+                currentCommand = command;
+                command = null;
+            }
+            if (currentCommand != null) {
+                currentCommand.run();
+            }
+            if (currentCommand == CLOSE_THREAD) {
+                break;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    @Override
+    public void execute(final Runnable command) {
+        assert this.isAlive(): "Before executing a commnad, the thread must be started.";
+        if (Thread.currentThread() == this) {
+            command.run();
+            return;
+        }
+        final CountDownLatch latch = new CountDownLatch(1);
+        synchronized (this) {
+            while (this.command != null) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }
+            }
+            assert this.isAlive(): "Thread is closed.";
+            this.command = new Runnable() {
+                public void run() {
+                    try {
+                        command.run();
+                    } finally {
+                        latch.countDown();
+                    }
+                }
+            };
+        }
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -213,5 +271,9 @@ public class XnioIoThreadMock extends XnioIoThread implements XnioExecutor {
 
     private XnioWorkerMock getWorkerMock() {
         return (XnioWorkerMock) super.getWorker();
+    }
+
+    public void closeIoThread() {
+        execute(CLOSE_THREAD);
     }
 }

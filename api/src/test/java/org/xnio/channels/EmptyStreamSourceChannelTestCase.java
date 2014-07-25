@@ -33,6 +33,7 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.xnio.ChannelListener;
@@ -53,10 +54,18 @@ import org.xnio.mock.XnioIoThreadMock;
 public class EmptyStreamSourceChannelTestCase {
 
     private EmptyStreamSourceChannel channel;
+    private XnioIoThreadMock threadMock;
 
     @Before
     public void createChannel() throws Exception {
-        this.channel = new EmptyStreamSourceChannel(new XnioIoThreadMock(null));
+        threadMock = new XnioIoThreadMock(null);
+        threadMock.start();
+        this.channel = new EmptyStreamSourceChannel(threadMock);
+    }
+
+    @After
+    public void closeIoThread() {
+        threadMock.closeIoThread();
     }
 
     @SuppressWarnings("deprecation")

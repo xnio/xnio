@@ -35,6 +35,7 @@ import java.util.concurrent.CancellationException;
 
 import javax.net.ssl.SSLContext;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -50,6 +51,7 @@ import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
+import org.xnio.mock.XnioIoThreadMock;
 import org.xnio.mock.XnioWorkerMock;
 
 /**
@@ -89,14 +91,23 @@ public class JsseXnioSslTestCase {
     private Xnio xnio;
     private XnioWorkerMock worker;
     private XnioSsl xnioSsl;
+    private XnioIoThreadMock threadMock;
 
     @Before
     public void init() throws Exception {
         serverAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT);
         xnio = Xnio.getInstance("xnio-mock", JsseXnioSslTestCase.class.getClassLoader());
         worker = (XnioWorkerMock) xnio.createWorker(OptionMap.EMPTY);
+        threadMock = worker.chooseThread();
+        threadMock.start();
         xnioSsl = xnio.getSslProvider(OptionMap.EMPTY);
     }
+
+    @After
+    public void closeIoThread() {
+        threadMock.closeIoThread();
+    }
+
     @Test
     public void testCreateSslConnectionServer() throws Exception {
         final TestChannelListener<AcceptingChannel<SslConnection>> openListener = new TestChannelListener<AcceptingChannel<SslConnection>>();

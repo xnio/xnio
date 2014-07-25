@@ -32,6 +32,7 @@ import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
 import org.jmock.lib.concurrent.Synchroniser;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.xnio.BufferAllocator;
@@ -41,6 +42,8 @@ import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 import org.xnio.mock.ConduitMock;
 import org.xnio.mock.StreamConnectionMock;
+import org.xnio.mock.XnioIoThreadMock;
+import org.xnio.mock.XnioWorkerMock;
 import org.xnio.ssl.mock.SSLEngineMock;
 import org.xnio.ssl.mock.SSLEngineMock.HandshakeAction;
 
@@ -62,6 +65,8 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
     protected ConduitMock conduitMock;
     // the SSLEngine mock, allows to test different engine behavior with channel
     protected SSLEngineMock engineMock;
+    // the xnio IO thread
+    protected XnioIoThreadMock threadMock;
 
     @Before
     public void createChannelMock() throws IOException {
@@ -71,7 +76,10 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
         engineMock = new SSLEngineMockSmallPacketSize(context);
         final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
         final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
-        conduitMock = new ConduitMock();
+        final XnioWorkerMock worker = new XnioWorkerMock();
+        threadMock = worker.chooseThread();
+        threadMock.start();
+        conduitMock = new ConduitMock(worker, threadMock);
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         try {
@@ -81,6 +89,11 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
         }
         this.sinkConduit = connection.getSinkChannel().getConduit();
         this.sourceConduit = connection.getSourceChannel().getConduit();
+    }
+
+    @After
+    public void closeIoThread() {
+        threadMock.closeIoThread();
     }
 
     @Test
