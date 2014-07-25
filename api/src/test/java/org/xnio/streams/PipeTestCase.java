@@ -20,10 +20,10 @@
 package org.xnio.streams;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.xnio.AssertReadWrite.assertReadMessage;
 
 import java.io.IOException;
@@ -356,14 +356,21 @@ public class PipeTestCase {
         int read = inputStream.read(bytes);
         writeThread.join();
         assertNull(writeTask.getWriteException());
-        if (read == 3) {
-            assertReadMessage(bytes, "345");
-            assertEquals('6', inputStream.read());
-            assertEquals('7', inputStream.read());
-        } else if (read == 5) {
-            assertReadMessage(bytes, "34567");
-        } else {
-            fail("Should've read 3 or 5 bytes but read " + read);
+        assertReadMessage(bytes, "34567".substring(0, read)); // assert we actually got the amount of bytes returned by read operation
+        switch (read) {
+            case 0:
+                assertEquals('3', inputStream.read());
+            case 1:
+                assertEquals('4', inputStream.read());
+            case 2:
+                assertEquals('5', inputStream.read());
+            case 3:
+                assertEquals('6', inputStream.read());
+            case 4:
+                assertEquals('7', inputStream.read());
+                break;
+            default:
+                assertFalse("Should've read up to 5 bytes into 5-length bytes array, but read: " + read, read > 5);
         }
         assertEquals('8', inputStream.read());
         assertEquals('9', inputStream.read());
