@@ -120,4 +120,18 @@ final class JsseSslConnection extends SslConnection {
         return SUPPORTED_OPTIONS.contains(option) || streamConnection.supportsOption(option);
     }
 
+    @Override
+    public boolean isOpen() {
+        return streamConnection.isOpen();
+    }
+
+    @Override
+    public boolean isWriteShutdown() {
+        return streamConnection.isWriteShutdown();
+    }
+
+    @Override
+    public boolean isReadShutdown() {
+        return streamConnection.isReadShutdown();
+    }
 }
