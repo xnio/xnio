@@ -63,6 +63,7 @@ final class JsseSslConduitEngine {
     // read-side
     private static final int NEED_WRAP              = 1 << 0x00; // conduit cannot be read due to pending wrap
     private static final int READ_SHUT_DOWN         = 1 << 0x01; // user shut down reads
+    private static final int BUFFER_UNDERFLOW         = 1 << 0x02; // even though there is data in the buffer there is not enough to form a complete packet
     @SuppressWarnings("unused")
     private static final int READ_FLAGS             = intBitMask(0x00, 0x0F);
     // write-side
@@ -596,7 +597,7 @@ final class JsseSslConduitEngine {
         if (dsts.length == 0 || length == 0) {
             return 0L;
         }
-        clearFlags(FIRST_HANDSHAKE);
+        clearFlags(FIRST_HANDSHAKE | BUFFER_UNDERFLOW);
         final ByteBuffer buffer = receiveBuffer.getResource();
         final ByteBuffer unwrappedBuffer = readBuffer.getResource();
         long total = 0;
@@ -637,6 +638,12 @@ final class JsseSslConduitEngine {
             if (res == -1) {
                 return -1L;
             }
+        }
+        if(res == 0 && result.getStatus() == SSLEngineResult.Status.BUFFER_UNDERFLOW) {
+            int old;
+            do {
+                old = state;
+            } while(!stateUpdater.compareAndSet(this, old, old | BUFFER_UNDERFLOW));
         }
         return total;
     }
@@ -1116,6 +1123,13 @@ final class JsseSslConduitEngine {
     }
 
     /**
+     * Indicates that even though there is data available there is not enough to form a complete packet
+     */
+    private boolean isUnderflow() {
+        return allAreSet(state, BUFFER_UNDERFLOW);
+    }
+
+    /**
      * Indicate that the engine no longer requires a successful unwrap to proceed with wrap operations.
      */
     private void clearNeedUnwrap() {
@@ -1146,7 +1160,7 @@ final class JsseSslConduitEngine {
 
     public boolean isDataAvailable() {
         synchronized (getUnwrapLock()) {
-            return readBuffer.getResource().hasRemaining() || receiveBuffer.getResource().hasRemaining();
+            return readBuffer.getResource().hasRemaining() || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
         }
     }
 }
