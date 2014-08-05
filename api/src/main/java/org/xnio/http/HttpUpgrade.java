@@ -30,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.xnio.ChannelExceptionHandler;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
@@ -39,6 +40,7 @@ import org.xnio.Pooled;
 import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.BoundChannel;
+import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.ssl.SslConnection;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -157,18 +159,18 @@ public class HttpUpgrade {
             final String scheme = uri.getScheme();
             if (scheme.equals("http")) {
                 if (bindAddress == null) {
-                    worker.openStreamConnection(address, connectListener, bindListener, optionMap);
+                    worker.openStreamConnection(address, connectListener, bindListener, optionMap).addNotifier(new FailureNotifier(), null);
                 } else {
-                    worker.openStreamConnection(bindAddress, address, connectListener, bindListener, optionMap);
+                    worker.openStreamConnection(bindAddress, address, connectListener, bindListener, optionMap).addNotifier(new FailureNotifier(), null);
                 }
             } else if (scheme.equals("https")) {
                 if (ssl == null) {
                     throw msg.missingSslProvider();
                 }
                 if (bindAddress == null) {
-                    ssl.openSslConnection(worker, address, connectListener, bindListener, optionMap);
+                    ssl.openSslConnection(worker, address, connectListener, bindListener, optionMap).addNotifier(new FailureNotifier(), null);
                 } else {
-                    ssl.openSslConnection(worker, bindAddress, address, connectListener, bindListener, optionMap);
+                    ssl.openSslConnection(worker, bindAddress, address, connectListener, bindListener, optionMap).addNotifier(new FailureNotifier(), null);
                 }
             } else {
                 throw msg.invalidURLScheme(scheme);
@@ -244,8 +246,36 @@ public class HttpUpgrade {
                         return;
                     }
                 } while (buffer.hasRemaining());
-                new UpgradeResultListener().handleEvent(connection.getSourceChannel());
+                flushUpgradeChannel();
             }
+        }
+
+        private void flushUpgradeChannel() {
+            try {
+                if(!connection.getSinkChannel().flush()) {
+
+                    connection.getSinkChannel().getWriteSetter().set(ChannelListeners.flushingChannelListener(new ChannelListener<StreamSinkChannel>() {
+                        @Override
+                        public void handleEvent(StreamSinkChannel channel) {
+                            channel.suspendWrites();
+                            new UpgradeResultListener().handleEvent(connection.getSourceChannel());
+                        }
+                    }, new ChannelExceptionHandler<StreamSinkChannel>() {
+                        @Override
+                        public void handleException(StreamSinkChannel channel, IOException exception) {
+                            safeClose(channel);
+                            future.setException(exception);
+                        }
+                    }));
+                    connection.getSinkChannel().resumeWrites();
+                    return;
+                }
+            } catch (IOException e) {
+                safeClose(connection);
+                future.setException(e);
+                return;
+            }
+            new UpgradeResultListener().handleEvent(connection.getSourceChannel());
         }
 
         private final class StringWriteListener implements ChannelListener<StreamSinkChannel> {
@@ -263,8 +293,6 @@ public class HttpUpgrade {
                     try {
                         r = channel.write(buffer);
                         if (r == 0) {
-                            channel.getWriteSetter().set(new StringWriteListener(buffer));
-                            channel.resumeWrites();
                             return;
                         }
                     } catch (IOException e) {
@@ -274,7 +302,7 @@ public class HttpUpgrade {
                     }
                 } while (buffer.hasRemaining());
                 channel.suspendWrites();
-                new UpgradeResultListener().handleEvent(connection.getSourceChannel());
+                flushUpgradeChannel();
             }
         }
 
@@ -377,5 +405,16 @@ public class HttpUpgrade {
             future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
+        private class FailureNotifier extends IoFuture.HandlingNotifier<StreamConnection, Object> {
+            @Override
+            public void handleFailed(IOException exception, Object attachment) {
+                future.setException(exception);
+            }
+
+            @Override
+            public void handleCancelled(Object attachment) {
+                future.setCancelled();
+            }
+        }
     }
 }
