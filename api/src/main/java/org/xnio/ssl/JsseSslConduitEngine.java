@@ -30,7 +30,6 @@ import static org.xnio.Bits.intBitMask;
 import static org.xnio._private.Messages.msg;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +40,7 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSession;
 
 import org.jboss.logging.Logger;
@@ -75,6 +75,8 @@ final class JsseSslConduitEngine {
      // engine is fully closed
     @SuppressWarnings("unused")
     private static final int WRITE_FLAGS            = intBitMask(0x10, 0x1F);
+    // empty buffer
+    private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     // final fields
     /** The SSL engine. */
@@ -231,15 +233,25 @@ final class JsseSslConduitEngine {
         final ByteBuffer buffer = sendBuffer.getResource();
         long bytesConsumed = 0;
         boolean run;
-        do {
-            final SSLEngineResult result;
-            synchronized (getWrapLock()) {
-                run = handleWrapResult(result = engineWrap(srcs, offset, length, buffer), false);
-                bytesConsumed += (long) result.bytesConsumed();
-            }
-            // handshake will tell us whether to keep the loop
-            run = run && (handleHandshake(result, true) || (!isUnwrapNeeded() && Buffers.hasRemaining(srcs, offset, length)));
-        } while (run);
+        try {
+            do {
+                final SSLEngineResult result;
+                synchronized (getWrapLock()) {
+                    run = handleWrapResult(result = engineWrap(srcs, offset, length, buffer), false);
+                    bytesConsumed += (long) result.bytesConsumed();
+                }
+                // handshake will tell us whether to keep the loop
+                run = run && (handleHandshake(result, true) || (!isUnwrapNeeded() && Buffers.hasRemaining(srcs, offset, length)));
+            } while (run);
+        } catch (SSLHandshakeException e) {
+            try {
+                synchronized (getWrapLock()) {
+                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    doFlush();
+                }
+            } catch (IOException ignore) {}
+            throw e;
+        }
         return bytesConsumed;
     }
 
@@ -290,15 +302,25 @@ final class JsseSslConduitEngine {
         final ByteBuffer buffer = sendBuffer.getResource();
         int bytesConsumed = 0;
         boolean run;
-        do {
-            final SSLEngineResult result;
-            synchronized (getWrapLock()) {
-                run = handleWrapResult(result = engineWrap(src, buffer), isCloseExpected);
-                bytesConsumed += result.bytesConsumed();
-            }
-            // handshake will tell us whether to keep the loop
-            run = run && bytesConsumed == 0 && (handleHandshake(result, true) || (!isUnwrapNeeded() && src.hasRemaining()));
-        } while (run);
+        try {
+            do {
+                final SSLEngineResult result;
+                synchronized (getWrapLock()) {
+                    run = handleWrapResult(result = engineWrap(src, buffer), isCloseExpected);
+                    bytesConsumed += result.bytesConsumed();
+                }
+                // handshake will tell us whether to keep the loop
+                run = run && bytesConsumed == 0 && (handleHandshake(result, true) || (!isUnwrapNeeded() && src.hasRemaining()));
+            } while (run);
+        } catch (SSLHandshakeException e) {
+            try {
+                synchronized (getWrapLock()) {
+                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    doFlush();
+                }
+            } catch (IOException ignore) {}
+            throw e;
+        }
         return bytesConsumed;
     }
 
@@ -309,7 +331,15 @@ final class JsseSslConduitEngine {
         assert Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
         log.logf(FQCN, Logger.Level.TRACE, null, "Wrapping %s into %s", srcs, dest);
-        return engine.wrap(srcs, offset, length, dest);
+        try {
+            return engine.wrap(srcs, offset, length, dest);
+        } catch (SSLHandshakeException e) {
+            try {
+                engine.wrap(srcs, offset, length, dest);
+                doFlush();
+            } catch (IOException ignore) {}
+            throw e;
+        }
     }
 
     /**
@@ -577,22 +607,32 @@ final class JsseSslConduitEngine {
             }
         }
         int res = 0;
-        do {
-            synchronized (getUnwrapLock()) {
-                if (! Buffers.hasRemaining(dsts, offset, length)) {
-                    if (unwrappedBuffer.hasRemaining() && sourceConduit.isReadResumed()) {
-                        sourceConduit.wakeupReads();
+        try {
+            do {
+                synchronized (getUnwrapLock()) {
+                    if (! Buffers.hasRemaining(dsts, offset, length)) {
+                        if (unwrappedBuffer.hasRemaining() && sourceConduit.isReadResumed()) {
+                            sourceConduit.wakeupReads();
+                        }
+                        return total;
                     }
-                    return total;
+                    res = handleUnwrapResult(result = engineUnwrap(buffer, unwrappedBuffer));
+                    if (unwrappedBuffer.position() > 0) { // test the position of the buffer instead of the
+                        // the amount of produced bytes, because in a concurrent scenario, during this loop,
+                        // another thread could read more bytes as a side effect of a need unwrap
+                        total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
+                    }
                 }
-                res = handleUnwrapResult(result = engineUnwrap(buffer, unwrappedBuffer));
-                if (unwrappedBuffer.position() > 0) { // test the position of the buffer instead of the
-                    // the amount of produced bytes, because in a concurrent scenario, during this loop,
-                    // another thread could read more bytes as a side effect of a need unwrap
-                    total += (long) copyUnwrappedData(dsts, offset, length, unwrappedBuffer);
+            } while ((handleHandshake(result, false) || res > 0));
+        } catch (SSLHandshakeException e) {
+            try {
+                synchronized (getWrapLock()) {
+                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    doFlush();
                 }
-            }
-        } while ((handleHandshake(result, false) || res > 0));
+            } catch (IOException ignore) {}
+            throw e;
+        }
         if (total == 0L) {
             if (res == -1) {
                 return -1L;
