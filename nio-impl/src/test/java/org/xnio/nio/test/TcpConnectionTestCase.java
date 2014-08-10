@@ -46,7 +46,7 @@ import org.xnio.channels.StreamSourceChannel;
 
 /**
  * Tests a pair of connected TCP connections (client/server).
- * 
+ *
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public class TcpConnectionTestCase extends AbstractStreamSinkSourceChannelTest<StreamSinkChannel, StreamSourceChannel> {
@@ -67,12 +67,14 @@ public class TcpConnectionTestCase extends AbstractStreamSinkSourceChannelTest<S
 
     @After
     public void closeServer() throws IOException {
-        server.close();
+        if (server != null) {
+            server.close();
+        }
     }
 
     @Override
     protected synchronized void initChannels(XnioWorker xnioWorker, OptionMap optionMap, TestChannelListener<StreamSinkChannel> channelListener,
-            TestChannelListener<StreamSourceChannel> serverChannelListener) throws IOException { 
+            TestChannelListener<StreamSourceChannel> serverChannelListener) throws IOException {
 
         if (connection != null) {
             connection.close();
