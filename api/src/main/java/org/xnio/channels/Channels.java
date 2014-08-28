@@ -569,7 +569,7 @@ public final class Channels {
     public static long transferBlocking(StreamSinkChannel destination, StreamSourceChannel source, ByteBuffer throughBuffer, long count) throws IOException {
         long t = 0L;
         long res;
-        while (count > 0L) {
+        while (t < count) {
             try {
                 while ((res = source.transferTo(count, throughBuffer, destination)) == 0L) {
                     if (throughBuffer.hasRemaining()) {
@@ -578,6 +578,7 @@ public final class Channels {
                         source.awaitReadable();
                     }
                 }
+                t += res;
             } catch (InterruptedIOException e) {
                 int transferred = e.bytesTransferred;
                 t += transferred;
