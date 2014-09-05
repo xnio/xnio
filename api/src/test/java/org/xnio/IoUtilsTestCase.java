@@ -386,10 +386,10 @@ public final class IoUtilsTestCase extends TestCase {
         final Thread retrieverThread2 = new Thread(futureValueRetriever2);
         retrieverThread1.start();
         retrieverThread2.start();
-        retrieverThread1.join(60);
-        retrieverThread2.join(60);
+        retrieverThread1.join(80);
+        retrieverThread2.join(150);
         assertTrue(retrieverThread1.isAlive());
-        assertFalse(retrieverThread2.isAlive());;
+        assertFalse(retrieverThread2.isAlive());
         assertNotNull(futureValueRetriever2.getTimeoutException());
         ioFuture1.setResult("future1");
         retrieverThread1.join();
