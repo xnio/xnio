@@ -459,6 +459,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                             task = workQueue.poll();
                         }
                     }
+                    // clear interrupt status
+                    Thread.interrupted();
                     safeRun(task);
                 } while (task != null);
                 // all tasks have been run
@@ -492,6 +494,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     }
                     Arrays.fill(keys, 0, keys.length, null);
                 }
+                // clear interrupt status
+                Thread.interrupted();
                 // perform select
                 try {
                     if ((oldState & SHUTDOWN) != 0) {
@@ -536,6 +540,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                             if (handle == null) {
                                 cancelKey(key);
                             } else {
+                                // clear interrupt status
+                                Thread.interrupted();
                                 handle.handleReady(key.readyOps());
                             }
                         }
