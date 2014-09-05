@@ -52,7 +52,7 @@ import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 import org.xnio.conduits.WriteReadyHandler;
 
-final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit, ReadReadyHandler, WriteReadyHandler, Runnable {
+final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit, Runnable {
 
     private static final boolean TRACE_SSL = true;
 
@@ -136,8 +136,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         this.engine = engine;
         this.sourceConduit = sourceConduit;
         this.sinkConduit = sinkConduit;
-        sourceConduit.setReadReadyHandler(this);
-        sinkConduit.setWriteReadyHandler(this);
+        sourceConduit.setReadReadyHandler(readReady);
+        sinkConduit.setWriteReadyHandler(writeReady);
     }
 
     //================================================================
@@ -251,33 +251,69 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         return connection.getIoThread();
     }
 
-    public void forceTermination() {
-        markTerminated();
-        final ReadReadyHandler readReadyHandler = this.readReadyHandler;
-        if (readReadyHandler != null) try {
-            readReadyHandler.forceTermination();
-        } catch (Throwable ignored) {
-        }
-        final WriteReadyHandler writeReadyHandler = this.writeReadyHandler;
-        if (writeReadyHandler != null) try {
-            writeReadyHandler.forceTermination();
-        } catch (Throwable ignored) {
-        }
-    }
+    private final WriteReadyHandler writeReady = new WriteReadyHandler() {
 
-    public void terminated() {
-        markTerminated();
-        final ReadReadyHandler readReadyHandler = this.readReadyHandler;
-        if (readReadyHandler != null) try {
-            readReadyHandler.terminated();
-        } catch (Throwable ignored) {
+        @Override
+        public void forceTermination() {
+            if (anyAreClear(state, WRITE_FLAG_FINISHED)) {
+                state |= WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3 | WRITE_FLAG_FINISHED;
+            } 
+            final WriteReadyHandler writeReadyHandler = JsseStreamConduit.this.writeReadyHandler;
+            if (writeReadyHandler != null) try {
+                writeReadyHandler.forceTermination();
+            } catch (Throwable ignored) {
+            }
         }
-        final WriteReadyHandler writeReadyHandler = this.writeReadyHandler;
-        if (writeReadyHandler != null) try {
-            writeReadyHandler.terminated();
-        } catch (Throwable ignored) {
+
+        @Override
+        public void terminated() {
+            if (anyAreClear(state, WRITE_FLAG_FINISHED)) {
+                state |= WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3 | WRITE_FLAG_FINISHED;
+            } 
+            final WriteReadyHandler writeReadyHandler = JsseStreamConduit.this.writeReadyHandler;
+            if (writeReadyHandler != null) try {
+                writeReadyHandler.terminated();
+            } catch (Throwable ignored) {
+            }
         }
-    }
+
+        @Override
+        public void writeReady() {
+            JsseStreamConduit.this.writeReady();
+        }
+    };
+
+    private final ReadReadyHandler readReady = new ReadReadyHandler() {
+
+        @Override
+        public void forceTermination() {
+            if (anyAreClear(state, READ_FLAG_SHUTDOWN)) {
+                state |= READ_FLAG_SHUTDOWN;
+            }
+            final ReadReadyHandler readReadyHandler = JsseStreamConduit.this.readReadyHandler;
+            if (readReadyHandler != null) try {
+                readReadyHandler.forceTermination();
+            } catch (Throwable ignored) {
+            }
+        }
+
+        @Override
+        public void terminated() {
+            if (anyAreClear(state, READ_FLAG_SHUTDOWN)) {
+                state |= READ_FLAG_SHUTDOWN;
+            }
+            final ReadReadyHandler readReadyHandler = JsseStreamConduit.this.readReadyHandler;
+            if (readReadyHandler != null) try {
+                readReadyHandler.terminated();
+            } catch (Throwable ignored) {
+            }
+        }
+
+        @Override
+        public void readReady() {
+            JsseStreamConduit.this.readReady();
+        }
+    };
 
     // non-public
 
