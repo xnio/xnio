@@ -48,6 +48,9 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     private final Pooled<ByteBuffer> receiveBuffer;
     private final Pooled<ByteBuffer> transmitBuffer;
 
+    private final Object readLock = new Object();
+    private final Object writeLock = new Object();
+
     /**
      * Construct a new instance.
      *
@@ -78,7 +81,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public int receive(final ByteBuffer buffer) throws IOException {
-        synchronized (receiveBuffer) {
+        synchronized (readLock) {
             if (isReadShutDown()) {
                 return -1;
             }
@@ -144,7 +147,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public long receive(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        synchronized (receiveBuffer) {
+        synchronized (readLock) {
             if (isReadShutDown()) {
                 return -1;
             }
@@ -203,7 +206,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
-        synchronized (receiveBuffer) {
+        synchronized (readLock) {
             log.tracef("Shutting down reads on %s", this);
             try {
                 receiveBuffer.getResource().clear();
@@ -219,7 +222,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer buffer) throws IOException {
-        synchronized (transmitBuffer) {
+        synchronized (writeLock) {
             if (isWriteShutDown()) {
                 throw msg.writeShutDown();
             }
@@ -251,7 +254,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
 
     /** {@inheritDoc} */
     public boolean send(final ByteBuffer[] buffers, final int offs, final int len) throws IOException {
-        synchronized (transmitBuffer) {
+        synchronized (writeLock) {
             if (isWriteShutDown()) {
                 throw msg.writeShutDown();
             }
@@ -304,13 +307,13 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     protected boolean flushAction(final boolean shutDown) throws IOException {
-        synchronized (transmitBuffer) {
+        synchronized (writeLock) {
             return (doFlushBuffer()) && channel.flush();
         }
     }
 
     protected void shutdownWritesComplete(final boolean readShutDown) throws IOException {
-        synchronized (transmitBuffer) {
+        synchronized (writeLock) {
             log.tracef("Finished shutting down writes on %s", this);
             try {
                 transmitBuffer.free();
@@ -320,7 +323,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     }
 
     private boolean doFlushBuffer() throws IOException {
-        assert Thread.holdsLock(transmitBuffer);
+        assert Thread.holdsLock(writeLock);
         final ByteBuffer buffer = transmitBuffer.getResource();
         buffer.flip();
         try {
@@ -345,7 +348,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
     protected void closeAction(final boolean readShutDown, final boolean writeShutDown) throws IOException {
         boolean error = false;
         if (! writeShutDown) {
-            synchronized (transmitBuffer) {
+            synchronized (writeLock) {
                 try {
                     if (! doFlush()) error = true;
                 } catch (Throwable t) {
@@ -358,7 +361,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             }
         }
         if (! readShutDown) {
-            synchronized (receiveBuffer) {
+            synchronized (readLock) {
                 try {
                     receiveBuffer.free();
                 } catch (Throwable t) {
