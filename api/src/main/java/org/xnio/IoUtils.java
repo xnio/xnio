@@ -127,6 +127,23 @@ public final class IoUtils {
      *
      * @param resource the resource to close
      */
+    public static void safeClose(final AutoCloseable resource) {
+        try {
+            if (resource != null) {
+                closeMsg.closingResource(resource);
+                resource.close();
+            }
+        } catch (ClosedChannelException ignored) {
+        } catch (Throwable t) {
+            closeMsg.resourceCloseFailed(t, resource);
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
     public static void safeClose(final Closeable resource) {
         try {
             if (resource != null) {
