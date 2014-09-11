@@ -72,6 +72,9 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     /** The buffer into which inbound clear data is written. */
     private final Pooled<ByteBuffer> readBuffer;
 
+    private final Object readLock = new Object();
+    private final Object writeLock = new Object();
+
     // state
 
     private volatile boolean tls;
@@ -560,11 +563,11 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     protected Object getReadLock() {
-        return receiveBuffer;
+        return readLock;
     }
 
     protected Object getWriteLock() {
-        return sendBuffer;
+        return writeLock;
     }
 
     protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
