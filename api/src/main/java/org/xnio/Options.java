@@ -468,25 +468,28 @@ public final class Options {
     public static final Option<Integer> WORKER_IO_THREADS = Option.simple(Options.class, "WORKER_IO_THREADS", Integer.class);
 
     /**
-     * Specify the number of read threads to create for the worker.  If not specified, a default will be chosen.
-     *
-     * @deprecated Use {@link #WORKER_IO_THREADS} instead.
+     * Specify the number of I/O threads to devote to reading for split thread channels.  If not specified, a default will be chosen to be
+     * roughly half of the worker I/O threads, or the number of threads not specified for writing.
      */
-    @Deprecated
     public static final Option<Integer> WORKER_READ_THREADS = Option.simple(Options.class, "WORKER_READ_THREADS", Integer.class);
 
     /**
-     * Specify the number of write threads to create for the worker.  If not specified, a default will be chosen.
-     *
-     * @deprecated Use {@link #WORKER_IO_THREADS} instead.
+     * Specify the number of I/O threads to devote to writing for split thread channels.  If not specified, a default will be chosen to be
+     * roughly half of the worker I/O threads, or the number of threads not specified for reading.
      */
-    @Deprecated
     public static final Option<Integer> WORKER_WRITE_THREADS = Option.simple(Options.class, "WORKER_WRITE_THREADS", Integer.class);
+
+    /**
+     * Specify whether read and write operations should be split among separate threads.  If {@code true}, then each
+     * directional channel may be accessed concurrently with respect to one another, and will have different worker threads assigned;
+     * otherwise, both directions will share a worker thread and must not be accessed independently.
+     */
+    public static final Option<Boolean> SPLIT_READ_WRITE_THREADS = Option.simple(Options.class, "SPLIT_READ_WRITE_THREADS", Boolean.class);
 
     /**
      * Specify whether a server, acceptor, or connector should be attached to write threads.  By default, the establishing
      * phase of connections are attached to read threads.  Use this option if the client or server writes a message
-     * directly upon connect.
+     * directly upon connect and a split threads configuration is used.
      */
     public static final Option<Boolean> WORKER_ESTABLISH_WRITING = Option.simple(Options.class, "WORKER_ESTABLISH_WRITING", Boolean.class);
 
@@ -494,6 +497,9 @@ public final class Options {
      * Specify the number of accept threads a single socket server should have.  Specifying more than one can result in spurious wakeups
      * for a socket server under low connection volume, but higher throughput at high connection volume.  The minimum value
      * is 1, and the maximum value is equal to the number of available worker threads.
+     *
+     * @deprecated This option is now ignored.  All I/O threads are used for accept, except in the case of split read/write
+     * threads, in which case only read or write threads will be used as determined by {@link #WORKER_ESTABLISH_WRITING}.
      */
     @Deprecated
     public static final Option<Integer> WORKER_ACCEPT_THREADS = Option.simple(Options.class, "WORKER_ACCEPT_THREADS", Integer.class);
