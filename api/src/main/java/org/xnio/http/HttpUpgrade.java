@@ -316,7 +316,6 @@ public class HttpUpgrade {
                 int r;
                 do {
                     try {
-                        buffer.compact();
                         r = channel.read(buffer);
                         if (r == 0) {
                             channel.getReadSetter().set(this);
@@ -327,6 +326,9 @@ public class HttpUpgrade {
                         }
                         buffer.flip();
                         parser.parse(buffer);
+                        if(!parser.isComplete()) {
+                            buffer.compact();
+                        }
                     } catch (IOException e) {
                         safeClose(channel);
                         future.setException(e);
