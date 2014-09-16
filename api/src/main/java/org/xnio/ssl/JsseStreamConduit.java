@@ -965,6 +965,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     //================================================================
 
     public int write(final ByteBuffer src) throws IOException {
+        if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
+            throw new ClosedChannelException();
+        }
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.write(src);
         } else {
@@ -974,6 +977,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     }
 
     public int writeFinal(final ByteBuffer src) throws IOException {
+        if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
+            throw new ClosedChannelException();
+        }
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.writeFinal(src);
         } else {
@@ -983,6 +989,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     }
 
     public long write(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+        if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
+            throw new ClosedChannelException();
+        }
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.write(srcs, offs, len);
         } else {
@@ -993,6 +1002,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     }
 
     public long writeFinal(final ByteBuffer[] srcs, final int offs, final int len) throws IOException {
+        if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
+            throw new ClosedChannelException();
+        }
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.writeFinal(srcs, offs, len);
         } else {
