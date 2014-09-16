@@ -1103,6 +1103,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         boolean readBlocked = false;
         boolean writeBlocked = false;
         boolean copiedUnwrappedBytes = false;
+        boolean wakeupReads = false;
         SSLEngineResult result;
         SSLEngineResult.HandshakeStatus handshakeStatus;
         int rv = 0;
@@ -1331,9 +1332,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             if (goal == IO_GOAL_READ) {
                                 xfer += userProduced;
                                 remaining -= userProduced;
+                                // if we are performing any action that not read, we don't want to disable read handler yet
+                                // (the handler needs to read -1 before that)
+                                state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
+                            } else {
+                                wakeupReads = true;
                             }
                             // if unwrap processed any data, it should return bytes produced instead of -1
-                            state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
                             eof = true;
                             unwrap = false;
                             if (goal == IO_GOAL_FLUSH) {
@@ -1354,6 +1359,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             } else {
                                 wrap = true;
                                 unwrap = false;
+                                if (result.bytesProduced() > 0) {
+                                    wakeupReads = true;
+                                }
                             }
                             // handshake result
                             break;
@@ -1462,6 +1470,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             }
         } finally {
             this.state = state;
+            if (wakeupReads) {
+                wakeupReads();
+            }
         }
     }
 
