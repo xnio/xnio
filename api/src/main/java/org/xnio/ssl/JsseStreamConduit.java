@@ -362,8 +362,10 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
 
     public void run() {
         assert currentThread() == getWriteThread();
-        int state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
-        boolean modify = false;
+        int state = JsseStreamConduit.this.state;
+        final boolean flagTaskQueued = allAreSet(state, FLAG_TASK_QUEUED);
+        boolean modify = flagTaskQueued;
+        state &= ~FLAG_TASK_QUEUED;
         try {
             // task(s)
             if (allAreSet(state, FLAG_NEED_ENGINE_TASK)) {
@@ -389,7 +391,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         } finally {                                   // |
                             // restore flags <---------------------------+
                             // it is OK if this is stale
-                            state = JsseStreamConduit.this.state;
+                            state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -450,7 +452,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         // level-triggering
                         if (allAreSet(state, READ_FLAG_RESUMED)) {
                             if (allAreSet(state, READ_FLAG_READY)) {
-                                if (allAreClear(state, FLAG_TASK_QUEUED)) {
+                                if (!flagTaskQueued) {
                                     state |= FLAG_TASK_QUEUED;
                                     modify = true;
                                     getReadThread().execute(this);
