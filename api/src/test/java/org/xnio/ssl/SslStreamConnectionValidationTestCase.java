@@ -70,14 +70,14 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
         // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, -1, 1));
+            sinkConduit.write(new ByteBuffer[]{buffer}, -1, 1);
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            assertEquals(0, sinkConduit.write(new ByteBuffer[]{buffer}, 0, 2));
+            sinkConduit.write(new ByteBuffer[]{buffer}, 0, 2);
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
@@ -119,25 +119,31 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
         final ByteBuffer buffer = ByteBuffer.allocate(10);
         // the conduit should simply return 0 if length is 0 or a negative number
         assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 0));
-        assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, -1));
         // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, -1, 1));
+            sourceConduit.read(new ByteBuffer[]{buffer}, 0, -1);
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 2));
+            sourceConduit.read(new ByteBuffer[]{buffer}, -1, 1);
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            assertEquals(0, sourceConduit.read(new ByteBuffer[0], 0, 50));
+            sourceConduit.read(new ByteBuffer[]{buffer}, 0, 2);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+        failed = false;
+        try {
+            sourceConduit.read(new ByteBuffer[0], 0, 50);
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
