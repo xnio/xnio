@@ -21,6 +21,7 @@ package org.xnio.nio.test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
@@ -36,7 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jboss.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -481,7 +481,6 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
     }
 
     @Test
-    @Ignore("Does not follow thread model")
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
@@ -641,12 +640,18 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                 try {
                     channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
                         public void handleEvent(final ConnectedChannel channel) {
+                            log.info("at client close listener");
                             latch.countDown();
                         }
                     });
                     channel.setOption(Options.CLOSE_ABORT, Boolean.TRUE);
+                    log.info("client closing channel");
                     channel.close();
                     clientOK.set(true);
+                } catch (EOFException e) {
+                    // eof exception is fine
+                    clientOK.set(true);
+                    latch.countDown();
                 } catch (Throwable t) {
                     log.errorf(t, "Failed to close channel (propagating as RT exception)");
                     latch.countDown();
@@ -658,6 +663,7 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                 try {
                     channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
                         public void handleEvent(final ConnectedChannel channel) {
+                            log.info("at server close listener");
                             latch.countDown();
                         }
                     });
@@ -666,6 +672,7 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                             int res;
                             try {
                                 res = sourceChannel.read(ByteBuffer.allocate(100));
+                                log.info("server read " + res);
                             } catch (IOException e) {
                                 serverOK.set(true);
                                 IoUtils.safeClose(channel);
@@ -674,6 +681,7 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                             if (res > 0) IoUtils.safeClose(channel);
                         }
                     });
+                    log.info("resuming reads for server");
                     resumeReads(channel);
                 } catch (Throwable t) {
                     log.errorf(t, "Failed to close channel (propagating as RT exception)");
@@ -720,7 +728,10 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
                                 IoUtils.safeClose(channel);
                                 return;
                             }
-                            if (res > 0) IoUtils.safeClose(channel);
+                            if (res == -1) {
+                                clientOK.set(true);
+                                IoUtils.safeClose(channel);
+                            }
                         }
                     });
                     setWriteListener(channel, new ChannelListener<W>() {
