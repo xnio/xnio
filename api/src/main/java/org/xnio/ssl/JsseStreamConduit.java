@@ -804,7 +804,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             return;
                         }
                     }
-                    if (!engine.isInboundDone()) {
+                    if (!engine.isInboundDone() && engine.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
                         engine.closeInbound();
                     }
                     performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
