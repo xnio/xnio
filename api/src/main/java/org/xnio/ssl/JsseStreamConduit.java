@@ -1248,6 +1248,10 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                         // send buffer should already be cleared, thanks to above write block
                                         assert sendBuffer.position() == 0;
                                         state |= WRITE_FLAG_SHUTDOWN2;
+                                        if (result.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
+                                            // make sure we get to shutdown 3 right away if we are no longer handshaking
+                                            state |= WRITE_FLAG_SHUTDOWN3;
+                                        }
                                     }
                                     if (allAreSet(state, WRITE_FLAG_SHUTDOWN3)) {
                                         // the last wrap has occurred, and writes were shut down; we just need last flush
