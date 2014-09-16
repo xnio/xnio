@@ -29,7 +29,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.FutureResult;
@@ -54,7 +53,6 @@ import org.xnio.channels.ConnectedStreamChannel;
 public class NioTcpChannelTestCase extends AbstractNioTcpTest<ConnectedStreamChannel, ConnectedStreamChannel, ConnectedStreamChannel>{
 
     @Test
-    @Ignore("Does not follow thread model")
     public void acceptor() throws Exception {
         log.info("Test: acceptor");
         final CountDownLatch ioLatch = new CountDownLatch(4);
@@ -90,13 +88,11 @@ public class NioTcpChannelTestCase extends AbstractNioTcpTest<ConnectedStreamCha
                         public void handleEvent(final ConnectedStreamChannel channel) {
                             try {
                                 final int res = channel.read(inboundBuf);
-                                if (res == 0) {
-                                    channel.resumeReads();
-                                } else if (res == -1) {
+                                if (res == -1) {
                                     serverReadDoneOK.set(true);
                                     ioLatch.countDown();
                                     channel.shutdownReads();
-                                } else {
+                                } else if (res > 0) {
                                     final int ttl = readCnt += res;
                                     if (ttl == bytes.length) {
                                         serverReadOnceOK.set(true);
@@ -105,7 +101,6 @@ public class NioTcpChannelTestCase extends AbstractNioTcpTest<ConnectedStreamCha
                                         IoUtils.safeClose(channel);
                                         return;
                                     }
-                                    channel.resumeReads();
                                 }
                             } catch (IOException e) {
                                 log.errorf(e, "Server read failed");
@@ -153,13 +148,11 @@ public class NioTcpChannelTestCase extends AbstractNioTcpTest<ConnectedStreamCha
                         public void handleEvent(final ConnectedStreamChannel channel) {
                             try {
                                 final int res = channel.read(inboundBuf);
-                                if (res == 0) {
-                                    channel.resumeReads();
-                                } else if (res == -1) {
+                                if (res == -1) {
                                     channel.shutdownReads();
                                     clientReadDoneOK.set(true);
                                     ioLatch.countDown();
-                                } else {
+                                } else if (res > 0) {
                                     final int ttl = readCnt += res;
                                     if (ttl == bytes.length) {
                                         clientReadOnceOK.set(true);
@@ -168,7 +161,6 @@ public class NioTcpChannelTestCase extends AbstractNioTcpTest<ConnectedStreamCha
                                         IoUtils.safeClose(channel);
                                         return;
                                     }
-                                    channel.resumeReads();
                                 }
                             } catch (IOException e) {
                                 log.errorf(e, "Client read failed");
