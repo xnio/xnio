@@ -191,7 +191,7 @@ public class SSLEngineMock extends SSLEngine {
      * Marks this engine as closed.
      */
     @Override
-    public void closeInbound() throws SSLException {
+    public synchronized void closeInbound() throws SSLException {
         closed = true;
     }
 
@@ -199,7 +199,7 @@ public class SSLEngineMock extends SSLEngine {
      * Marks this engine as closed.
      */
     @Override
-    public void closeOutbound() {
+    public synchronized void closeOutbound() {
         closed = true;
     }
 
@@ -285,7 +285,7 @@ public class SSLEngineMock extends SSLEngine {
     }
 
     @Override
-    public HandshakeStatus getHandshakeStatus() {
+    public synchronized HandshakeStatus getHandshakeStatus() {
         final int currentIndex;
         synchronized (this) {
             if (closed) {
@@ -337,7 +337,7 @@ public class SSLEngineMock extends SSLEngine {
     }
 
     @Override
-    public SSLEngineResult unwrap(ByteBuffer src, ByteBuffer[] dsts, int offset, int length) throws SSLException {
+    public synchronized SSLEngineResult unwrap(ByteBuffer src, ByteBuffer[] dsts, int offset, int length) throws SSLException {
         for (int i = offset; i < length; i++) {
             if (dsts[i].hasRemaining()) {
                 break;
@@ -386,7 +386,7 @@ public class SSLEngineMock extends SSLEngine {
     }
 
     @Override
-    public SSLEngineResult wrap(ByteBuffer[] srcs, int offset, int length, ByteBuffer dst) throws SSLException {
+    public synchronized SSLEngineResult wrap(ByteBuffer[] srcs, int offset, int length, ByteBuffer dst) throws SSLException {
         if (dst.position() > 0) {
             return logWrap(new SSLEngineResult(SSLEngineResult.Status.BUFFER_OVERFLOW, getHandshakeStatus(), 0, 0));
         }
@@ -407,12 +407,15 @@ public class SSLEngineMock extends SSLEngine {
                 result = new SSLEngineResult(SSLEngineResult.Status.OK, SSLEngineResult.HandshakeStatus.NEED_TASK, 0, 0);
                 break;
             case NEED_UNWRAP:
-                result = new SSLEngineResult(SSLEngineResult.Status.OK, SSLEngineResult.HandshakeStatus.NEED_UNWRAP, 0, 0);
+                result = new SSLEngineResult(closed? SSLEngineResult.Status.CLOSED: SSLEngineResult.Status.OK, SSLEngineResult.HandshakeStatus.NEED_UNWRAP, 0, 0);
                 break;
             case NEED_WRAP:
                 result = wrapper.wrap(dst, srcs, offset, length, true, currentActionIndex);
                 break;
             case NOT_HANDSHAKING: {
+                if (closed) {
+                    return new SSLEngineResult(SSLEngineResult.Status.CLOSED, SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING, 0, 0);
+                }
                 actionAccountedFor(HandshakeAction.PERFORM_REQUESTED_ACTION, currentActionIndex);
                 result = wrapper.wrap(dst, srcs, offset, length, false, currentActionIndex);
                 break;
