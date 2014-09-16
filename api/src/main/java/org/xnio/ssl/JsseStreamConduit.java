@@ -35,8 +35,10 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
+
 import org.xnio.Buffers;
 import org.xnio.Pool;
 import org.xnio.Pooled;
@@ -785,6 +787,18 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 // indicate that the user doesn't want any more data
                 this.state = state | READ_FLAG_SHUTDOWN;
                 if (allAreClear(state, READ_FLAG_EOF)) {
+                    performIO(IO_GOAL_FLUSH, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                    if (allAreSet(state,  WRITE_FLAG_NEEDS_READ)) {
+                        if (allAreClear(state, READ_FLAG_EOF)) {
+                            return;
+                        }
+                    }
+                    if (!engine.isInboundDone()) {
+                        engine.closeInbound();
+                    }
+                    performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                }
+                if (allAreClear(this.state, READ_FLAG_EOF) || this.receiveBuffer.getResource().hasRemaining()) {
                     // potentially unread data :(
                     final EOFException exception = msg.connectionClosedEarly();
                     try {
@@ -1090,8 +1104,6 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         if (TRACE_SSL) msg.tracef("performing TLS I/O operation, goal %s, src: %s, dst: %s", decodeGoal(goal), Buffers.debugString(srcs, srcOff, srcLen), Buffers.debugString(dsts, dstOff, dstLen));
         // one of these arrays is empty
         assert srcs == NO_BUFFERS || dsts == NO_BUFFERS;
-        // read has to have a destination buffer (write does not need a source though)
-        assert ! (goal == IO_GOAL_READ && dsts == NO_BUFFERS);
         int state = this.state;
         // this contradiction should never occur
         assert ! allAreSet(state, READ_FLAG_NEEDS_WRITE | WRITE_FLAG_NEEDS_READ);
