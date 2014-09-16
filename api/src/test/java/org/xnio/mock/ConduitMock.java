@@ -157,42 +157,42 @@ public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock
 
         synchronized (this) {
             int totalLength = 0;
-        for (String data: readData) {
-            totalLength += data.length();
-        }
-        int position = readBuffer.position();
-        boolean resetPosition = false;
-        if (!readBuffer.hasRemaining()) {
-            readBuffer.compact();
-        } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-            if (readBuffer.capacity() - readBuffer.limit() < totalLength) {
-                if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() >= totalLength) {
-                    readBuffer.compact();
+            for (String data: readData) {
+                totalLength += data.length();
+            }
+            int position = readBuffer.position();
+            boolean resetPosition = false;
+            if (!readBuffer.hasRemaining()) {
+                readBuffer.compact();
+            } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
+                if (readBuffer.capacity() - readBuffer.limit() < totalLength) {
+                    if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() >= totalLength) {
+                        readBuffer.compact();
+                    }
+                    throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
                 }
-                throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
+                int limit = readBuffer.limit();
+                readBuffer.position(limit);
+                readBuffer.limit(limit += totalLength);
+                resetPosition = true;
             }
-            int limit = readBuffer.limit();
-            readBuffer.position(limit);
-            readBuffer.limit(limit += totalLength);
-            resetPosition = true;
-        }
-        for (String data: readData) {
-            try {
-                readBuffer.put(data.getBytes("UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
+            for (String data: readData) {
+                try {
+                    readBuffer.put(data.getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
+                }
             }
-        }
-        readBuffer.flip();
-        if (resetPosition) {
-            readBuffer.position(position);
-        }
-        
-        if (readWaiter == null || totalLength == 0 || !readsEnabled) {
-            return;
-        }
-        waiter = readWaiter;
-        readWaiter = null;
+            readBuffer.flip();
+            if (resetPosition) {
+                readBuffer.position(position);
+            }
+            
+            if (readWaiter == null || totalLength == 0 || !readsEnabled) {
+                return;
+            }
+            waiter = readWaiter;
+            readWaiter = null;
         }
         LockSupport.unpark(waiter);
     }
