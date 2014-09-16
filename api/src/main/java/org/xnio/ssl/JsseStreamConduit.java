@@ -1310,12 +1310,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                     do {
                                         // try more reads just in case
                                         res = sourceConduit.read(receiveBuffer);
-                                        if (res == -1) {
-                                            state &= ~READ_FLAG_READY;
-                                            engine.closeInbound();
-                                            break;
-                                        }
-                                    } while (res != 0 && receiveBuffer.hasRemaining());
+                                    } while (res > 0 && receiveBuffer.hasRemaining());
                                     if (res == 0) {
                                         state &= ~READ_FLAG_READY;
                                     }
