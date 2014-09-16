@@ -406,7 +406,7 @@ public class BufferPipeInputStreamTestCase {
                 assertReadMessage(readBuffer3, "klmnopqrst");
                 assertEquals(6, read1.getReadResult());
                 assertReadMessage(readBuffer1, "uvwxyz");
-            } else if (readBuffer2[0] == 'ḱ') {
+            } else if (readBuffer2[0] == 'k') {
                 assertEquals(10, read3.getReadResult());
                 assertReadMessage(readBuffer3, "abcdefghij");
                 assertEquals(10, read2.getReadResult());
