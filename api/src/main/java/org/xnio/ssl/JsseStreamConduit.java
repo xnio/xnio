@@ -607,11 +607,16 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
 
     public void terminateWrites() throws IOException {
         int state = this.state;
-        if (allAreClear(state, WRITE_FLAG_SHUTDOWN)) {
+        if (allAreClear(state, WRITE_FLAG_FINISHED)) {
             this.state = state | WRITE_FLAG_SHUTDOWN;
             if (allAreSet(state, FLAG_TLS)) try {
-                engine.closeOutbound();
+                if (engine.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
+                    engine.closeOutbound();
+                }
                 performIO(IO_GOAL_FLUSH, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                if (allAreSet(this.state, WRITE_FLAG_FINISHED)) {
+                    sinkConduit.terminateWrites();
+                }
             } catch (Throwable t) {
                 this.state |= WRITE_FLAG_FINISHED;
                 try {
@@ -1412,9 +1417,12 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             if (TRACE_SSL) msg.trace("TLS handshake FINISHED");
                             connection.invokeHandshakeListener();
                             // try original op again
-                            break HS;
+                            // fall thru!
                         }
                         case NOT_HANDSHAKING: {
+                            if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {//_REQ)) {
+                                engine.closeOutbound();
+                            }
                             // move on to next operation until I/O blocks
                             break HS;
                         }
