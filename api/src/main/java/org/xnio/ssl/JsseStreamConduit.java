@@ -746,6 +746,12 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         int state = this.state;
         if (allAreClear(state, READ_FLAG_RESUMED)) try {
             state |= READ_FLAG_RESUMED;
+            // in the absence of a writer, we need to wake up the reader to make sure that handshake will take place
+            // (the read listener could never be called if this is the side that is supposed to make the first wrap
+            // for handshake; if that happens, this side of the connection would starve)
+            if (allAreClear(state, WRITE_FLAG_RESUMED)) {
+                state |= READ_FLAG_READY;
+            }
             if (allAreSet(state, READ_FLAG_READY)) {
                 if (allAreClear(state, FLAG_TASK_QUEUED)) {
                     state |= FLAG_TASK_QUEUED;
