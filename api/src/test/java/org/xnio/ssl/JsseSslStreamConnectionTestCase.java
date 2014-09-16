@@ -20,6 +20,7 @@
 package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -54,10 +55,23 @@ import org.xnio.ssl.mock.SSLEngineMock;
  * 
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
-@Ignore // ignoring for now as these tests hang more consistently than they pass
 public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
     @Rule
     public final JUnitRuleMockery context = new JUnitRuleMockery();
+
+    private Object readWriteMonitor = new Object();
+
+    private boolean syncFlush() throws IOException {
+        synchronized (readWriteMonitor) {
+            return sinkConduit.flush();
+        }
+    }
+
+    private void syncTerminateWrites() throws IOException {
+        synchronized (readWriteMonitor) {
+            sinkConduit.terminateWrites();
+        }
+    }
 
     @Test
     public void simpleReadAndWrite() throws Exception {
@@ -67,8 +81,10 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         conduitMock.enableReads(true);
         final Future<ByteBuffer> readFuture = triggerReadThread(9);
         final Future<Void> writeFuture = triggerWriteThread("write data");
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         sinkConduit.terminateWrites();
         assertTrue(sinkConduit.flush());
@@ -90,8 +106,10 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("short msg", "short msg");
         final Future<ByteBuffer> readFuture = triggerReadThread(19);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thred to finish
         final ByteBuffer readBuffer = readFuture.get();
         // conduits should be able to terminate reads and writes
         sourceConduit.terminateReads();
@@ -117,8 +135,10 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("MockTest");
         final Future<ByteBuffer> readFuture = triggerReadThread(16);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData("channel closed");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
 
         // conduits should be able to terminate reads and writes
@@ -146,8 +166,10 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("Mock Test", "Mock Test", "Mock Test", "Mock Test");
         final Future<ByteBuffer> readFuture = triggerReadThread(9);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(" _ ");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
 
         // conduits should be able to terminate reads and writes
@@ -190,8 +212,10 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         conduitMock.setReadData("{more data}", "{more data}");
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData("{message closed}");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -232,10 +256,12 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         conduitMock.setReadData("read a lot", HANDSHAKE_MSG);
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sinkConduit.terminateWrites();
-        assertFalse(sinkConduit.flush());
+        syncTerminateWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for red thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -288,10 +314,12 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         conduitMock.setReadData("MOCK 1", "HANDSHAKE_MSG", "HANDSHAKE_MSG");
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sinkConduit.terminateWrites();
-        assertFalse(sinkConduit.flush());
+        syncTerminateWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData("CLOSE_MSG");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -327,10 +355,12 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
         // enable read on conduitMock, meaning that data above will be available to be read right away
         conduitMock.enableReads(true);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sinkConduit.terminateWrites();
-        assertFalse(sinkConduit.flush());
+        syncTerminateWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -370,10 +400,12 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
                 "write this");
         final Future<ByteBuffer> readFuture = triggerMultipleReadThread(24);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sinkConduit.terminateWrites();
-        assertFalse(sinkConduit.flush());
+        syncTerminateWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData("[_)(*&^%$#@!]");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -443,12 +475,17 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
             try {
                 int totalLength = 0;
                 long length = 0;
-                while ((length  = sourceConduit.read(buffers, 0, 10)) >= 0) {
+                do {
                     totalLength += length;
+                    synchronized (readWriteMonitor) {
+                        length  = sourceConduit.read(buffers, 0, 10);
+                    }
+                } while (length >= 0);
+                synchronized (readWriteMonitor) {
+                    assertEquals(-1, sourceConduit.read(buffers, 0, 10));
+                    assertEquals(-1, sourceConduit.read(buffers, 0, 10));
+                    assertEquals(-1, sourceConduit.read(buffers, 0, 10));
                 }
-                assertEquals(-1, sourceConduit.read(buffers, 0, 10));
-                assertEquals(-1, sourceConduit.read(buffers, 0, 10));
-                assertEquals(-1, sourceConduit.read(buffers, 0, 10));
                 for (ByteBuffer b: buffers) {
                     b.flip();
                 }
@@ -490,7 +527,11 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
                 final int attemptsLimit = 10000;
                 int attempts = 0;
                 long bytes = 0;
-                while ((bytes += sinkConduit.write(buffer, 0, text.length)) < totalBytes && (++ attempts) < attemptsLimit);
+                do {
+                    synchronized (readWriteMonitor) {
+                        bytes += sinkConduit.write(buffer, 0, text.length);
+                    }
+                } while (bytes < totalBytes && (++ attempts) < attemptsLimit);
                 assertEquals(totalBytes, bytes);
             } catch (IOException e) {
                 throw new RuntimeException("Unexpected exception while writing", e);
@@ -519,12 +560,17 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
             try {
                 int totalLength = 0;
                 int length = 0;
-                while ((length  = sourceConduit.read(buffer)) >= 0) {
+                do {
                     totalLength += length;
+                    synchronized (readWriteMonitor) {
+                        length  = sourceConduit.read(buffer);
+                    }
+                } while (length >= 0);
+                synchronized (readWriteMonitor) {
+                    assertEquals(-1, sourceConduit.read(buffer));
+                    assertEquals(-1, sourceConduit.read(buffer));
+                    assertEquals(-1, sourceConduit.read(buffer));
                 }
-                assertEquals(-1, sourceConduit.read(buffer));
-                assertEquals(-1, sourceConduit.read(buffer));
-                assertEquals(-1, sourceConduit.read(buffer));
                 buffer.flip();
                 assertEquals("This is what we read '" + Buffers.getModifiedUtf8(buffer) + "'", expectedReadLength, totalLength);
             } catch (IOException e) {
@@ -555,7 +601,11 @@ public class JsseSslStreamConnectionTestCase extends AbstractSslConnectionTest{
                 for (String textStr: text) {
                     buffer.put(textStr.getBytes("UTF-8")).flip();
                     int bytes = 0;
-                    while ((bytes = sinkConduit.write(buffer)) == 0);
+                    do {
+                        synchronized (readWriteMonitor) {
+                            bytes = sinkConduit.write(buffer);
+                        }
+                    } while (bytes == 0);
                     assertEquals(textStr.length(), bytes);
                     buffer.compact();
                 }

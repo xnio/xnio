@@ -20,6 +20,7 @@
 package org.xnio.ssl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -62,6 +63,20 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         setThreadingPolicy(new Synchroniser());
     }};
 
+    private Object readWriteMonitor = new Object();
+
+    private boolean syncFlush() throws IOException {
+        synchronized (readWriteMonitor) {
+            return sslChannel.flush();
+        }
+    }
+    
+    private void syncShutdownWrites() throws IOException {
+        synchronized (readWriteMonitor) {
+            sslChannel.shutdownWrites();
+        }
+    }
+
     @Test
     public void simpleReadAndWrite() throws Exception {
         // no handshake actions for engineMock this time, meaning it will just wrap and unwrap without any handshake
@@ -70,8 +85,10 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         conduitMock.enableReads(true);
         final Future<ByteBuffer> readFuture = triggerReadThread(9);
         final Future<Void> writeFuture = triggerWriteThread("write data");
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         sslChannel.shutdownWrites();
         assertTrue(sslChannel.flush());
@@ -95,8 +112,10 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("short msg", "short msg");
         final Future<ByteBuffer> readFuture = triggerReadThread(19);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         // channel should be able to shutdown reads and writes
         sslChannel.shutdownReads();
@@ -124,8 +143,10 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("MockTest");
         final Future<ByteBuffer> readFuture = triggerReadThread(16);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData("channel closed");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
 
         // channel should be able to shutdown reads and writes
@@ -155,8 +176,10 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         // attempt to read and write
         final Future<Void> writeFuture = triggerWriteThread("Mock Test", "Mock Test", "Mock Test", "Mock Test");
         final Future<ByteBuffer> readFuture = triggerReadThread(9);
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData(" _ ");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
 
         // channel should be able to shutdown reads and writes
@@ -201,8 +224,10 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         conduitMock.setReadData("{more data}", "{more data}");
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
         conduitMock.setReadData("{message closed}");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -245,17 +270,21 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         conduitMock.setReadData("read a lot", HANDSHAKE_MSG);
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sslChannel.shutdownWrites();
-        assertFalse(sslChannel.flush());
+        syncShutdownWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
         // shutdown reads
         sslChannel.shutdownReads();
         sslChannel.shutdownWrites();
-        assertTrue(sslChannel.flush());
+        synchronized (readWriteMonitor) {
+            assertTrue(sslChannel.flush());
+        }
         // close channel
         sslChannel.close();
 
@@ -303,10 +332,12 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         conduitMock.setReadData("MOCK 1", "HANDSHAKE_MSG", "HANDSHAKE_MSG");
         Thread.sleep(10);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sslChannel.shutdownWrites();
-        assertFalse(sslChannel.flush());
+        syncShutdownWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData("CLOSE_MSG");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -344,10 +375,12 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
         // enable read on connectedChannelMock, meaning that data above will be available to be read right away
         conduitMock.enableReads(true);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sslChannel.shutdownWrites();
-        assertFalse(sslChannel.flush());
+        syncShutdownWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData(CLOSE_MSG);
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -389,10 +422,12 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
                 "write this");
         final Future<ByteBuffer> readFuture = triggerMultipleReadThread(24);
 
+        // wait for write thread to finish
         writeFuture.get();
-        sslChannel.shutdownWrites();
-        assertFalse(sslChannel.flush());
+        syncShutdownWrites();
+        assertFalse(syncFlush());
         conduitMock.setReadData("[_)(*&^%$#@!]");
+        // wait for read thread to finish
         final ByteBuffer readBuffer = readFuture.get();
         assertNotNull(readBuffer);
 
@@ -464,12 +499,19 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
             try {
                 int totalLength = 0;
                 long length = 0;
-                while ((length  = sslChannel.read(buffers)) >= 0) {
+                do {
                     totalLength += length;
+                    // keep the synchronized block inside the while, even though it looks unelegant, this way we will
+                    // achieve a finer granularity
+                    synchronized (readWriteMonitor) {
+                        length = sslChannel.read(buffers);
+                    }
+                } while (length >= 0);
+                synchronized (readWriteMonitor) {
+                    assertEquals(-1, sslChannel.read(buffers, 0, 10));
+                    assertEquals(-1, sslChannel.read(buffers, 0, 10));
+                    assertEquals(-1, sslChannel.read(buffers, 0, 10));
                 }
-                assertEquals(-1, sslChannel.read(buffers, 0, 10));
-                assertEquals(-1, sslChannel.read(buffers, 0, 10));
-                assertEquals(-1, sslChannel.read(buffers, 0, 10));
                 for (ByteBuffer b: buffers) {
                     b.flip();
                 }
@@ -503,7 +545,7 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
             int totalBytes = 0;
             try {
                 for (int i = 0; i < text.length; i++) {
-                // attempt to write... channel is expected to write the entire message without any issues
+                    // attempt to write... channel is expected to write the entire message without any issues
                     buffer[i] = ByteBuffer.allocate(50);
                     buffer[i].put(text[i].getBytes("UTF-8")).flip();
                     totalBytes += text[i].length();
@@ -511,7 +553,12 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
                 final int attemptsLimit = 10000;
                 int attempts = 0;
                 long bytes = 0;
-                while ((bytes += sslChannel.write(buffer)) < totalBytes && (++ attempts) < attemptsLimit);
+                do {
+                    synchronized (readWriteMonitor) {
+                        bytes += sslChannel.write(buffer);
+                    }
+                }
+                while (bytes < totalBytes && (++ attempts) < attemptsLimit);
                 assertEquals(totalBytes, bytes);
             } catch (IOException e) {
                 throw new RuntimeException("Unexpected exception while writing", e);
@@ -540,12 +587,17 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
             try {
                 int totalLength = 0;
                 int length = 0;
-                while ((length  = sslChannel.read(buffer)) >= 0) {
+                do {
                     totalLength += length;
+                    synchronized (readWriteMonitor) {
+                        length = sslChannel.read(buffer);
+                    }
+                } while(length >= 0);
+                synchronized (readWriteMonitor) {
+                    assertEquals(-1, sslChannel.read(buffer));
+                    assertEquals(-1, sslChannel.read(buffer));
+                    assertEquals(-1, sslChannel.read(buffer));
                 }
-                assertEquals(-1, sslChannel.read(buffer));
-                assertEquals(-1, sslChannel.read(buffer));
-                assertEquals(-1, sslChannel.read(buffer));
                 buffer.flip();
                 assertEquals("This is what we read '" + Buffers.getModifiedUtf8(buffer) + "'", expectedReadLength, totalLength);
             } catch (IOException e) {
@@ -576,7 +628,11 @@ public class ConnectedSslStreamChannelReadWriteTestCase extends AbstractConnecte
                 for (String textStr: text) {
                     buffer.put(textStr.getBytes("UTF-8")).flip();
                     int bytes = 0;
-                    while ((bytes = sslChannel.write(buffer)) == 0);
+                    while (bytes == 0) {
+                        synchronized (readWriteMonitor) {
+                            bytes = sslChannel.write(buffer);
+                        }
+                    }
                     assertEquals(textStr.length(), bytes);
                     buffer.compact();
                 }
