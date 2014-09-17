@@ -21,6 +21,7 @@ package org.xnio.nio;
 import static org.xnio.nio.Log.log;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
@@ -180,7 +181,11 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     public void terminateWrites() throws IOException {
         if (connection.writeClosed()) try {
             suspend(SelectionKey.OP_WRITE);
-            socketChannel.socket().shutdownOutput();
+            try {
+                socketChannel.socket().shutdownOutput();
+            } catch (SocketException ignored) {
+                // IBM incorrectly throws this exception on ENOTCONN; it's probably less harmful just to swallow it
+            }
         } catch (ClosedChannelException ignored) {
         } finally {
             writeTerminated();
@@ -306,7 +311,11 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     public void terminateReads() throws IOException {
         if (connection.readClosed()) try {
             suspend(SelectionKey.OP_READ);
-            socketChannel.socket().shutdownInput();
+            try {
+                socketChannel.socket().shutdownInput();
+            } catch (SocketException ignored) {
+                // IBM incorrectly throws this exception on ENOTCONN; it's probably less harmful just to swallow it
+            }
         } catch (ClosedChannelException ignored) {
         } finally {
             readTerminated();
