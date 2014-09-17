@@ -108,6 +108,8 @@ public final class JsseXnioSsl extends XnioSsl {
     public static SSLEngine getSslEngine(SslConnection connection) {
         if (connection instanceof JsseSslStreamConnection) {
             return ((JsseSslStreamConnection) connection).getEngine();
+        } else if (connection instanceof JsseSslConnection) {
+            return ((JsseSslConnection) connection).getEngine();
         } else {
             throw msg.notFromThisProvider();
         }

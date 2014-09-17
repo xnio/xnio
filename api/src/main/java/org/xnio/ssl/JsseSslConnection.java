@@ -134,4 +134,8 @@ final class JsseSslConnection extends SslConnection {
     public boolean isReadShutdown() {
         return streamConnection.isReadShutdown();
     }
+
+    SSLEngine getEngine() {
+        return conduit.getEngine();
+    }
 }
