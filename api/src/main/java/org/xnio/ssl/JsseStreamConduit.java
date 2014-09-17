@@ -56,7 +56,7 @@ import org.xnio.conduits.WriteReadyHandler;
 
 final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit, Runnable {
 
-    private static final boolean TRACE_SSL = true;
+    private static final boolean TRACE_SSL = Boolean.getBoolean("org.xnio.ssl.TRACE_SSL");
 
     //================================================================
     //
@@ -517,6 +517,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         // avoid double-fire
         if (allAreClear(state, FLAG_TASK_QUEUED)) {
             run();
+        }
+        state = this.state;
+        if (sinkConduit.isWriteResumed() && allAreClear(state, WRITE_FLAG_RESUMED | READ_FLAG_NEEDS_WRITE)) {
+            sinkConduit.suspendWrites();
+        }
+        if (sourceConduit.isReadResumed() && allAreClear(state, READ_FLAG_RESUMED | WRITE_FLAG_NEEDS_READ)) {
+            sourceConduit.suspendReads();
         }
     }
 
