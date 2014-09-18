@@ -19,12 +19,11 @@
 package org.xnio;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.xnio._private.Messages.futureMsg;
 
@@ -34,13 +33,350 @@ import static org.xnio._private.Messages.futureMsg;
  * @param <T> the type of result that this operation produces
  */
 public abstract class AbstractIoFuture<T> implements IoFuture<T> {
-    private final Object lock = new Object();
-    private Status status = Status.WAITING;
-    private Object result;
-    private List<Runnable> notifierList;
-    private List<Cancellable> cancellables;
 
-    private static final List<Cancellable> CANCEL_REQUESTED = Collections.emptyList();
+    @SuppressWarnings("unchecked")
+    private final AtomicReference<State<T>> stateRef = new AtomicReference<>((State<T>) ST_INITIAL);
+
+    private static final State<?> ST_INITIAL = new InitialState<>();
+    private static final State<?> ST_CANCELLED = new CancelledState<>();
+
+    static abstract class State<T> {
+        abstract Status getStatus();
+
+        abstract void notifyDone(AbstractIoFuture<T> future, T result);
+
+        abstract void notifyFailed(AbstractIoFuture<T> future, IOException exception);
+
+        abstract void notifyCancelled(AbstractIoFuture<T> future);
+
+        abstract void cancel();
+
+        abstract boolean cancelRequested();
+
+        State<T> withWaiter(final Thread thread) {
+            return new WaiterState<T>(this, thread);
+        }
+
+        <A> State<T> withNotifier(final Executor executor, final AbstractIoFuture<T> future, final Notifier<? super T, A> notifier, final A attachment) {
+            return new NotifierState<T, A>(this, notifier, attachment);
+        }
+
+        State<T> withCancelHandler(final Cancellable cancellable) {
+            return new CancellableState<T>(this, cancellable);
+        }
+
+        T getResult() {
+            throw new IllegalStateException();
+        }
+
+        IOException getException() {
+            throw new IllegalStateException();
+        }
+    }
+
+    static final class InitialState<T> extends State<T> {
+
+        Status getStatus() {
+            return Status.WAITING;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+        }
+
+        void cancel() {
+        }
+
+        boolean cancelRequested() {
+            return false;
+        }
+    }
+
+    static final class CompleteState<T> extends State<T> {
+        private final T result;
+
+        CompleteState(final T result) {
+            this.result = result;
+        }
+
+        Status getStatus() {
+            return Status.DONE;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+        }
+
+        void cancel() {
+        }
+
+        State<T> withCancelHandler(final Cancellable cancellable) {
+            return this;
+        }
+
+        State<T> withWaiter(final Thread thread) {
+            return this;
+        }
+
+        <A> State<T> withNotifier(final Executor executor, final AbstractIoFuture<T> future, final Notifier<? super T, A> notifier, final A attachment) {
+            future.runNotifier(new NotifierRunnable<T, A>(notifier, future, attachment));
+            return this;
+        }
+
+        T getResult() {
+            return result;
+        }
+
+        boolean cancelRequested() {
+            return false;
+        }
+    }
+
+    static final class FailedState<T> extends State<T> {
+        private final IOException exception;
+
+        FailedState(final IOException exception) {
+            this.exception = exception;
+        }
+
+        Status getStatus() {
+            return Status.FAILED;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+        }
+
+        void cancel() {
+        }
+
+        State<T> withCancelHandler(final Cancellable cancellable) {
+            return this;
+        }
+
+        State<T> withWaiter(final Thread thread) {
+            return this;
+        }
+
+        <A> State<T> withNotifier(final Executor executor, final AbstractIoFuture<T> future, final Notifier<? super T, A> notifier, final A attachment) {
+            future.runNotifier(new NotifierRunnable<T, A>(notifier, future, attachment));
+            return this;
+        }
+
+        IOException getException() {
+            return exception;
+        }
+
+        boolean cancelRequested() {
+            return false;
+        }
+    }
+
+    static final class CancelledState<T> extends State<T> {
+
+        CancelledState() {
+        }
+
+        Status getStatus() {
+            return Status.CANCELLED;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+        }
+
+        void cancel() {
+        }
+
+        State<T> withCancelHandler(final Cancellable cancellable) {
+            try {
+                cancellable.cancel();
+            } catch (Throwable ignored) {}
+            return this;
+        }
+
+        <A> State<T> withNotifier(final Executor executor, final AbstractIoFuture<T> future, final Notifier<? super T, A> notifier, final A attachment) {
+            future.runNotifier(new NotifierRunnable<T, A>(notifier, future, attachment));
+            return this;
+        }
+
+        State<T> withWaiter(final Thread thread) {
+            return this;
+        }
+
+        boolean cancelRequested() {
+            return true;
+        }
+    }
+
+    static final class NotifierState<T, A> extends State<T> {
+        final State<T> next;
+        final Notifier<? super T, A> notifier;
+        final A attachment;
+
+        NotifierState(final State<T> next, final Notifier<? super T, A> notifier, final A attachment) {
+            this.next = next;
+            this.notifier = notifier;
+            this.attachment = attachment;
+        }
+
+        Status getStatus() {
+            return Status.WAITING;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+            doNotify(future);
+            next.notifyDone(future, result);
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+            doNotify(future);
+            next.notifyFailed(future, exception);
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+            doNotify(future);
+            next.notifyCancelled(future);
+        }
+
+        void cancel() {
+            next.cancel();
+        }
+
+        private void doNotify(final AbstractIoFuture<T> future) {
+            future.runNotifier(new NotifierRunnable<T, A>(notifier, future, attachment));
+        }
+
+        boolean cancelRequested() {
+            return next.cancelRequested();
+        }
+    }
+
+    static final class WaiterState<T> extends State<T> {
+        final State<T> next;
+        final Thread waiter;
+
+        WaiterState(final State<T> next, final Thread waiter) {
+            this.next = next;
+            this.waiter = waiter;
+        }
+
+        Status getStatus() {
+            return Status.WAITING;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+            LockSupport.unpark(waiter);
+            next.notifyDone(future, result);
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+            LockSupport.unpark(waiter);
+            next.notifyFailed(future, exception);
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+            LockSupport.unpark(waiter);
+            next.notifyCancelled(future);
+        }
+
+        void cancel() {
+            next.cancel();
+        }
+
+        boolean cancelRequested() {
+            return next.cancelRequested();
+        }
+    }
+
+    static final class CancellableState<T> extends State<T> {
+        final State<T> next;
+        final Cancellable cancellable;
+
+        CancellableState(final State<T> next, final Cancellable cancellable) {
+            this.next = next;
+            this.cancellable = cancellable;
+        }
+
+        Status getStatus() {
+            return Status.WAITING;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+            next.notifyDone(future, result);
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+            next.notifyFailed(future, exception);
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+            next.notifyCancelled(future);
+        }
+
+        void cancel() {
+            try {
+                cancellable.cancel();
+            } catch (Throwable ignored) {}
+            next.cancel();
+        }
+
+        boolean cancelRequested() {
+            return next.cancelRequested();
+        }
+    }
+
+    static final class CancelRequestedState<T> extends State<T> {
+        final State<T> next;
+
+        CancelRequestedState(final State<T> next) {
+            this.next = next;
+        }
+
+        Status getStatus() {
+            return Status.WAITING;
+        }
+
+        void notifyDone(final AbstractIoFuture<T> future, final T result) {
+            next.notifyDone(future, result);
+        }
+
+        void notifyFailed(final AbstractIoFuture<T> future, final IOException exception) {
+            next.notifyFailed(future, exception);
+        }
+
+        void notifyCancelled(final AbstractIoFuture<T> future) {
+            next.notifyCancelled(future);
+        }
+
+        void cancel() {
+            // terminate
+        }
+
+        boolean cancelRequested() {
+            return true;
+        }
+    }
 
     /**
      * Construct a new instance.
@@ -52,34 +388,44 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     public Status getStatus() {
-        synchronized (lock) {
-            return status;
-        }
+        return getState().getStatus();
+    }
+
+    private State<T> getState() {
+        return stateRef.get();
+    }
+
+    private boolean compareAndSetState(State<T> expect, State<T> update) {
+        return stateRef.compareAndSet(expect, update);
     }
 
     /**
      * {@inheritDoc}
      */
     public Status await() {
-        synchronized (lock) {
-            boolean intr = Thread.interrupted();
-            try {
-                if (status == Status.WAITING) {
-                    Xnio.checkBlockingAllowed();
+        final Thread thread = Thread.currentThread();
+        State<T> state;
+        for (;;) {
+            state = getState();
+            if (state.getStatus() != Status.WAITING) {
+                return state.getStatus();
+            }
+            Xnio.checkBlockingAllowed();
+            State<T> withWaiter = state.withWaiter(thread);
+            if (compareAndSetState(state, withWaiter)) {
+                boolean intr = Thread.interrupted();
+                try {
                     do {
-                        try {
-                            lock.wait();
-                        } catch (InterruptedException e) {
-                            intr = true;
-                        }
-                    } while (status == Status.WAITING);
-                }
-            } finally {
-                if (intr) {
-                    Thread.currentThread().interrupt();
+                        LockSupport.park(this);
+                        if (Thread.interrupted()) intr = true;
+                        state = getState();
+                    } while (state.getStatus() == Status.WAITING);
+                    return state.getStatus();
+                } finally {
+                    if (intr) thread.interrupt();
                 }
             }
-            return status;
+            // retry
         }
     }
 
@@ -92,30 +438,32 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         }
         long duration = timeUnit.toNanos(time);
         long now = System.nanoTime();
-        long waitTime;
-        Status status;
-        synchronized (lock) {
-            boolean intr = Thread.interrupted();
-            try {
-                if ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
-                    Xnio.checkBlockingAllowed();
+        long tick;
+        final Thread thread = Thread.currentThread();
+        State<T> state;
+        for (;;) {
+            state = getState();
+            if (state.getStatus() != Status.WAITING || duration == 0L) {
+                return state.getStatus();
+            }
+            Xnio.checkBlockingAllowed();
+            State<T> withWaiter = state.withWaiter(thread);
+            if (compareAndSetState(state, withWaiter)) {
+                boolean intr = Thread.interrupted();
+                try {
                     do {
-                        try {
-                            lock.wait(waitTime);
-                        } catch (InterruptedException e) {
-                            intr = true;
-                        } finally {
-                            // decrease duration by the elapsed time
-                            duration += now - (now = System.nanoTime());
-                        }
-                    } while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L);
-                }
-            } finally {
-                if (intr) {
-                    Thread.currentThread().interrupt();
+                        LockSupport.parkNanos(this, duration);
+                        if (Thread.interrupted()) intr = true;
+                        state = getState();
+                        duration -= (tick = System.nanoTime()) - now;
+                        now = tick;
+                    } while (state.getStatus() == Status.WAITING && duration > 0L);
+                    return state.getStatus();
+                } finally {
+                    if (intr) thread.interrupt();
                 }
             }
-            return status;
+            // retry
         }
     }
 
@@ -123,14 +471,25 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     public Status awaitInterruptibly() throws InterruptedException {
-        synchronized (lock) {
-            if (status == Status.WAITING) {
-                Xnio.checkBlockingAllowed();
-                do {
-                    lock.wait();
-                } while (status == Status.WAITING);
+        final Thread thread = Thread.currentThread();
+        State<T> state;
+        for (;;) {
+            state = getState();
+            if (state.getStatus() != Status.WAITING) {
+                return state.getStatus();
             }
-            return status;
+            Xnio.checkBlockingAllowed();
+            if (Thread.interrupted()) throw new InterruptedException();
+            State<T> withWaiter = state.withWaiter(thread);
+            if (compareAndSetState(state, withWaiter)) {
+                do {
+                    LockSupport.park(this);
+                    if (Thread.interrupted()) throw new InterruptedException();
+                    state = getState();
+                } while (state.getStatus() == Status.WAITING);
+                return state.getStatus();
+            }
+            // retry
         }
     }
 
@@ -143,18 +502,28 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         }
         long duration = timeUnit.toNanos(time);
         long now = System.nanoTime();
-        long waitTime;
-        Status status;
-        synchronized (lock) {
-            if ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L) {
-                Xnio.checkBlockingAllowed();
-                do {
-                    lock.wait(waitTime);
-                    // decrease duration by the elapsed time
-                    duration += now - (now = System.nanoTime());
-                } while ((status = this.status) == Status.WAITING && (waitTime = duration / 1000000L) > 0L);
+        long tick;
+        final Thread thread = Thread.currentThread();
+        State<T> state;
+        for (;;) {
+            state = getState();
+            if (state.getStatus() != Status.WAITING || duration == 0L) {
+                return state.getStatus();
             }
-            return status;
+            Xnio.checkBlockingAllowed();
+            if (Thread.interrupted()) throw new InterruptedException();
+            State<T> withWaiter = state.withWaiter(thread);
+            if (compareAndSetState(state, withWaiter)) {
+                do {
+                    LockSupport.parkNanos(this, duration);
+                    if (Thread.interrupted()) throw new InterruptedException();
+                    state = getState();
+                    duration -= (tick = System.nanoTime()) - now;
+                    now = tick;
+                } while (state.getStatus() == Status.WAITING && duration > 0L);
+                return state.getStatus();
+            }
+            // retry
         }
     }
 
@@ -163,13 +532,11 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      */
     @SuppressWarnings({"unchecked"})
     public T get() throws IOException, CancellationException {
-        synchronized (lock) {
-            switch (await()) {
-                case DONE: return (T) result;
-                case FAILED: throw (IOException) result;
-                case CANCELLED: throw futureMsg.opCancelled();
-                default: throw new IllegalStateException();
-            }
+        switch (await()) {
+            case DONE: return getState().getResult();
+            case FAILED: throw getState().getException();
+            case CANCELLED: throw futureMsg.opCancelled();
+            default: throw new IllegalStateException();
         }
     }
 
@@ -178,13 +545,11 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      */
     @SuppressWarnings({"unchecked"})
     public T getInterruptibly() throws IOException, InterruptedException, CancellationException {
-        synchronized (lock) {
-            switch (awaitInterruptibly()) {
-                case DONE: return (T) result;
-                case FAILED: throw (IOException) result;
-                case CANCELLED: throw futureMsg.opCancelled();
-                default: throw new IllegalStateException();
-            }
+        switch (awaitInterruptibly()) {
+            case DONE: return getState().getResult();
+            case FAILED: throw getState().getException();
+            case CANCELLED: throw futureMsg.opCancelled();
+            default: throw new IllegalStateException();
         }
     }
 
@@ -192,48 +557,22 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * {@inheritDoc}
      */
     public IOException getException() throws IllegalStateException {
-        synchronized (lock) {
-            if (status == Status.FAILED) {
-                return (IOException) result;
-            } else {
-                throw new IllegalStateException();
-            }
-        }
+        return getState().getException();
     }
 
     /**
      * {@inheritDoc}
      */
     public <A> IoFuture<T> addNotifier(final Notifier<? super T, A> notifier, final A attachment) {
-        final Runnable runnable = new Runnable() {
-            public void run() {
-                try {
-                    notifier.notify(AbstractIoFuture.this, attachment);
-                } catch (Throwable t) {
-                    futureMsg.notifierFailed(t, notifier);
-                }
-            }
-        };
-        synchronized (lock) {
-            if (status == Status.WAITING) {
-                if (notifierList == null) {
-                    notifierList = new ArrayList<Runnable>();
-                }
-                notifierList.add(runnable);
+        State<T> oldState, newState;
+        do {
+            oldState = getState();
+            newState = oldState.withNotifier(getNotifierExecutor(), this, notifier, attachment);
+            if (oldState == newState) {
                 return this;
             }
-        }
-        runNotifier(runnable);
+        } while (! compareAndSetState(oldState, newState));
         return this;
-    }
-
-    private void runAllNotifiers() {
-        if (notifierList != null) {
-            for (final Runnable runnable : notifierList) {
-                runNotifier(runnable);
-            }
-            notifierList = null;
-        }
     }
 
     /**
@@ -243,18 +582,21 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @return {@code false} if the operation was already completed, {@code true} otherwise
      */
     protected boolean setException(IOException exception) {
-        synchronized (lock) {
-            if (status == Status.WAITING) {
-                status = Status.FAILED;
-                result = exception;
-                cancellables = null;
-                runAllNotifiers();
-                lock.notifyAll();
-                return true;
-            } else {
-                return false;
+        State<T> oldState;
+        oldState = getState();
+        if (oldState.getStatus() != Status.WAITING) {
+            return false;
+        } else {
+            State<T> newState = new FailedState<T>(exception);
+            while (! compareAndSetState(oldState, newState)) {
+                oldState = getState();
+                if (oldState.getStatus() != Status.WAITING) {
+                    return false;
+                }
             }
         }
+        oldState.notifyFailed(this, exception);
+        return true;
     }
 
     /**
@@ -264,18 +606,21 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @return {@code false} if the operation was already completed, {@code true} otherwise
      */
     protected boolean setResult(T result) {
-        synchronized (lock) {
-            if (status == Status.WAITING) {
-                status = Status.DONE;
-                this.result = result;
-                cancellables = null;
-                runAllNotifiers();
-                lock.notifyAll();
-                return true;
-            } else {
-                return false;
+        State<T> oldState;
+        oldState = getState();
+        if (oldState.getStatus() != Status.WAITING) {
+            return false;
+        } else {
+            State<T> newState = new CompleteState<>(result);
+            while (! compareAndSetState(oldState, newState)) {
+                oldState = getState();
+                if (oldState.getStatus() != Status.WAITING) {
+                    return false;
+                }
             }
         }
+        oldState.notifyDone(this, result);
+        return true;
     }
 
     /**
@@ -284,17 +629,22 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @return {@code false} if the operation was already completed, {@code true} otherwise
      */
     protected boolean setCancelled() {
-        synchronized (lock) {
-            if (status == Status.WAITING) {
-                status = Status.CANCELLED;
-                cancellables = null;
-                runAllNotifiers();
-                lock.notifyAll();
-                return true;
-            } else {
-                return false;
+        State<T> oldState;
+        oldState = getState();
+        if (oldState.getStatus() != Status.WAITING) {
+            return false;
+        } else {
+            @SuppressWarnings("unchecked")
+            State<T> newState = (State<T>) ST_CANCELLED;
+            while (! compareAndSetState(oldState, newState)) {
+                oldState = getState();
+                if (oldState.getStatus() != Status.WAITING) {
+                    return false;
+                }
             }
         }
+        oldState.notifyCancelled(this);
+        return true;
     }
 
     /**
@@ -305,17 +655,12 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @return this {@code IoFuture} instance
      */
     public IoFuture<T> cancel() {
-        final List<Cancellable> cancellables;
-        synchronized (lock) {
-            cancellables = this.cancellables;
-            if (cancellables == null || cancellables == CANCEL_REQUESTED) {
-                return this;
-            }
-            this.cancellables = CANCEL_REQUESTED;
-        }
-        for (Cancellable cancellable : cancellables) {
-            cancellable.cancel();
-        }
+        State<T> state;
+        do {
+            state = getState();
+            if (state.getStatus() != Status.WAITING || state.cancelRequested()) return this;
+        } while (! compareAndSetState(state, new CancelRequestedState<T>(state)));
+        state.cancel();
         return this;
     }
 
@@ -326,29 +671,26 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      * @param cancellable the cancel handler
      */
     protected void addCancelHandler(final Cancellable cancellable) {
-        synchronized (lock) {
-            switch (status) {
-                case CANCELLED:
-                    break;
-                case WAITING:
-                    final List<Cancellable> cancellables = this.cancellables;
-                    if (cancellables == CANCEL_REQUESTED) {
-                        break;
-                    } else {
-                        ((cancellables == null) ? (this.cancellables = new ArrayList<Cancellable>()) : cancellables).add(cancellable);
-                    }
-                default:
-                    return;
+        State<T> oldState, newState;
+        do {
+            oldState = getState();
+            if (oldState.getStatus() != Status.WAITING || oldState.cancelRequested()) {
+                try {
+                    cancellable.cancel();
+                } catch (Throwable ignored) {
+                }
+                return;
             }
-        }
-        cancellable.cancel();
+            newState = oldState.withCancelHandler(cancellable);
+            if (oldState == newState) return;
+        } while (! compareAndSetState(oldState, newState));
     }
 
     /**
      * Run a notifier.  Implementors will run the notifier, preferably in another thread.  The default implementation
      * runs the notifier using the {@code Executor} retrieved via {@link #getNotifierExecutor()}.
      *
-     * @param runnable
+     * @param runnable the runnable task
      */
     protected void runNotifier(final Runnable runnable) {
         getNotifierExecutor().execute(runnable);
@@ -362,5 +704,26 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
      */
     protected Executor getNotifierExecutor() {
         return IoUtils.directExecutor();
+    }
+
+    static class NotifierRunnable<T, A> implements Runnable {
+
+        private final Notifier<? super T, A> notifier;
+        private final IoFuture<T> future;
+        private final A attachment;
+
+        NotifierRunnable(final Notifier<? super T, A> notifier, final IoFuture<T> future, final A attachment) {
+            this.notifier = notifier;
+            this.future = future;
+            this.attachment = attachment;
+        }
+
+        public void run() {
+            try {
+                notifier.notify(future, attachment);
+            } catch (Throwable t) {
+                futureMsg.notifierFailed(t, notifier);
+            }
+        }
     }
 }
