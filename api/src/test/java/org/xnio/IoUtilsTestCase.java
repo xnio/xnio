@@ -58,16 +58,7 @@ import java.util.zip.ZipOutputStream;
 
 import junit.framework.TestCase;
 
-import org.xnio.AbstractIoFuture;
-import org.xnio.Cancellable;
-import org.xnio.ChannelListener;
-import org.xnio.ChannelSource;
-import org.xnio.FailedIoFuture;
-import org.xnio.FinishedIoFuture;
-import org.xnio.FutureResult;
-import org.xnio.IoFuture;
 import org.xnio.IoFuture.Status;
-import org.xnio.IoUtils;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.mock.ConnectedStreamChannelMock;
 
@@ -774,21 +765,6 @@ public final class IoUtilsTestCase extends TestCase {
         final Random random = IoUtils.getThreadLocalRandom();
         random.nextFloat();
         random.nextInt();
-
-        final FutureResult<IllegalStateException> expectedExceptionFuture = new FutureResult<IllegalStateException>();
-        final Thread thread = new Thread(new Runnable() {
-            public void run() {
-                try {
-                    random.nextInt();
-                    expectedExceptionFuture.setResult(null);
-                } catch (IllegalStateException e) {
-                    expectedExceptionFuture.setResult(e);
-                }
-            }
-        });
-        thread.start();
-        thread.join();
-        assertNotNull(expectedExceptionFuture.getIoFuture().get());
 
         final ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
         final ObjectOutput objectOutput = new ObjectOutputStream(new BufferedOutputStream(byteOutput));

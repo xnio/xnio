@@ -35,6 +35,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipFile;
@@ -730,34 +731,6 @@ public final class IoUtils {
      * @return the thread-local RNG
      */
     public static Random getThreadLocalRandom() {
-        Random random = tlsRandom.get();
-        if (random == null) {
-            random = new ThreadRandom(Thread.currentThread());
-            tlsRandom.set(random);
-        }
-        return random;
-    }
-
-    private static final ThreadLocal<Random> tlsRandom = new ThreadLocal<Random>();
-
-    private static final class ThreadRandom extends Random {
-        private static final long serialVersionUID = -1765763476763499665L;
-
-        private final Thread thread;
-
-        private ThreadRandom(final Thread thread) {
-            this.thread = thread;
-        }
-
-        protected int next(final int bits) {
-            if (Thread.currentThread() != thread) {
-                throw msg.randomWrongThread();
-            }
-            return super.next(bits);
-        }
-
-        protected Object writeReplace() {
-            return new Random(nextLong());
-        }
+        return ThreadLocalRandom.current();
     }
 }
