@@ -1472,7 +1472,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // fall thru!
                         }
                         case NOT_HANDSHAKING: {
-                            if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {//_REQ)) {
+                            if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
                                 engine.closeOutbound();
                             }
                             // move on to next operation until I/O blocks
