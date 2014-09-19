@@ -121,7 +121,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
         ThreadLocalCache localCache = localQueueHolder.get();
-        if(localCache.outstanding != LOCAL_LENGTH) {
+        if(localCache.outstanding != threadLocalQueueSize) {
             localCache.outstanding++;
         }
         Slice slice = localCache.queue.poll();
@@ -166,7 +166,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             cacheOk = true;
         }
         ArrayDeque<Slice> localQueue = localCache.queue;
-        if (localQueue.size() == LOCAL_LENGTH || !cacheOk) {
+        if (localQueue.size() == threadLocalQueueSize || !cacheOk) {
             sliceQueue.add(region);
         } else {
             localQueue.add(region);
