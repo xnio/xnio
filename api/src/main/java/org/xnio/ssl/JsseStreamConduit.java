@@ -1228,6 +1228,17 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         case CLOSED: {
                             if (TRACE_SSL) msg.trace("TLS wrap operation CLOSED");
                             if (allAreClear(state, WRITE_FLAG_SHUTDOWN) && result.bytesProduced() == 0) {
+                                if (goal == IO_GOAL_FLUSH) {
+                                    // this is okay, the client is flushing and we may have received a close from the other
+                                    // end before we actually close this side
+                                    wrap = false;
+                                    if (goal == IO_GOAL_FLUSH || allAreSet(state, FLAG_FLUSH_NEEDED)) {
+                                        if (flushed = sinkConduit.flush()) {
+                                            state &= ~FLAG_FLUSH_NEEDED;
+                                        }
+                                    }
+                                    break;
+                                }
                                 // attempted write after shutdown (should not be possible)
                                 state &= ~(WRITE_FLAG_NEEDS_READ | READ_FLAG_NEEDS_WRITE);
                                 state |= WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3 | WRITE_FLAG_FINISHED;
