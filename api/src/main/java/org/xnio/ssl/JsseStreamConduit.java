@@ -1370,6 +1370,38 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             break;
                         }
                         case CLOSED: {
+                           if (result.getHandshakeStatus() == HandshakeStatus.NEED_UNWRAP) {
+                              // treat as buffer underflow
+                              // fill the rest of the buffer, then retry!
+                              receiveBuffer.compact();
+                              try {
+                                 int res;
+                                 res = sourceConduit.read(receiveBuffer);
+                                 if (TRACE_SSL) msg.tracef("TLS unwrap operation read %s", Buffers.debugString(receiveBuffer));
+                                 if (res == -1) {
+                                    state &= ~READ_FLAG_READY;
+                                    engine.closeInbound();
+                                    return actualIOResult(xfer, goal, flushed, eof);
+                                 } else if (res == 0) {
+                                    readBlocked = true;
+                                    state &= ~READ_FLAG_READY;
+                                    unwrap = false;
+                                    return actualIOResult(xfer, goal, flushed, eof);
+                                 } else if (receiveBuffer.hasRemaining()) {
+                                    do {
+                                       // try more reads just in case
+                                       res = sourceConduit.read(receiveBuffer);
+                                    } while (res > 0 && receiveBuffer.hasRemaining());
+                                    if (res == 0) {
+                                       state &= ~READ_FLAG_READY;
+                                    }
+                                 }
+                              } finally {
+                                 receiveBuffer.flip();
+                              }
+                              // we should now be able to unwrap.
+                              break;
+                           }
                             if (TRACE_SSL) msg.trace("TLS unwrap operation CLOSED");
                             state &= ~(WRITE_FLAG_NEEDS_READ | READ_FLAG_NEEDS_WRITE);
                             if (goal == IO_GOAL_READ) {
