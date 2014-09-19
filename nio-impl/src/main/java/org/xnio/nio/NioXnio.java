@@ -167,9 +167,9 @@ final class NioXnio extends Xnio {
                     if (! defaultIsPoll) {
                         // default is fine for main selectors; we should try to get poll for temp though
                         if (objects[1] == null) try {
-                            final ConstructorSelectorCreator creator = new ConstructorSelectorCreator("sun.nio.ch.PollSelectorImpl", provider);
-                            IoUtils.safeClose(creator.open());
-                            objects[1] = creator;
+                            SelectorProvider pollSelectorProvider = Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            pollSelectorProvider.openSelector().close();
+                            objects[1] = new DefaultSelectorCreator(provider);
                         } catch (Exception e) {
                             // not available
                         }
