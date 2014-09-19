@@ -18,7 +18,6 @@
 package org.xnio.nio.test;
 
 import org.junit.Before;
-import org.junit.Ignore;
 
 /**
  * Runs NioSslTcpChannelTestCase with 5 I/O threads.
@@ -32,7 +31,4 @@ public class MultiThreadedNioSslTcpChannelTestCase extends NioSslTcpChannelTestC
     public void setThreads() {
         super.setNumberOfThreads(5);
     }
-
-    @Override @Ignore
-    public void clientNastyClose() {}
 }
