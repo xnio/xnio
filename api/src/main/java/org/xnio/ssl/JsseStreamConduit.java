@@ -908,6 +908,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     //
     //================================================================
 
+    private final ByteBuffer[] readBufferHolder = new ByteBuffer[1];
+
     public int read(final ByteBuffer dst) throws IOException {
         final int state = this.state;
         if (anyAreSet(state, READ_FLAG_SHUTDOWN)) {
@@ -939,7 +941,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             return res;
         } else {
             // regular TLS time
-            return (int) performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, new ByteBuffer[] { dst }, 0, 1);
+            final ByteBuffer[] readBufferHolder = this.readBufferHolder;
+            readBufferHolder[0] = dst;
+            try {
+                return (int) performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, readBufferHolder, 0, 1);
+            } finally {
+                readBufferHolder[0] = null;
+            }
         }
     }
 
@@ -998,6 +1006,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     //
     //================================================================
 
+    private final ByteBuffer[] writeBufferHolder = new ByteBuffer[1];
+
     public int write(final ByteBuffer src) throws IOException {
         if (allAreSet(state, WRITE_FLAG_SHUTDOWN)) {
             throw new ClosedChannelException();
@@ -1005,8 +1015,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.write(src);
         } else {
-            // this is *exactly* what SSLEngine does internally anyway
-            return (int) write(new ByteBuffer[] { src }, 0, 1);
+            final ByteBuffer[] writeBufferHolder = this.writeBufferHolder;
+            writeBufferHolder[0] = src;
+            try {
+                return (int) write(writeBufferHolder, 0, 1);
+            } finally {
+                writeBufferHolder[0] = null;
+            }
         }
     }
 
@@ -1017,8 +1032,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         if (allAreClear(state, FLAG_TLS)) {
             return sinkConduit.writeFinal(src);
         } else {
-            // this is *exactly* what SSLEngine does internally anyway
-            return (int) writeFinal(new ByteBuffer[] { src }, 0, 1);
+            final ByteBuffer[] writeBufferHolder = this.writeBufferHolder;
+            writeBufferHolder[0] = src;
+            try {
+                return (int) writeFinal(writeBufferHolder, 0, 1);
+            } finally {
+                writeBufferHolder[0] = null;
+            }
         }
     }
 
