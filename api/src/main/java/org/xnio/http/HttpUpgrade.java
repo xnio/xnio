@@ -380,7 +380,7 @@ public class HttpUpgrade {
                     handleRedirect(parser);
                 } else {
                     safeClose(connection);
-                    future.setException(new IOException("Invalid response code " + parser.getResponseCode()));
+                    future.setException(new UpgradeFailedException("Invalid response code " + parser.getResponseCode()));
                 }
             }
         }
