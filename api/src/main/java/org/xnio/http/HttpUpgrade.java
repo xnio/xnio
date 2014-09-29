@@ -40,7 +40,6 @@ import org.xnio.Pooled;
 import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.BoundChannel;
-import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.ssl.SslConnection;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
@@ -183,6 +182,10 @@ public class HttpUpgrade {
             final StringBuilder builder = new StringBuilder();
             builder.append("GET ");
             builder.append(uri.getPath().isEmpty() ? "/" : uri.getPath());
+            if(uri.getQuery() != null && !uri.getQuery().isEmpty()) {
+                builder.append('?');
+                builder.append(uri.getQuery());
+            }
             builder.append(" HTTP/1.1\r\n");
             final Set<String> seen = new HashSet<String>();
             for (Map.Entry<String, String> header : headers.entrySet()) {
@@ -373,9 +376,11 @@ public class HttpUpgrade {
                         parser.getResponseCode() == 303 || // See Other
                         parser.getResponseCode() == 307 || // Temporary Redirect
                         parser.getResponseCode() == 308) { // Permanent Redirect
-                    handleRedirect(parser, channel);
+                    safeClose(connection);
+                    handleRedirect(parser);
                 } else {
-                    future.setException(new IOException("Invalid response code " + parser.getResponseCode()));
+                    safeClose(connection);
+                    future.setException(new UpgradeFailedException("Invalid response code " + parser.getResponseCode()));
                 }
             }
         }
@@ -407,8 +412,7 @@ public class HttpUpgrade {
             ChannelListeners.invokeChannelListener(connection, openListener);
         }
 
-        private void handleRedirect(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
-            safeClose(channel);
+        private void handleRedirect(final HttpUpgradeParser parser) {
             future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
