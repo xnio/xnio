@@ -720,7 +720,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * the {@link #taskPoolTerminated()} method is called.
      */
     protected void shutDownTaskPool() {
-        taskPool.shutdown();
+        doPrivileged(new PrivilegedAction<Object>() {
+            public Object run() {
+                taskPool.shutdown();
+                return null;
+            }
+        });
     }
 
     /**
@@ -729,7 +734,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the pending task list
      */
     protected List<Runnable> shutDownTaskPoolNow() {
-        return taskPool.shutdownNow();
+        return doPrivileged(new PrivilegedAction<List<Runnable>>() {
+            public List<Runnable> run() {
+                return taskPool.shutdownNow();
+            }
+        });
     }
 
     /**
