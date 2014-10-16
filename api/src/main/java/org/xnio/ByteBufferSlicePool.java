@@ -39,17 +39,28 @@ import static org.xnio._private.Messages.msg;
  */
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
-    private static final int LOCAL_LENGTH;
+    /**
+     * Name of the system property that can contain the value for cached queue size, queue with buffer slices for each thread.
+     */
+    public static final String PROPERTY_NAME_THREAD_LOCAL_QUEUE_SIZE = "xnio.bufferpool.threadlocal.size";
+    /**
+     * The default value for cached queue capacity for each thread.
+     */
+    private static final int DEFAULT_THREAD_LOCAL_QUEUE_SIZE = 12;
+    /**
+     * Current value that is used as default for cached queue capacity (obtained from system property or default value).
+     */
+    private static final int THREAD_LOCAL_QUEUE_SIZE;
 
     static {
-        String value = AccessController.doPrivileged(new ReadPropertyAction("xnio.bufferpool.threadlocal.size", "12"));
+        String value = AccessController.doPrivileged(new ReadPropertyAction(PROPERTY_NAME_THREAD_LOCAL_QUEUE_SIZE, String.valueOf(DEFAULT_THREAD_LOCAL_QUEUE_SIZE)));
         int val;
         try {
             val = Integer.parseInt(value);
         } catch (NumberFormatException ignored) {
-            val = 12;
+            val = DEFAULT_THREAD_LOCAL_QUEUE_SIZE;
         }
-        LOCAL_LENGTH = val;
+        THREAD_LOCAL_QUEUE_SIZE = val;
     }
 
     private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<Ref>());
@@ -90,10 +101,10 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         if (maxRegionSize < bufferSize) {
             throw msg.parameterOutOfRange("bufferSize");
         }
-        buffersPerRegion = maxRegionSize / bufferSize;
+        this.buffersPerRegion = maxRegionSize / bufferSize;
         this.bufferSize = bufferSize;
         this.allocator = allocator;
-        sliceQueue = new ConcurrentLinkedQueue<Slice>();
+        this.sliceQueue = new ConcurrentLinkedQueue<Slice>();
         this.threadLocalQueueSize = threadLocalQueueSize;
     }
 
@@ -105,7 +116,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
      * @param maxRegionSize the maximum region size for each backing buffer
      */
     public ByteBufferSlicePool(final BufferAllocator<ByteBuffer> allocator, final int bufferSize, final int maxRegionSize) {
-        this(allocator, bufferSize, maxRegionSize, LOCAL_LENGTH);
+        this(allocator, bufferSize, maxRegionSize, THREAD_LOCAL_QUEUE_SIZE);
     }
 
     /**
@@ -121,14 +132,14 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
         ThreadLocalCache localCache = localQueueHolder.get();
-        if(localCache.outstanding != threadLocalQueueSize) {
+        // each allocation increases cache potential to store a new slice for this thread.
+        if(localCache.outstanding < threadLocalQueueSize) {
             localCache.outstanding++;
         }
         Slice slice = localCache.queue.poll();
         if (slice != null) {
             return new PooledByteBuffer(slice, slice.slice());
         }
-        final Queue<Slice> sliceQueue = this.sliceQueue;
         slice = sliceQueue.poll();
         if (slice != null) {
             return new PooledByteBuffer(slice, slice.slice());
@@ -161,6 +172,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     private void doFree(Slice region) {
         final ThreadLocalCache localCache = localQueueHolder.get();
         boolean cacheOk = false;
+        // freeing a slice decreases cache potential to store a new slice for this thread.
         if(localCache.outstanding > 0) {
             localCache.outstanding--;
             cacheOk = true;
@@ -254,9 +266,18 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
              */
             protected void finalize() {
                 threadLocal.remove();
+                // super.finalize() ?
             }
         };
 
+        /**
+         * Value limited in range [0, threadLocalQueueSize]. It is used to determine if a freed slice should be added to
+         * thread's cached queue or should be added to pool queue.
+         * If a thread allocates slices this value is incremented to reflect the fact that thread's potential to cache
+         * and reuse slices is increased.
+         * If a thread frees slices this value is decremented to reflect the fact that that thread's potential to cache
+         * and reuse slices is decreased.
+         */
         int outstanding = 0;
 
         private ThreadLocalCache(ThreadLocal<ThreadLocalCache> threadLocal) {
