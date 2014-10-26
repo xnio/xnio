@@ -20,7 +20,9 @@ package org.xnio.http;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -41,7 +43,7 @@ class HttpUpgradeParser {
     private String httpVersion;
     private int responseCode;
     private String message;
-    private final Map<String, String> headers = new HashMap<String, String>();
+    private final Map<String, List<String>> headers = new HashMap<String, List<String>>();
 
     private final StringBuilder current = new StringBuilder();
     private String headerName;
@@ -75,7 +77,12 @@ class HttpUpgradeParser {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
             if (b == '\r' || b == '\n') {
-                headers.put(headerName.toLowerCase(Locale.ENGLISH), current.toString().trim());
+                String key = headerName.toLowerCase(Locale.ENGLISH);
+                List<String> list = headers.get(key);
+                if(list == null) {
+                    headers.put(key, list = new ArrayList<String>());
+                }
+                list.add(current.toString().trim());
                 parseState--;
                 current.setLength(0);
                 return;
@@ -176,7 +183,7 @@ class HttpUpgradeParser {
         return message;
     }
 
-    public Map<String, String> getHeaders() {
+    public Map<String, List<String>> getHeaders() {
         return headers;
     }
 }

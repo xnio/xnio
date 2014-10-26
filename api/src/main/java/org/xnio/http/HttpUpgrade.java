@@ -25,7 +25,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -75,6 +78,24 @@ public class HttpUpgrade {
 
 
     /**
+     * Perform a HTTP upgrade that results in a SSL secured connection. This method should be used if the target endpoint is using https
+     *
+     * @param worker           The worker
+     * @param ssl              The XnioSsl instance
+     * @param bindAddress      The bind address
+     * @param uri              The URI to connect to
+     * @param headers          Any additional headers to include in the upgrade request. This must include an <code>Upgrade</code> header that specifies the type of upgrade being performed
+     * @param openListener     The open listener that is invoked once the HTTP upgrade is done
+     * @param bindListener     The bind listener that is invoked when the socket is bound
+     * @param optionMap        The option map for the connection
+     * @param handshakeChecker A handshake checker that can be supplied to verify that the server returned a valid response to the upgrade request
+     * @return An IoFuture of the connection
+     */
+    public static IoFuture<SslConnection> performUpgrade(final XnioWorker worker, XnioSsl ssl, InetSocketAddress bindAddress, URI uri, final Map<String, List<String>> headers, ChannelListener<? super SslConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, ExtendedHandshakeChecker handshakeChecker) {
+        return new HttpUpgradeState<SslConnection>(worker, ssl, bindAddress, uri, headers, openListener, bindListener, optionMap, handshakeChecker).doUpgrade();
+    }
+
+    /**
      * Connects to the target server using HTTP upgrade.
      *
      * @param worker           The worker
@@ -88,6 +109,23 @@ public class HttpUpgrade {
      * @return An IoFuture of the connection
      */
     public static IoFuture<StreamConnection> performUpgrade(final XnioWorker worker, InetSocketAddress bindAddress, URI uri, final Map<String, String> headers, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, HandshakeChecker handshakeChecker) {
+        return new HttpUpgradeState<StreamConnection>(worker, null, bindAddress, uri, headers, openListener, bindListener, optionMap, handshakeChecker).doUpgrade();
+    }
+
+    /**
+     * Connects to the target server using HTTP upgrade.
+     *
+     * @param worker           The worker
+     * @param bindAddress      The bind address
+     * @param uri              The URI to connect to
+     * @param headers          Any additional headers to include in the upgrade request. This must include an <code>Upgrade</code> header that specifies the type of upgrade being performed
+     * @param openListener     The open listener that is invoked once the HTTP upgrade is done
+     * @param bindListener     The bind listener that is invoked when the socket is bound
+     * @param optionMap        The option map for the connection
+     * @param handshakeChecker A handshake checker that can be supplied to verify that the server returned a valid response to the upgrade request
+     * @return An IoFuture of the connection
+     */
+    public static IoFuture<StreamConnection> performUpgrade(final XnioWorker worker, InetSocketAddress bindAddress, URI uri, final Map<String, List<String>> headers, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap, ExtendedHandshakeChecker handshakeChecker) {
         return new HttpUpgradeState<StreamConnection>(worker, null, bindAddress, uri, headers, openListener, bindListener, optionMap, handshakeChecker).doUpgrade();
     }
 
@@ -106,6 +144,20 @@ public class HttpUpgrade {
         return new HttpUpgradeState<T>(connection, uri, headers, openListener, handshakeChecker).upgradeExistingConnection();
     }
 
+    /**
+     * Performs a HTTP upgrade on an existing connection.
+     *
+     * @param connection       The existing connection to upgrade
+     * @param uri              The URI to connect to
+     * @param headers          Any additional headers to include in the upgrade request. This must include an <code>Upgrade</code> header that specifies the type of upgrade being performed
+     * @param openListener     The open listener that is invoked once the HTTP upgrade is done
+     * @param handshakeChecker A handshake checker that can be supplied to verify that the server returned a valid response to the upgrade request
+     * @return An IoFuture of the connection
+     */
+    public static <T extends StreamConnection> IoFuture<T> performUpgrade(final T connection, URI uri, final Map<String, List<String>> headers, ChannelListener<? super StreamConnection> openListener, ExtendedHandshakeChecker handshakeChecker) {
+        return new HttpUpgradeState<T>(connection, uri, headers, openListener, handshakeChecker).upgradeExistingConnection();
+    }
+
     private HttpUpgrade() {
 
     }
@@ -117,16 +169,32 @@ public class HttpUpgrade {
         private final XnioSsl ssl;
         private final InetSocketAddress bindAddress;
         private final URI uri;
-        private final Map<String, String> headers;
+        private final Map<String, List<String>> headers;
         private final ChannelListener<? super T> openListener;
         private final ChannelListener<? super BoundChannel> bindListener;
         private final OptionMap optionMap;
-        private final HandshakeChecker handshakeChecker;
+        private final Object handshakeChecker;
         private final FutureResult<T> future = new FutureResult<T>();
         private T connection;
 
 
         private HttpUpgradeState(final XnioWorker worker, final XnioSsl ssl, final InetSocketAddress bindAddress, final URI uri, final Map<String, String> headers, final ChannelListener<? super T> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final HandshakeChecker handshakeChecker) {
+            this.worker = worker;
+            this.ssl = ssl;
+            this.bindAddress = bindAddress;
+            this.uri = uri;
+            this.openListener = openListener;
+            this.bindListener = bindListener;
+            this.optionMap = optionMap;
+            this.handshakeChecker = handshakeChecker;
+            Map<String, List<String>> newHeaders = new HashMap<>();
+            for(Map.Entry<String, String> entry  : headers.entrySet()) {
+                newHeaders.put(entry.getKey(), Collections.singletonList(entry.getValue()));
+            }
+            this.headers = newHeaders;
+        }
+
+        private HttpUpgradeState(final XnioWorker worker, final XnioSsl ssl, final InetSocketAddress bindAddress, final URI uri, final Map<String, List<String>> headers, final ChannelListener<? super T> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap, final ExtendedHandshakeChecker handshakeChecker) {
             this.worker = worker;
             this.ssl = ssl;
             this.bindAddress = bindAddress;
@@ -143,6 +211,23 @@ public class HttpUpgrade {
             this.ssl = null;
             this.bindAddress = null;
             this.uri = uri;
+            this.openListener = openListener;
+            this.bindListener = null;
+            this.optionMap = OptionMap.EMPTY;
+            this.handshakeChecker = handshakeChecker;
+            this.connection = connection;
+            Map<String, List<String>> newHeaders = new HashMap<>();
+            for(Map.Entry<String, String> entry  : headers.entrySet()) {
+                newHeaders.put(entry.getKey(), Collections.singletonList(entry.getValue()));
+            }
+            this.headers = newHeaders;
+        }
+
+        public HttpUpgradeState(final T connection, final URI uri, final Map<String, List<String>> headers, final ChannelListener<? super StreamConnection> openListener, final ExtendedHandshakeChecker handshakeChecker) {
+            this.worker = connection.getWorker();
+            this.ssl = null;
+            this.bindAddress = null;
+            this.uri = uri;
             this.headers = headers;
             this.openListener = openListener;
             this.bindListener = null;
@@ -150,6 +235,7 @@ public class HttpUpgrade {
             this.handshakeChecker = handshakeChecker;
             this.connection = connection;
         }
+
 
         private IoFuture<T> doUpgrade() {
             InetSocketAddress address = new InetSocketAddress(uri.getHost(), uri.getPort());
@@ -188,12 +274,14 @@ public class HttpUpgrade {
             }
             builder.append(" HTTP/1.1\r\n");
             final Set<String> seen = new HashSet<String>();
-            for (Map.Entry<String, String> header : headers.entrySet()) {
-                builder.append(header.getKey());
-                builder.append(": ");
-                builder.append(header.getValue());
-                builder.append("\r\n");
-                seen.add(header.getKey().toLowerCase(Locale.ENGLISH));
+            for (Map.Entry<String, List<String>> headerEntry : headers.entrySet()) {
+                for(String value : headerEntry.getValue()) {
+                    builder.append(headerEntry.getKey());
+                    builder.append(": ");
+                    builder.append(value);
+                    builder.append("\r\n");
+                    seen.add(headerEntry.getKey().toLowerCase(Locale.ENGLISH));
+                }
             }
             if (!seen.contains("host")) {
                 builder.append("Host: ");
@@ -386,14 +474,18 @@ public class HttpUpgrade {
         }
 
         private void handleUpgrade(final HttpUpgradeParser parser) {
-            final String contentLength = parser.getHeaders().get("content-length");
+            Map<String, String> simpleHeaders = new HashMap<>();
+            for(Map.Entry<String, List<String>> e : parser.getHeaders().entrySet()) {
+                simpleHeaders.put(e.getKey(), e.getValue().get(0));
+            }
+            final String contentLength = simpleHeaders.get("content-length");
             if (contentLength != null) {
                 if (!"0".equals(contentLength)) {
                     future.setException(new IOException("Upgrade responses must have a content length of zero."));
                     return;
                 }
             }
-            final String transferCoding = parser.getHeaders().get("transfer-encoding");
+            final String transferCoding = simpleHeaders.get("transfer-encoding");
             if (transferCoding != null) {
                 future.setException(new IOException("Upgrade responses cannot have a transfer coding"));
                 return;
@@ -401,7 +493,11 @@ public class HttpUpgrade {
 
             if (handshakeChecker != null) {
                 try {
-                    handshakeChecker.checkHandshake(parser.getHeaders());
+                    if(handshakeChecker instanceof ExtendedHandshakeChecker) {
+                        ((ExtendedHandshakeChecker) handshakeChecker).checkHandshakeExtended(parser.getHeaders());
+                    } else {
+                        ((HandshakeChecker)handshakeChecker).checkHandshake(simpleHeaders);
+                    }
                 } catch (IOException e) {
                     safeClose(connection);
                     future.setException(e);
@@ -413,7 +509,8 @@ public class HttpUpgrade {
         }
 
         private void handleRedirect(final HttpUpgradeParser parser) {
-            future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), parser.getHeaders().get("location")));
+            List<String> location = parser.getHeaders().get("location");
+            future.setException(new RedirectException(msg.redirect(), parser.getResponseCode(), location == null ? null : location.get(0)));
         }
 
         private class FailureNotifier extends IoFuture.HandlingNotifier<StreamConnection, Object> {
