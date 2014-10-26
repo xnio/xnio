@@ -89,7 +89,7 @@ public class HttpParserTestCase {
         Assert.assertEquals(message, parser.getMessage());
         Assert.assertEquals(headers.size(), parser.getHeaders().size());
         for (Map.Entry<String, String> entry : headers.entrySet()) {
-            Assert.assertEquals(entry.getValue(), parser.getHeaders().get(entry.getKey()));
+            Assert.assertEquals(entry.getValue(), parser.getHeaders().get(entry.getKey()).get(0));
         }
 
 
