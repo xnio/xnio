@@ -19,6 +19,7 @@
 
     <properties>
         <version.surefire.plugin>2.8</version.surefire.plugin>
+        <version.bridger.plugin>1.0.Final</version.bridger.plugin>
         <byteman-version>2.0.4</byteman-version>
 
         <!-- tools.jar location, this needs to be overriden on OSX -->
