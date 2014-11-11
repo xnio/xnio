@@ -33,9 +33,9 @@ public final class Property implements Serializable {
     private static final long serialVersionUID = -4958518978461712277L;
 
     private final String key;
-    private final String value;
+    private final Object value;
 
-    private Property(final String key, final String value) {
+    private Property(final String key, final Object value) {
         if (key == null)
             throw msg.nullParameter("key");
 
@@ -60,23 +60,23 @@ public final class Property implements Serializable {
      *
      * @return the value.
      */
-    public String getValue() {
+    public Object getValue() {
         return value;
     }
-    
+
     /**
      * Get the {@link String} representation of this property.
-     * 
+     *
      * @return the {@link String} representation of this property.
      */
     @Override
     public String toString() {
-        return "(" + key + "=>" + value + ")";
+        return "(" + key + "=>" + value.toString() + ")";
     }
 
     /**
      * Get the hash code for this Property.
-     * 
+     *
      * @return the hash code.
      */
     @Override
@@ -112,7 +112,7 @@ public final class Property implements Serializable {
      * @param value the value for the new Property
      * @return the newly created Property
      */
-    public static Property of(final String key, final String value) {
+    public static Property of(final String key, final Object value) {
         return new Property(key, value);
     }
 
