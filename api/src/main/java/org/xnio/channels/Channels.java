@@ -808,6 +808,13 @@ public final class Channels {
                     if ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) == 0L) {
                         break;
                     }
+                    if(lres == -1) {
+                        if(total > 0) {
+                            return total;
+                        } else {
+                            return -1;
+                        }
+                    }
                     total += lres;
                     count -= lres;
                 }
