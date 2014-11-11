@@ -809,7 +809,11 @@ public final class Channels {
                         break;
                     }
                     if(lres == -1) {
-                        return total;
+                        if(total > 0) {
+                            return total;
+                        } else {
+                            return -1;
+                        }
                     }
                     total += lres;
                     count -= lres;
