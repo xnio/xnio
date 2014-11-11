@@ -47,6 +47,10 @@ public final class Property implements Serializable {
         this.value = value;
     }
 
+    private Property(final String key, final String value) {
+        this(key, (Object) value);
+    }
+
     /**
      * Get the key of this key/value Property.
      *
@@ -63,6 +67,16 @@ public final class Property implements Serializable {
      */
     public Object getValue() {
         return value;
+    }
+
+    /**
+     * Get the value of this key/value Property.
+     *
+     * @return the value.
+     */
+    public String getValue$$bridger() {
+        // If the value is not a String we want a ClassCastException to indicate the error.
+       return (String) value;
     }
 
     /**
@@ -114,6 +128,17 @@ public final class Property implements Serializable {
      * @return the newly created Property
      */
     public static Property of(final String key, final Object value) {
+        return new Property(key, value);
+    }
+
+    /**
+     * Create a new property for the specified key and value.
+     *
+     * @param key   the key for new Property
+     * @param value the value for the new Property
+     * @return the newly created Property
+     */
+    public static Property of(final String key, final String value) {
         return new Property(key, value);
     }
 
