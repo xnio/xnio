@@ -821,7 +821,7 @@ public final class Channels {
             switch (ires) {
                 case -1: return total == 0L ? -1L : total;
                 case 0: return total;
-                default: total += (long) ires;
+                default: total += (long) ires; count -= (long) ires;
             }
         }
     }
@@ -861,7 +861,7 @@ public final class Channels {
                 switch (ires) {
                     case -1: return total == 0L ? -1L : total;
                     case 0: return total;
-                    default: total += (long) ires;
+                    default: total += (long) ires; count -= (long) ires;
                 }
             }
         }
