@@ -98,6 +98,9 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (!tls) {
             return super.read(dsts, offs, len);
         }
+        if (offs < 0 || offs > len || len < 0 || offs + len > dsts.length) {
+            throw new ArrayIndexOutOfBoundsException();
+        }
         if ((!sslEngine.isDataAvailable() && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
             return -1;
         }

@@ -70,14 +70,14 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
         // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            sinkConduit.write(new ByteBuffer[]{buffer}, -1, 1);
+            assertEquals(0, sinkConduit.write(new ByteBuffer[] { buffer }, -1, 1));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            sinkConduit.write(new ByteBuffer[]{buffer}, 0, 2);
+            assertEquals(0, sinkConduit.write(new ByteBuffer[] { buffer }, 0, 2));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
@@ -117,19 +117,19 @@ public class SslStreamConnectionValidationTestCase extends AbstractSslConnection
         conduitMock.setReadData("invalid read buffer array");
         conduitMock.enableReads(true);
         final ByteBuffer buffer = ByteBuffer.allocate(10);
-        // the conduit should simply return 0 if length is 0 or a negative number
+        // the conduit should simply return 0 if length is 0
         assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, 0));
-        // conduit should throw ArrayIndexOutOfBoundsException if position is < 0, or if length is larger than it should
+        // conduit should throw ArrayIndexOutOfBoundsException if offs or len is < 0, or if length is larger than it should
         boolean failed = false;
         try {
-            sourceConduit.read(new ByteBuffer[]{buffer}, 0, -1);
+            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, 0, -1));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
         assertTrue(failed);
         failed = false;
         try {
-            sourceConduit.read(new ByteBuffer[]{buffer}, -1, 1);
+            assertEquals(0, sourceConduit.read(new ByteBuffer[]{buffer}, -1, 1));
         } catch (ArrayIndexOutOfBoundsException e) {
             failed = true;
         }
