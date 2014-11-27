@@ -24,6 +24,7 @@ import org.xnio.IoUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -82,7 +83,7 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
     public void run() {
         while (!stopped) {
             try {
-                WatchKey key = watchService.take();
+                final WatchKey key = watchService.take();
                 if (key != null) {
                     try {
                         PathData pathData = pathDataByKey.get(key);
@@ -155,8 +156,11 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
                 }
             } catch (InterruptedException e) {
                 //ignore
+            } catch (ClosedWatchServiceException cwse) {
+                // the watcher service is closed, so no more waiting on events
+                // @see https://developer.jboss.org/message/911519
+                break;
             }
-
         }
     }
 
