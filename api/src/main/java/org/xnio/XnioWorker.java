@@ -22,9 +22,12 @@
 
 package org.xnio;
 
+import static java.security.AccessController.doPrivileged;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
