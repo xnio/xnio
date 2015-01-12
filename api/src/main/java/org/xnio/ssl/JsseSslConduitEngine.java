@@ -892,15 +892,27 @@ final class JsseSslConduitEngine {
      */
     public void closeOutbound() throws IOException {
         int old = setFlags(WRITE_SHUT_DOWN);
-        if (allAreClear(old, WRITE_SHUT_DOWN)) {
-            engine.closeOutbound();
-            synchronized (getWrapLock()) {
-                wrapCloseMessage();
-                flush();
+        try {
+            if (allAreClear(old, WRITE_SHUT_DOWN)) {
+                engine.closeOutbound();
+                synchronized (getWrapLock()) {
+                    wrapCloseMessage();
+                    flush();
+                }
             }
-        }
-        if (!allAreClear(old, READ_SHUT_DOWN)) {
+            if (!allAreClear(old, READ_SHUT_DOWN)) {
+                closeEngine(true, true);
+            }
+        } catch (Exception e) {
+            //if there is an exception on close we immediately close the engine to make sure buffers are freed
             closeEngine(true, true);
+            if(e instanceof IOException) {
+                throw (IOException)e;
+            } else if(e instanceof RuntimeException) {
+                throw (RuntimeException)e;
+            } else  {
+                throw new RuntimeException(e); //should not happen
+            }
         }
     }
 
@@ -987,17 +999,29 @@ final class JsseSslConduitEngine {
      */
     public void closeInbound() throws IOException {
         int old = setFlags(READ_SHUT_DOWN);
-        if (allAreClear(old, READ_SHUT_DOWN)) {
-            sourceConduit.terminateReads();
-        }
-        if (allAreSet(old, WRITE_SHUT_DOWN) && !allAreSet(old, WRITE_COMPLETE)) {
-            synchronized (getWrapLock()) {
-                wrapCloseMessage();
-                flush();
+        try {
+            if (allAreClear(old, READ_SHUT_DOWN)) {
+                sourceConduit.terminateReads();
             }
-        }
-        if (allAreSet(old, WRITE_COMPLETE)) {
+            if (allAreSet(old, WRITE_SHUT_DOWN) && !allAreSet(old, WRITE_COMPLETE)) {
+                synchronized (getWrapLock()) {
+                    wrapCloseMessage();
+                    flush();
+                }
+            }
+            if (allAreSet(old, WRITE_COMPLETE)) {
+                closeEngine(true, true);
+            }
+        } catch (Exception e) {
+            //if there is an exception on close we immediately close the engine to make sure buffers are freed
             closeEngine(true, true);
+            if(e instanceof IOException) {
+                throw (IOException)e;
+            } else if(e instanceof RuntimeException) {
+                throw (RuntimeException)e;
+            } else  {
+                throw new RuntimeException(e); //should not happen
+            }
         }
     }
 
