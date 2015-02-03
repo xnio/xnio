@@ -179,9 +179,9 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
+            return connectTcpStream(null, (InetSocketAddress) destination, openListener, null, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, null, optionMap);
+            return connectLocalStream(null, (LocalSocketAddress) destination, openListener, null, optionMap);
         } else {
             throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
         }
@@ -201,9 +201,9 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return connectTcpStream(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
+            return connectTcpStream(null, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalStream(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
+            return connectLocalStream(null, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
             throw new UnsupportedOperationException("Connect to server with socket address " + destination.getClass());
         }
@@ -341,9 +341,9 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             throw new IllegalArgumentException("destination is null");
         }
         if (destination instanceof InetSocketAddress) {
-            return connectUdpDatagram(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
+            return connectUdpDatagram(null, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
-            return connectLocalDatagram(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
+            return connectLocalDatagram(null, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
             throw new UnsupportedOperationException("Connect to datagram server with socket address " + destination.getClass());
         }

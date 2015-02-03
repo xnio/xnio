@@ -309,7 +309,7 @@ final class NioXnioWorker extends XnioWorker {
             if (optionMap.contains(Options.RECEIVE_BUFFER)) channel.socket().setReceiveBufferSize(optionMap.get(Options.RECEIVE_BUFFER, 0));
             if (optionMap.contains(Options.TCP_NODELAY)) channel.socket().setTcpNoDelay(optionMap.get(Options.TCP_NODELAY, false));
             if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, 0));
-            channel.socket().bind(bindAddress);
+            if (bindAddress != null) channel.socket().bind(bindAddress);
             final NioTcpChannel tcpChannel = new NioTcpChannel(this, channel);
             final NioHandle<NioTcpChannel> connectHandle = optionMap.get(Options.WORKER_ESTABLISH_WRITING, false) ? tcpChannel.getWriteHandle() : tcpChannel.getReadHandle();
             ChannelListeners.invokeChannelListener(tcpChannel.getBoundChannel(), bindListener);
