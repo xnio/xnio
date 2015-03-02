@@ -19,9 +19,11 @@
 
 package org.xnio.sasl;
 
+import static java.security.AccessController.doPrivileged;
 import static org.xnio._private.Messages.msg;
 
 import java.nio.ByteBuffer;
+import java.security.PrivilegedAction;
 import java.security.Provider;
 import java.security.Security;
 import java.util.HashMap;
@@ -119,8 +121,13 @@ public final class SaslUtils {
             final String filter = type.getSimpleName() + ".";
 
             Provider[] providers = Security.getProviders();
-            for (Provider currentProvider : providers) {
-                final ClassLoader cl = currentProvider.getClass().getClassLoader();
+            final SecurityManager sm = System.getSecurityManager();
+            for (final Provider currentProvider : providers) {
+                final ClassLoader cl = sm == null ? currentProvider.getClass().getClassLoader() : doPrivileged(new PrivilegedAction<ClassLoader>() {
+                    public ClassLoader run() {
+                        return currentProvider.getClass().getClassLoader();
+                    }
+                });
                 for (Object currentKey : currentProvider.keySet()) {
                     if (currentKey instanceof String &&
                             ((String) currentKey).startsWith(filter) &&
