@@ -7,6 +7,8 @@ package org.xnio;
  * @param <T> the resource type
  *
  * @apiviz.landmark
+ *
+ * @deprecated See {@link ByteBufferPool}.
  */
 public interface Pool<T> {
 

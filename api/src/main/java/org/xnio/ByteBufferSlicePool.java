@@ -36,6 +36,7 @@ import static org.xnio._private.Messages.msg;
  * to do so will cause the corresponding buffer area to be unavailable until the buffer is garbage-collected.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @deprecated See {@link ByteBufferPool}.
  */
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 

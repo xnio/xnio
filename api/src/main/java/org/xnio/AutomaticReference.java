@@ -27,13 +27,17 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 
+import org.wildfly.common.ref.CleanerReference;
+
 /**
  * An automatic reference is a phantom reference which is automatically freed by a background thread when it is
  * enqueued.  Since this type of garbage collection imposes considerable overhead, it should only be used sparingly,
  * when it is impossible to achieve correctness any other way.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @deprecated See {@link CleanerReference}.
  */
+@Deprecated
 public abstract class AutomaticReference<T> extends PhantomReference<T> {
 
     static final Object PERMIT = new Object();
