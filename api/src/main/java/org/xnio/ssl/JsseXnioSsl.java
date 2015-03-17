@@ -62,7 +62,7 @@ import org.xnio.channels.ConnectedStreamChannel;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public final class JsseXnioSsl extends XnioSsl {
-    private static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 17 * 1024, 17 * 1024 * 128);
+    static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 17 * 1024, 17 * 1024 * 128);
     private final SSLContext sslContext;
 
     /**
@@ -106,9 +106,7 @@ public final class JsseXnioSsl extends XnioSsl {
      * @return the SSL engine
      */
     public static SSLEngine getSslEngine(SslConnection connection) {
-        if (connection instanceof JsseSslStreamConnection) {
-            return ((JsseSslStreamConnection) connection).getEngine();
-        } else if (connection instanceof JsseSslConnection) {
+        if (connection instanceof JsseSslConnection) {
             return ((JsseSslConnection) connection).getEngine();
         } else {
             throw msg.notFromThisProvider();
