@@ -1,6 +1,8 @@
 
 package org.xnio;
 
+import java.nio.ByteBuffer;
+
 /**
  * A generic pooled resource manager.
  *
@@ -18,4 +20,22 @@ public interface Pool<T> {
      * @return the resource
      */
     Pooled<T> allocate();
+
+    /**
+     * A compatibility pool which maps to {@link ByteBufferPool#MEDIUM_HEAP}.
+     */
+    Pool<ByteBuffer> HEAP = new Pool<ByteBuffer>() {
+        public Pooled<ByteBuffer> allocate() {
+            return Buffers.globalPooledWrapper(ByteBufferPool.MEDIUM_HEAP.allocate());
+        }
+    };
+
+    /**
+     * A compatibility pool which maps to {@link ByteBufferPool#MEDIUM_DIRECT}.
+     */
+    Pool<ByteBuffer> DIRECT = new Pool<ByteBuffer>() {
+        public Pooled<ByteBuffer> allocate() {
+            return Buffers.globalPooledWrapper(ByteBufferPool.MEDIUM_DIRECT.allocate());
+        }
+    };
 }

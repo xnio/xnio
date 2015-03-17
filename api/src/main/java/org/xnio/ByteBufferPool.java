@@ -56,8 +56,17 @@ public abstract class ByteBufferPool {
 
     // buffer pool size constants
 
+    /**
+     * The size of large buffers.
+     */
     public static final int LARGE_SIZE = 0x100000;
-    public static final int NORMAL_SIZE = 0x2000;
+    /**
+     * The size of medium buffers.
+     */
+    public static final int MEDIUM_SIZE = 0x2000;
+    /**
+     * The size of small buffers.
+     */
     public static final int SMALL_SIZE = 0x40;
 
     static final int LOCAL_QUEUE_SIZE = 0x10;
@@ -65,27 +74,27 @@ public abstract class ByteBufferPool {
     static final int CACHE_LINE_SIZE = max(64, CacheInfo.getSmallestDataCacheLineSize());
 
     /**
-     * The large direct buffer pool.  This pool produces buffers 1 MiB in size.
+     * The large direct buffer pool.  This pool produces buffers of {@link #LARGE_SIZE}.
      */
     public static final ByteBufferPool LARGE_DIRECT = create(LARGE_SIZE, true);
     /**
-     * The medium direct buffer pool.  This pool produces buffers 8 KiB in size.
+     * The medium direct buffer pool.  This pool produces buffers of {@link #MEDIUM_SIZE}.
      */
-    public static final ByteBufferPool NORMAL_DIRECT = sliceLargeBuffers ? subPool(LARGE_DIRECT, NORMAL_SIZE) : create(NORMAL_SIZE, true);
+    public static final ByteBufferPool MEDIUM_DIRECT = sliceLargeBuffers ? subPool(LARGE_DIRECT, MEDIUM_SIZE) : create(MEDIUM_SIZE, true);
     /**
-     * The small direct buffer pool.  This pool produces buffers 64 B in size.
+     * The small direct buffer pool.  This pool produces buffers of {@link #SMALL_SIZE}.
      */
-    public static final ByteBufferPool SMALL_DIRECT = subPool(NORMAL_DIRECT, SMALL_SIZE);
+    public static final ByteBufferPool SMALL_DIRECT = subPool(MEDIUM_DIRECT, SMALL_SIZE);
     /**
-     * The large heap buffer pool.  This pool produces buffers 1 MiB in size.
+     * The large heap buffer pool.  This pool produces buffers of {@link #LARGE_SIZE}.
      */
     public static final ByteBufferPool LARGE_HEAP = create(LARGE_SIZE, false);
     /**
-     * The medium heap buffer pool.  This pool produces buffers 8 KiB in size.
+     * The medium heap buffer pool.  This pool produces buffers of {@link #MEDIUM_SIZE}.
      */
-    public static final ByteBufferPool NORMAL_HEAP = create(NORMAL_SIZE, false);
+    public static final ByteBufferPool MEDIUM_HEAP = create(MEDIUM_SIZE, false);
     /**
-     * The small heap buffer pool.  This pool produces buffers 64 B in size.
+     * The small heap buffer pool.  This pool produces buffers of {@link #SMALL_SIZE}.
      */
     public static final ByteBufferPool SMALL_HEAP = create(SMALL_SIZE, false);
 
@@ -131,11 +140,11 @@ public abstract class ByteBufferPool {
         /**
          * The direct buffer source set.
          */
-        public static final Set DIRECT = new Set(SMALL_DIRECT, NORMAL_DIRECT, LARGE_DIRECT);
+        public static final Set DIRECT = new Set(SMALL_DIRECT, MEDIUM_DIRECT, LARGE_DIRECT);
         /**
          * The heap buffer source set.
          */
-        public static final Set HEAP = new Set(SMALL_HEAP, NORMAL_HEAP, LARGE_HEAP);
+        public static final Set HEAP = new Set(SMALL_HEAP, MEDIUM_HEAP, LARGE_HEAP);
     }
 
     /**
@@ -212,8 +221,8 @@ public abstract class ByteBufferPool {
         if (Integer.bitCount(size) == 1 && ! buffer.isReadOnly()) {
             if (buffer.isDirect()) {
                 if (! (buffer instanceof MappedByteBuffer)) {
-                    if (size == NORMAL_SIZE) {
-                        NORMAL_DIRECT.doFree(buffer);
+                    if (size == MEDIUM_SIZE) {
+                        MEDIUM_DIRECT.doFree(buffer);
                     } else if (size == SMALL_SIZE) {
                         SMALL_DIRECT.doFree(buffer);
                     } else if (size == LARGE_SIZE) {
@@ -221,8 +230,8 @@ public abstract class ByteBufferPool {
                     }
                 }
             } else {
-                if (size == NORMAL_SIZE) {
-                    NORMAL_HEAP.doFree(buffer);
+                if (size == MEDIUM_SIZE) {
+                    MEDIUM_HEAP.doFree(buffer);
                 } else if (size == SMALL_SIZE) {
                     SMALL_HEAP.doFree(buffer);
                 } else if (size == LARGE_SIZE) {
@@ -251,8 +260,8 @@ public abstract class ByteBufferPool {
             if (Integer.bitCount(size) == 1 && ! buffer.isReadOnly()) {
                 if (buffer.isDirect()) {
                     if (! (buffer instanceof MappedByteBuffer)) {
-                        if (size == NORMAL_SIZE) {
-                            NORMAL_DIRECT.doFree(buffer);
+                        if (size == MEDIUM_SIZE) {
+                            MEDIUM_DIRECT.doFree(buffer);
                         } else if (size == SMALL_SIZE) {
                             SMALL_DIRECT.doFree(buffer);
                         } else if (size == LARGE_SIZE) {
@@ -260,8 +269,8 @@ public abstract class ByteBufferPool {
                         }
                     }
                 } else {
-                    if (size == NORMAL_SIZE) {
-                        NORMAL_HEAP.doFree(buffer);
+                    if (size == MEDIUM_SIZE) {
+                        MEDIUM_HEAP.doFree(buffer);
                     } else if (size == SMALL_SIZE) {
                         SMALL_HEAP.doFree(buffer);
                     } else if (size == LARGE_SIZE) {

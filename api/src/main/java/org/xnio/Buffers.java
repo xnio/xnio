@@ -41,6 +41,10 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import static org.xnio._private.Messages.msg;
 
+import org.wildfly.common.ref.CleanerReference;
+import org.wildfly.common.ref.Reaper;
+import org.wildfly.common.ref.Reference;
+
 /**
  * Buffer utility methods.
  *
@@ -1943,6 +1947,53 @@ public final class Buffers {
 
             public String toString() {
                 return "Pooled wrapper around " + buffer;
+            }
+        };
+    }
+
+    /**
+     * Create a pooled wrapper around a buffer that was allocated via {@link ByteBufferPool}.  The buffer is freed to the
+     * global pool when freed.
+     *
+     * @param buffer the buffer to wrap
+     * @return the pooled wrapper
+     */
+    public static Pooled<ByteBuffer> globalPooledWrapper(final ByteBuffer buffer) {
+        return new Pooled<ByteBuffer>() {
+            private volatile ByteBuffer buf = buffer;
+
+            public void discard() {
+                ByteBuffer oldBuf = this.buf;
+                if (oldBuf == null) return;
+                final ByteBuffer buf = oldBuf.duplicate();
+                new CleanerReference<ByteBuffer, Void>(this.buf, null, new Reaper<ByteBuffer, Void>() {
+                    public void reap(final Reference<ByteBuffer, Void> reference) {
+                        // free the duplicate
+                        ByteBufferPool.free(buf);
+                    }
+                });
+                this.buf = null;
+            }
+
+            public void free() {
+                ByteBufferPool.free(buf);
+                buf = null;
+            }
+
+            public ByteBuffer getResource() throws IllegalStateException {
+                final ByteBuffer buffer = buf;
+                if (buffer == null) {
+                    throw new IllegalStateException();
+                }
+                return buffer;
+            }
+
+            public void close() {
+                free();
+            }
+
+            public String toString() {
+                return "Globally pooled wrapper around " + buffer;
             }
         };
     }
