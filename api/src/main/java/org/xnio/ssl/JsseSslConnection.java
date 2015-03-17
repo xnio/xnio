@@ -15,11 +15,15 @@ import org.xnio.Pool;
 import org.xnio.SslClientAuthMode;
 import org.xnio.StreamConnection;
 
-final class JsseSslConnection extends SslConnection {
+public final class JsseSslConnection extends SslConnection {
     private final StreamConnection streamConnection;
     private final JsseStreamConduit conduit;
 
     private final ChannelListener.SimpleSetter<SslConnection> handshakeSetter = new ChannelListener.SimpleSetter<>();
+
+    public JsseSslConnection(final StreamConnection streamConnection, final SSLEngine engine) {
+        this(streamConnection, engine, JsseXnioSsl.bufferPool, JsseXnioSsl.bufferPool);
+    }
 
     JsseSslConnection(final StreamConnection streamConnection, final SSLEngine engine, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
         super(streamConnection.getIoThread());
@@ -135,7 +139,7 @@ final class JsseSslConnection extends SslConnection {
         return streamConnection.isReadShutdown();
     }
 
-    SSLEngine getEngine() {
+    public SSLEngine getEngine() {
         return conduit.getEngine();
     }
 }
