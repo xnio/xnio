@@ -242,7 +242,6 @@ public class JsseXnioSslTestCase {
         final InetSocketAddress localAddress = new InetSocketAddress(500);
         final OptionMap.Builder builder = OptionMap.builder();
         builder.set(Options.SSL_PROTOCOL, "TLSv1");
-        builder.set(Options.SSL_PROVIDER, "SunJSSE");
         builder.set(Options.SSL_CLIENT_SESSION_CACHE_SIZE, 20000);
         builder.set(Options.SSL_CLIENT_SESSION_TIMEOUT, 80);
         builder.set(Options.SSL_SERVER_SESSION_CACHE_SIZE, 30000);
@@ -349,7 +348,6 @@ public class JsseXnioSslTestCase {
         final InetSocketAddress localAddress = new InetSocketAddress(500);
         final OptionMap.Builder builder = OptionMap.builder();
         builder.set(Options.SSL_PROTOCOL, "TLSv1");
-        builder.set(Options.SSL_PROVIDER, "SunJSSE");
         builder.set(Options.SSL_CLIENT_SESSION_CACHE_SIZE, 20000);
         builder.set(Options.SSL_CLIENT_SESSION_TIMEOUT, 80);
         builder.set(Options.SSL_SERVER_SESSION_CACHE_SIZE, 30000);
