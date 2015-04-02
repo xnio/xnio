@@ -104,6 +104,16 @@ final class NioXnio extends Xnio {
                     }
                     if (provider == null) {
                         try {
+                            // Solaris (Java 8+)
+                            provider = Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
+                            // not available
+                            provider = null;
+                        }
+                    }
+                    if (provider == null) {
+                        try {
                             // Solaris
                             provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
                             provider.openSelector().close();
