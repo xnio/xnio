@@ -336,11 +336,11 @@ public abstract class ByteBufferPool {
                 final int size = getSize();
                 ByteBuffer result = Buffers.slice(parentBuffer, size);
                 while (parentBuffer.hasRemaining()) {
-                    super.doFree(Buffers.slice(parentBuffer, size));
                     // avoid false sharing between buffers
                     if (size < CACHE_LINE_SIZE) {
                         Buffers.skip(parentBuffer, CACHE_LINE_SIZE - size);
                     }
+                    super.doFree(Buffers.slice(parentBuffer, size));
                 }
                 return result;
             }
