@@ -168,6 +168,7 @@
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
+                    <additionalparam>-Xdoclint:none</additionalparam>
                     <detectJavaApiLink>false</detectJavaApiLink>
                     <detectLinks>false</detectLinks>
                     <doclet>net.gleamynode.apiviz.APIviz</doclet>
