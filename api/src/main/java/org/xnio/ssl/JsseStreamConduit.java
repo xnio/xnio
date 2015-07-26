@@ -20,7 +20,10 @@ package org.xnio.ssl;
 
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
-import static org.xnio.Bits.*;
+import static org.xnio.Bits.allAreClear;
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.Bits.anyAreClear;
+import static org.xnio.Bits.anyAreSet;
 import static org.xnio._private.Messages.msg;
 
 import java.io.EOFException;
@@ -365,6 +368,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         int state = JsseStreamConduit.this.state;
         final boolean flagTaskQueued = allAreSet(state, FLAG_TASK_QUEUED);
         boolean modify = flagTaskQueued;
+        boolean queueTask = false;
         state &= ~FLAG_TASK_QUEUED;
         try {
             // task(s)
@@ -444,7 +448,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         } finally {                                   // |
                             // restore flags <---------------------------+
                             // it is OK if this is stale
-                            state = JsseStreamConduit.this.state;
+                            state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -454,8 +458,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             if (allAreSet(state, READ_FLAG_READY)) {
                                 if (!flagTaskQueued) {
                                     state |= FLAG_TASK_QUEUED;
-                                    modify = true;
-                                    getReadThread().execute(this);
+                                    modify = queueTask = true;
                                 }
                             } else if (allAreSet(state, READ_FLAG_NEEDS_WRITE) && allAreClear(state, WRITE_FLAG_UP_RESUMED)) {
                                 state |= WRITE_FLAG_UP_RESUMED;
@@ -485,6 +488,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         } finally {
             if (modify) {
                 JsseStreamConduit.this.state = state;
+                // execute this on read thread only after updating the state
+                if (queueTask) getReadThread().execute(this);
             }
         }
     }
@@ -580,12 +585,12 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 wakeupWrites();
                 return;
             }
+            boolean queueTask = false;
             try {
                 state |= WRITE_FLAG_RESUMED;
                 if (allAreSet(state, WRITE_FLAG_READY)) {
-                    if (allAreClear(state, FLAG_TASK_QUEUED)) {
+                    if (queueTask = allAreClear(state, FLAG_TASK_QUEUED)) {
                         state |= FLAG_TASK_QUEUED;
-                        getReadThread().execute(this);
                     }
                 } else if (allAreSet(state, WRITE_FLAG_NEEDS_READ) && allAreClear(state, READ_FLAG_UP_RESUMED)) {
                     // need to resume reads to make this happen
@@ -598,6 +603,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 }
             } finally {
                 this.state = state;
+                // execute this on read thread only after updating the state
+                if (queueTask) getReadThread().execute(this);
             }
         }
     }
@@ -758,6 +765,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
 
     public void resumeReads() {
         int state = this.state;
+        boolean queueTask = false;
         if (allAreClear(state, READ_FLAG_RESUMED)) try {
             state |= READ_FLAG_RESUMED;
             // in the absence of a writer, we need to wake up the reader to make sure that handshake will take place
@@ -767,9 +775,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 state |= READ_FLAG_READY;
             }
             if (allAreSet(state, READ_FLAG_READY)) {
-                if (allAreClear(state, FLAG_TASK_QUEUED)) {
+                if (queueTask = allAreClear(state, FLAG_TASK_QUEUED)) {
                     state |= FLAG_TASK_QUEUED;
-                    getReadThread().execute(this);
                 }
             } else if (allAreSet(state, READ_FLAG_NEEDS_WRITE) && allAreClear(state, WRITE_FLAG_UP_RESUMED)) {
                 // need to resume writes to make this happen
@@ -782,6 +789,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             }
         } finally {
             this.state = state;
+            // execute this on read thread only after updating the state
+            if (queueTask) getReadThread().execute(this);
         }
     }
 
