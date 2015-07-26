@@ -181,7 +181,7 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         assertEquals(293265, (int) channel.setOption(Options.WRITE_TIMEOUT, null));
 
         assertFalse(channel.getOption(Options.CLOSE_ABORT));
-//        assertEquals(0, (int) channel.getOption(Options.IP_TRAFFIC_CLASS)); this check conflicts with line 157...
+        assertTrue((int) channel.getOption(Options.IP_TRAFFIC_CLASS) >= 0);
         assertFalse(channel.getOption(Options.KEEP_ALIVE));
         assertEquals(0, (int) channel.getOption(Options.READ_TIMEOUT));
         assertTrue(channel.getOption(Options.RECEIVE_BUFFER) > 0);
