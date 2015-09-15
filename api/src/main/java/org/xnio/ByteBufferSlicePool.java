@@ -120,13 +120,16 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     /** {@inheritDoc} */
     public Pooled<ByteBuffer> allocate() {
-        ThreadLocalCache localCache = localQueueHolder.get();
-        if(localCache.outstanding != threadLocalQueueSize) {
-            localCache.outstanding++;
-        }
-        Slice slice = localCache.queue.poll();
-        if (slice != null) {
-            return new PooledByteBuffer(slice, slice.slice());
+        Slice slice;
+        if (threadLocalQueueSize > 0) {
+            ThreadLocalCache localCache = localQueueHolder.get();
+            if(localCache.outstanding != threadLocalQueueSize) {
+                localCache.outstanding++;
+            }
+            slice = localCache.queue.poll();
+            if (slice != null) {
+                return new PooledByteBuffer(slice, slice.slice());
+            }
         }
         final Queue<Slice> sliceQueue = this.sliceQueue;
         slice = sliceQueue.poll();
@@ -159,17 +162,21 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     }
 
     private void doFree(Slice region) {
-        final ThreadLocalCache localCache = localQueueHolder.get();
-        boolean cacheOk = false;
-        if(localCache.outstanding > 0) {
-            localCache.outstanding--;
-            cacheOk = true;
-        }
-        ArrayDeque<Slice> localQueue = localCache.queue;
-        if (localQueue.size() == threadLocalQueueSize || !cacheOk) {
-            sliceQueue.add(region);
+        if (threadLocalQueueSize > 0) {
+            final ThreadLocalCache localCache = localQueueHolder.get();
+            boolean cacheOk = false;
+            if(localCache.outstanding > 0) {
+                localCache.outstanding--;
+                cacheOk = true;
+            }
+            ArrayDeque<Slice> localQueue = localCache.queue;
+            if (localQueue.size() == threadLocalQueueSize || !cacheOk) {
+                sliceQueue.add(region);
+            } else {
+                localQueue.add(region);
+            }
         } else {
-            localQueue.add(region);
+            sliceQueue.add(region);
         }
     }
 
