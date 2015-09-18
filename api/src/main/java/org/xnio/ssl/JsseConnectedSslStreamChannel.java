@@ -571,20 +571,27 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
     }
 
     protected void shutdownReadsAction(final boolean writeComplete) throws IOException {
-        if (! tls) {
+        try {
             channel.shutdownReads();
-            return;
-        }
-        channel.shutdownReads();
-        if (!isWriteShutDown()) {
-            synchronized (getReadLock()) {
-                engine.closeInbound();
+            if (tls) {
+                if (!isWriteShutDown()) {
+                    synchronized (getReadLock()) {
+                        engine.closeInbound();
+                    }
+                    write(Buffers.EMPTY_BYTE_BUFFER, true);
+                    flush();
+                }
             }
-            write(Buffers.EMPTY_BYTE_BUFFER, true);
-            flush();
-        }
-        if (writeComplete) {
-            closeAction(true, true);
+            if (writeComplete) {
+                closeAction(true, true);
+            }
+        } finally {
+            if (writeComplete) {
+                readBuffer.free();
+                receiveBuffer.free();
+                sendBuffer.free();
+                IoUtils.safeClose(channel);
+            }
         }
     }
 
@@ -600,11 +607,17 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
         try {
             channel.shutdownWrites();
             suspendWrites();
+            if (readShutDown) {
+                closeAction(true, true);
+            }
         } finally {
             sendBuffer.free();
-        }
-        if (readShutDown) {
-            closeAction(true, true);
+            if (readShutDown) {
+                readBuffer.free();
+                receiveBuffer.free();
+                sendBuffer.free();
+                IoUtils.safeClose(channel);
+            }
         }
     }
 
@@ -660,15 +673,17 @@ final class JsseConnectedSslStreamChannel extends TranslatingSuspendableChannel<
 
     protected void closeAction(final boolean readShutDown, final boolean writeShutDown) throws IOException {
         try {
-            if (!readShutDown && !engine.isInboundDone()) {
-                engine.closeInbound();
-            }
-            if (! writeShutDown) {
-                engine.closeOutbound();
-            }
-            synchronized(getWriteLock()) {
-                if (! doFlush()) {
-                    throw new IOException("Unsent data truncated");
+            if (tls) {
+                if (!readShutDown && !engine.isInboundDone()) {
+                    engine.closeInbound();
+                }
+                if (! writeShutDown) {
+                    engine.closeOutbound();
+                }
+                synchronized(getWriteLock()) {
+                    if (! doFlush()) {
+                        throw new IOException("Unsent data truncated");
+                    }
                 }
             }
             channel.close();
