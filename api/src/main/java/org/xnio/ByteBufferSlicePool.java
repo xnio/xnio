@@ -62,7 +62,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     private final ThreadLocal<ThreadLocalCache> localQueueHolder = new ThreadLocal<ThreadLocalCache>() {
         protected ThreadLocalCache initialValue() {
             //noinspection serial
-            return new ThreadLocalCache(this);
+            return new ThreadLocalCache();
         }
 
         public void remove() {
@@ -253,22 +253,24 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private final class ThreadLocalCache {
 
-        private final ThreadLocal<ThreadLocalCache> threadLocal;
-
         final ArrayDeque<Slice> queue =  new ArrayDeque<Slice>(threadLocalQueueSize) {
 
             /**
              * This sucks but there's no other way to ensure these buffers are returned to the pool.
              */
             protected void finalize() {
-                threadLocal.remove();
+                final ArrayDeque<Slice> deque = queue;
+                Slice slice = deque.poll();
+                while (slice != null) {
+                    doFree(slice);
+                    slice = deque.poll();
+                }
             }
         };
 
         int outstanding = 0;
 
-        private ThreadLocalCache(ThreadLocal<ThreadLocalCache> threadLocal) {
-            this.threadLocal = threadLocal;
+        ThreadLocalCache() {
         }
     }
 }
