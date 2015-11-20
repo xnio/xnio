@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
@@ -302,6 +303,13 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
     }
 
     @Test
+    @Ignore("Racy")
+    public void twoWayTransfer() throws Exception {
+        super.twoWayTransfer();
+    }
+
+    @Test
+    @Ignore("Racy")
     public void twoWayTransferWithHandshake() throws Exception {
         log.info("Test: twoWayTransferWithHandshake");
         final CountDownLatch latch = new CountDownLatch(2);

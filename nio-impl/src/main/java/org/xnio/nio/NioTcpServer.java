@@ -20,6 +20,7 @@ package org.xnio.nio;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -34,6 +35,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.IoUtils;
+import org.xnio.LocalSocketAddress;
 import org.xnio.Option;
 import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
@@ -384,6 +386,25 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         try {
             accepted = channel.accept();
             if (accepted != null) try {
+                final SocketAddress localAddress = accepted.getLocalAddress();
+                int hash;
+                if (localAddress instanceof InetSocketAddress) {
+                    final InetSocketAddress address = (InetSocketAddress) localAddress;
+                    hash = address.getAddress().hashCode() * 23 + address.getPort();
+                } else if (localAddress instanceof LocalSocketAddress) {
+                    hash = ((LocalSocketAddress) localAddress).getName().hashCode();
+                } else {
+                    hash = localAddress.hashCode();
+                }
+                final SocketAddress remoteAddress = accepted.getRemoteAddress();
+                if (remoteAddress instanceof InetSocketAddress) {
+                    final InetSocketAddress address = (InetSocketAddress) remoteAddress;
+                    hash = (address.getAddress().hashCode() * 23 + address.getPort()) * 23 + hash;
+                } else if (remoteAddress instanceof LocalSocketAddress) {
+                    hash = ((LocalSocketAddress) remoteAddress).getName().hashCode() * 23 + hash;
+                } else {
+                    hash = localAddress.hashCode() * 23 + hash;
+                }
                 accepted.configureBlocking(false);
                 final Socket socket = accepted.socket();
                 socket.setKeepAlive(keepAlive != 0);
@@ -391,8 +412,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 socket.setTcpNoDelay(tcpNoDelay != 0);
                 final int sendBuffer = this.sendBuffer;
                 if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
-                final SelectionKey selectionKey = current.registerChannel(accepted);
-                final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(current, selectionKey, handle);
+                final WorkerThread ioThread = worker.getIoThread(hash);
+                final SelectionKey selectionKey = ioThread.registerChannel(accepted);
+                final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(ioThread, selectionKey, handle);
                 newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
                 newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
                 ok = true;
