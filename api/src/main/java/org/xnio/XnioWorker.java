@@ -702,6 +702,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
+     * Get an I/O thread from this worker.  The thread is chosen based on the given hash code.
+     *
+     * @param hashCode the hash code
+     * @return the thread
+     */
+    public abstract XnioIoThread getIoThread(int hashCode);
+
+    /**
      * Get the user task to run once termination is complete.
      *
      * @return the termination task

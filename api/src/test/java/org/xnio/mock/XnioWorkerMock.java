@@ -31,7 +31,6 @@ import org.xnio.LocalSocketAddress;
 import org.xnio.OptionMap;
 import org.xnio.StreamConnection;
 import org.xnio.Xnio;
-import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.MulticastMessageChannel;
@@ -94,6 +93,11 @@ public class XnioWorkerMock extends XnioWorker {
 
     @Override
     public XnioIoThreadMock chooseThread() {
+        return mockThread;
+    }
+
+    @Override
+    public XnioIoThreadMock getIoThread(final int hashCode) {
         return mockThread;
     }
 
@@ -179,5 +183,4 @@ public class XnioWorkerMock extends XnioWorker {
     @Override
     public void awaitTermination() throws InterruptedException {
     }
-
 }
