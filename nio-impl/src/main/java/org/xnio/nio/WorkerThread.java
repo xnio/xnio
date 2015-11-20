@@ -464,6 +464,13 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     // clear interrupt status
                     Thread.interrupted();
                     safeRun(task);
+                    if(task == null) {
+                        polling = true;
+                    }
+                    task = workQueue.poll();
+                    if(task != null) {
+                        polling = false;
+                    }
                 } while (task != null);
                 // all tasks have been run
                 oldState = state;
