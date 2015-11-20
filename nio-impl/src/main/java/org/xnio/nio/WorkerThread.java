@@ -97,7 +97,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
 
     static {
         OLD_LOCKING = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.old-locking", "false")));
-        THREAD_SAFE_SELECTION_KEYS = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.xnio.thread-safe-selection-keys", "false")));
+        THREAD_SAFE_SELECTION_KEYS = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.thread-safe-selection-keys", "false")));
     }
 
     WorkerThread(final NioXnioWorker worker, final Selector selector, final String name, final ThreadGroup group, final long stackSize, final int number) {
@@ -419,6 +419,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
     }
 
+    volatile boolean polling;
+
     public void run() {
         final Selector selector = this.selector;
         try {
@@ -460,6 +462,13 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         }
                     }
                     safeRun(task);
+                    if(task == null) {
+                        polling = true;
+                    }
+                    task = workQueue.poll();
+                    if(task != null) {
+                        polling = false;
+                    }
                 } while (task != null);
                 // all tasks have been run
                 oldState = state;
@@ -499,11 +508,19 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selector.selectNow();
                     } else if (delayTime == Long.MAX_VALUE) {
                         selectorLog.tracef("Beginning select on %s", selector);
-                        selector.select();
+                        try {
+                            selector.select();
+                        } finally {
+                            polling = false;
+                        }
                     } else {
                         final long millis = 1L + delayTime / 1000000L;
                         selectorLog.tracef("Beginning select on %s (with timeout)", selector);
-                        selector.select(millis);
+                        try {
+                            selector.select(millis);
+                        } finally {
+                            polling = false;
+                        }
                     }
                 } catch (CancelledKeyException ignored) {
                     // Mac and other buggy implementations sometimes spits these out
@@ -665,7 +682,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             try {
                 return channel.register(selector, 0);
             } finally {
-                selector.wakeup();
+                if (polling) selector.wakeup();
             }
         } else {
             final SynchTask task = new SynchTask();
@@ -744,7 +761,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         } else {
             try {
                 key.interestOps(key.interestOps() | ops);
-                selector.wakeup();
+                if (polling) selector.wakeup();
             } catch (CancelledKeyException ignored) {
             }
         }
