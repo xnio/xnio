@@ -805,6 +805,11 @@ public class XnioWorkerTestCase {
             }
 
             @Override
+            public XnioIoThread getIoThread(final int hashCode) {
+                return new XnioIoThreadMock(this);
+            }
+
+            @Override
             public int getIoThreadCount() {
                 return 0;
             }

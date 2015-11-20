@@ -27,7 +27,7 @@ import java.net.StandardProtocolFamily;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -148,6 +148,10 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected WorkerThread chooseThread() {
+        return getIoThread(ThreadLocalRandom.current().nextInt());
+    }
+
+    public WorkerThread getIoThread(final int hashCode) {
         final WorkerThread[] workerThreads = this.workerThreads;
         final int length = workerThreads.length;
         if (length == 0) {
@@ -156,8 +160,7 @@ final class NioXnioWorker extends XnioWorker {
         if (length == 1) {
             return workerThreads[0];
         }
-        final Random random = IoUtils.getThreadLocalRandom();
-        return workerThreads[random.nextInt(length)];
+        return workerThreads[Math.floorMod(hashCode, length)];
     }
 
     public int getIoThreadCount() {

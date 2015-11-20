@@ -97,6 +97,11 @@ public class XnioWorkerMock extends XnioWorker {
         return mockThread;
     }
 
+    @Override
+    public XnioIoThreadMock getIoThread(final int hashCode) {
+        return mockThread;
+    }
+
     /**
      * Returns the connect behavior of this worker mock.
      */
@@ -179,5 +184,4 @@ public class XnioWorkerMock extends XnioWorker {
     @Override
     public void awaitTermination() throws InterruptedException {
     }
-
 }
