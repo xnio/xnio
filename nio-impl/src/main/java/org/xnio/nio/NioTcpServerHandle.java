@@ -27,7 +27,7 @@ import static org.xnio.IoUtils.safeClose;
 /**
 * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
 */
-final class NioTcpServerHandle extends NioHandle {
+final class NioTcpServerHandle extends NioHandle implements ChannelClosed {
 
     private final Runnable freeTask;
     private final NioTcpServer server;
@@ -91,7 +91,7 @@ final class NioTcpServerHandle extends NioHandle {
         }
     }
 
-    void channelClosed() {
+    public void channelClosed() {
         final WorkerThread thread = getWorkerThread();
         if (thread == currentThread()) {
             freeConnection();

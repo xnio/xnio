@@ -34,14 +34,14 @@ import org.xnio.Options;
  */
 final class NioSocketStreamConnection extends AbstractNioStreamConnection {
 
-    private final NioTcpServerHandle serverConduit;
+    private final ChannelClosed closedHandle;
     private final NioSocketConduit conduit;
 
-    NioSocketStreamConnection(final WorkerThread workerThread, final SelectionKey key, final NioTcpServerHandle serverConduit) {
+    NioSocketStreamConnection(final WorkerThread workerThread, final SelectionKey key, final ChannelClosed closedHandle) {
         super(workerThread);
         conduit = new NioSocketConduit(workerThread, key, this);
         key.attach(conduit);
-        this.serverConduit = serverConduit;
+        this.closedHandle = closedHandle;
         setSinkConduit(conduit);
         setSourceConduit(conduit);
     }
@@ -135,8 +135,8 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
             conduit.getSocketChannel().close();
         } catch (ClosedChannelException ignored) {
         } finally {
-            final NioTcpServerHandle conduit = this.serverConduit;
-            if (conduit!= null) conduit.channelClosed();
+            final ChannelClosed closedHandle = this.closedHandle;
+            if (closedHandle!= null) closedHandle.channelClosed();
         }
     }
 
