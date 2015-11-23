@@ -60,6 +60,7 @@ final class NioXnioWorker extends XnioWorker {
     private volatile int state = 1;
 
     private final WorkerThread[] workerThreads;
+    private final WorkerThread acceptThread;
     private final Closeable mbeanHandle;
 
     @SuppressWarnings("unused")
@@ -99,6 +100,10 @@ final class NioXnioWorker extends XnioWorker {
                     workerThread.setDaemon(true);
                 }
                 workerThreads[i] = workerThread;
+            }
+            acceptThread = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s Accept", workerName), threadGroup, workerStackSize, threadCount);
+            if (markWorkerThreadAsDaemon) {
+                acceptThread.setDaemon(true);
             }
             ok = true;
         } finally {
@@ -145,6 +150,8 @@ final class NioXnioWorker extends XnioWorker {
             openResourceUnconditionally();
             worker.start();
         }
+        openResourceUnconditionally();
+        acceptThread.start();
     }
 
     protected WorkerThread chooseThread() {
@@ -184,10 +191,17 @@ final class NioXnioWorker extends XnioWorker {
             } else {
                 channel.socket().bind(bindAddress);
             }
-            final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
-            server.setAcceptListener(acceptListener);
-            ok = true;
-            return server;
+            if (false) {
+                final NioTcpServer server = new NioTcpServer(this, channel, optionMap);
+                server.setAcceptListener(acceptListener);
+                ok = true;
+                return server;
+            } else {
+                final QueuedNioTcpServer server = new QueuedNioTcpServer(this, channel, optionMap);
+                server.setAcceptListener(acceptListener);
+                ok = true;
+                return server;
+            }
         } finally {
             if (! ok) {
                 IoUtils.safeClose(channel);
@@ -278,6 +292,7 @@ final class NioXnioWorker extends XnioWorker {
             for (WorkerThread worker : workerThreads) {
                 worker.shutdown();
             }
+            acceptThread.shutdown();
             shutDownTaskPool();
             return;
         }
@@ -354,5 +369,9 @@ final class NioXnioWorker extends XnioWorker {
 
     public NioXnio getXnio() {
         return (NioXnio) super.getXnio();
+    }
+
+    WorkerThread getAcceptThread() {
+        return acceptThread;
     }
 }

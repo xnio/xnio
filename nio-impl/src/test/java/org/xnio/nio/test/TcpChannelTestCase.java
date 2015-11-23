@@ -82,8 +82,8 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
         }
         final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, optionMap);
         final FutureResult<ConnectedStreamChannel> accepted = new FutureResult<ConnectedStreamChannel>(xnioWorker);
-        server.getAcceptThread().execute(new Runnable() {
-            public void run() {
+        server.getAcceptSetter().set(new ChannelListener<AcceptingChannel<? extends ConnectedStreamChannel>>() {
+            public void handleEvent(final AcceptingChannel<? extends ConnectedStreamChannel> channel) {
                 try {
                     accepted.setResult(server.accept());
                 } catch (IOException e) {
@@ -91,6 +91,7 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
                 }
             }
         });
+        server.resumeAccepts();
         serverChannel = accepted.getIoFuture().get();
         channel = connectedStreamChannel.get();
         assertNotNull(serverChannel);

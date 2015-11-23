@@ -199,7 +199,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             }
 
             public XnioIoThread getIoThread() {
-                return chooseThread();
+                return server.getIoThread();
             }
 
             public void close() throws IOException {

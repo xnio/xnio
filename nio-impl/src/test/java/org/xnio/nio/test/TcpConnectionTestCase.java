@@ -82,8 +82,8 @@ public class TcpConnectionTestCase extends AbstractStreamSinkSourceChannelTest<S
         }
         final IoFuture<StreamConnection> openedConnection = xnioWorker.openStreamConnection(bindAddress, null, optionMap);
         final FutureResult<StreamConnection> accepted = new FutureResult<StreamConnection>(xnioWorker);
-        server.getIoThread().execute(new Runnable() {
-            public void run() {
+        server.getAcceptSetter().set(new ChannelListener<AcceptingChannel<? extends StreamConnection>>() {
+            public void handleEvent(final AcceptingChannel<? extends StreamConnection> channel) {
                 try {
                     accepted.setResult(server.accept());
                 } catch (IOException e) {
@@ -91,6 +91,7 @@ public class TcpConnectionTestCase extends AbstractStreamSinkSourceChannelTest<S
                 }
             }
         });
+        server.resumeAccepts();
         serverConnection = accepted.getIoFuture().get();
         connection = openedConnection.get();
         assertNotNull(serverConnection);
