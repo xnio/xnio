@@ -596,7 +596,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         synchronized (workLock) {
             selectorWorkQueue.add(command);
         }
-        if(currentThread() != this) {
+        if (polling) { // flag is always false if we're the same thread
             selector.wakeup();
         }
     }
@@ -631,7 +631,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             queue.add(key);
             if (queue.iterator().next() == key) {
                 // we're the next one up; poke the selector to update its delay time
-                if(currentThread() != this) {
+                if (polling) { // flag is always false if we're the same thread
                     selector.wakeup();
                 }
             }
