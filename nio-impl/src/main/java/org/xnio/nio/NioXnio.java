@@ -215,22 +215,25 @@ final class NioXnio extends Xnio {
         return super.createFileSystemWatcher(name, options);
     }
 
-    private final ThreadLocal<Selector> selectorThreadLocal = new ThreadLocal<Selector>() {
+    private final ThreadLocal<FinalizableSelectorHolder> selectorThreadLocal = new ThreadLocal<FinalizableSelectorHolder>() {
         public void remove() {
             // if no selector was created, none will be closed
-            IoUtils.safeClose(get());
+            FinalizableSelectorHolder holder = get();
+            if(holder != null) {
+                IoUtils.safeClose(holder.selector);
+            }
             super.remove();
         }
     };
 
     Selector getSelector() throws IOException {
-        final ThreadLocal<Selector> threadLocal = selectorThreadLocal;
-        Selector selector = threadLocal.get();
-        if (selector == null) {
-            selector = tempSelectorCreator.open();
-            threadLocal.set(selector);
+        final ThreadLocal<FinalizableSelectorHolder> threadLocal = selectorThreadLocal;
+        FinalizableSelectorHolder holder = threadLocal.get();
+        if (holder == null) {
+            holder = new FinalizableSelectorHolder(tempSelectorCreator.open());
+            threadLocal.set(holder);
         }
-        return selector;
+        return holder.selector;
     }
 
     private static class DefaultSelectorCreator implements SelectorCreator {
@@ -291,5 +294,19 @@ final class NioXnio extends Xnio {
 
     protected static Closeable register(XnioServerMXBean serverMXBean) {
         return Xnio.register(serverMXBean);
+    }
+
+    private static final class FinalizableSelectorHolder {
+        final Selector selector;
+
+
+        private FinalizableSelectorHolder(Selector selector) {
+            this.selector = selector;
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            IoUtils.safeClose(selector);
+        }
     }
 }
