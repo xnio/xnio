@@ -167,7 +167,7 @@ final class NioXnioWorker extends XnioWorker {
         if (length == 1) {
             return workerThreads[0];
         }
-        return workerThreads[Math.floorMod(hashCode, length)];
+        return workerThreads[Math.abs(hashCode % length)];
     }
 
     public int getIoThreadCount() {
