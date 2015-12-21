@@ -242,7 +242,7 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             transmitBuffer.putInt(remaining);
             transmitBuffer.put(buffer);
             log.tracef("Accepted a message into %s", transmitBuffer);
-            doFlush();
+
             return true;
         }
     }
@@ -274,7 +274,6 @@ public class FramedMessageChannel extends TranslatingSuspendableChannel<Connecte
             transmitBuffer.putInt((int) remaining);
             Buffers.copy(transmitBuffer, buffers, offs, len);
             log.tracef("Accepted a message into %s", transmitBuffer);
-            doFlush();
             return true;
         }
     }
