@@ -74,6 +74,8 @@ public abstract class Xnio {
 
     private static final RuntimePermission ALLOW_BLOCKING_SETTING = new RuntimePermission("changeThreadBlockingSetting");
 
+    private static final boolean MBEAN_REGISTRATION_DISABLED = Boolean.getBoolean("org.xnio.MBEAN_REGISTRATION_DISABLED");
+    
     private static final MBeanServer MBEAN_SERVER;
 
     /**
@@ -96,7 +98,7 @@ public abstract class Xnio {
             map.put(access, OptionMap.create(Options.FILE_ACCESS, access));
         }
         FILE_ACCESS_OPTION_MAPS = map;
-        MBEAN_SERVER = doPrivileged(new PrivilegedAction<MBeanServer>() {
+        MBEAN_SERVER = MBEAN_REGISTRATION_DISABLED ? null : doPrivileged(new PrivilegedAction<MBeanServer>() {
             public MBeanServer run() {
                 return ManagementFactory.getPlatformMBeanServer();
             }
@@ -544,6 +546,9 @@ public abstract class Xnio {
      * @return a handle which may be used to remove the registration
      */
     protected static Closeable register(XnioProviderMXBean providerMXBean) {
+        if (MBEAN_REGISTRATION_DISABLED) {
+            return IoUtils.nullCloseable();
+        }
         try {
             final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(providerMXBean.getName()))));
             MBEAN_SERVER.registerMBean(providerMXBean, objectName);
@@ -560,6 +565,9 @@ public abstract class Xnio {
      * @return a handle which may be used to remove the registration
      */
     protected static Closeable register(XnioWorkerMXBean workerMXBean) {
+        if (MBEAN_REGISTRATION_DISABLED) {
+            return IoUtils.nullCloseable();
+        }
         try {
             final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(workerMXBean.getProviderName())), ObjectProperties.property("worker", ObjectName.quote(workerMXBean.getName()))));
             MBEAN_SERVER.registerMBean(workerMXBean, objectName);
@@ -576,6 +584,9 @@ public abstract class Xnio {
      * @return a handle which may be used to remove the registration
      */
     protected static Closeable register(XnioServerMXBean serverMXBean) {
+        if (MBEAN_REGISTRATION_DISABLED) {
+            return IoUtils.nullCloseable();
+        }
         try {
             final ObjectName objectName = new ObjectName("org.xnio", ObjectProperties.properties(ObjectProperties.property("type", "Xnio"), ObjectProperties.property("provider", ObjectName.quote(serverMXBean.getProviderName())), ObjectProperties.property("worker", ObjectName.quote(serverMXBean.getWorkerName())), ObjectProperties.property("address", ObjectName.quote(serverMXBean.getBindAddress()))));
             MBEAN_SERVER.registerMBean(serverMXBean, objectName);
