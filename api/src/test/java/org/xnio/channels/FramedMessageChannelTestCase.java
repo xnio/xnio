@@ -417,6 +417,7 @@ public class FramedMessageChannelTestCase {
             final ByteBuffer buffer = ByteBuffer.allocate(20);
             buffer.put("hello!".getBytes("UTF-8")).flip();
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("hello!");
         } finally {
             channel.close();
@@ -440,6 +441,7 @@ public class FramedMessageChannelTestCase {
             buffer.put("-api".getBytes("UTF-8")).flip();
             assertTrue(channel.send(buffer));
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("jboss ", "xnio", "-api");
         } finally {
             channel.close();
@@ -487,6 +489,7 @@ public class FramedMessageChannelTestCase {
             // enable write
             connectedChannel.enableWrite(true);
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("hi!", "hi!", "hi!", "hi!", "hi!");
         } finally {
             channel.close();
@@ -502,6 +505,7 @@ public class FramedMessageChannelTestCase {
             buffer[0].put("hello!".getBytes("UTF-8")).flip();
             buffer[1].put("world!".getBytes("UTF-8")).flip();
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("hello!world!");
         } finally {
             channel.close();
@@ -528,6 +532,7 @@ public class FramedMessageChannelTestCase {
             buffer[1].put("pi".getBytes("UTF-8")).flip();
             assertTrue(channel.send(buffer));
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("jboss ", "xnio", "-api");
         } finally {
             channel.close();
@@ -552,6 +557,7 @@ public class FramedMessageChannelTestCase {
             buffer[1].put("-api".getBytes("UTF-8")).flip();
             assertTrue(channel.send(buffer, 1, 2));
             assertTrue(channel.send(buffer, 1, 2));
+            assertTrue(channel.flush());
             assertWrittenMessage("jboss ", "xnio", "-api");
         } finally {
             channel.close();
@@ -599,6 +605,7 @@ public class FramedMessageChannelTestCase {
             // enable write
             connectedChannel.enableWrite(true);
             assertTrue(channel.send(buffer));
+            assertTrue(channel.flush());
             assertWrittenMessage("hello!", "hello!", "hello!", "hello!", "hello!");
         } finally {
             channel.close();
