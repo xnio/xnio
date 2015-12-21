@@ -45,7 +45,7 @@ import org.xnio.channels.StreamChannel;
 
 /**
  * Tests a pair of connected TCP stream channels (client/server).
- * 
+ *
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 @SuppressWarnings("deprecation")
@@ -67,12 +67,14 @@ public class TcpChannelTestCase extends AbstractNioStreamChannelTest {
 
     @After
     public void closeServer() throws IOException {
-        server.close();
+        if (server != null) {
+            server.close();
+        }
     }
 
     @Override
     protected synchronized void initChannels(XnioWorker xnioWorker, OptionMap optionMap, TestChannelListener<StreamChannel> channelListener,
-            TestChannelListener<StreamChannel> serverChannelListener) throws IOException { 
+            TestChannelListener<StreamChannel> serverChannelListener) throws IOException {
 
         if (channel != null) {
             channel.close();
