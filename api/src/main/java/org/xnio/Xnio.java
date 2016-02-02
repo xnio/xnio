@@ -154,8 +154,12 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public static Xnio getInstance(ClassLoader classLoader) {
-        return doGetInstance(null, ServiceLoader.load(XnioProvider.class, classLoader));
+    public static Xnio getInstance(final ClassLoader classLoader) {
+        return doGetInstance(null, doPrivileged(new PrivilegedAction<ServiceLoader<XnioProvider>>() {
+            public ServiceLoader<XnioProvider> run() {
+                return ServiceLoader.load(XnioProvider.class, classLoader);
+            }
+        }));
     }
 
     /**
@@ -167,7 +171,11 @@ public abstract class Xnio {
      * @since 3.0
      */
     public static Xnio getInstance() {
-        return doGetInstance(null, ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader()));
+        return doGetInstance(null, doPrivileged(new PrivilegedAction<ServiceLoader<XnioProvider>>() {
+            public ServiceLoader<XnioProvider> run() {
+                return ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader());
+            }
+        }));
     }
 
     /**
@@ -179,8 +187,12 @@ public abstract class Xnio {
      *
      * @since 3.0
      */
-    public static Xnio getInstance(String provider, ClassLoader classLoader) {
-        return doGetInstance(provider, ServiceLoader.load(XnioProvider.class, classLoader));
+    public static Xnio getInstance(String provider, final ClassLoader classLoader) {
+        return doGetInstance(provider, doPrivileged(new PrivilegedAction<ServiceLoader<XnioProvider>>() {
+            public ServiceLoader<XnioProvider> run() {
+                return ServiceLoader.load(XnioProvider.class, classLoader);
+            }
+        }));
     }
 
     /**
@@ -192,7 +204,11 @@ public abstract class Xnio {
      * @since 3.0
      */
     public static Xnio getInstance(String provider) {
-        return doGetInstance(provider, ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader()));
+        return doGetInstance(provider, doPrivileged(new PrivilegedAction<ServiceLoader<XnioProvider>>() {
+            public ServiceLoader<XnioProvider> run() {
+                return ServiceLoader.load(XnioProvider.class, Xnio.class.getClassLoader());
+            }
+        }));
     }
 
     private static Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
