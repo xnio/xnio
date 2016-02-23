@@ -105,6 +105,13 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     @SuppressWarnings("unused")
     private static final long CONN_HIGH_ONE     = 1L << CONN_HIGH_BIT;
 
+    /**
+     * The current number of open connections, can only be accessed by the accept thread
+     */
+    private int openConnections;
+    private volatile boolean suspendedDueToWatermark;
+    private volatile boolean suspended;
+
     private static final AtomicIntegerFieldUpdater<QueuedNioTcpServer> keepAliveUpdater = AtomicIntegerFieldUpdater.newUpdater(QueuedNioTcpServer.class, "keepAlive");
     private static final AtomicIntegerFieldUpdater<QueuedNioTcpServer> oobInlineUpdater = AtomicIntegerFieldUpdater.newUpdater(QueuedNioTcpServer.class, "oobInline");
     private static final AtomicIntegerFieldUpdater<QueuedNioTcpServer> tcpNoDelayUpdater = AtomicIntegerFieldUpdater.newUpdater(QueuedNioTcpServer.class, "tcpNoDelay");
@@ -121,6 +128,21 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
             ChannelListeners.invokeChannelListener(QueuedNioTcpServer.this, getAcceptListener());
             if (! queue.isEmpty()) {
                 current.execute(this);
+            }
+        }
+    };
+
+    private final Runnable connectionClosedTask = new Runnable() {
+        @Override
+        public void run() {
+            openConnections--;
+            if(suspendedDueToWatermark && openConnections < getLowWater(connectionStatus)) {
+                synchronized (QueuedNioTcpServer.this) {
+                    if(!suspended) {
+                        handle.resume(SelectionKey.OP_ACCEPT);
+                    }
+                    suspendedDueToWatermark = false;
+                }
             }
         }
     };
@@ -321,6 +343,22 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
             }
             newVal = (long)newLowWater << CONN_LOW_BIT | (long)newHighWater << CONN_HIGH_BIT;
         } while (! connectionStatusUpdater.compareAndSet(this, oldVal, newVal));
+        getIoThread().execute(new Runnable() {
+            @Override
+            public void run() {
+                if(openConnections >= getHighWater(connectionStatus)) {
+                    synchronized (QueuedNioTcpServer.this) {
+                        suspendedDueToWatermark = true;
+                        handle.suspend(SelectionKey.OP_ACCEPT);
+                    }
+                } else if(suspendedDueToWatermark && openConnections <= getLowWater(connectionStatus)) {
+                    suspendedDueToWatermark = false;
+                    if(!suspended) {
+                        handle.resume(SelectionKey.OP_ACCEPT);
+                    }
+                }
+            }
+        });
         return oldVal;
     }
 
@@ -333,6 +371,9 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     }
 
     public NioSocketStreamConnection accept() throws IOException {
+        if(suspendedDueToWatermark) {
+            return null;
+        }
         final WorkerThread current = WorkerThread.getCurrent();
         if (current == null) {
             return null;
@@ -400,15 +441,23 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     }
 
     public void suspendAccepts() {
-        handle.suspend(0);
+        synchronized (this) {
+            handle.suspend(SelectionKey.OP_ACCEPT);
+            suspended = true;
+        }
     }
 
     public void resumeAccepts() {
-        handle.resume(SelectionKey.OP_ACCEPT);
+        synchronized (this) {
+            suspended = false;
+            if(!suspendedDueToWatermark) {
+                handle.resume(SelectionKey.OP_ACCEPT);
+            }
+        }
     }
 
     public boolean isAcceptResumed() {
-        return handle.isResumed(SelectionKey.OP_ACCEPT);
+        return !suspended;
     }
 
     public void wakeupAccepts() {
@@ -472,11 +521,22 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 queue.add(accepted);
                 // todo: only execute if necessary
                 ioThread.execute(acceptTask);
+                openConnections++;
+                if(openConnections >= getHighWater(connectionStatus)) {
+                    synchronized (QueuedNioTcpServer.this) {
+                        handle.suspend(SelectionKey.OP_ACCEPT);
+                        suspendedDueToWatermark = true;
+                    }
+                }
             } finally {
                 if (! ok) safeClose(accepted);
             }
         } catch (IOException ignored) {
 
         }
+    }
+
+    public void connectionClosed() {
+        thread.execute(connectionClosedTask);
     }
 }
