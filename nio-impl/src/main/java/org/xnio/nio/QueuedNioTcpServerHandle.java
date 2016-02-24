@@ -51,7 +51,7 @@ final class QueuedNioTcpServerHandle extends NioHandle implements ChannelClosed 
     }
 
     void freeConnection() {
-        // ignore for now
+       server.connectionClosed();
     }
 
     int getConnectionCount() {
