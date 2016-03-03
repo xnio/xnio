@@ -25,7 +25,7 @@
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
-        <version>14</version>
+        <version>20</version>
     </parent>
 
     <groupId>org.jboss.xnio</groupId>
@@ -41,12 +41,14 @@
     </modules>
 
     <properties>
-        <byteman-version>2.1.4.1</byteman-version>
+        <maven.compiler.source>1.7</maven.compiler.source>
+        <maven.compiler.target>1.7</maven.compiler.target>
+
+        <byteman-version>3.0.3</byteman-version>
         <version.org.jboss.logging.jboss-logging>3.1.4.GA</version.org.jboss.logging.jboss-logging>
         <version.org.jboss.logging.jboss-logging-tools>1.2.0.Final</version.org.jboss.logging.jboss-logging-tools>
         <version.org.jboss.logmanager.jboss-logmanager>1.5.2.Final</version.org.jboss.logmanager.jboss-logmanager>
         <version.bridger.plugin>1.0.Final</version.bridger.plugin>
-        <version.surefire.plugin>2.17</version.surefire.plugin>
         <version.junit>4.11</version.junit>
         <version.jmock>2.6.0</version.jmock>
     </properties>
