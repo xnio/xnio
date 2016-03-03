@@ -427,7 +427,7 @@ public abstract class Option<T> implements Serializable {
         return new ValueParser<T>() {
             @SuppressWarnings("unchecked")
             public T parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
-                return enumType.cast(Enum.valueOf(enumType.asSubclass(Enum.class), string.trim()));
+                return enumType.cast(Enum.valueOf(enumType.asSubclass((Class<T>) Enum.class), string.trim()));
             }
         };
     }
