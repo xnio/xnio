@@ -423,13 +423,17 @@ public abstract class Option<T> implements Serializable {
         };
     }
 
-    static <T> Option.ValueParser<T> getEnumParser(final Class<T> enumType) {
+    static <T, E extends Enum<E>> Option.ValueParser<T> getEnumParser(final Class<T> enumType) {
         return new ValueParser<T>() {
-            @SuppressWarnings("unchecked")
             public T parseValue(final String string, final ClassLoader classLoader) throws IllegalArgumentException {
-                return enumType.cast(Enum.valueOf(enumType.asSubclass(Enum.class), string.trim()));
+                return enumType.cast(Enum.<E>valueOf(asEnum(enumType), string.trim()));
             }
         };
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, E extends Enum<E>> Class<E> asEnum(final Class<T> enumType) {
+        return (Class<E>) enumType;
     }
 
     @SuppressWarnings("unchecked")
