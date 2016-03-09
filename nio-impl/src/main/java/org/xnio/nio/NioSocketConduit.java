@@ -179,8 +179,12 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void terminateWrites() throws IOException {
         if (connection.writeClosed()) try {
-            suspend(SelectionKey.OP_WRITE);
-            socketChannel.socket().shutdownOutput();
+            if(getSelectionKey().isValid()) {
+                suspend(SelectionKey.OP_WRITE);
+            }
+            if(socketChannel.isOpen()) {
+                socketChannel.socket().shutdownOutput();
+            }
         } catch (ClosedChannelException ignored) {
         } finally {
             writeTerminated();
@@ -305,8 +309,12 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void terminateReads() throws IOException {
         if (connection.readClosed()) try {
-            suspend(SelectionKey.OP_READ);
-            socketChannel.socket().shutdownInput();
+            if(getSelectionKey().isValid()) {
+                suspend(SelectionKey.OP_READ);
+            }
+            if(socketChannel.isOpen()) {
+                socketChannel.socket().shutdownInput();
+            }
         } catch (ClosedChannelException ignored) {
         } finally {
             readTerminated();
