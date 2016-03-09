@@ -180,8 +180,10 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void terminateWrites() throws IOException {
         if (connection.writeClosed()) try {
-            suspend(SelectionKey.OP_WRITE);
-            try {
+            if (getSelectionKey().isValid()) {
+                suspend(SelectionKey.OP_WRITE);
+            }
+            if (socketChannel.isOpen()) try {
                 socketChannel.socket().shutdownOutput();
             } catch (SocketException ignored) {
                 // IBM incorrectly throws this exception on ENOTCONN; it's probably less harmful just to swallow it
@@ -310,8 +312,10 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void terminateReads() throws IOException {
         if (connection.readClosed()) try {
-            suspend(SelectionKey.OP_READ);
-            try {
+            if (getSelectionKey().isValid()) {
+                suspend(SelectionKey.OP_READ);
+            }
+            if (socketChannel.isOpen()) try {
                 socketChannel.socket().shutdownInput();
             } catch (SocketException ignored) {
                 // IBM incorrectly throws this exception on ENOTCONN; it's probably less harmful just to swallow it
