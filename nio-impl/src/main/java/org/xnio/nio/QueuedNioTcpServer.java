@@ -511,10 +511,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 final int sendBuffer = this.sendBuffer;
                 if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
                 final WorkerThread ioThread = worker.getIoThread(hash);
-                final SelectionKey selectionKey = ioThread.registerChannel(accepted);
-                final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(ioThread, selectionKey, handle);
-                newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
-                newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
                 ok = true;
                 final int number = ioThread.getNumber();
                 final BlockingQueue<SocketChannel> queue = acceptQueues.get(number);
