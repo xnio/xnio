@@ -259,8 +259,10 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                 final SelectionKey key = registerChannel(channel);
                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, key, null);
-                channel.socket().bind(bindAddress);
-                ChannelListeners.invokeChannelListener(connection, bindListener);
+                if (bindAddress != null || bindListener != null) {
+                    channel.socket().bind(bindAddress);
+                    ChannelListeners.invokeChannelListener(connection, bindListener);
+                }
                 if (channel.connect(destinationAddress)) {
                     execute(ChannelListeners.getChannelListenerTask(connection, openListener));
                     final FinishedIoFuture<StreamConnection> finishedIoFuture = new FinishedIoFuture<StreamConnection>(connection);
