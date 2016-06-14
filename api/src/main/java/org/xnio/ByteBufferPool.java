@@ -317,7 +317,7 @@ public abstract class ByteBufferPool {
         assert size <= 0x4000_0000;
         return new ByteBufferPool(size, direct) {
             ByteBuffer createBuffer() {
-                return isDirect() ? ByteBuffer.allocate(getSize()) : ByteBuffer.allocateDirect(getSize());
+                return isDirect() ? ByteBuffer.allocateDirect(getSize()) : ByteBuffer.allocate(getSize());
             }
         };
     }
