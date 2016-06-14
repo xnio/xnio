@@ -352,7 +352,6 @@ public abstract class ByteBufferPool {
     final void doFree(final ByteBuffer buffer) {
         assert buffer.capacity() == size;
         assert buffer.isDirect() == direct;
-        assert ! (buffer instanceof MappedByteBuffer);
         buffer.clear();
         final LocalBufferCache localCache = threadLocal.get();
         int oldVal = localCache.outstanding;
