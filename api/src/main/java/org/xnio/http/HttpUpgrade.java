@@ -191,7 +191,7 @@ public class HttpUpgrade {
             }
             if (!seen.contains("host")) {
                 builder.append("Host: ");
-                builder.append(uri.getHost());
+                builder.append(getHost());
                 builder.append("\r\n");
             }
             if (!seen.contains("connection")) {
@@ -202,6 +202,18 @@ public class HttpUpgrade {
             }
             builder.append("\r\n");
             return builder.toString();
+        }
+
+        private String getHost() {
+            String scheme = uri.getScheme();
+            int port = uri.getPort();
+
+            if (port < 0 || "http".equals(scheme) && port == 80 || "https".equals(scheme) && port == 443) {
+                // No port or default port.
+                return uri.getHost();
+            }
+
+            return uri.getHost() + ":" + port;
         }
 
         public IoFuture<T> upgradeExistingConnection() {
