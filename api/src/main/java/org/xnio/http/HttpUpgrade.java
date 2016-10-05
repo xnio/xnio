@@ -33,6 +33,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
 import org.xnio.IoFuture;
+import org.xnio.IoUtils;
 import org.xnio.OptionMap;
 import org.xnio.Pooled;
 import org.xnio.StreamConnection;
@@ -191,7 +192,7 @@ public class HttpUpgrade {
             }
             if (!seen.contains("host")) {
                 builder.append("Host: ");
-                builder.append(uri.getHost());
+                builder.append(getHost());
                 builder.append("\r\n");
             }
             if (!seen.contains("connection")) {
@@ -202,6 +203,18 @@ public class HttpUpgrade {
             }
             builder.append("\r\n");
             return builder.toString();
+        }
+
+        private String getHost() {
+            String scheme = uri.getScheme();
+            int port = uri.getPort();
+
+            if (port < 0 || "http".equals(scheme) && port == 80 || "https".equals(scheme) && port == 443) {
+                // No port or default port.
+                return uri.getHost();
+            }
+
+            return uri.getHost() + ":" + port;
         }
 
         public IoFuture<T> upgradeExistingConnection() {
@@ -226,6 +239,7 @@ public class HttpUpgrade {
                             return;
                         }
                     } catch (IOException e) {
+                        IoUtils.safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -254,6 +268,7 @@ public class HttpUpgrade {
                             return;
                         }
                     } catch (IOException e) {
+                        IoUtils.safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -285,6 +300,7 @@ public class HttpUpgrade {
                         buffer.flip();
                         parser.parse(buffer);
                     } catch (IOException e) {
+                        IoUtils.safeClose(channel);
                         future.setException(e);
                         return;
                     }
@@ -315,26 +331,26 @@ public class HttpUpgrade {
                 }
 
                 //ok, we have a response
-                if (parser.getResponseCode() == 101) {
-                    handleUpgrade(parser);
-                } else if (parser.getResponseCode() == 301 ||
-                        parser.getResponseCode() == 302 ||
-                        parser.getResponseCode() == 303 ||
-                        parser.getResponseCode() == 307 ||
-                        parser.getResponseCode() == 308) {
-                    handleRedirect(parser);
+                if (parser.getResponseCode() == 101) { // Switching Protocols
+                    handleUpgrade(parser, channel);
+                } else if (parser.getResponseCode() == 301 || // Moved Permanently
+                        parser.getResponseCode() == 302 || // Found
+                        parser.getResponseCode() == 303 || // See Other
+                        parser.getResponseCode() == 307 || // Temporary Redirect
+                        parser.getResponseCode() == 308) { // Permanent Redirect
+                    handleRedirect(parser, channel);
                 } else {
+                    IoUtils.safeClose(channel);
                     future.setException(new IOException("Invalid response code " + parser.getResponseCode()));
                 }
-
             }
-
 
         }
 
-        private void handleUpgrade(final HttpUpgradeParser parser) {
+        private void handleUpgrade(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
             final String contentLength = parser.getHeaders().get("content-length");
             if (!"0".equals(contentLength)) {
+                IoUtils.safeClose(channel);
                 future.setException(new IOException("For now upgrade responses must have a content length of zero."));
                 return;
             }
@@ -342,6 +358,7 @@ public class HttpUpgrade {
                 try {
                     handshakeChecker.checkHandshake(parser.getHeaders());
                 } catch (IOException e) {
+                    IoUtils.safeClose(channel);
                     future.setException(e);
                     return;
                 }
@@ -350,8 +367,9 @@ public class HttpUpgrade {
             ChannelListeners.invokeChannelListener(connection, openListener);
         }
 
-        private void handleRedirect(final HttpUpgradeParser parser) {
-            future.setException(new IOException("Redirects are not implemented yet"));
+        private void handleRedirect(final HttpUpgradeParser parser, final StreamSourceChannel channel) {
+            IoUtils.safeClose(channel);
+            future.setException(msg.redirect(parser.getResponseCode(), parser.getHeaders().get("location")));
         }
 
     }
