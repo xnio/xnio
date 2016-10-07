@@ -239,7 +239,7 @@ public class BufferPipeInputStream extends InputStream {
                     break;
                 }
                 final ByteBuffer buffer = entry.getResource();
-                final int byteCnt = Math.min(buffer.remaining(), (int) Math.max((long)Integer.MAX_VALUE, qty));
+                final int byteCnt = (int) Math.min(buffer.remaining(), Math.max((long)Integer.MAX_VALUE, qty));
                 buffer.position(buffer.position() + byteCnt);
                 skipped += byteCnt;
                 qty -= byteCnt;
