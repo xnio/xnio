@@ -128,7 +128,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
             assert current != null;
             final BlockingQueue<SocketChannel> queue = acceptQueues.get(current.getNumber());
             ChannelListeners.invokeChannelListener(QueuedNioTcpServer.this, getAcceptListener());
-            if (! queue.isEmpty()) {
+            if (! queue.isEmpty() && !suspendedDueToWatermark) {
                 current.execute(this);
             }
         }
