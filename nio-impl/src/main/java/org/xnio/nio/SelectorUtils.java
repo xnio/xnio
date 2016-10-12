@@ -35,6 +35,11 @@ final class SelectorUtils {
     }
 
     public static void await(NioXnio nioXnio, SelectableChannel channel, int op) throws IOException {
+        if (NioXnio.IS_HP_UX) {
+            // HP-UX has buggy write wakeup semantics
+            await(nioXnio, channel, op, 1, TimeUnit.SECONDS);
+            return;
+        }
         Xnio.checkBlockingAllowed();
         final Selector selector = nioXnio.getSelector();
         final SelectionKey selectionKey;
