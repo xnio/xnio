@@ -44,6 +44,8 @@ import static org.xnio.nio.Log.log;
  */
 final class NioXnio extends Xnio {
 
+    static final boolean IS_HP_UX;
+
     interface SelectorCreator {
         Selector open() throws IOException;
     }
@@ -53,13 +55,13 @@ final class NioXnio extends Xnio {
 
     static {
         log.greeting(Version.getVersionString());
-        AccessController.doPrivileged(new PrivilegedAction<Void>() {
-            public Void run() {
+        IS_HP_UX = AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+            public Boolean run() {
                 final String bugLevel = System.getProperty("sun.nio.ch.bugLevel");
                 if (bugLevel == null) System.setProperty("sun.nio.ch.bugLevel", "");
-                return null;
+                return Boolean.valueOf(System.getProperty("os.name", "unknown").equalsIgnoreCase("hp-ux"));
             }
-        });
+        }).booleanValue();
     }
 
     /**
