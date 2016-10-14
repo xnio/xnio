@@ -16,7 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.xnio.ssl;
 
 import static org.xnio._private.Messages.msg;
@@ -31,6 +30,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -50,6 +50,9 @@ import org.xnio.Xnio;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class JsseSslUtils {
+
+    private static final String ALL = "ALL";
+    private static final String EXCLUSION_SEPARATOR = ":!";
 
     private JsseSslUtils() {
     }
@@ -96,7 +99,7 @@ public final class JsseSslUtils {
             if (keyManagerClasses != null) {
                 final int size = keyManagerClasses.size();
                 keyManagers = new KeyManager[size];
-                for (int i = 0; i < size; i ++) {
+                for (int i = 0; i < size; i++) {
                     keyManagers[i] = instantiate(keyManagerClasses.get(i));
                 }
             }
@@ -106,7 +109,7 @@ public final class JsseSslUtils {
             if (trustManagerClasses != null) {
                 final int size = trustManagerClasses.size();
                 trustManagers = new TrustManager[size];
-                for (int i = 0; i < size; i ++) {
+                for (int i = 0; i < size; i++) {
                     trustManagers[i] = instantiate(trustManagerClasses.get(i));
                 }
             }
@@ -152,12 +155,7 @@ public final class JsseSslUtils {
         final Sequence<String> cipherSuites = optionMap.get(Options.SSL_ENABLED_CIPHER_SUITES);
         if (cipherSuites != null) {
             final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
-            final List<String> finalList = new ArrayList<String>();
-            for (String name : cipherSuites) {
-                if (supported.contains(name)) {
-                    finalList.add(name);
-                }
-            }
+            final List<String> finalList = resolveEnabledCipherSuite(cipherSuites, supported);
             engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
         }
         final Sequence<String> protocols = optionMap.get(Options.SSL_ENABLED_PROTOCOLS);
@@ -195,5 +193,28 @@ public final class JsseSslUtils {
             }
             return hostName;
         }
+    }
+
+    static List<String> resolveEnabledCipherSuite(final Sequence<String> cipherSuites, final Set<String> supportedCiphers) {
+        Set<String> result = new LinkedHashSet<String>();
+        Set<String> disabledCiphers = new HashSet<String>();
+        for(String enabledCipher : cipherSuites) {
+            if(enabledCipher.startsWith(ALL)) {
+                disabledCiphers = resolveDisabledCiphers(enabledCipher);
+                result.addAll(supportedCiphers);
+            } else if (supportedCiphers.contains(enabledCipher)) {
+                result.add(enabledCipher);
+            }
+        }
+        result.removeAll(disabledCiphers);
+        return new ArrayList<String>(result);
+    }
+
+    private static Set<String> resolveDisabledCiphers(String enabledCipher) {
+        String[] ciphers = enabledCipher.split(EXCLUSION_SEPARATOR);
+        Set<String> disabledCiphers = new HashSet<String>(ciphers.length);
+        disabledCiphers.addAll(Arrays.asList(ciphers));
+        disabledCiphers.remove(ALL);
+        return disabledCiphers;
     }
 }

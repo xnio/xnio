@@ -165,12 +165,7 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
         final String[] cipherSuites = AbstractAcceptingSslChannel.this.cipherSuites;
         if (cipherSuites != null) {
             final Set<String> supported = new HashSet<String>(Arrays.asList(engine.getSupportedCipherSuites()));
-            final List<String> finalList = new ArrayList<String>();
-            for (String name : cipherSuites) {
-                if (supported.contains(name)) {
-                    finalList.add(name);
-                }
-            }
+            final List<String> finalList = JsseSslUtils.resolveEnabledCipherSuite(Sequence.of(cipherSuites), supported);
             engine.setEnabledCipherSuites(finalList.toArray(new String[finalList.size()]));
         }
         final String[] protocols = AbstractAcceptingSslChannel.this.protocols;
