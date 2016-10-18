@@ -45,6 +45,7 @@ import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.ManagementRegistration;
+import org.xnio.IoUtils;
 import org.xnio.LocalSocketAddress;
 import org.xnio.Option;
 import org.xnio.OptionMap;
@@ -140,9 +141,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
             openConnections--;
             if(suspendedDueToWatermark && openConnections < getLowWater(connectionStatus)) {
                 synchronized (QueuedNioTcpServer.this) {
-                    if(!suspended) {
-                        handle.resume(SelectionKey.OP_ACCEPT);
-                    }
                     suspendedDueToWatermark = false;
                 }
             }
@@ -359,13 +357,9 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 if(openConnections >= getHighWater(connectionStatus)) {
                     synchronized (QueuedNioTcpServer.this) {
                         suspendedDueToWatermark = true;
-                        handle.suspend(SelectionKey.OP_ACCEPT);
                     }
                 } else if(suspendedDueToWatermark && openConnections <= getLowWater(connectionStatus)) {
                     suspendedDueToWatermark = false;
-                    if(!suspended) {
-                        handle.resume(SelectionKey.OP_ACCEPT);
-                    }
                 }
             }
         });
@@ -381,9 +375,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     }
 
     public NioSocketStreamConnection accept() throws IOException {
-        if(suspendedDueToWatermark) {
-            return null;
-        }
         final WorkerThread current = WorkerThread.getCurrent();
         if (current == null) {
             return null;
@@ -394,13 +385,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
         try {
             accepted = socketChannels.poll();
             if (accepted != null) try {
-                accepted.configureBlocking(false);
-                final Socket socket = accepted.socket();
-                socket.setKeepAlive(keepAlive != 0);
-                socket.setOOBInline(oobInline != 0);
-                socket.setTcpNoDelay(tcpNoDelay != 0);
-                final int sendBuffer = this.sendBuffer;
-                if (sendBuffer > 0) socket.setSendBufferSize(sendBuffer);
                 final SelectionKey selectionKey = current.registerChannel(accepted);
                 final NioSocketStreamConnection newConnection = new NioSocketStreamConnection(current, selectionKey, handle);
                 newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
@@ -459,9 +443,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     public void resumeAccepts() {
         synchronized (this) {
             suspended = false;
-            if(!suspendedDueToWatermark) {
-                handle.resume(SelectionKey.OP_ACCEPT);
-            }
+            handle.resume(SelectionKey.OP_ACCEPT);
         }
     }
 
@@ -491,6 +473,10 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     void handleReady() {
         try {
             final SocketChannel accepted = channel.accept();
+            if(suspendedDueToWatermark) {
+                IoUtils.safeClose(accepted);
+                return;
+            }
             boolean ok = false;
             if (accepted != null) try {
                 final SocketAddress localAddress = accepted.getLocalAddress();
@@ -529,7 +515,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 openConnections++;
                 if(openConnections >= getHighWater(connectionStatus)) {
                     synchronized (QueuedNioTcpServer.this) {
-                        handle.suspend(SelectionKey.OP_ACCEPT);
                         suspendedDueToWatermark = true;
                     }
                 }
