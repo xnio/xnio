@@ -471,12 +471,20 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
     }
 
     void handleReady() {
+        final SocketChannel accepted;
         try {
-            final SocketChannel accepted = channel.accept();
+            accepted = channel.accept();
             if(suspendedDueToWatermark) {
                 IoUtils.safeClose(accepted);
                 return;
             }
+
+        } catch (IOException e) {
+            tcpServerLog.logf(FQCN, Logger.Level.ERROR, e, "Exception accepting request, closing server channel %s", this);
+            IoUtils.safeClose(channel);
+            return;
+        }
+        try {
             boolean ok = false;
             if (accepted != null) try {
                 final SocketAddress localAddress = accepted.getLocalAddress();
@@ -522,7 +530,6 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 if (! ok) safeClose(accepted);
             }
         } catch (IOException ignored) {
-
         }
     }
 
