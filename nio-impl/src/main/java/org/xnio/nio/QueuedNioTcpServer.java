@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -215,7 +216,10 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
             }
 
             public int getConnectionCount() {
-                return handle.getConnectionCount();
+                CompletableFuture<Integer> future = CompletableFuture.supplyAsync(
+                        () -> openConnections, handle.getWorkerThread()
+                );
+                return future.getNow(-1);
             }
 
             public int getConnectionLimitHighWater() {
