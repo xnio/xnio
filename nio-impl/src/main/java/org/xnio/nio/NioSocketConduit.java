@@ -139,9 +139,20 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     }
 
     public final long transferFrom(final FileChannel src, final long position, final long count) throws IOException {
-        long res = src.transferTo(position, count, socketChannel);
-        checkWriteTimeout(res > 0L);
-        return res;
+        try {
+            long res = src.transferTo(position, count, socketChannel);
+            checkWriteTimeout(res > 0L);
+            return res;
+        } catch (IOException e) {
+            // shut down socket
+            try {
+                socketChannel.shutdownOutput();
+            } catch (IOException second) {
+                second.addSuppressed(e);
+                throw second;
+            }
+            throw e;
+        }
     }
 
     public long transferFrom(final StreamSourceChannel source, final long count, final ByteBuffer throughBuffer) throws IOException {
@@ -149,18 +160,40 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
     }
 
     public int write(final ByteBuffer src) throws IOException {
-        int res = socketChannel.write(src);
-        checkWriteTimeout(res > 0);
-        return res;
+        try {
+            int res = socketChannel.write(src);
+            checkWriteTimeout(res > 0);
+            return res;
+        } catch (IOException e) {
+            // shut down socket
+            try {
+                socketChannel.shutdownOutput();
+            } catch (IOException second) {
+                second.addSuppressed(e);
+                throw second;
+            }
+            throw e;
+        }
     }
 
     public long write(final ByteBuffer[] srcs, final int offset, final int length) throws IOException {
         if (length == 1) {
             return write(srcs[offset]);
         }
-        long res = socketChannel.write(srcs, offset, length);
-        checkWriteTimeout(res > 0L);
-        return res;
+        try {
+            long res = socketChannel.write(srcs, offset, length);
+            checkWriteTimeout(res > 0L);
+            return res;
+        } catch (IOException e) {
+            // shut down socket
+            try {
+                socketChannel.shutdownOutput();
+            } catch (IOException second) {
+                second.addSuppressed(e);
+                throw second;
+            }
+            throw e;
+        }
     }
 
     @Override
