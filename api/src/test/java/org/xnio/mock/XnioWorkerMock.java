@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.ManagementRegistration;
 import org.xnio.LocalSocketAddress;
 import org.xnio.OptionMap;
 import org.xnio.StreamConnection;
@@ -34,6 +35,8 @@ import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.management.XnioServerMXBean;
+import org.xnio.management.XnioWorkerMXBean;
 
 /**
  * {@link XnioWorker} mock.
@@ -182,5 +185,15 @@ public class XnioWorkerMock extends XnioWorker {
 
     @Override
     public void awaitTermination() throws InterruptedException {
+    }
+
+    @Override
+    public XnioWorkerMXBean getMXBean(){
+        return null;
+    }
+
+    @Override
+    protected ManagementRegistration registerServerMXBean(XnioServerMXBean metrics) {
+        return null;
     }
 }
