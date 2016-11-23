@@ -46,6 +46,8 @@ import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedMessageChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.management.XnioServerMXBean;
+import org.xnio.management.XnioWorkerMXBean;
 import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.MessageConnectionMock;
 import org.xnio.mock.Mock;
@@ -818,6 +820,17 @@ public class XnioWorkerTestCase {
             protected XnioIoThread chooseThread() {
                 return new XnioIoThreadMock(this);
             }
+
+            @Override
+            public XnioWorkerMXBean getMXBean() {
+                return null;
+            }
+
+            @Override
+            protected ManagementRegistration registerServerMXBean(XnioServerMXBean metrics) {
+                return null;
+            }
+
         };
         UnsupportedOperationException expected = null;
         try {

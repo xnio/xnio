@@ -54,6 +54,8 @@ import org.xnio.conduits.DeflatingStreamSinkConduit;
 import org.xnio.conduits.InflatingStreamSourceConduit;
 import org.xnio.conduits.StreamSinkChannelWrappingConduit;
 import org.xnio.conduits.StreamSourceChannelWrappingConduit;
+import org.xnio.management.XnioServerMXBean;
+import org.xnio.management.XnioWorkerMXBean;
 
 import static java.security.AccessController.doPrivileged;
 import static org.xnio.IoUtils.safeClose;
@@ -873,6 +875,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     protected final int getWorkerQueueSize() {
         return taskQueue.size();
     }
+
+    public abstract XnioWorkerMXBean getMXBean();
+
+    protected abstract ManagementRegistration registerServerMXBean(XnioServerMXBean metrics);
 
     final class TaskPool extends ThreadPoolExecutor {
 
