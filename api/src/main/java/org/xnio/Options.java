@@ -167,6 +167,13 @@ public final class Options {
     public static final Option<Sequence<String>> SSL_ENABLED_CIPHER_SUITES = Option.sequence(Options.class, "SSL_ENABLED_CIPHER_SUITES", String.class);
 
     /**
+     * Specify the cipher suites for an SSL/TLS session using OpenSSL syntax.  If a listed cipher suites is not supported, it is ignored; however, if you
+     * specify a list of cipher suites, none of which are supported, an exception will be thrown.
+     *
+     */
+    public static final Option<String> OPENSSL_ENABLED_CIPHER_SUITES = Option.simple(Options.class, "OPENSSL_ENABLED_CIPHER_SUITES", String.class);
+
+    /**
      * Get the supported cipher suites for an SSL/TLS session.  This option is generally read-only.
      *
      * @since 2.0
