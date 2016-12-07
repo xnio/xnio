@@ -235,7 +235,7 @@ public abstract class Xnio {
         }));
     }
 
-    private static Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
+    private static synchronized Xnio doGetInstance(final String provider, final ServiceLoader<XnioProvider> serviceLoader) {
         final Iterator<XnioProvider> iterator = serviceLoader.iterator();
         for (;;) {
             try {
