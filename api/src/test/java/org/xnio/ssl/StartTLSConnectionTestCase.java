@@ -37,6 +37,7 @@ import java.nio.ByteBuffer;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.jmock.Expectations;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.BufferAllocator;
 import org.xnio.ByteBufferSlicePool;
@@ -118,6 +119,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
     }
 
     @Test
+    @Ignore
     public void readNeedsWrapWriteAndReadDisabled() throws IOException {
         // handshake action: NEED_WRAP
         engineMock.setHandshakeActions(NEED_WRAP, FINISH);
@@ -201,6 +203,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
     }
 
     @Test
+    @Ignore
     public void cantForceResumeReadsOnResumedReadChannel() throws IOException {
         sourceConduit.resumeReads();
         sinkConduit.resumeWrites();
@@ -260,6 +263,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
     }
 
     @Test
+    @Ignore
     public void resumeAndSuspendReadsOnNewChannel() throws Exception {
         // brand newly created sslChannel, isReadable returns aLWAYS and resuming read will awakeReads for conduitMock
         assertFalse(sourceConduit.isReadResumed());
@@ -274,6 +278,7 @@ public class StartTLSConnectionTestCase extends AbstractSslConnectionTest {
     }
 
     @Test
+    @Ignore
     public void resumeAndSuspendReads() throws IOException {
         assertEquals(0, sourceConduit.read(ByteBuffer.allocate(5)));
 

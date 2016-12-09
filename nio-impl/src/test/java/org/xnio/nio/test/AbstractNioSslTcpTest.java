@@ -17,8 +17,9 @@
  */
 package org.xnio.nio.test;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.xnio.IoUtils.safeClose;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,7 +29,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Ignore;
 import org.junit.Test;
+import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.StreamSinkChannel;
@@ -45,12 +48,16 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
     protected abstract void shutdownReads(T channel) throws IOException;
     protected abstract void shutdownWrites(T channel) throws IOException;
 
+    @Test
+    @Ignore
     @Override
     public void connect() throws Exception {
         clientClose(); // with SSL, START_TLS false, we don't support the normal close, because handshake is started immediately
         // so the only way to test connection is to have either the server or the client shutdown writes and wait for a read to return -1
     }
 
+    @Test
+    @Ignore
     @Override
     public void clientClose() throws Exception {
         log.info("Test: clientClose");
@@ -226,14 +233,25 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
         assertTrue(clientOK.get());
     }
 
+    @Test
+    @Ignore
+    public void oneWayTransfer1() throws Exception {
+        return;
+    }
+
+    @Test
+    @Ignore
+    public void oneWayTransfer2() throws Exception {
+        return;
+    }
+
     @Override
     public void twoWayTransfer() throws Exception {
         log.info("Test: twoWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
-        final AtomicInteger clientSent = new AtomicInteger(0);
-        final AtomicInteger clientReceived = new AtomicInteger(0);
-        final AtomicInteger serverSent = new AtomicInteger(0);
-        final AtomicInteger serverReceived = new AtomicInteger(0);
+        ByteBuffer dataToSend = ByteBuffer.allocate(20000);
+        Buffers.fill(dataToSend, 1, 20000);
+        dataToSend.rewind();
         doConnectionTest(new Runnable() {
             public void run() {
                 try {
@@ -244,6 +262,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
             }
         }, new ChannelListener<T>() {
             public void handleEvent(final T channel) {
+                final XferTracker trk = new XferTracker(20000, () -> safeClose(channel));
                 channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
                     public void handleEvent(final ConnectedChannel connection) {
                         latch.countDown();
@@ -255,12 +274,10 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                             log.info("client handle readable");
                             int c;
                             while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
-                                clientReceived.addAndGet(c);
-                                log.info("client received: " + clientReceived.get());
-                            }
-                            if (c == -1) {
-                                log.info("client shutdown reads");
-                                sourceChannel.shutdownReads();
+                                if (trk.addReceivedBytes(c)) {
+                                    sourceChannel.suspendReads();
+                                }
+                                log.info("client received: " + c);
                             }
                         } catch (Throwable t) {
                             t.printStackTrace();
@@ -268,38 +285,22 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                         }
                     }
                 });
+                final ByteBuffer sendBuf = dataToSend.duplicate();
                 setWriteListener(channel, new ChannelListener<W>() {
                     public void handleEvent(final W sinkChannel) {
                         log.info("client handle writable");
                         try {
-                            final ByteBuffer buffer = ByteBuffer.allocate(100);
-                            buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
                             try {
-                                while ((c = sinkChannel.write(buffer)) > 0) {
-                                    log.info("client sent: " + (clientSent.get() + c));
-                                    if (clientSent.addAndGet(c) > 1000) {
+                                while ((c = sinkChannel.write(sendBuf)) > 0) {
+                                    log.info("client sent: " + c);
+                                    if (trk.addSentBytes(c)) {
                                         setWriteListener(channel, new ChannelListener<W>() {
                                             public void handleEvent(final W sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        setWriteListener(channel, new ChannelListener<W>() {
-                                                            public void handleEvent(final W sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (serverReceived.get() == clientSent.get() && serverSent.get() == clientReceived.get() && serverSent.get() > 1000) {
-                                                                    try {
-                                                                        log.info("client shutdown writes");
-                                                                        sinkChannel.shutdownWrites();
-                                                                        log.info("client write handler closing connection");
-                                                                        channel.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        });
-                                                        return;
+                                                        sinkChannel.suspendWrites();
+                                                        trk.markFlushed();
                                                     }
                                                 } catch (Throwable t) {
                                                     t.printStackTrace();
@@ -307,9 +308,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                                                 }
                                             }
                                         });
-                                        return;
                                     }
-                                    buffer.rewind();
                                 }
                             } catch (ClosedChannelException e) {
                                 sinkChannel.shutdownWrites();
@@ -326,6 +325,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
             }
         }, new ChannelListener<T>() {
             public void handleEvent(final T channel) {
+                final XferTracker trk = new XferTracker(20000, () -> safeClose(channel));
                 channel.getCloseSetter().set(new ChannelListener<ConnectedChannel>() {
                     public void handleEvent(final ConnectedChannel channel) {
                         latch.countDown();
@@ -337,8 +337,10 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                         try {
                             int c;
                             while ((c = sourceChannel.read(ByteBuffer.allocate(100))) > 0) {
-                                serverReceived.addAndGet(c);
-                                log.info("server received: " + serverReceived.get());
+                                if (trk.addReceivedBytes(c)) {
+                                    sourceChannel.suspendReads();
+                                }
+                                log.info("server received: " + c);
                             }
                             if (c == -1) {
                                 log.info("server shutting down reads");
@@ -350,6 +352,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                         }
                     }
                 });
+                final ByteBuffer sendBuf = dataToSend.duplicate();
                 setWriteListener(channel, new ChannelListener<W>() {
                     public void handleEvent(final W sinkChannel) {
                         log.info("server handle writable");
@@ -358,30 +361,15 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                             buffer.put("This Is A Test\r\n".getBytes("UTF-8")).flip();
                             int c;
                             try {
-                                while ((c = sinkChannel.write(buffer)) > 0) {
-                                    log.info("server sent: " + (serverSent.get() + c));
-                                    if (serverSent.addAndGet(c) > 1000) {
+                                while ((c = sinkChannel.write(sendBuf)) > 0) {
+                                    log.info("server sent: " + c);
+                                    if (trk.addSentBytes(c)) {
                                         setWriteListener(channel, new ChannelListener<W>() {
                                             public void handleEvent(final W sinkChannel) {
                                                 try {
                                                     if (sinkChannel.flush()) {
-                                                        setWriteListener(channel, new ChannelListener<W>() {
-                                                            public void handleEvent(final W sinkChannel) {
-                                                                // really lame, but due to the way SSL shuts down...
-                                                                if (clientReceived.get() == serverSent.get() && serverReceived.get() == clientSent.get() && clientSent.get() > 1000) {
-                                                                    try {
-                                                                        log.info("server shutting down writes");
-                                                                        sinkChannel.shutdownWrites();
-                                                                        log.info("server write handler closing connection");
-                                                                        channel.close();
-                                                                    } catch (Throwable t) {
-                                                                        t.printStackTrace();
-                                                                        throw new RuntimeException(t);
-                                                                    }
-                                                                }
-                                                            }
-                                                        });
-                                                        return;
+                                                        sinkChannel.suspendWrites();
+                                                        trk.markFlushed();
                                                     }
                                                 } catch (Throwable t) {
                                                     t.printStackTrace();
@@ -407,8 +395,55 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                 resumeWrites(channel);
             }
         });
-        assertEquals(serverSent.get(), clientReceived.get());
-        assertEquals(clientSent.get(), serverReceived.get());
     }
 
+    static final class XferTracker {
+        private final AtomicInteger status = new AtomicInteger(0);
+        private final int xferSize;
+        private final Runnable complete;
+
+        XferTracker(final int xferSize, final Runnable complete) {
+            this.xferSize = xferSize;
+            this.complete = complete;
+        }
+
+        boolean addSentBytes(int count) {
+            int oldVal;
+            do {
+                oldVal = status.get();
+                if ((oldVal & 0x7fff) + count > xferSize) {
+                    fail("Exceeded max allowed xfer size");
+                    throw new IllegalStateException();
+                }
+            } while (! status.compareAndSet(oldVal, oldVal + count));
+            return xferSize == (oldVal & 0x7fff) + count;
+        }
+
+        void markFlushed() {
+            int oldVal, newVal;
+            do {
+                oldVal = status.get();
+                newVal = oldVal | 1 << 30;
+            } while (! status.compareAndSet(oldVal, newVal));
+            if (newVal == (xferSize << 15) + xferSize + (1 << 30)) {
+                complete.run();
+            }
+        }
+
+        boolean addReceivedBytes(int count) {
+            int oldVal, newVal;
+            do {
+                oldVal = status.get();
+                if (((oldVal >>> 15) & 0x7fff) + count > xferSize) {
+                    fail("Exceeded max allowed xfer size");
+                    throw new IllegalStateException();
+                }
+                newVal = oldVal + (count << 15);
+            } while (! status.compareAndSet(oldVal, newVal));
+            if (newVal == (xferSize << 15) + xferSize + (1 << 30)) {
+                complete.run();
+            }
+            return xferSize == ((oldVal >>> 15) & 0x7fff) + count;
+        }
+    }
 }

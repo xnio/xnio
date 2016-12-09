@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.IoUtils;
@@ -57,6 +58,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
     }
 
     @Test
+    @Ignore
     public void oneWayTransfer3() throws Exception {
         log.info("Test: oneWayTransfer");
         final CountDownLatch latch = new CountDownLatch(2);
@@ -198,6 +200,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
         assertEquals(clientSent.get(), serverReceived.get());
     }
 
+    @Ignore
     public void oneWayTransfer4() throws Exception {
         log.info("Test: oneWayTransfer4");
         final CountDownLatch latch = new CountDownLatch(2);
@@ -336,6 +339,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
     }
 
     @Test
+    @Ignore
     public void twoWayTransferWithHandshake() throws Exception {
         log.info("Test: twoWayTransferWithHandshake");
         final CountDownLatch latch = new CountDownLatch(2);

@@ -55,6 +55,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
     }
 
     @Test
+    @Ignore
     public void oneWayTransfer3() throws Exception {
         log.info("Test: oneWayTransfer3");
         final CountDownLatch latch = new CountDownLatch(2);
@@ -181,6 +182,7 @@ public class NioStartTLSTcpChannelTestCase extends NioSslTcpChannelTestCase {
     }
 
     @Test
+    @Ignore
     public void oneWayTransfer4() throws Exception {
         log.info("Test: oneWayTransfer4");
         final CountDownLatch latch = new CountDownLatch(2);

@@ -85,7 +85,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     //================================================================
 
     // always inline tasks, for now
-    private int state = FLAG_INLINE_TASKS;
+    private volatile int state = FLAG_INLINE_TASKS;
 
     // tasks counter - protected by {@code this}
     private int tasks;
@@ -143,6 +143,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         this.sinkConduit = sinkConduit;
         sourceConduit.setReadReadyHandler(readReady);
         sinkConduit.setWriteReadyHandler(writeReady);
+        assert sourceConduit.getReadThread() == sinkConduit.getWriteThread();
     }
 
     //================================================================
@@ -204,9 +205,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     private static final int WRITE_FLAG_NEEDS_READ = 0b00000_100000000_00000000;
 
     public String getStatus() {
+        final int state = this.state;
+        return flagsToString(state);
+    }
+
+    private static String flagsToString(final int state) {
         final StringBuilder b = new StringBuilder();
         b.append("General flags:");
-        final int state = this.state;
         if (allAreSet(state, FLAG_TLS)) b.append(" TLS");
         if (allAreSet(state, FLAG_INLINE_TASKS)) b.append(" INLINE_TASKS");
         if (allAreSet(state, FLAG_TASK_QUEUED)) b.append(" TASK_QUEUED");
@@ -366,9 +371,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     public void run() {
         assert currentThread() == getWriteThread();
         int state = JsseStreamConduit.this.state;
-        final boolean flagTaskQueued = allAreSet(state, FLAG_TASK_QUEUED);
-        boolean modify = flagTaskQueued;
-        boolean queueTask = false;
+        int origState = state;
         state &= ~FLAG_TASK_QUEUED;
         try {
             // task(s)
@@ -380,31 +383,34 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 final WriteReadyHandler writeReadyHandler = JsseStreamConduit.this.writeReadyHandler;
                 if (allAreSet(state, WRITE_FLAG_WAKEUP)) {
                     state = state & ~WRITE_FLAG_WAKEUP | WRITE_FLAG_RESUMED;
-                    modify = true;
                 }
                 if (writeReadyHandler != null) {
                     if (allAreSet(state, WRITE_FLAG_RESUMED)) {
                         try {
                             // save flags -------------------------------+
-                            if (modify) {                             // |
-                                modify = false;                       // |
+                            if (state != origState) {                 // |
                                 JsseStreamConduit.this.state = state; // |
                             }                                         // |
+                            msg.tracef("calling write ready on %s", this);
                             writeReadyHandler.writeReady();           // |
+                            msg.tracef("after write ready on %s", this);
                         } catch (Throwable ignored) {                 // |
                         } finally {                                   // |
                             // restore flags <---------------------------+
                             // it is OK if this is stale
-                            state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            origState = state = JsseStreamConduit.this.state;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
                         //     be doing something in another thread and we could end up overwriting each others' changes.
                         // level-triggering
                         if (allAreSet(state, WRITE_FLAG_RESUMED)) {
-                            if (!allAreSet(state, WRITE_FLAG_READY) && allAreSet(state, WRITE_FLAG_NEEDS_READ) && allAreClear(state, READ_FLAG_UP_RESUMED)) {
+                            if (allAreSet(state, WRITE_FLAG_READY)) {
+                                // we must re-queue, because write is still ready but we're past writeReadyHandler
+                                state |= FLAG_TASK_QUEUED;
+                            } else if (allAreSet(state, WRITE_FLAG_NEEDS_READ) && allAreClear(state, READ_FLAG_UP_RESUMED)) {
+                                // write isn't ready, because write requires read to continue
                                 state |= READ_FLAG_UP_RESUMED;
-                                modify = true;
                                 sourceConduit.resumeReads();
                             } else if (allAreClear(state, WRITE_FLAG_UP_RESUMED)) {
                                 sinkConduit.resumeWrites();
@@ -413,17 +419,14 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     } else {
                         if (allAreClear(state, READ_FLAG_NEEDS_WRITE | READ_FLAG_RESUMED) && allAreSet(state, WRITE_FLAG_UP_RESUMED)) {
                             state &= ~WRITE_FLAG_UP_RESUMED;
-                            modify = true;
                             suspendWrites();
                         }
                     }
                 } else {
                     // no handler, we should not be resumed
                     state &= ~WRITE_FLAG_RESUMED;
-                    modify = true;
                     if (allAreClear(state, READ_FLAG_NEEDS_WRITE | READ_FLAG_RESUMED) && allAreSet(state, WRITE_FLAG_UP_RESUMED)) {
                         state &= ~WRITE_FLAG_UP_RESUMED;
-                        modify = true;
                         suspendWrites();
                     }
                 }
@@ -433,22 +436,22 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 final ReadReadyHandler readReadyHandler = JsseStreamConduit.this.readReadyHandler;
                 if (allAreSet(state, READ_FLAG_WAKEUP)) {
                     state = state & ~READ_FLAG_WAKEUP | READ_FLAG_RESUMED;
-                    modify = true;
                 }
                 if (readReadyHandler != null) {
                     if (allAreSet(state, READ_FLAG_RESUMED)) {
                         try {
                             // save flags -------------------------------+
-                            if (modify) {                             // |
-                                modify = false;                       // |
+                            if (state != origState) {                 // |
                                 JsseStreamConduit.this.state = state; // |
                             }                                         // |
+                            msg.tracef("calling read ready on %s", this);
                             readReadyHandler.readReady();             // |
+                            msg.tracef("after read ready on %s", this);
                         } catch (Throwable ignored) {                 // |
                         } finally {                                   // |
                             // restore flags <---------------------------+
                             // it is OK if this is stale
-                            state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            origState = state = JsseStreamConduit.this.state;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -456,13 +459,10 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         // level-triggering
                         if (allAreSet(state, READ_FLAG_RESUMED)) {
                             if (allAreSet(state, READ_FLAG_READY)) {
-                                if (!flagTaskQueued) {
-                                    state |= FLAG_TASK_QUEUED;
-                                    modify = queueTask = true;
-                                }
+                                // we must re-queue, because read is still ready but we're past readReadyHandler
+                                state |= FLAG_TASK_QUEUED;
                             } else if (allAreSet(state, READ_FLAG_NEEDS_WRITE) && allAreClear(state, WRITE_FLAG_UP_RESUMED)) {
                                 state |= WRITE_FLAG_UP_RESUMED;
-                                modify = true;
                                 sinkConduit.resumeWrites();
                             } else if (allAreClear(state, READ_FLAG_UP_RESUMED)) {
                                 sourceConduit.resumeReads();
@@ -471,14 +471,12 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     } else {
                         if (allAreClear(state, WRITE_FLAG_NEEDS_READ | WRITE_FLAG_RESUMED) && allAreSet(state, READ_FLAG_UP_RESUMED)) {
                             state &= ~READ_FLAG_UP_RESUMED;
-                            modify = true;
                             suspendReads();
                         }
                     }
                 } else {
                     // no handler, we should not be resumed
                     state &= ~READ_FLAG_RESUMED;
-                    modify = true;
                     if (allAreClear(state, WRITE_FLAG_NEEDS_READ | WRITE_FLAG_RESUMED) && allAreSet(state, READ_FLAG_UP_RESUMED)) {
                         state &= ~READ_FLAG_UP_RESUMED;
                         suspendReads();
@@ -486,11 +484,11 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                 }
             }
         } finally {
-            if (modify) {
+            if (state != origState) {
                 JsseStreamConduit.this.state = state;
-                // execute this on read thread only after updating the state
-                if (queueTask) getReadThread().execute(this);
             }
+            // execute this on I/O thread only after updating the state
+            if (allAreSet(state, FLAG_TASK_QUEUED)) getReadThread().execute(this);
         }
     }
 
