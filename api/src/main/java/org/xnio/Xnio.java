@@ -22,16 +22,14 @@
 
 package org.xnio;
 
+import static java.security.AccessController.doPrivileged;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
-import java.security.AccessController;
 import java.security.GeneralSecurityException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.PrivilegedAction;
 import java.util.EnumMap;
 import java.util.ServiceLoader;
@@ -382,7 +380,7 @@ public abstract class Xnio {
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
-            return AccessController.doPrivileged(new GetPropertyAction(name, null));
+            return doPrivileged(new GetPropertyAction(name, null));
         } else {
             return System.getProperty(name);
         }
@@ -402,7 +400,7 @@ public abstract class Xnio {
         }
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
-            return AccessController.doPrivileged(new GetPropertyAction(name, defaultValue));
+            return doPrivileged(new GetPropertyAction(name, defaultValue));
         } else {
             return System.getProperty(name, defaultValue);
         }
