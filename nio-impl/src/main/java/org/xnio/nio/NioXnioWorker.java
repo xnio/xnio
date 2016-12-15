@@ -18,6 +18,9 @@
 
 package org.xnio.nio;
 
+import static org.xnio.IoUtils.safeClose;
+import static org.xnio.nio.Log.log;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.Inet6Address;
@@ -35,12 +38,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.LockSupport;
+
 import org.xnio.Bits;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.ManagementRegistration;
 import org.xnio.ClosedWorkerException;
 import org.xnio.IoUtils;
+import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.StreamConnection;
@@ -50,9 +55,6 @@ import org.xnio.channels.MulticastMessageChannel;
 import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
-import static org.xnio.IoUtils.safeClose;
-import static org.xnio.nio.Log.log;
-
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
@@ -60,6 +62,7 @@ final class NioXnioWorker extends XnioWorker {
 
     private static final int CLOSE_REQ = (1 << 31);
     private static final int CLOSE_COMP = (1 << 30);
+    private final long workerStackSize;
 
     // start at 1 for the provided thread pool
     private volatile int state = 1;
@@ -87,7 +90,7 @@ final class NioXnioWorker extends XnioWorker {
         if (threadCount < 0) {
             throw log.optionOutOfRange("WORKER_IO_THREADS");
         }
-        final long workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
+        this.workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
         if (workerStackSize < 0L) {
             throw log.optionOutOfRange("STACK_SIZE");
 
@@ -343,6 +346,17 @@ final class NioXnioWorker extends XnioWorker {
     protected void taskPoolTerminated() {
         safeClose(metrics);
         closeResource();
+    }
+
+    @Override
+    public <T> T getOption(Option<T> option) throws IOException {
+        if (option.equals(Options.WORKER_IO_THREADS)) {
+            return option.cast(workerThreads.length);
+        } else if (option.equals(Options.STACK_SIZE)) {
+            return option.cast(workerStackSize);
+        } else {
+            return super.getOption(option);
+        }
     }
 
     public NioXnio getXnio() {
