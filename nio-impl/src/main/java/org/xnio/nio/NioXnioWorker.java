@@ -18,6 +18,9 @@
 
 package org.xnio.nio;
 
+import static org.xnio.IoUtils.safeClose;
+import static org.xnio.nio.Log.log;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.Inet6Address;
@@ -26,27 +29,31 @@ import java.net.InetSocketAddress;
 import java.net.StandardProtocolFamily;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.ServerSocketChannel;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.LockSupport;
+
 import org.xnio.Bits;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.ManagementRegistration;
 import org.xnio.ClosedWorkerException;
 import org.xnio.IoUtils;
+import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
 import org.xnio.StreamConnection;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.MulticastMessageChannel;
+import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
-
-import static org.xnio.IoUtils.safeClose;
-import static org.xnio.nio.Log.log;
 
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
@@ -55,13 +62,14 @@ final class NioXnioWorker extends XnioWorker {
 
     private static final int CLOSE_REQ = (1 << 31);
     private static final int CLOSE_COMP = (1 << 30);
+    private final long workerStackSize;
 
     // start at 1 for the provided thread pool
     private volatile int state = 1;
 
     private final WorkerThread[] workerThreads;
     private final WorkerThread acceptThread;
-    private final Closeable mbeanHandle;
+    private final NioWorkerMetrics metrics;
 
     @SuppressWarnings("unused")
     private volatile Thread shutdownWaiter;
@@ -82,7 +90,7 @@ final class NioXnioWorker extends XnioWorker {
         if (threadCount < 0) {
             throw log.optionOutOfRange("WORKER_IO_THREADS");
         }
-        final long workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
+        this.workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
         if (workerStackSize < 0L) {
             throw log.optionOutOfRange("STACK_SIZE");
 
@@ -114,35 +122,8 @@ final class NioXnioWorker extends XnioWorker {
             }
         }
         this.workerThreads = workerThreads;
-        mbeanHandle = NioXnio.register(new XnioWorkerMXBean() {
-            public String getProviderName() {
-                return "nio";
-            }
-
-            public String getName() {
-                return workerName;
-            }
-
-            public boolean isShutdownRequested() {
-                return isShutdown();
-            }
-
-            public int getCoreWorkerPoolSize() {
-                return NioXnioWorker.this.getCoreWorkerPoolSize();
-            }
-
-            public int getMaxWorkerPoolSize() {
-                return NioXnioWorker.this.getMaxWorkerPoolSize();
-            }
-
-            public int getIoThreadCount() {
-                return threadCount;
-            }
-
-            public int getWorkerQueueSize() {
-                return NioXnioWorker.this.getWorkerQueueSize();
-            }
-        });
+        this.metrics = new NioWorkerMetrics(workerName);
+        metrics.register();
     }
 
     void start() {
@@ -363,8 +344,19 @@ final class NioXnioWorker extends XnioWorker {
     }
 
     protected void taskPoolTerminated() {
-        safeClose(mbeanHandle);
+        safeClose(metrics);
         closeResource();
+    }
+
+    @Override
+    public <T> T getOption(Option<T> option) throws IOException {
+        if (option.equals(Options.WORKER_IO_THREADS)) {
+            return option.cast(workerThreads.length);
+        } else if (option.equals(Options.STACK_SIZE)) {
+            return option.cast(workerStackSize);
+        } else {
+            return super.getOption(option);
+        }
     }
 
     public NioXnio getXnio() {
@@ -373,5 +365,75 @@ final class NioXnioWorker extends XnioWorker {
 
     WorkerThread getAcceptThread() {
         return acceptThread;
+    }
+
+    @Override
+    public XnioWorkerMXBean getMXBean() {
+        return metrics;
+    }
+
+    @Override
+    protected ManagementRegistration registerServerMXBean(XnioServerMXBean serverMXBean) {
+        return metrics.registerServerMXBean(serverMXBean);
+    }
+
+    private class NioWorkerMetrics implements XnioWorkerMXBean,Closeable {
+        private final String workerName;
+        private final CopyOnWriteArrayList<XnioServerMXBean> serverMetrics = new CopyOnWriteArrayList<>();
+        private Closeable mbeanHandle;
+
+        private NioWorkerMetrics(String workerName) {
+            this.workerName = workerName;
+        }
+
+        public String getProviderName() {
+            return "nio";
+        }
+
+        public String getName() {
+            return workerName;
+        }
+
+        public boolean isShutdownRequested() {
+            return isShutdown();
+        }
+
+        public int getCoreWorkerPoolSize() {
+            return NioXnioWorker.this.getCoreWorkerPoolSize();
+        }
+
+        public int getMaxWorkerPoolSize() {
+            return NioXnioWorker.this.getMaxWorkerPoolSize();
+        }
+
+        public int getIoThreadCount() {
+            return NioXnioWorker.this.getIoThreadCount();
+        }
+
+        public int getWorkerQueueSize() {
+            return NioXnioWorker.this.getWorkerQueueSize();
+        }
+
+        private ManagementRegistration registerServerMXBean(XnioServerMXBean serverMXBean){
+            serverMetrics.addIfAbsent(serverMXBean);
+            final Closeable handle = NioXnio.register(serverMXBean);
+            return () -> {
+                serverMetrics.remove(serverMXBean);
+                safeClose(handle);
+            };
+        }
+
+        public Set<XnioServerMXBean> getServerMXBeans() {
+            return new LinkedHashSet<>(serverMetrics);
+        }
+        private void register(){
+            this.mbeanHandle = NioXnio.register(this);
+        }
+
+        @Override
+        public void close() throws IOException {
+            safeClose(mbeanHandle);
+            serverMetrics.clear();
+        }
     }
 }

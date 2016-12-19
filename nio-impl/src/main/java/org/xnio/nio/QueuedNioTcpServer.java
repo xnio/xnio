@@ -22,7 +22,6 @@ import static org.xnio.IoUtils.safeClose;
 import static org.xnio.nio.Log.log;
 import static org.xnio.nio.Log.tcpServerLog;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -35,6 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -43,6 +44,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.jboss.logging.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.ManagementRegistration;
 import org.xnio.IoUtils;
 import org.xnio.LocalSocketAddress;
 import org.xnio.Option;
@@ -65,7 +67,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
 
     private final ServerSocketChannel channel;
     private final ServerSocket socket;
-    private final Closeable mbeanHandle;
+    private final ManagementRegistration mbeanHandle;
 
     private final List<BlockingQueue<SocketChannel>> acceptQueues;
 
@@ -199,31 +201,39 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
         final SelectionKey key = thread.registerChannel(channel);
         handle = new QueuedNioTcpServerHandle(this, thread, key, highWater, lowWater);
         key.attach(handle);
-        mbeanHandle = NioXnio.register(new XnioServerMXBean() {
-            public String getProviderName() {
-                return "nio";
-            }
+        mbeanHandle = worker.registerServerMXBean(
+                new XnioServerMXBean() {
+                    public String getProviderName() {
+                        return "nio";
+                    }
 
-            public String getWorkerName() {
-                return worker.getName();
-            }
+                    public String getWorkerName() {
+                        return worker.getName();
+                    }
 
-            public String getBindAddress() {
-                return String.valueOf(getLocalAddress());
-            }
+                    public String getBindAddress() {
+                        return String.valueOf(getLocalAddress());
+                    }
 
-            public int getConnectionCount() {
-                return handle.getConnectionCount();
-            }
+                    public int getConnectionCount() {
+                        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(
+                                () -> openConnections, handle.getWorkerThread()
+                        );
+                        try {
+                            return future.get();
+                        } catch (InterruptedException | ExecutionException e) {
+                            return -1;
+                        }
+                    }
 
-            public int getConnectionLimitHighWater() {
-                return getHighWater(connectionStatus);
-            }
+                    public int getConnectionLimitHighWater() {
+                        return getHighWater(connectionStatus);
+                    }
 
-            public int getConnectionLimitLowWater() {
-                return getLowWater(connectionStatus);
-            }
-        });
+                    public int getConnectionLimitLowWater() {
+                        return getLowWater(connectionStatus);
+                    }
+                });
     }
 
     private static IllegalArgumentException badLowWater(final int highWater) {

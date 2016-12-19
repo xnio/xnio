@@ -18,6 +18,9 @@
 
 package org.xnio.management;
 
+import java.util.Set;
+
+
 /**
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
@@ -71,4 +74,10 @@ public interface XnioWorkerMXBean {
      * @return the task count estimate
      */
     int getWorkerQueueSize();
+
+    /**
+     * Get servers that are opened under this worker.
+     * @return set of {@link XnioServerMXBean}
+     */
+    Set<XnioServerMXBean> getServerMXBeans();
 }
