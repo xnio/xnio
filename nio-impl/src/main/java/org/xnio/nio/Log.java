@@ -49,12 +49,6 @@ interface Log extends BasicLogger {
     Log tcpServerLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.tcp.server");
     Log udpServerChannelLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.udp.server.channel");
 
-    // Greeting
-
-    @LogMessage(level = INFO)
-    @Message(value = "XNIO NIO Implementation Version %s")
-    void greeting(String version);
-
     // Validation messages - cross-check with xnio-api
 
     @LogMessage(level = ERROR)
@@ -66,6 +60,12 @@ interface Log extends BasicLogger {
 
     @Message(id = 39, value = "Value for option '%s' is out of range")
     IllegalArgumentException optionOutOfRange(String name);
+
+    // Greeting - cross-check with xnio-api
+
+    @LogMessage(level = INFO)
+    @Message(id = 401, value = "XNIO NIO Implementation Version %s")
+    void greeting(String version);
 
     // I/O errors - cross-check with xnio-api
 

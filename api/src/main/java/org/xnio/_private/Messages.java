@@ -59,12 +59,6 @@ public interface Messages extends BasicLogger {
     Messages closeMsg = Logger.getMessageLogger(Messages.class, "org.xnio.safe-close");
     Messages listenerMsg = Logger.getMessageLogger(Messages.class, "org.xnio.listener");
 
-    // Greeting
-
-    @Message(value = "XNIO version %s")
-    @LogMessage(level = INFO)
-    void greeting(String version);
-
     // Validation messages - cross-check with xnio-nio
 
     @Message(id = 0, value = "Method parameter '%s' cannot be null")
@@ -228,6 +222,12 @@ public interface Messages extends BasicLogger {
 
     @Message(id = 306, value = "SSL connection is not from this provider")
     IllegalArgumentException notFromThisProvider();
+
+    // Greeting - cross-check with xnio-nio
+
+    @Message(id = 400, value = "XNIO version %s")
+    @LogMessage(level = INFO)
+    void greeting(String version);
 
     // I/O errors
 
