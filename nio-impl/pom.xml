@@ -64,6 +64,12 @@
             <artifactId>xnio-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.core</artifactId>
+            <optional>true</optional>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
@@ -110,13 +116,7 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <archive>
-                        <manifest>
-                            <mainClass>org.xnio.nio.Version</mainClass>
-                        </manifest>
-                        <manifestEntries>
-                            <Jar-Version>${project.version}</Jar-Version>
-                            <Jar-Name>${project.artifactId}</Jar-Name>
-                        </manifestEntries>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
                 </configuration>
             </plugin>
@@ -161,6 +161,36 @@
                 <configuration>
                     <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <configuration>
+                    <instructions>
+                        <Main-Class>org.xnio.Version</Main-Class>
+                        <Jar-Version>${project.version}</Jar-Version>
+                        <Jar-Name>${project.artifactId}</Jar-Name>
+                        <Export-Package>
+                            !*._private,
+                            org.xnio.nio*;version=${project.version}
+                        </Export-Package>
+                        <Import-Package>
+                            *
+                        </Import-Package>
+                        <Provide-Capability>
+                            osgi.service;objectClass=org.xnio.Xnio;name=xnio
+                        </Provide-Capability>
+                        <Bundle-Activator>org.xnio.nio.OsgiActivator</Bundle-Activator>
+                    </instructions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>manifest</id>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
