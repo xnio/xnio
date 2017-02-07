@@ -41,6 +41,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+
+import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceReference;
 import org.xnio.management.XnioProviderMXBean;
 import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
@@ -252,7 +257,34 @@ public abstract class Xnio {
                 msg.debugf(t, "Skipping non-loadable provider");
             }
         }
+        try {
+            Xnio xnio = OsgiSupport.doGetOsgiService();
+            if (xnio != null) {
+                return xnio;
+            }
+        } catch (NoClassDefFoundError t) {
+            // Ignore
+        } catch (Throwable t) {
+            msg.debugf(t, "Not using OSGi service");
+        }
         throw msg.noProviderFound();
+    }
+
+    static class OsgiSupport {
+
+        static Xnio doGetOsgiService() {
+            Bundle bundle = FrameworkUtil.getBundle(Xnio.class);
+            BundleContext context = bundle.getBundleContext();
+            if (context == null) {
+                throw new IllegalStateException("Bundle not started");
+            }
+            ServiceReference<Xnio> sr = context.getServiceReference(Xnio.class);
+            if (sr == null) {
+                return null;
+            }
+            return context.getService(sr);
+        }
+
     }
 
     //==================================================
