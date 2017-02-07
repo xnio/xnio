@@ -195,7 +195,7 @@ final class NioXnioWorker extends XnioWorker {
     public MulticastMessageChannel createUdpServer(final InetSocketAddress bindAddress, final ChannelListener<? super MulticastMessageChannel> bindListener, final OptionMap optionMap) throws IOException {
         checkShutdown();
         final DatagramChannel channel;
-        if (NioXnio.NIO2 && bindAddress != null) {
+        if (bindAddress != null) {
             InetAddress address = bindAddress.getAddress();
             if (address instanceof Inet6Address) {
                 channel = DatagramChannel.open(StandardProtocolFamily.INET6);

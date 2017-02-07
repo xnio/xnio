@@ -20,15 +20,13 @@ package org.xnio;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.channels.FileChannel;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.GeneralSecurityException;
@@ -88,19 +86,12 @@ public abstract class Xnio {
     }
 
     /**
-     * A flag indicating the presence of NIO.2 (JDK 7).
+     * A flag indicating the presence of NIO.2 (JDK 7).  Always {@code true} as of XNIO version 3.5.0, which requires
+     * Java 8.
      */
-    public static final boolean NIO2;
+    public static final boolean NIO2 = true;
 
     static {
-        boolean nio2 = false;
-        try {
-            // try to find an NIO.2 interface on the system class path
-            Class.forName("java.nio.channels.MulticastChannel", false, null);
-            nio2 = true;
-        } catch (Throwable t) {
-        }
-        NIO2 = nio2;
         msg.greeting(Version.VERSION);
         final EnumMap<FileAccess, OptionMap> map = new EnumMap<FileAccess, OptionMap>(FileAccess.class);
         for (FileAccess access : FileAccess.values()) {
@@ -323,70 +314,6 @@ public abstract class Xnio {
     //
     //==================================================
 
-    private interface Opener {
-        FileChannel openFile(File file, OptionMap options) throws IOException;
-    }
-
-    private static final Opener OPENER = NIO2 ? new Nio2Opener() : new Nio1Opener();
-
-    private static final class Nio1Opener implements Opener {
-        public FileChannel openFile(final File file, final OptionMap options) throws IOException {
-            final FileAccess fileAccess = options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE);
-            final boolean append = options.get(Options.FILE_APPEND, false);
-            final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
-            if (fileAccess == FileAccess.READ_ONLY) {
-                if (append) {
-                    throw msg.readAppendNotSupported();
-                }
-                if (create) {
-                    throw msg.openModeRequires7();
-                }
-                return new XnioFileChannel(new FileInputStream(file).getChannel());
-            } else if (fileAccess == FileAccess.READ_WRITE) {
-                if (append) {
-                    throw msg.openModeRequires7();
-                }
-                if (! create) {
-                    throw msg.openModeRequires7();
-                }
-                return new XnioFileChannel(new RandomAccessFile(file, "rw").getChannel());
-            } else if (fileAccess == FileAccess.WRITE_ONLY) {
-                if (! create) {
-                    throw msg.openModeRequires7();
-                }
-                return new XnioFileChannel(new FileOutputStream(file, append).getChannel());
-            } else {
-                throw new IllegalStateException();
-            }
-        }
-    }
-
-    private static final class Nio2Opener implements Opener {
-        public FileChannel openFile(final File file, final OptionMap options) throws IOException {
-            try {
-                final FileAccess fileAccess = options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE);
-                final boolean append = options.get(Options.FILE_APPEND, false);
-                final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
-                final EnumSet<StandardOpenOption> openOptions = EnumSet.noneOf(StandardOpenOption.class);
-                if (create) {
-                    openOptions.add(StandardOpenOption.CREATE);
-                }
-                if (fileAccess.isRead()) {
-                    openOptions.add(StandardOpenOption.READ);
-                }
-                if (fileAccess.isWrite()) {
-                    openOptions.add(StandardOpenOption.WRITE);
-                }
-                if (append) {
-                    openOptions.add(StandardOpenOption.APPEND);
-                }
-                return new XnioFileChannel(FileChannel.open(file.toPath(), openOptions.toArray(new StandardOpenOption[openOptions.size()])));
-            } catch (NoSuchFileException e) {
-                throw new FileNotFoundException(e.getMessage());
-            }
-        }
-    }
-
     /**
      * Open a file on the filesystem.
      *
@@ -402,7 +329,28 @@ public abstract class Xnio {
         if (options == null) {
             throw msg.nullParameter("options");
         }
-        return OPENER.openFile(file, options);
+        try {
+            final FileAccess fileAccess = options.get(Options.FILE_ACCESS, FileAccess.READ_WRITE);
+            final boolean append = options.get(Options.FILE_APPEND, false);
+            final boolean create = options.get(Options.FILE_CREATE, fileAccess != FileAccess.READ_ONLY);
+            final EnumSet<StandardOpenOption> openOptions = EnumSet.noneOf(StandardOpenOption.class);
+            if (create) {
+                openOptions.add(StandardOpenOption.CREATE);
+            }
+            if (fileAccess.isRead()) {
+                openOptions.add(StandardOpenOption.READ);
+            }
+            if (fileAccess.isWrite()) {
+                openOptions.add(StandardOpenOption.WRITE);
+            }
+            if (append) {
+                openOptions.add(StandardOpenOption.APPEND);
+            }
+            final Path path = file.toPath();
+            return new XnioFileChannel(path.getFileSystem().provider().newFileChannel(path, openOptions));
+        } catch (NoSuchFileException e) {
+            throw new FileNotFoundException(e.getMessage());
+        }
     }
 
     /**

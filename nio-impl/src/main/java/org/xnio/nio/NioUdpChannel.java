@@ -303,16 +303,10 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
             return option.cast(Boolean.valueOf(socket.getBroadcast()));
         } else if (option == Options.IP_TRAFFIC_CLASS) {
             return option.cast(Integer.valueOf(socket.getTrafficClass()));
+        } else if (option == Options.MULTICAST_TTL) {
+            return option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
         } else {
-            if (NIO2) {
-                if (option == Options.MULTICAST_TTL) {
-                    return option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
-                } else {
-                    return null;
-                }
-            } else {
-                return null;
-            }
+            return null;
         }
     }
 
@@ -340,17 +334,11 @@ class NioUdpChannel extends AbstractNioChannel<NioUdpChannel> implements Multica
         } else if (option == Options.BROADCAST) {
             old = Boolean.valueOf(socket.getBroadcast());
             socket.setBroadcast(Options.BROADCAST.cast(value, Boolean.FALSE).booleanValue());
+        } else if (option == Options.MULTICAST_TTL) {
+            old = option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
+            channel.setOption(StandardSocketOptions.IP_MULTICAST_TTL, (Integer) value);
         } else {
-            if (NIO2) {
-                if (option == Options.MULTICAST_TTL) {
-                    old = option.cast(channel.getOption(StandardSocketOptions.IP_MULTICAST_TTL));
-                    channel.setOption(StandardSocketOptions.IP_MULTICAST_TTL, (Integer) value);
-                } else {
-                    return null;
-                }
-            } else {
-                return null;
-            }
+            return null;
         }
         return option.cast(old);
     }

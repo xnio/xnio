@@ -180,9 +180,9 @@
                     <doctitle><![CDATA[XNIO API ]]>${project.version}</doctitle>
                     <header><![CDATA[XNIO API ]]>${project.version}</header>
                     <footer><![CDATA[XNIO API ]]>${project.version}</footer>
-                    <bottom><![CDATA[<i>Copyright &#169; 2014 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
+                    <bottom><![CDATA[<i>Copyright &#169; 2017 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
                     <links>
-                        <link>http://java.sun.com/javase/7/docs/api/</link>
+                        <link>http://java.sun.com/javase/8/docs/api/</link>
                     </links>
                 </configuration>
             </plugin>
