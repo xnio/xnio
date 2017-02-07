@@ -51,7 +51,7 @@ public final class LimitedInputStream extends InputStream {
         final long remaining = this.remaining;
         if (remaining > 0) {
             final int b = delegate.read();
-            if (b > 0) this.remaining = remaining - 1;
+            if (b >= 0) this.remaining = remaining - 1;
             return b;
         } else {
             return -1;
