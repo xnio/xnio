@@ -37,6 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
+
+import org.wildfly.common.context.ContextManager;
+import org.wildfly.common.context.Contextual;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.AssembledConnectedMessageChannel;
 import org.xnio.channels.AssembledConnectedStreamChannel;
@@ -69,7 +72,7 @@ import static org.xnio._private.Messages.msg;
  * @since 3.0
  */
 @SuppressWarnings("unused")
-public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService, XnioIoFactory {
+public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService, XnioIoFactory, Contextual<XnioWorker> {
 
     private final Xnio xnio;
     private final TaskPool taskPool;
@@ -123,6 +126,39 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             taskQueue,
             new WorkerThreadFactory(threadGroup, optionMap, markThreadAsDaemon),
             new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    //==================================================
+    //
+    // Context methods
+    //
+    //==================================================
+
+    private static final ContextManager<XnioWorker> CONTEXT_MANAGER = doPrivileged((PrivilegedAction<ContextManager<XnioWorker>>) () -> new ContextManager<XnioWorker>(XnioWorker.class, "org.xnio.worker"));
+
+    static {
+        doPrivileged((PrivilegedAction<Void>) () -> {
+            CONTEXT_MANAGER.setGlobalDefaultSupplier(() -> DefaultXnioWorkerHolder.INSTANCE);
+            return null;
+        });
+    }
+
+    /**
+     * Get the context manager for XNIO workers.
+     *
+     * @return the context manager (not {@code null})
+     */
+    public static ContextManager<XnioWorker> getContextManager() {
+        return CONTEXT_MANAGER;
+    }
+
+    /**
+     * Get the instance context manager for XNIO workers by delegating to {@link #getContextManager()}.
+     *
+     * @return the context manager (not {@code null})
+     */
+    public ContextManager<XnioWorker> getInstanceContextManager() {
+        return getContextManager();
     }
 
     //==================================================
