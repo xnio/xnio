@@ -22,11 +22,16 @@ import static java.lang.Math.max;
 
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.util.ArrayDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.wildfly.common.Assert;
 import org.wildfly.common.cpu.CacheInfo;
+import org.wildfly.common.function.ExceptionBiConsumer;
+import org.wildfly.common.function.ExceptionBiFunction;
+import org.wildfly.common.function.ExceptionConsumer;
+import org.wildfly.common.function.ExceptionFunction;
+import org.wildfly.common.function.ExceptionRunnable;
+import org.wildfly.common.function.ExceptionSupplier;
 
 /**
  * A fast source of pooled buffers.
@@ -42,7 +47,8 @@ public abstract class ByteBufferPool {
     }
 
     private final ConcurrentLinkedQueue<ByteBuffer> masterQueue = new ConcurrentLinkedQueue<>();
-    private final LocalBufferCacheThreadLocal threadLocal = new LocalBufferCacheThreadLocal(this);
+    private final ThreadLocal<Cache> threadLocalCache = ThreadLocal.withInitial(this::getDefaultCache);
+    private final ByteBufferPool.Cache defaultCache = new DefaultCache();
     private final int size;
     private final boolean direct;
 
@@ -68,8 +74,6 @@ public abstract class ByteBufferPool {
      * The size of small buffers.
      */
     public static final int SMALL_SIZE = 0x40;
-
-    static final int LOCAL_QUEUE_SIZE = 0x10;
 
     static final int CACHE_LINE_SIZE = max(64, CacheInfo.getSmallestDataCacheLineSize());
 
@@ -153,18 +157,7 @@ public abstract class ByteBufferPool {
      * @return the allocated buffer
      */
     public ByteBuffer allocate() {
-        final LocalBufferCache localCache = threadLocal.get();
-        ByteBuffer byteBuffer = localCache.queue.pollLast();
-        if (byteBuffer == null) {
-            ConcurrentLinkedQueue<ByteBuffer> masterQueue = this.masterQueue;
-            byteBuffer = masterQueue.poll();
-            if (byteBuffer == null) {
-                byteBuffer = createBuffer();
-            } else {
-                localCache.outstanding ++;
-            }
-        }
-        return byteBuffer;
+        return threadLocalCache.get().allocate();
     }
 
     /**
@@ -187,25 +180,9 @@ public abstract class ByteBufferPool {
     public void allocate(ByteBuffer[] array, int offs, int len) {
         Assert.checkNotNullParam("array", array);
         Assert.checkArrayBounds(array, offs, len);
-        final LocalBufferCache localCache = threadLocal.get();
-        int outstanding = localCache.outstanding;
-        final ArrayDeque<ByteBuffer> queue = localCache.queue;
-        ConcurrentLinkedQueue<ByteBuffer> masterQueue;
-        ByteBuffer byteBuffer;
         for (int i = 0; i < len; i ++) {
-            byteBuffer = queue.pollLast();
-            if (byteBuffer == null) {
-                masterQueue = this.masterQueue;
-                byteBuffer = masterQueue.poll();
-                if (byteBuffer == null) {
-                    byteBuffer = createBuffer();
-                } else {
-                    outstanding ++;
-                }
-            }
-            array[offs + i] = byteBuffer;
+            array[offs + i] = allocate();
         }
-        localCache.outstanding = outstanding;
     }
 
     /**
@@ -309,7 +286,222 @@ public abstract class ByteBufferPool {
         return size;
     }
 
+    /**
+     * Flush thread-local caches.  This is useful when a long blocking operation is being performed, wherein it is
+     * unlikely that buffers will be used; calling this method makes any cached buffers available to other threads.
+     */
+    public void flushCaches() {
+        threadLocalCache.get().flush();
+    }
+
+    /**
+     * Flush all thread-local caches for all buffer sizes.  This is useful when a long blocking operation is being performed, wherein it is
+     * unlikely that buffers will be used; calling this method makes any cached buffers available to other threads.
+     */
+    public static void flushAllCaches() {
+        SMALL_HEAP.flushCaches();
+        MEDIUM_HEAP.flushCaches();
+        LARGE_HEAP.flushCaches();
+        SMALL_DIRECT.flushCaches();
+        MEDIUM_DIRECT.flushCaches();
+        LARGE_DIRECT.flushCaches();
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <T> the type of the first parameter
+     * @param <U> the type of the second parameter
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param consumer the action to run
+     * @param param1 the first parameter to pass to the action
+     * @param param2 the second parameter to pass to the action
+     * @throws E if the nested action threw an exception
+     */
+    public <T, U, E extends Exception> void acceptWithCacheEx(int cacheSize, ExceptionBiConsumer<T, U, E> consumer, T param1, U param2) throws E {
+        Assert.checkMinimumParameter("cacheSize", 0, cacheSize);
+        Assert.checkNotNullParam("consumer", consumer);
+        final ThreadLocal<Cache> threadLocalCache = this.threadLocalCache;
+        final Cache parent = threadLocalCache.get();
+        final Cache cache;
+        if (cacheSize == 0) {
+            consumer.accept(param1, param2);
+            return;
+        } else if (cacheSize <= 64) {
+            if (cacheSize == 1) {
+                cache = new OneCache(parent);
+            } else if (cacheSize == 2) {
+                cache = new TwoCache(parent);
+            } else {
+                cache = new MultiCache(parent, cacheSize);
+            }
+            try {
+                consumer.accept(param1, param2);
+                return;
+            } finally {
+                threadLocalCache.set(parent);
+                cache.destroy();
+            }
+        } else {
+            cache = new MultiCache(parent, 64);
+            threadLocalCache.set(cache);
+            try {
+                acceptWithCacheEx(cacheSize - 64, consumer, param1, param2);
+                return;
+            } finally {
+                cache.destroy();
+            }
+        }
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <T> the type of the parameter
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param consumer the action to run
+     * @param param the parameter to pass to the action
+     * @throws E if the nested action threw an exception
+     */
+    public <T, E extends Exception> void acceptWithCacheEx(int cacheSize, ExceptionConsumer<T, E> consumer, T param) throws E {
+        Assert.checkNotNullParam("consumer", consumer);
+        acceptWithCacheEx(cacheSize, ExceptionConsumer::accept, consumer, param);
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param runnable the action to run
+     * @throws E if the nested action threw an exception
+     */
+    public <E extends Exception> void runWithCacheEx(int cacheSize, ExceptionRunnable<E> runnable) throws E {
+        Assert.checkNotNullParam("runnable", runnable);
+        acceptWithCacheEx(cacheSize, (ExceptionConsumer<ExceptionRunnable<E>, E>) ExceptionRunnable::run, runnable);
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param cacheSize the cache size to run under
+     * @param runnable the action to run
+     */
+    public void runWithCache(int cacheSize, Runnable runnable) {
+        Assert.checkNotNullParam("runnable", runnable);
+        acceptWithCacheEx(cacheSize, Runnable::run, runnable);
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <T> the type of the first parameter
+     * @param <U> the type of the second parameter
+     * @param <R> the return type of the operation
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param function the action to run
+     * @param param1 the first parameter to pass to the action
+     * @param param2 the second parameter to pass to the action
+     * @return the result of the action
+     * @throws E if the nested action threw an exception
+     */
+    public <T, U, R, E extends Exception> R applyWithCacheEx(int cacheSize, ExceptionBiFunction<T, U, R, E> function, T param1, U param2) throws E {
+        Assert.checkMinimumParameter("cacheSize", 0, cacheSize);
+        Assert.checkNotNullParam("function", function);
+        final ThreadLocal<Cache> threadLocalCache = this.threadLocalCache;
+        final Cache parent = threadLocalCache.get();
+        final Cache cache;
+        if (cacheSize == 0) {
+            return function.apply(param1, param2);
+        } else if (cacheSize <= 64) {
+            if (cacheSize == 1) {
+                cache = new OneCache(parent);
+            } else if (cacheSize == 2) {
+                cache = new TwoCache(parent);
+            } else {
+                cache = new MultiCache(parent, cacheSize);
+            }
+            try {
+                return function.apply(param1, param2);
+            } finally {
+                threadLocalCache.set(parent);
+                cache.destroy();
+            }
+        } else {
+            cache = new MultiCache(parent, 64);
+            threadLocalCache.set(cache);
+            try {
+                return applyWithCacheEx(cacheSize - 64, function, param1, param2);
+            } finally {
+                cache.destroy();
+            }
+        }
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <T> the type of the parameter
+     * @param <R> the return type of the operation
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param function the action to run
+     * @param param the parameter to pass to the action
+     * @return the result of the action
+     * @throws E if the nested action threw an exception
+     */
+    public <T, R, E extends Exception> R applyWithCacheEx(int cacheSize, ExceptionFunction<T, R, E> function, T param) throws E {
+        return applyWithCacheEx(cacheSize, ExceptionFunction::apply, function, param);
+    }
+
+    /**
+     * Perform the given operation with the addition of a buffer cache of the given size.  When this method returns,
+     * any cached free buffers will be returned to the next-higher cache or the global pool.  If a cache size of 0
+     * is given, the action is simply run directly.
+     *
+     * @param <R> the return type of the operation
+     * @param <E> the exception type thrown by the operation
+     * @param cacheSize the cache size to run under
+     * @param supplier the action to run
+     * @return the result of the action
+     * @throws E if the nested action threw an exception
+     */
+    public <R, E extends Exception> R getWithCacheEx(int cacheSize, ExceptionSupplier<R, E> supplier) throws E {
+        return applyWithCacheEx(cacheSize, ExceptionSupplier::get, supplier);
+    }
+
     // private
+
+    Cache getDefaultCache() {
+        return defaultCache;
+    }
+
+    ConcurrentLinkedQueue<ByteBuffer> getMasterQueue() {
+        return masterQueue;
+    }
+
+    private ByteBuffer allocateMaster() {
+        ByteBuffer byteBuffer = masterQueue.poll();
+        if (byteBuffer == null) {
+            byteBuffer = createBuffer();
+        }
+        return byteBuffer;
+    }
 
     static ByteBufferPool create(final int size, final boolean direct) {
         assert Integer.bitCount(size) == 1;
@@ -332,85 +524,270 @@ public abstract class ByteBufferPool {
         assert parent.getSize() % size == 0;
         return new ByteBufferPool(size, parent.isDirect()) {
             ByteBuffer createBuffer() {
-                ByteBuffer parentBuffer = parent.allocate();
-                final int size = getSize();
-                ByteBuffer result = Buffers.slice(parentBuffer, size);
-                while (parentBuffer.hasRemaining()) {
-                    // avoid false sharing between buffers
-                    if (size < CACHE_LINE_SIZE) {
-                        Buffers.skip(parentBuffer, CACHE_LINE_SIZE - size);
+                synchronized (this) {
+                    // avoid a storm of mass-population by only allowing one thread to split a parent buffer at a time
+                    ByteBuffer appearing = getMasterQueue().poll();
+                    if (appearing != null) {
+                        return appearing;
                     }
-                    super.doFree(Buffers.slice(parentBuffer, size));
+                    ByteBuffer parentBuffer = parent.allocate();
+                    final int size = getSize();
+                    ByteBuffer result = Buffers.slice(parentBuffer, size);
+                    while (parentBuffer.hasRemaining()) {
+                        // avoid false sharing between buffers
+                        if (size < CACHE_LINE_SIZE) {
+                            Buffers.skip(parentBuffer, CACHE_LINE_SIZE - size);
+                        }
+                        super.doFree(Buffers.slice(parentBuffer, size));
+                    }
+                    return result;
                 }
-                return result;
             }
         };
     }
 
     abstract ByteBuffer createBuffer();
 
+    final void freeMaster(ByteBuffer buffer) {
+        masterQueue.add(buffer);
+    }
+
     final void doFree(final ByteBuffer buffer) {
         assert buffer.capacity() == size;
         assert buffer.isDirect() == direct;
         buffer.clear();
-        final LocalBufferCache localCache = threadLocal.get();
-        int oldVal = localCache.outstanding;
-        if (oldVal >= LOCAL_QUEUE_SIZE || localCache.queue.size() == LOCAL_QUEUE_SIZE) {
-            masterQueue.add(buffer);
-        } else {
-            localCache.outstanding = oldVal - 1;
-            localCache.queue.add(buffer);
-        }
+        threadLocalCache.get().free(buffer);
     }
 
-    ConcurrentLinkedQueue<ByteBuffer> getMasterQueue() {
-        return masterQueue;
+    interface Cache {
+        void free(ByteBuffer bb);
+
+        void flushBuffer(ByteBuffer bb);
+
+        ByteBuffer allocate();
+
+        void destroy();
+
+        void flush();
     }
 
-    LocalBufferCacheThreadLocal getThreadLocal() {
-        return threadLocal;
-    }
+    static final class OneCache implements Cache {
+        private final Cache parent;
+        private ByteBuffer buffer;
 
-    static class LocalBufferCacheThreadLocal extends ThreadLocal<LocalBufferCache> {
-
-        final ByteBufferPool byteBufferPool;
-
-        LocalBufferCacheThreadLocal(final ByteBufferPool byteBufferPool) {
-            this.byteBufferPool = byteBufferPool;
+        OneCache(final Cache parent) {
+            this.parent = parent;
         }
 
-        protected LocalBufferCache initialValue() {
-            return new LocalBufferCache(byteBufferPool);
-        }
-
-        public void remove() {
-            get().empty();
-        }
-    }
-
-    static class LocalBufferCache {
-
-        final LocalBufferCacheThreadLocal bufferQueue;
-        final ArrayDeque<ByteBuffer> queue = new ArrayDeque<>(LOCAL_QUEUE_SIZE);
-
-        int outstanding;
-
-        LocalBufferCache(final ByteBufferPool byteBufferPool) {
-            bufferQueue = byteBufferPool.getThreadLocal();
-        }
-
-        protected void finalize() throws Throwable {
-            empty();
-        }
-
-        void empty() {
-            ArrayDeque<ByteBuffer> queue = this.queue;
-            if (! queue.isEmpty()) {
-                ConcurrentLinkedQueue<ByteBuffer> masterQueue = bufferQueue.byteBufferPool.getMasterQueue();
-                do {
-                    masterQueue.add(queue.poll());
-                } while (! queue.isEmpty());
+        public void free(final ByteBuffer bb) {
+            if (buffer == null) {
+                buffer = bb;
+            } else {
+                parent.free(bb);
             }
+        }
+
+        public void flushBuffer(final ByteBuffer bb) {
+            parent.flushBuffer(bb);
+        }
+
+        public ByteBuffer allocate() {
+            if (buffer != null) try {
+                return buffer;
+            } finally {
+                buffer = null;
+            } else {
+                return parent.allocate();
+            }
+        }
+
+        public void destroy() {
+            final ByteBuffer buffer = this.buffer;
+            if (buffer != null) {
+                this.buffer = null;
+                parent.free(buffer);
+            }
+        }
+
+        public void flush() {
+            final ByteBuffer buffer = this.buffer;
+            if (buffer != null) {
+                this.buffer = null;
+                flushBuffer(buffer);
+            }
+            parent.flush();
+        }
+    }
+
+    static final class TwoCache implements Cache {
+        private final Cache parent;
+        private ByteBuffer buffer1;
+        private ByteBuffer buffer2;
+
+        TwoCache(final Cache parent) {
+            this.parent = parent;
+        }
+
+        public void free(final ByteBuffer bb) {
+            if (buffer1 == null) {
+                buffer1 = bb;
+            } else if (buffer2 == null) {
+                buffer2 = bb;
+            } else {
+                parent.free(bb);
+            }
+        }
+
+        public void flushBuffer(final ByteBuffer bb) {
+            parent.flushBuffer(bb);
+        }
+
+        public ByteBuffer allocate() {
+            if (buffer1 != null) try {
+                return buffer1;
+            } finally {
+                buffer1 = null;
+            } else if (buffer2 != null) try {
+                return buffer2;
+            } finally {
+                buffer2 = null;
+            } else {
+                return parent.allocate();
+            }
+        }
+
+        public void destroy() {
+            final Cache parent = this.parent;
+            final ByteBuffer buffer1 = this.buffer1;
+            if (buffer1 != null) {
+                parent.free(buffer1);
+                this.buffer1 = null;
+            }
+            final ByteBuffer buffer2 = this.buffer2;
+            if (buffer2 != null) {
+                parent.free(buffer2);
+                this.buffer2 = null;
+            }
+        }
+
+        public void flush() {
+            final ByteBuffer buffer1 = this.buffer1;
+            if (buffer1 != null) {
+                flushBuffer(buffer1);
+                this.buffer1 = null;
+            }
+            final ByteBuffer buffer2 = this.buffer2;
+            if (buffer2 != null) {
+                flushBuffer(buffer2);
+                this.buffer2 = null;
+            }
+            parent.flush();
+        }
+    }
+
+    static final class MultiCache implements Cache {
+        private final Cache parent;
+        private final ByteBuffer[] cache;
+        private final long mask;
+        private long availableBits;
+
+        MultiCache(final Cache parent, final int size) {
+            this.parent = parent;
+            assert 0 < size && size <= 64;
+            cache = new ByteBuffer[size];
+            mask = availableBits = size == 64 ? ~0L : (1L << size) - 1;
+        }
+
+        public void free(final ByteBuffer bb) {
+            long posn = Long.lowestOneBit(~availableBits & mask);
+            if (posn != 0L) {
+                int bit = Long.numberOfTrailingZeros(posn);
+                // mark available
+                availableBits |= posn;
+                cache[bit] = bb;
+            } else {
+                // full
+                parent.free(bb);
+            }
+        }
+
+        public void flushBuffer(final ByteBuffer bb) {
+            parent.flushBuffer(bb);
+        }
+
+        public ByteBuffer allocate() {
+            long posn = Long.lowestOneBit(availableBits);
+            if (posn != 0L) {
+                int bit = Long.numberOfTrailingZeros(posn);
+                availableBits &= ~posn;
+                try {
+                    return cache[bit];
+                } finally {
+                    cache[bit] = null;
+                }
+            } else {
+                // empty
+                return parent.allocate();
+            }
+        }
+
+        public void destroy() {
+            final ByteBuffer[] cache = this.cache;
+            final Cache parent = this.parent;
+            long bits = ~availableBits & mask;
+            try {
+                while (bits != 0L) {
+                    long posn = Long.lowestOneBit(bits);
+                    int bit = Long.numberOfTrailingZeros(posn);
+                    parent.free(cache[bit]);
+                    bits &= ~posn;
+                    cache[bit] = null;
+                }
+            } finally {
+                // should be 0, but maintain a consistent state in case a free failed
+                availableBits = bits;
+            }
+        }
+
+        public void flush() {
+            final ByteBuffer[] cache = this.cache;
+            final Cache parent = this.parent;
+            long bits = ~availableBits & mask;
+            try {
+                while (bits != 0L) {
+                    long posn = Long.lowestOneBit(bits);
+                    int bit = Long.numberOfTrailingZeros(posn);
+                    flushBuffer(cache[bit]);
+                    bits &= ~posn;
+                    cache[bit] = null;
+                }
+            } finally {
+                // should be 0, but maintain a consistent state in case a free failed
+                availableBits = bits;
+            }
+            parent.flush();
+        }
+    }
+
+    final class DefaultCache implements Cache {
+        public void free(final ByteBuffer bb) {
+            freeMaster(bb);
+        }
+
+        public ByteBuffer allocate() {
+            return allocateMaster();
+        }
+
+        public void flushBuffer(final ByteBuffer bb) {
+            free(bb);
+        }
+
+        public void destroy() {
+            // no operation
+        }
+
+        public void flush() {
+            // no operation
         }
     }
 }
