@@ -825,7 +825,10 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     if (!engine.isInboundDone() && engine.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
                         engine.closeInbound();
                     }
-                    performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                    final long res = performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                    if (res == -1) {
+                        this.state |= READ_FLAG_EOF;
+                    }
                 }
                 if (allAreClear(this.state, READ_FLAG_EOF) || this.receiveBuffer.getResource().hasRemaining()) {
                     // potentially unread data :(
@@ -945,7 +948,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     this.state = state & ~READ_FLAG_READY;
                 }
             } else if (res == -1) {
-                this.state = state | READ_FLAG_EOF & ~READ_FLAG_READY;
+                this.state = (state | READ_FLAG_EOF) & ~READ_FLAG_READY;
             }
             return res;
         } else {
@@ -983,7 +986,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     this.state = state & ~READ_FLAG_READY;
                 }
             } else if (res == -1) {
-                this.state = state | READ_FLAG_EOF & ~READ_FLAG_READY;
+                this.state = (state | READ_FLAG_EOF) & ~READ_FLAG_READY;
             }
             return res;
         } else {
@@ -1449,7 +1452,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                 remaining -= userProduced;
                                 // if we are performing any action that not read, we don't want to disable read handler yet
                                 // (the handler needs to read -1 before that)
-                                state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
+                                state = (state & ~READ_FLAG_READY) | READ_FLAG_EOF;
                             } else {
                                 wakeupReads = true;
                             }
