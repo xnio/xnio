@@ -396,6 +396,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // restore flags <---------------------------+
                             // it is OK if this is stale
                             state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            // make sure we flag to save state with no FLAG_TASK_QUEUED
+                            modify = true;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -449,6 +451,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // restore flags <---------------------------+
                             // it is OK if this is stale
                             state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            modify = true;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -545,6 +548,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         // avoid double-fire
         if (allAreClear(state, FLAG_TASK_QUEUED)) {
             run();
+        }
+        state = this.state;
+        if (sourceConduit.isReadResumed() && allAreClear(state, READ_FLAG_RESUMED | WRITE_FLAG_NEEDS_READ)) {
+            sourceConduit.suspendReads();
+        }
+        if (sinkConduit.isWriteResumed() && allAreClear(state, WRITE_FLAG_RESUMED | READ_FLAG_NEEDS_WRITE)) {
+            sinkConduit.suspendWrites();
         }
     }
 
@@ -825,7 +835,10 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     if (!engine.isInboundDone() && engine.getHandshakeStatus() == HandshakeStatus.NOT_HANDSHAKING) {
                         engine.closeInbound();
                     }
-                    performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                    final long res = performIO(IO_GOAL_READ, NO_BUFFERS, 0, 0, NO_BUFFERS, 0, 0);
+                    if (res == -1) {
+                        this.state |= READ_FLAG_EOF;
+                    }
                 }
                 if (allAreClear(this.state, READ_FLAG_EOF) || this.receiveBuffer.getResource().hasRemaining()) {
                     // potentially unread data :(
@@ -945,7 +958,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     this.state = state & ~READ_FLAG_READY;
                 }
             } else if (res == -1) {
-                this.state = state | READ_FLAG_EOF & ~READ_FLAG_READY;
+                this.state = (state | READ_FLAG_EOF) & ~READ_FLAG_READY;
             }
             return res;
         } else {
@@ -983,7 +996,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                     this.state = state & ~READ_FLAG_READY;
                 }
             } else if (res == -1) {
-                this.state = state | READ_FLAG_EOF & ~READ_FLAG_READY;
+                this.state = (state | READ_FLAG_EOF) & ~READ_FLAG_READY;
             }
             return res;
         } else {
@@ -1449,7 +1462,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                                 remaining -= userProduced;
                                 // if we are performing any action that not read, we don't want to disable read handler yet
                                 // (the handler needs to read -1 before that)
-                                state = state & ~READ_FLAG_READY | READ_FLAG_EOF;
+                                state = (state & ~READ_FLAG_READY) | READ_FLAG_EOF;
                             } else {
                                 wakeupReads = true;
                             }
