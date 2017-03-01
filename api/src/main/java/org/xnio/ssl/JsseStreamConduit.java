@@ -396,6 +396,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // restore flags <---------------------------+
                             // it is OK if this is stale
                             state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            // make sure we flag to save state with no FLAG_TASK_QUEUED
+                            modify = true;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
@@ -449,6 +451,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                             // restore flags <---------------------------+
                             // it is OK if this is stale
                             state = JsseStreamConduit.this.state & ~FLAG_TASK_QUEUED;
+                            modify = true;
                         }
                         // Thread safety notice:
                         //---> We must not modify flags unless read and/or write is still resumed; otherwise, the user might
