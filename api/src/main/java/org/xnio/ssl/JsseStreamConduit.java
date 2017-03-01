@@ -549,6 +549,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         if (allAreClear(state, FLAG_TASK_QUEUED)) {
             run();
         }
+        state = this.state;
+        if (sourceConduit.isReadResumed() && allAreClear(state, READ_FLAG_RESUMED | WRITE_FLAG_NEEDS_READ)) {
+            sourceConduit.suspendReads();
+        }
+        if (sinkConduit.isWriteResumed() && allAreClear(state, WRITE_FLAG_RESUMED | READ_FLAG_NEEDS_WRITE)) {
+            sinkConduit.suspendWrites();
+        }
     }
 
     //================================================================
