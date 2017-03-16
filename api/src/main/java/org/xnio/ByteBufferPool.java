@@ -197,14 +197,12 @@ public abstract class ByteBufferPool {
         final int size = buffer.capacity();
         if (Integer.bitCount(size) == 1 && ! buffer.isReadOnly()) {
             if (buffer.isDirect()) {
-                if (! (buffer instanceof MappedByteBuffer)) {
-                    if (size == MEDIUM_SIZE) {
-                        MEDIUM_DIRECT.doFree(buffer);
-                    } else if (size == SMALL_SIZE) {
-                        SMALL_DIRECT.doFree(buffer);
-                    } else if (size == LARGE_SIZE) {
-                        LARGE_DIRECT.doFree(buffer);
-                    }
+                if (size == MEDIUM_SIZE) {
+                    MEDIUM_DIRECT.doFree(buffer);
+                } else if (size == SMALL_SIZE) {
+                    SMALL_DIRECT.doFree(buffer);
+                } else if (size == LARGE_SIZE) {
+                    LARGE_DIRECT.doFree(buffer);
                 }
             } else {
                 if (size == MEDIUM_SIZE) {
