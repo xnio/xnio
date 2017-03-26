@@ -19,8 +19,12 @@
 package org.xnio;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.UnknownHostException;
+
+import org.wildfly.common.Assert;
 import org.xnio.channels.AssembledStreamChannel;
 import org.xnio.channels.BoundChannel;
 import org.xnio.channels.StreamChannel;
@@ -217,9 +221,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
+        Assert.checkNotNullParam("destination", destination);
         if (destination instanceof InetSocketAddress) {
             return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
@@ -230,9 +232,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
+        Assert.checkNotNullParam("destination", destination);
         if (destination instanceof InetSocketAddress) {
             return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
@@ -243,12 +243,8 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        if (bindAddress == null) {
-            throw msg.nullParameter("bindAddress");
-        }
-        if (destination == null) {
-            throw msg.nullParameter("destination");
-        }
+        Assert.checkNotNullParam("bindAddress", bindAddress);
+        Assert.checkNotNullParam("destination", destination);
         if (bindAddress.getClass() != destination.getClass()) {
             throw msg.mismatchSockType(bindAddress.getClass(), destination.getClass());
         }
@@ -268,7 +264,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
      * @param destinationAddress the destination address
      * @param openListener the listener which will be notified when the channel is open, or {@code null} for none
      * @param bindListener the listener which will be notified when the channel is bound, or {@code null} for none
-     * @param optionMap the option map    @return the future result of this operation
+     * @param optionMap the option map
      * @return the future result of this operation
      */
     protected IoFuture<StreamConnection> openTcpStreamConnection(InetSocketAddress bindAddress, InetSocketAddress destinationAddress, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {

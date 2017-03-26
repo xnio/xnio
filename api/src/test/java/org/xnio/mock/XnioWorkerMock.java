@@ -81,12 +81,20 @@ public class XnioWorkerMock extends XnioWorker {
         this(Xnio.getInstance(), null, OptionMap.EMPTY, null);
     }
 
-    protected XnioWorkerMock(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
-        super(Xnio.getInstance(), threadGroup, optionMap, terminationTask);
+    protected XnioWorkerMock(Xnio xnio, ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
+        this(getBuilderWith(xnio, threadGroup, optionMap, terminationTask));
     }
 
-    protected XnioWorkerMock(Xnio xnio, ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) {
-        super(xnio, threadGroup, optionMap, terminationTask);
+    public XnioWorkerMock(final Builder builder) {
+        super(builder);
+    }
+
+    private static Builder getBuilderWith(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) {
+        final Builder builder = xnio.createWorkerBuilder();
+        builder.setThreadGroup(threadGroup);
+        builder.setTerminationTask(terminationTask);
+        builder.populateFromOptions(optionMap);
+        return builder;
     }
 
     @Override

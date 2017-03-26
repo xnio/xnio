@@ -422,6 +422,23 @@ public abstract class Xnio {
     //==================================================
 
     /**
+     * Create a new worker builder.
+     *
+     * @return the worker builder (not {@code null})
+     */
+    public XnioWorker.Builder createWorkerBuilder() {
+        return new XnioWorker.Builder(this);
+    }
+
+    /**
+     * Construct an XNIO worker from a builder.
+     *
+     * @param builder the builder (must not be {@code null})
+     * @return the constructed worker
+     */
+    protected abstract XnioWorker build(XnioWorker.Builder builder);
+
+    /**
      * Construct a new XNIO worker.
      *
      * @param optionMap the options to use to configure the worker
@@ -456,7 +473,13 @@ public abstract class Xnio {
      * @throws IOException if the worker failed to be opened
      * @throws IllegalArgumentException if an option value is invalid for this worker
      */
-    public abstract XnioWorker createWorker(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) throws IOException, IllegalArgumentException;
+    public XnioWorker createWorker(ThreadGroup threadGroup, OptionMap optionMap, Runnable terminationTask) throws IOException, IllegalArgumentException {
+        final XnioWorker.Builder workerBuilder = createWorkerBuilder();
+        workerBuilder.populateFromOptions(optionMap);
+        workerBuilder.setThreadGroup(threadGroup);
+        workerBuilder.setTerminationTask(terminationTask);
+        return workerBuilder.build();
+    }
 
     /**
      * Creates a file system watcher, that can be used to monitor file system changes.

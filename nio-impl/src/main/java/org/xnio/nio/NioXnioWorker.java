@@ -28,6 +28,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.StandardProtocolFamily;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.LockSupport;
 
+import org.wildfly.common.net.CidrAddressTable;
 import org.xnio.Bits;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -79,37 +81,39 @@ final class NioXnioWorker extends XnioWorker {
     private static final AtomicIntegerFieldUpdater<NioXnioWorker> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(NioXnioWorker.class, "state");
 
     @SuppressWarnings("deprecation")
-    NioXnioWorker(final NioXnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) throws IOException {
-        super(xnio, threadGroup, optionMap, terminationTask);
-        final int threadCount;
-        if (optionMap.contains(Options.WORKER_IO_THREADS)) {
-            threadCount = optionMap.get(Options.WORKER_IO_THREADS, 0);
-        } else {
-            threadCount = Math.max(optionMap.get(Options.WORKER_READ_THREADS, 1), optionMap.get(Options.WORKER_WRITE_THREADS, 1));
-        }
-        if (threadCount < 0) {
-            throw log.optionOutOfRange("WORKER_IO_THREADS");
-        }
-        this.workerStackSize = optionMap.get(Options.STACK_SIZE, 0L);
-        if (workerStackSize < 0L) {
-            throw log.optionOutOfRange("STACK_SIZE");
-
-        }
+    NioXnioWorker(final Builder builder) {
+        super(builder);
+        final NioXnio xnio = (NioXnio) builder.getXnio();
+        final int threadCount = builder.getWorkerIoThreads();
+        this.workerStackSize = builder.getWorkerStackSize();
         final String workerName = getName();
         WorkerThread[] workerThreads;
         workerThreads = new WorkerThread[threadCount];
-        final boolean markWorkerThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
+        final ThreadGroup threadGroup = builder.getThreadGroup();
+        final boolean markWorkerThreadAsDaemon = builder.isDaemon();
         boolean ok = false;
         try {
             for (int i = 0; i < threadCount; i++) {
-                final WorkerThread workerThread = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s I/O-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
+                final Selector threadSelector;
+                try {
+                    threadSelector = xnio.mainSelectorCreator.open();
+                } catch (IOException e) {
+                    throw Log.log.unexpectedSelectorOpenProblem(e);
+                }
+                final WorkerThread workerThread = new WorkerThread(this, threadSelector, String.format("%s I/O-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
                 // Mark as daemon if the Options.THREAD_DAEMON has been set
                 if (markWorkerThreadAsDaemon) {
                     workerThread.setDaemon(true);
                 }
                 workerThreads[i] = workerThread;
             }
-            acceptThread = new WorkerThread(this, xnio.mainSelectorCreator.open(), String.format("%s Accept", workerName), threadGroup, workerStackSize, threadCount);
+            final Selector threadSelector;
+            try {
+                threadSelector = xnio.mainSelectorCreator.open();
+            } catch (IOException e) {
+                throw Log.log.unexpectedSelectorOpenProblem(e);
+            }
+            acceptThread = new WorkerThread(this, threadSelector, String.format("%s Accept", workerName), threadGroup, workerStackSize, threadCount);
             if (markWorkerThreadAsDaemon) {
                 acceptThread.setDaemon(true);
             }
@@ -133,6 +137,10 @@ final class NioXnioWorker extends XnioWorker {
         }
         openResourceUnconditionally();
         acceptThread.start();
+    }
+
+    protected CidrAddressTable<InetSocketAddress> getBindAddressTable() {
+        return super.getBindAddressTable();
     }
 
     protected WorkerThread chooseThread() {

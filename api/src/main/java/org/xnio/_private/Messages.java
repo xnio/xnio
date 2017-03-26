@@ -22,6 +22,7 @@ import java.io.CharConversionException;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
@@ -189,6 +190,9 @@ public interface Messages extends BasicLogger {
     CharConversionException characterDecodingProblem();
 
     // id = 39 - Option value range
+
+    @Message(id = 40, value = "Mismatched IP address type; expected %s but got %s")
+    IllegalArgumentException mismatchAddressType(Class<? extends InetAddress> expected, Class<? extends InetAddress> actual);
 
     // HTTP upgrade
 

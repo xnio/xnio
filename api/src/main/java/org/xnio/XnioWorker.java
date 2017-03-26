@@ -20,6 +20,7 @@
 package org.xnio;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.PrivilegedAction;
@@ -38,8 +39,12 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
+import org.wildfly.common.Assert;
 import org.wildfly.common.context.ContextManager;
 import org.wildfly.common.context.Contextual;
+import org.wildfly.common.net.CidrAddress;
+import org.wildfly.common.net.CidrAddressTable;
+import org.xnio._private.Messages;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.AssembledConnectedMessageChannel;
 import org.xnio.channels.AssembledConnectedStreamChannel;
@@ -78,6 +83,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     private final TaskPool taskPool;
     private final String name;
     private final Runnable terminationTask;
+    private final CidrAddressTable<InetSocketAddress> bindAddressTable;
 
     private volatile int taskSeq;
     private volatile int coreSize;
@@ -95,36 +101,33 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
-     * Construct a new instance.  Intended to be called only from implementations.  To construct an XNIO worker,
-     * use the {@link Xnio#createWorker(OptionMap)} method.
+     * Construct a new instance.  Intended to be called only from implementations.
      *
-     * @param xnio the XNIO provider which produced this worker instance
-     * @param threadGroup the thread group for worker threads
-     * @param optionMap the option map to use to configure this worker
-     * @param terminationTask an optional runnable task to run when the worker shutdown completes
+     * @param builder the worker builder
      */
-    protected XnioWorker(final Xnio xnio, final ThreadGroup threadGroup, final OptionMap optionMap, final Runnable terminationTask) {
-        this.xnio = xnio;
-        this.terminationTask = terminationTask;
+    protected XnioWorker(final Builder builder) {
+        this.xnio = builder.xnio;
+        this.terminationTask = builder.terminationTask;
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             sm.checkPermission(CREATE_WORKER_PERMISSION);
         }
-        String workerName = optionMap.get(Options.WORKER_NAME);
+        String workerName = builder.getWorkerName();
         if (workerName == null) {
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
         taskQueue = new LinkedBlockingQueue<Runnable>();
-        this.coreSize = optionMap.get(Options.WORKER_TASK_CORE_THREADS, 4);
-        final boolean markThreadAsDaemon = optionMap.get(Options.THREAD_DAEMON, false);
-        final int threadCount = optionMap.get(Options.WORKER_TASK_MAX_THREADS, 16);
+        this.coreSize = builder.getCoreWorkerPoolSize();
+        final boolean markThreadAsDaemon = builder.isDaemon();
+        final int threadCount = builder.getMaxWorkerPoolSize();
+        bindAddressTable = builder.getBindAddressConfigurations();
         taskPool = new TaskPool(
             threadCount, // ignore core threads setting, always fill to max
             threadCount,
-            optionMap.get(Options.WORKER_TASK_KEEPALIVE, 60000), TimeUnit.MILLISECONDS,
+            builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
             taskQueue,
-            new WorkerThreadFactory(threadGroup, optionMap, markThreadAsDaemon),
+            new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
             new ThreadPoolExecutor.AbortPolicy());
     }
 
@@ -274,9 +277,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @throws IOException if the server could not be created
      */
     public AcceptingChannel<StreamConnection> createStreamConnectionServer(SocketAddress bindAddress, ChannelListener<? super AcceptingChannel<StreamConnection>> acceptListener, OptionMap optionMap) throws IOException {
-        if (bindAddress == null) {
-            throw msg.nullParameter("bindAddress");
-        }
+        Assert.checkNotNullParam("bindAddress", bindAddress);
         if (bindAddress instanceof InetSocketAddress) {
             return createTcpConnectionServer((InetSocketAddress) bindAddress, acceptListener, optionMap);
         } else if (bindAddress instanceof LocalSocketAddress) {
@@ -912,9 +913,192 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return taskQueue.size();
     }
 
+    /**
+     * Get the bind address table.
+     *
+     * @return the bind address table
+     */
+    protected CidrAddressTable<InetSocketAddress> getBindAddressTable() {
+        return bindAddressTable;
+    }
+
+    //==================================================
+    //
+    // JMX
+    //
+    //==================================================
+
     public abstract XnioWorkerMXBean getMXBean();
 
     protected abstract ManagementRegistration registerServerMXBean(XnioServerMXBean metrics);
+
+    //==================================================
+    //
+    // Builder
+    //
+    //==================================================
+
+    /**
+     * A builder which allows workers to be programmatically configured.
+     */
+    public static class Builder {
+        private final Xnio xnio;
+        private Runnable terminationTask;
+        private String workerName;
+        private int coreWorkerPoolSize = 4;
+        private int maxWorkerPoolSize = 16;
+        private ThreadGroup threadGroup;
+        private boolean daemon;
+        private int workerKeepAlive = 60_000;
+        private int workerIoThreads = 1;
+        private long workerStackSize = 0L;
+        private CidrAddressTable<InetSocketAddress> bindAddressConfigurations = new CidrAddressTable<>();
+
+        /**
+         * Construct a new instance.
+         *
+         * @param xnio the XNIO instance (must not be {@code null})
+         */
+        protected Builder(final Xnio xnio) {
+            this.xnio = xnio;
+        }
+
+        public Xnio getXnio() {
+            return xnio;
+        }
+
+        public Builder populateFromOptions(OptionMap optionMap) {
+            setWorkerName(optionMap.get(Options.WORKER_NAME));
+            setCoreWorkerPoolSize(optionMap.get(Options.WORKER_TASK_CORE_THREADS, coreWorkerPoolSize));
+            setMaxWorkerPoolSize(optionMap.get(Options.WORKER_TASK_MAX_THREADS, maxWorkerPoolSize));
+            setDaemon(optionMap.get(Options.THREAD_DAEMON, daemon));
+            setWorkerKeepAlive(optionMap.get(Options.WORKER_TASK_KEEPALIVE, workerKeepAlive));
+            if (optionMap.contains(Options.WORKER_IO_THREADS)) {
+                setWorkerIoThreads(optionMap.get(Options.WORKER_IO_THREADS, 1));
+            } else if (optionMap.contains(Options.WORKER_READ_THREADS) || optionMap.contains(Options.WORKER_WRITE_THREADS)) {
+                setWorkerIoThreads(Math.max(optionMap.get(Options.WORKER_READ_THREADS, 1), optionMap.get(Options.WORKER_WRITE_THREADS, 1)));
+            }
+            setWorkerStackSize(optionMap.get(Options.STACK_SIZE, workerStackSize));
+            return this;
+        }
+
+        public Builder addBindAddressConfiguration(CidrAddress cidrAddress, InetAddress bindAddress) {
+            return addBindAddressConfiguration(cidrAddress, new InetSocketAddress(bindAddress, 0));
+        }
+
+        public Builder addBindAddressConfiguration(CidrAddress cidrAddress, InetSocketAddress bindAddress) {
+            if (cidrAddress.getNetworkAddress().getClass() != bindAddress.getAddress().getClass()) {
+                throw Messages.msg.mismatchAddressType(cidrAddress.getNetworkAddress().getClass(), bindAddress.getAddress().getClass());
+            }
+            bindAddressConfigurations.put(cidrAddress, bindAddress);
+            return this;
+        }
+
+        public Builder setBindAddressConfigurations(CidrAddressTable<InetSocketAddress> newTable) {
+            bindAddressConfigurations = newTable;
+            return this;
+        }
+
+        public CidrAddressTable<InetSocketAddress> getBindAddressConfigurations() {
+            return bindAddressConfigurations;
+        }
+
+        public Runnable getTerminationTask() {
+            return terminationTask;
+        }
+
+        public Builder setTerminationTask(final Runnable terminationTask) {
+            this.terminationTask = terminationTask;
+            return this;
+        }
+
+        public String getWorkerName() {
+            return workerName;
+        }
+
+        public Builder setWorkerName(final String workerName) {
+            this.workerName = workerName;
+            return this;
+        }
+
+        public int getCoreWorkerPoolSize() {
+            return coreWorkerPoolSize;
+        }
+
+        public Builder setCoreWorkerPoolSize(final int coreWorkerPoolSize) {
+            Assert.checkMinimumParameter("coreWorkerPoolSize", 0, coreWorkerPoolSize);
+            this.coreWorkerPoolSize = coreWorkerPoolSize;
+            return this;
+        }
+
+        public int getMaxWorkerPoolSize() {
+            return maxWorkerPoolSize;
+        }
+
+        public Builder setMaxWorkerPoolSize(final int maxWorkerPoolSize) {
+            Assert.checkMinimumParameter("maxWorkerPoolSize", 0, maxWorkerPoolSize);
+            this.maxWorkerPoolSize = maxWorkerPoolSize;
+            return this;
+        }
+
+        public ThreadGroup getThreadGroup() {
+            return threadGroup;
+        }
+
+        public Builder setThreadGroup(final ThreadGroup threadGroup) {
+            this.threadGroup = threadGroup;
+            return this;
+        }
+
+        public boolean isDaemon() {
+            return daemon;
+        }
+
+        public Builder setDaemon(final boolean daemon) {
+            this.daemon = daemon;
+            return this;
+        }
+
+        public long getWorkerKeepAlive() {
+            return workerKeepAlive;
+        }
+
+        public Builder setWorkerKeepAlive(final int workerKeepAlive) {
+            Assert.checkMinimumParameter("workerKeepAlive", 0, workerKeepAlive);
+            this.workerKeepAlive = workerKeepAlive;
+            return this;
+        }
+
+        public int getWorkerIoThreads() {
+            return workerIoThreads;
+        }
+
+        public Builder setWorkerIoThreads(final int workerIoThreads) {
+            Assert.checkMinimumParameter("workerIoThreads", 0, workerIoThreads);
+            this.workerIoThreads = workerIoThreads;
+            return this;
+        }
+
+        public long getWorkerStackSize() {
+            return workerStackSize;
+        }
+
+        public Builder setWorkerStackSize(final long workerStackSize) {
+            Assert.checkMinimumParameter("workerStackSize", 0, workerStackSize);
+            this.workerStackSize = workerStackSize;
+            return this;
+        }
+
+        public XnioWorker build() {
+            return xnio.build(this);
+        }
+    }
+
+    //==================================================
+    //
+    // Private
+    //
+    //==================================================
 
     final class TaskPool extends ThreadPoolExecutor {
 
@@ -990,19 +1174,19 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     class WorkerThreadFactory implements ThreadFactory {
 
         private final ThreadGroup threadGroup;
-        private final OptionMap optionMap;
+        private final long stackSize;
         private final boolean markThreadAsDaemon;
 
-        WorkerThreadFactory(final ThreadGroup threadGroup, final OptionMap optionMap, final boolean markThreadAsDaemon) {
+        WorkerThreadFactory(final ThreadGroup threadGroup, final long stackSize, final boolean markThreadAsDaemon) {
             this.threadGroup = threadGroup;
-            this.optionMap = optionMap;
+            this.stackSize = stackSize;
             this.markThreadAsDaemon = markThreadAsDaemon;
         }
 
         public Thread newThread(final Runnable r) {
             return doPrivileged(new PrivilegedAction<Thread>() {
                 public Thread run() {
-                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), optionMap.get(Options.STACK_SIZE, 0L));
+                    final Thread taskThread = new Thread(threadGroup, r, name + " task-" + getNextSeq(), stackSize);
                     // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
                     if (markThreadAsDaemon) {
                         taskThread.setDaemon(true);

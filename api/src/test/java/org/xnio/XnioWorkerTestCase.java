@@ -781,9 +781,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void implementationMustOverrideMethods() throws IOException {
-        final XnioWorker xnioWorker = new XnioWorker(Xnio.getInstance(), Thread.currentThread().getThreadGroup(),
-                OptionMap.EMPTY, new Runnable() {public void run() {}}) {
-
+        final XnioWorker.Builder builder = Xnio.getInstance().createWorkerBuilder();
+        builder.setTerminationTask(() -> {});
+        builder.setThreadGroup(Thread.currentThread().getThreadGroup());
+        final XnioWorker xnioWorker = new XnioWorker(builder) {
 
             @Override
             public void shutdown() {}

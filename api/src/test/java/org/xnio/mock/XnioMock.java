@@ -21,7 +21,6 @@ package org.xnio.mock;
 
 import java.io.IOException;
 
-import org.xnio.FileSystemWatcher;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
 import org.xnio.XnioProvider;
@@ -38,6 +37,10 @@ public class XnioMock extends Xnio {
 
     protected XnioMock(String name) {
         super(name);
+    }
+
+    protected XnioWorker build(final XnioWorker.Builder builder) {
+        return new XnioWorkerMock(builder);
     }
 
     @Override

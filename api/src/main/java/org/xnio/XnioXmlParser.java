@@ -21,11 +21,14 @@ package org.xnio;
 import static javax.xml.stream.XMLStreamConstants.*;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Collections;
 
 import org.wildfly.client.config.ClientConfiguration;
 import org.wildfly.client.config.ConfigXMLParseException;
 import org.wildfly.client.config.ConfigurationXMLStreamReader;
+import org.wildfly.common.net.CidrAddress;
 
 /**
  * The XNIO XML configuration parser.
@@ -41,19 +44,19 @@ final class XnioXmlParser {
     }
 
     static XnioWorker parseWorker(Xnio xnio, ClientConfiguration clientConfiguration) throws ConfigXMLParseException, IOException {
-        final OptionMap.Builder mapBuilder = OptionMap.builder();
+        final XnioWorker.Builder builder = xnio.createWorkerBuilder();
         if (clientConfiguration == null) {
             return null;
         }
-        mapBuilder.set(Options.THREAD_DAEMON, true);
+        builder.setDaemon(true);
         final ConfigurationXMLStreamReader reader = clientConfiguration.readConfiguration(Collections.singleton(NS_XNIO_3_5));
 
-        parseWorkerElement(reader, mapBuilder);
+        parseWorkerElement(reader, builder);
 
-        return xnio.createWorker(mapBuilder.getMap());
+        return builder.build();
     }
 
-    private static void parseWorkerElement(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseWorkerElement(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireNoAttributes(reader);
         int foundBits = 0;
         foundBits = setBit(foundBits, 1);
@@ -69,37 +72,43 @@ final class XnioXmlParser {
                         case "daemon-threads": {
                             if (isSet(foundBits, 0)) throw reader.unexpectedElement();
                             foundBits = setBit(foundBits, 0);
-                            parseDaemonThreads(reader, mapBuilder);
+                            parseDaemonThreads(reader, workerBuilder);
                             break;
                         }
                         case "worker-name": {
                             if (isSet(foundBits, 1)) throw reader.unexpectedElement();
                             foundBits = setBit(foundBits, 1);
-                            parseWorkerName(reader, mapBuilder);
+                            parseWorkerName(reader, workerBuilder);
                             break;
                         }
                         case "pool-size": {
                             if (isSet(foundBits, 2)) throw reader.unexpectedElement();
                             foundBits = setBit(foundBits, 2);
-                            parsePoolSize(reader, mapBuilder);
+                            parsePoolSize(reader, workerBuilder);
                             break;
                         }
                         case "task-keepalive": {
                             if (isSet(foundBits, 3)) throw reader.unexpectedElement();
                             foundBits = setBit(foundBits, 3);
-                            parseTaskKeepalive(reader, mapBuilder);
+                            parseTaskKeepalive(reader, workerBuilder);
                             break;
                         }
                         case "io-threads": {
                             if (isSet(foundBits, 4)) throw reader.unexpectedElement();
-                            foundBits = setBit(foundBits, 3);
-                            parseIoThreads(reader, mapBuilder);
+                            foundBits = setBit(foundBits, 4);
+                            parseIoThreads(reader, workerBuilder);
                             break;
                         }
                         case "stack-size": {
                             if (isSet(foundBits, 5)) throw reader.unexpectedElement();
-                            foundBits = setBit(foundBits, 3);
-                            parseStackSize(reader, mapBuilder);
+                            foundBits = setBit(foundBits, 5);
+                            parseStackSize(reader, workerBuilder);
+                            break;
+                        }
+                        case "outbound-bind-addresses": {
+                            if (isSet(foundBits, 6)) throw reader.unexpectedElement();
+                            foundBits = setBit(foundBits, 6);
+                            parseOutboundBindAddresses(reader, workerBuilder);
                             break;
                         }
                         default: {
@@ -112,59 +121,108 @@ final class XnioXmlParser {
         throw reader.unexpectedDocumentEnd();
     }
 
-    private static void parseDaemonThreads(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseDaemonThreads(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
         final boolean daemon = reader.getBooleanAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.THREAD_DAEMON, daemon);
+        workerBuilder.setDaemon(daemon);
         return;
     }
 
-    private static void parseWorkerName(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseWorkerName(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
         String name = reader.getAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.WORKER_NAME, name);
+        workerBuilder.setWorkerName(name);
         return;
     }
 
-    private static void parsePoolSize(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parsePoolSize(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "max-threads");
         int threadCount = reader.getIntAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.WORKER_TASK_CORE_THREADS, threadCount);
-        mapBuilder.set(Options.WORKER_TASK_MAX_THREADS, threadCount);
+        workerBuilder.setCoreWorkerPoolSize(threadCount);
+        workerBuilder.setMaxWorkerPoolSize(threadCount);
         return;
     }
 
-    private static void parseTaskKeepalive(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseTaskKeepalive(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
         int duration = reader.getIntAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.WORKER_TASK_KEEPALIVE, duration);
+        workerBuilder.setWorkerKeepAlive(duration);
         return;
     }
 
-    private static void parseIoThreads(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseIoThreads(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
         int threadCount = reader.getIntAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.WORKER_IO_THREADS, threadCount);
+        workerBuilder.setWorkerIoThreads(threadCount);
         return;
     }
 
-    private static void parseStackSize(final ConfigurationXMLStreamReader reader, final OptionMap.Builder mapBuilder) throws ConfigXMLParseException {
+    private static void parseStackSize(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
         long stackSize = reader.getLongAttributeValue(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
-        mapBuilder.set(Options.STACK_SIZE, stackSize);
+        workerBuilder.setWorkerStackSize(stackSize);
         return;
+    }
+
+    private static void parseOutboundBindAddresses(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
+        requireNoAttributes(reader);
+        for (;;) {
+            if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
+            if (reader.nextTag() == START_ELEMENT) {
+                checkElementNamespace(reader);
+                if (! reader.getLocalName().equals("bind-address")) {
+                    throw reader.unexpectedElement();
+                }
+                parseBindAddress(reader, workerBuilder);
+            } else {
+                assert reader.getEventType() == END_ELEMENT;
+                return;
+            }
+        }
+    }
+
+    private static void parseBindAddress(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
+        final int cnt = reader.getAttributeCount();
+        InetAddress address = null;
+        int port = 0;
+        CidrAddress match = null;
+        for (int i = 0; i < cnt; i ++) {
+            checkAttributeNamespace(reader, i);
+            switch (reader.getAttributeLocalName(i)) {
+                case "match": {
+                    match = reader.getCidrAddressAttributeValue(i);
+                    break;
+                }
+                case "bind-address": {
+                    address = reader.getInetAddressAttributeValue(i);
+                    break;
+                }
+                case "bind-port": {
+                    port = reader.getIntAttributeValue(i, 0, 65535);
+                    break;
+                }
+                default: {
+                    throw reader.unexpectedAttribute(i);
+                }
+            }
+        }
+        if (match == null) throw reader.missingRequiredAttribute(null, "match");
+        if (address == null) throw reader.missingRequiredAttribute(null, "bind-address");
+        workerBuilder.addBindAddressConfiguration(match, new InetSocketAddress(address, port));
+        if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
+        if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
     }
 
     private static void checkElementNamespace(final ConfigurationXMLStreamReader reader) throws ConfigXMLParseException {
