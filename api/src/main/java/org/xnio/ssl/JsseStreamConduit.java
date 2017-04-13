@@ -273,11 +273,13 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         @Override
         public void terminated() {
             if (anyAreClear(state, WRITE_FLAG_FINISHED)) {
-                state |= WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3 | WRITE_FLAG_FINISHED;
+                // setting WRITE_FLAG_FINISHED means flush in the closeHandler will never do anything
+                state |= WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3;
             } 
             final WriteReadyHandler writeReadyHandler = JsseStreamConduit.this.writeReadyHandler;
             if (writeReadyHandler != null) try {
                 writeReadyHandler.terminated();
+                connection.notifyWriteClosed();
             } catch (Throwable ignored) {
             }
         }
@@ -310,6 +312,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             final ReadReadyHandler readReadyHandler = JsseStreamConduit.this.readReadyHandler;
             if (readReadyHandler != null) try {
                 readReadyHandler.terminated();
+                connection.notifyReadClosed();
             } catch (Throwable ignored) {
             }
         }
