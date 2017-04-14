@@ -19,6 +19,7 @@
 
 package org.xnio.ssl;
 
+import static java.security.AccessController.doPrivileged;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
@@ -29,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PrivilegedAction;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -62,6 +64,8 @@ import org.xnio.channels.ConnectedStreamChannel;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public final class JsseXnioSsl extends XnioSsl {
+    static final boolean NEW_IMPL = doPrivileged((PrivilegedAction<Boolean>) () -> Boolean.valueOf(Boolean.parseBoolean(System.getProperty("org.xnio.ssl.new", "false")))).booleanValue();
+
     static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 17 * 1024, 17 * 1024 * 128);
     private final SSLContext sslContext;
 
@@ -106,7 +110,9 @@ public final class JsseXnioSsl extends XnioSsl {
      * @return the SSL engine
      */
     public static SSLEngine getSslEngine(SslConnection connection) {
-        if (connection instanceof JsseSslConnection) {
+        if (connection instanceof JsseSslStreamConnection) {
+            return ((JsseSslStreamConnection) connection).getEngine();
+        } else if (connection instanceof JsseSslConnection) {
             return ((JsseSslConnection) connection).getEngine();
         } else {
             throw msg.notFromThisProvider();
@@ -148,12 +154,13 @@ public final class JsseXnioSsl extends XnioSsl {
     }
 
     public IoFuture<SslConnection> openSslConnection(final XnioIoThread ioThread, final InetSocketAddress bindAddress, final InetSocketAddress destination, final ChannelListener<? super SslConnection> openListener, final ChannelListener<? super BoundChannel> bindListener, final OptionMap optionMap) {
-        final FutureResult<SslConnection> futureResult = new FutureResult<SslConnection>(ioThread);
+        final FutureResult<SslConnection> futureResult = new FutureResult<>(ioThread);
         final IoFuture<StreamConnection> connection = ioThread.openStreamConnection(bindAddress, destination, new ChannelListener<StreamConnection>() {
             public void handleEvent(final StreamConnection connection) {
                 final SSLEngine sslEngine = JsseSslUtils.createSSLEngine(sslContext, optionMap, destination);
-                final SslConnection wrappedConnection = new JsseSslConnection(connection, sslEngine, bufferPool, bufferPool);
-                if (! optionMap.get(Options.SSL_STARTTLS, false)) {
+                final boolean startTls = optionMap.get(Options.SSL_STARTTLS, false);
+                final SslConnection wrappedConnection = NEW_IMPL ? new JsseSslConnection(connection, sslEngine, bufferPool, bufferPool) : new JsseSslStreamConnection(connection, sslEngine, bufferPool, bufferPool, startTls);
+                if (NEW_IMPL && ! startTls) {
                     try {
                         wrappedConnection.startHandshake();
                     } catch (IOException e) {

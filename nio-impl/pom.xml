@@ -151,6 +151,10 @@
                             <name>xnio.nio.old-locking</name>
                             <value>${xnio.nio.old-locking}</value>
                         </property>
+                        <property>
+                            <name>org.xnio.ssl.new</name>
+                            <value>${org.xnio.ssl.new}</value>
+                        </property>
                     </systemProperties>
                     <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
