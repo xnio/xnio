@@ -279,7 +279,6 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             final WriteReadyHandler writeReadyHandler = JsseStreamConduit.this.writeReadyHandler;
             if (writeReadyHandler != null) try {
                 writeReadyHandler.terminated();
-                connection.notifyWriteClosed();
             } catch (Throwable ignored) {
             }
         }
@@ -1101,6 +1100,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             // just waiting for upstream flush
             if (sinkConduit.flush()) {
                 this.state = state | WRITE_FLAG_FINISHED;
+                connection.notifyWriteClosed();
                 return true;
             } else {
                 return false;
