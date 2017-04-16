@@ -772,6 +772,9 @@ final class JsseSslConduitEngine {
         int oldState, newState;
         oldState = stateUpdater.get(this);
         if (allAreSet(oldState, WRITE_COMPLETE)) {
+            if (engine.isOutboundDone()) {
+                connection.writeClosed();
+            }
             return true;
         }
         synchronized (getWrapLock()) {
@@ -780,6 +783,9 @@ final class JsseSslConduitEngine {
                     return false;
                 }
             } else {
+                if (engine.isOutboundDone()) {
+                    connection.writeClosed();
+                }
                 return true;
             }
         }
@@ -788,6 +794,9 @@ final class JsseSslConduitEngine {
         while (! stateUpdater.compareAndSet(this, oldState, newState)) {
             oldState = stateUpdater.get(this);
             if (allAreSet(oldState, WRITE_COMPLETE)) {
+                if (engine.isOutboundDone()) {
+                    connection.writeClosed();
+                }
                 return true;//sinkConduit.flush();
             }
             newState = oldState | WRITE_COMPLETE;
@@ -795,6 +804,9 @@ final class JsseSslConduitEngine {
         // close the engine if read is shut down
         if (allAreSet(oldState, READ_SHUT_DOWN)) {
             closeEngine();
+        }
+        if (engine.isOutboundDone()) {
+            connection.writeClosed();
         }
         return true;
     }
@@ -989,6 +1001,7 @@ final class JsseSslConduitEngine {
      * @throws IOException if an IO exception occurs
      */
     public void closeInbound() throws IOException {
+        connection.readClosed();
         int old = setFlags(READ_SHUT_DOWN);
         try {
             if (allAreClear(old, READ_SHUT_DOWN)) {

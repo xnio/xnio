@@ -103,17 +103,17 @@ final class JsseSslStreamConnection extends SslConnection {
     protected void closeAction() throws IOException {
         if (tls) {
             try {
-                sslConduitEngine.closeOutbound();
+                getSinkChannel().getConduit().truncateWrites();
             } catch (IOException e) {
                 try {
-                    sslConduitEngine.closeInbound();
+                    getSourceChannel().getConduit().terminateReads();
                 } catch (IOException ignored) {
                 }
                 safeClose(connection);
                 throw e;
             }
             try {
-                sslConduitEngine.closeInbound();
+                getSourceChannel().getConduit().terminateReads();
             } catch (IOException e) {
                 safeClose(connection);
                 throw e;
@@ -180,6 +180,14 @@ final class JsseSslStreamConnection extends SslConnection {
 
     SSLEngine getEngine() {
         return sslConduitEngine.getEngine();
+    }
+
+    protected boolean readClosed() {
+        return super.readClosed();
+    }
+
+    protected boolean writeClosed() {
+        return super.writeClosed();
     }
 
     /**
