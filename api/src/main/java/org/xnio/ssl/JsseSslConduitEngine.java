@@ -794,7 +794,7 @@ final class JsseSslConduitEngine {
         }
         // close the engine if read is shut down
         if (allAreSet(oldState, READ_SHUT_DOWN)) {
-            closeEngine(true, true);
+            closeEngine();
         }
         return true;
     }
@@ -838,7 +838,8 @@ final class JsseSslConduitEngine {
     private boolean doFlush() throws IOException {
         assert Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
-        final ByteBuffer buffer = sendBuffer.getResource();
+        final ByteBuffer buffer;
+        buffer = sendBuffer.getResource();
         buffer.flip();
         try {
             while (buffer.hasRemaining()) {
@@ -856,23 +857,15 @@ final class JsseSslConduitEngine {
     /**
      * Closes this engine for both inbound and outbound, clearing the buffers.
      * 
-     * @param unwrapShutDown   {@code true} if unwrap is shutdown
-     * @param wrapShutDown  {@code true} if wrap is shutdown
      * @throws IOException
      */
-    private void closeEngine(final boolean unwrapShutDown, final boolean wrapShutDown) throws IOException {
+    private void closeEngine() throws IOException {
         int old = setFlags(ENGINE_CLOSED);
         // idempotent
         if (allAreSet(old, ENGINE_CLOSED)) {
             return;
         }
         try {
-            if (!unwrapShutDown && !engine.isInboundDone()) {
-                engine.closeInbound();
-            }
-            if (! wrapShutDown) {
-                engine.closeOutbound();
-            }
             synchronized(getWrapLock()) {
                 if (! doFlush()) {
                     throw msg.unflushedData();
@@ -901,17 +894,15 @@ final class JsseSslConduitEngine {
                 }
             }
             if (!allAreClear(old, READ_SHUT_DOWN)) {
-                closeEngine(true, true);
+                closeEngine();
             }
         } catch (Exception e) {
             //if there is an exception on close we immediately close the engine to make sure buffers are freed
-            closeEngine(true, true);
+            closeEngine();
             if(e instanceof IOException) {
                 throw (IOException)e;
-            } else if(e instanceof RuntimeException) {
+            } else {
                 throw (RuntimeException)e;
-            } else  {
-                throw new RuntimeException(e); //should not happen
             }
         }
     }
@@ -1010,17 +1001,15 @@ final class JsseSslConduitEngine {
                 }
             }
             if (allAreSet(old, WRITE_COMPLETE)) {
-                closeEngine(true, true);
+                closeEngine();
             }
         } catch (Exception e) {
             //if there is an exception on close we immediately close the engine to make sure buffers are freed
-            closeEngine(true, true);
+            closeEngine();
             if(e instanceof IOException) {
                 throw (IOException)e;
-            } else if(e instanceof RuntimeException) {
+            } else {
                 throw (RuntimeException)e;
-            } else  {
-                throw new RuntimeException(e); //should not happen
             }
         }
     }
@@ -1184,7 +1173,11 @@ final class JsseSslConduitEngine {
 
     public boolean isDataAvailable() {
         synchronized (getUnwrapLock()) {
-            return readBuffer.getResource().hasRemaining() || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
+            try {
+                return readBuffer.getResource().hasRemaining() || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
+            } catch (IllegalStateException ignored) {
+                return false;
+            }
         }
     }
 }

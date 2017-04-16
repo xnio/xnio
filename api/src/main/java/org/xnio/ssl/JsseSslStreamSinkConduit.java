@@ -138,7 +138,9 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
         } catch (IOException e) {
             try {
                 super.truncateWrites();
-            } catch (IOException ignored) {
+            } catch (IOException e2) {
+                e2.addSuppressed(e);
+                throw e2;
             }
             throw e;
         }
@@ -203,6 +205,9 @@ final class JsseSslStreamSinkConduit extends AbstractStreamSinkConduit<StreamSin
             for (;;) {
                 try {
                     if (!wrapBuffer.flip().hasRemaining()) {
+                        if (writeFinal) {
+                            terminateWrites();
+                        }
                         return true;
                     }
                     if(writeFinal) {
