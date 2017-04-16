@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 
-import org.xnio.Buffers;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.conduits.AbstractStreamSourceConduit;
 import org.xnio.conduits.ConduitReadableByteChannel;
@@ -71,7 +70,11 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     @Override
     public int read(ByteBuffer dst) throws IOException {
         if (!tls) {
-            return super.read(dst);
+            final int res = super.read(dst);
+            if (res == -1) {
+                terminateReads();
+            }
+            return res;
         }
         if ((!sslEngine.isDataAvailable() && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
             return -1;
@@ -88,6 +91,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         }
         unwrapResult = sslEngine.unwrap(dst);
         if (unwrapResult == 0 && readResult == -1) {
+            terminateReads();
             return -1;
         }
         return unwrapResult;
@@ -96,7 +100,11 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     @Override
     public long read(ByteBuffer[] dsts, int offs, int len) throws IOException {
         if (!tls) {
-            return super.read(dsts, offs, len);
+            final long res = super.read(dsts, offs, len);
+            if (res == -1) {
+                terminateReads();
+            }
+            return res;
         }
         if (offs < 0 || offs > len || len < 0 || offs + len > dsts.length) {
             throw new ArrayIndexOutOfBoundsException();
@@ -117,6 +125,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         }
         unwrapResult = sslEngine.unwrap(dsts, offs, len);
         if (unwrapResult == 0 && readResult == -1) {
+            terminateReads();
             return -1;
         }
         return unwrapResult;
@@ -134,9 +143,17 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
     @Override
     public void terminateReads() throws IOException {
         if (tls) {
-            // do not close inbound, this will have the effect of closing outbound too sslEngine.closeInbound();
-            super.suspendReads();
-            return;
+            try {
+                sslEngine.closeInbound();
+            } catch (IOException ex) {
+                try {
+                    super.terminateReads();
+                } catch (IOException e2) {
+                    e2.addSuppressed(ex);
+                    throw e2;
+                }
+                throw ex;
+            }
         }
         super.terminateReads();
     }
