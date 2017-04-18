@@ -245,8 +245,6 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             return new FailedIoFuture<StreamConnection>(e);
         }
         try {
-            final InetSocketAddress realBindAddress =
-                bindAddress != null ? bindAddress : getWorker().getBindAddressTable().get(destinationAddress.getAddress());
             final SocketChannel channel = SocketChannel.open();
             boolean ok = false;
             try {
@@ -261,8 +259,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                 final SelectionKey key = registerChannel(channel);
                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, key, null);
-                if (realBindAddress != null || bindListener != null) {
-                    channel.socket().bind(realBindAddress);
+                if (bindAddress != null || bindListener != null) {
+                    channel.socket().bind(bindAddress);
                     ChannelListeners.invokeChannelListener(connection, bindListener);
                 }
                 if (channel.connect(destinationAddress)) {
