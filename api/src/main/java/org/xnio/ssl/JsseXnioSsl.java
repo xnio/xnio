@@ -64,7 +64,7 @@ import org.xnio.channels.ConnectedStreamChannel;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  */
 public final class JsseXnioSsl extends XnioSsl {
-    static final boolean NEW_IMPL = doPrivileged((PrivilegedAction<Boolean>) () -> Boolean.valueOf(Boolean.parseBoolean(System.getProperty("org.xnio.ssl.new", "false")))).booleanValue();
+    public static final boolean NEW_IMPL = doPrivileged((PrivilegedAction<Boolean>) () -> Boolean.valueOf(Boolean.parseBoolean(System.getProperty("org.xnio.ssl.new", "false")))).booleanValue();
 
     static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 17 * 1024, 17 * 1024 * 128);
     private final SSLContext sslContext;

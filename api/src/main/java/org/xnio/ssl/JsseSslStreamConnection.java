@@ -43,7 +43,7 @@ import org.xnio.conduits.StreamSourceConduit;
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
-final class JsseSslStreamConnection extends SslConnection {
+public final class JsseSslStreamConnection extends SslConnection {
 
     /**
      * Delegate connection.
@@ -62,6 +62,9 @@ final class JsseSslStreamConnection extends SslConnection {
      */
     private final ChannelListener.SimpleSetter<SslConnection> handshakeSetter = new ChannelListener.SimpleSetter<SslConnection>();
 
+    public JsseSslStreamConnection(StreamConnection connection, SSLEngine sslEngine, final boolean startTls) {
+        this(connection, sslEngine, JsseXnioSsl.bufferPool, JsseXnioSsl.bufferPool, startTls);
+    }
 
     JsseSslStreamConnection(StreamConnection connection, SSLEngine sslEngine, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
         super(connection.getIoThread());
