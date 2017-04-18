@@ -223,7 +223,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, OptionMap optionMap) {
         Assert.checkNotNullParam("destination", destination);
         if (destination instanceof InetSocketAddress) {
-            return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, null, optionMap);
+            return internalOpenTcpStreamConnection((InetSocketAddress) destination, openListener, null, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return openLocalStreamConnection(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, null, optionMap);
         } else {
@@ -234,12 +234,17 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
         Assert.checkNotNullParam("destination", destination);
         if (destination instanceof InetSocketAddress) {
-            return openTcpStreamConnection(Xnio.ANY_INET_ADDRESS, (InetSocketAddress) destination, openListener, bindListener, optionMap);
+            return internalOpenTcpStreamConnection((InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return openLocalStreamConnection(Xnio.ANY_LOCAL_ADDRESS, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
         } else {
             throw msg.badSockType(destination.getClass());
         }
+    }
+    
+    private IoFuture<StreamConnection> internalOpenTcpStreamConnection(InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
+        InetSocketAddress bindAddress = getWorker().getBindAddressTable().get(((InetSocketAddress)destination).getAddress());
+        return openTcpStreamConnection(bindAddress == null ? Xnio.ANY_INET_ADDRESS : bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
