@@ -123,7 +123,7 @@ final class XnioXmlParser {
 
     private static void parseDaemonThreads(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
-        final boolean daemon = reader.getBooleanAttributeValue(0);
+        final boolean daemon = reader.getBooleanAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setDaemon(daemon);
@@ -132,7 +132,7 @@ final class XnioXmlParser {
 
     private static void parseWorkerName(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
-        String name = reader.getAttributeValue(0);
+        String name = reader.getAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setWorkerName(name);
@@ -141,7 +141,7 @@ final class XnioXmlParser {
 
     private static void parsePoolSize(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "max-threads");
-        int threadCount = reader.getIntAttributeValue(0);
+        int threadCount = reader.getIntAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setCoreWorkerPoolSize(threadCount);
@@ -151,7 +151,7 @@ final class XnioXmlParser {
 
     private static void parseTaskKeepalive(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
-        int duration = reader.getIntAttributeValue(0);
+        int duration = reader.getIntAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setWorkerKeepAlive(duration);
@@ -160,7 +160,7 @@ final class XnioXmlParser {
 
     private static void parseIoThreads(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
-        int threadCount = reader.getIntAttributeValue(0);
+        int threadCount = reader.getIntAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setWorkerIoThreads(threadCount);
@@ -169,7 +169,7 @@ final class XnioXmlParser {
 
     private static void parseStackSize(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireSingleAttribute(reader, "value");
-        long stackSize = reader.getLongAttributeValue(0);
+        long stackSize = reader.getLongAttributeValueResolved(0);
         if (! reader.hasNext()) throw reader.unexpectedDocumentEnd();
         if (reader.nextTag() != END_ELEMENT) throw reader.unexpectedElement();
         workerBuilder.setWorkerStackSize(stackSize);
@@ -202,15 +202,15 @@ final class XnioXmlParser {
             checkAttributeNamespace(reader, i);
             switch (reader.getAttributeLocalName(i)) {
                 case "match": {
-                    match = reader.getCidrAddressAttributeValue(i);
+                    match = reader.getCidrAddressAttributeValueResolved(i);
                     break;
                 }
                 case "bind-address": {
-                    address = reader.getInetAddressAttributeValue(i);
+                    address = reader.getInetAddressAttributeValueResolved(i);
                     break;
                 }
                 case "bind-port": {
-                    port = reader.getIntAttributeValue(i, 0, 65535);
+                    port = reader.getIntAttributeValueResolved(i, 0, 65535);
                     break;
                 }
                 default: {
