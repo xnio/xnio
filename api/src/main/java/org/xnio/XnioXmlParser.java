@@ -51,15 +51,33 @@ final class XnioXmlParser {
         builder.setDaemon(true);
         final ConfigurationXMLStreamReader reader = clientConfiguration.readConfiguration(Collections.singleton(NS_XNIO_3_5));
 
-        parseWorkerElement(reader, builder);
+        parseDocument(reader, builder);
 
         return builder.build();
+    }
+
+    private static void parseDocument(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
+        if (reader.hasNext()) switch (reader.nextTag()) {
+            case START_ELEMENT: {
+                checkElementNamespace(reader);
+                switch (reader.getLocalName()) {
+                    case "worker": {
+                        parseWorkerElement(reader, workerBuilder);
+                        break;
+                    }
+                    default: throw reader.unexpectedElement();
+                }
+                break;
+            }
+            default: {
+                throw reader.unexpectedContent();
+            }
+        }
     }
 
     private static void parseWorkerElement(final ConfigurationXMLStreamReader reader, final XnioWorker.Builder workerBuilder) throws ConfigXMLParseException {
         requireNoAttributes(reader);
         int foundBits = 0;
-        foundBits = setBit(foundBits, 1);
 
         while (reader.hasNext()) {
             switch (reader.nextTag()) {
