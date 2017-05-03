@@ -62,6 +62,13 @@ public interface XnioWorkerMXBean {
     int getMaxWorkerPoolSize();
 
     /**
+     * Get an estimate of the number of busy threads in the worker pool.
+     *
+     * @return the estimated number of busy threads in the worker pool
+     */
+    int getBusyWorkerThreadCount();
+
+    /**
      * Get the I/O thread count.
      *
      * @return the I/O thread count
