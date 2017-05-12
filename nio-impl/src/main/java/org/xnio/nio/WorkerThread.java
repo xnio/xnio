@@ -195,6 +195,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                                 final SelectionKey selectionKey = WorkerThread.this.registerChannel(channel);
                                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(WorkerThread.this, selectionKey, null);
+                                if (optionMap.contains(Options.READ_TIMEOUT)) connection.setOption(Options.READ_TIMEOUT, optionMap.get(Options.READ_TIMEOUT, 0));
+                                if (optionMap.contains(Options.WRITE_TIMEOUT)) connection.setOption(Options.WRITE_TIMEOUT, optionMap.get(Options.WRITE_TIMEOUT, 0));
                                 if (futureResult.setResult(connection)) {
                                     ok = true;
                                     ChannelListeners.invokeChannelListener(connection, openListener);
@@ -259,6 +261,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                 final SelectionKey key = registerChannel(channel);
                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, key, null);
+                if (optionMap.contains(Options.READ_TIMEOUT)) connection.setOption(Options.READ_TIMEOUT, optionMap.get(Options.READ_TIMEOUT, 0));
+                if (optionMap.contains(Options.WRITE_TIMEOUT)) connection.setOption(Options.WRITE_TIMEOUT, optionMap.get(Options.WRITE_TIMEOUT, 0));
                 if (bindAddress != null || bindListener != null) {
                     channel.socket().bind(bindAddress);
                     ChannelListeners.invokeChannelListener(connection, bindListener);
