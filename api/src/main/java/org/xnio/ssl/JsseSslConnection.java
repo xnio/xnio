@@ -67,9 +67,15 @@ public final class JsseSslConnection extends SslConnection {
         }
     }
 
-    protected void notifyWriteClosed() {}
+    protected void notifyWriteClosed() {
+        // Notify Connection that write have closed.
+        // When both read and write are closed, closeAction() in this class will be called.
+        writeClosed();
+    }
 
-    protected void notifyReadClosed() {}
+    protected void notifyReadClosed() {
+        readClosed();
+    }
 
     public SocketAddress getPeerAddress() {
         return streamConnection.getPeerAddress();
