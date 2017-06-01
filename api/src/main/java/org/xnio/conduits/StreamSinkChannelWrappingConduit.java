@@ -36,6 +36,8 @@ import org.xnio.channels.StreamSourceChannel;
 public final class StreamSinkChannelWrappingConduit implements StreamSinkConduit {
     private final StreamSinkChannel channel;
 
+    private WriteReadyHandler writeReadyHandler;
+
     /**
      * Construct a new instance.
      *
@@ -108,11 +110,17 @@ public final class StreamSinkChannelWrappingConduit implements StreamSinkConduit
     }
 
     public void setWriteReadyHandler(final WriteReadyHandler handler) {
+        writeReadyHandler = handler;
         channel.getWriteSetter().set(new ChannelListener<StreamSinkChannel>() {
             public void handleEvent(final StreamSinkChannel channel) {
                 handler.writeReady();
             }
         });
+    }
+
+    @Override
+    public WriteReadyHandler getWriteReadyHandler() {
+        return writeReadyHandler;
     }
 
     public void truncateWrites() throws IOException {

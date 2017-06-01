@@ -99,7 +99,14 @@ public interface SourceConduit extends Conduit {
      * Set the handler which should receive readiness notifications.  A filter may
      * pass this invocation on to the filter it wraps, or it may substitute itself.
      *
-     * @param next the filter to receive readiness notifications
+     * @param handler the handler to receive readiness notifications
      */
     void setReadReadyHandler(ReadReadyHandler handler);
+
+    /**
+     * Gets the handler that will receive readiness notifications
+     *
+     * @return The read ready handler that will receive readiness notifications
+     */
+    ReadReadyHandler getReadReadyHandler();
 }

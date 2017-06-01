@@ -821,9 +821,19 @@ public class ConduitMock implements StreamSinkConduit, StreamSourceConduit, Mock
         writeReadyHandler = handler;
     }
 
+    @Override
+    public WriteReadyHandler getWriteReadyHandler() {
+        return writeReadyHandler;
+    }
+
     @Override // make ready handler active when needed
     public void setReadReadyHandler(ReadReadyHandler handler) {
         readReadyHandler = handler;
+    }
+
+    @Override
+    public ReadReadyHandler getReadReadyHandler() {
+        return readReadyHandler;
     }
 
     @Override

@@ -249,6 +249,11 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
         writeReadyHandler = handler;
     }
 
+    @Override
+    public WriteReadyHandler getWriteReadyHandler() {
+        return writeReadyHandler;
+    }
+
     // Read methods
 
     int getAndSetReadTimeout(int newVal) {
@@ -369,6 +374,11 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void setReadReadyHandler(final ReadReadyHandler handler) {
         this.readReadyHandler = handler;
+    }
+
+    @Override
+    public ReadReadyHandler getReadReadyHandler() {
+        return readReadyHandler;
     }
 
     SocketChannel getSocketChannel() {

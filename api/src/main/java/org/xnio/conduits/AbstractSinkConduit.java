@@ -78,6 +78,10 @@ public abstract class AbstractSinkConduit<D extends SinkConduit> extends Abstrac
         next.setWriteReadyHandler(handler);
     }
 
+    public WriteReadyHandler getWriteReadyHandler() {
+        return next.getWriteReadyHandler();
+    }
+
     public void truncateWrites() throws IOException {
         next.truncateWrites();
     }

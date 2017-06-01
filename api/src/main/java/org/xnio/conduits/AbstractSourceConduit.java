@@ -77,4 +77,8 @@ public abstract class AbstractSourceConduit<D extends SourceConduit> extends Abs
     public void setReadReadyHandler(final ReadReadyHandler handler) {
         next.setReadReadyHandler(handler);
     }
+
+    public ReadReadyHandler getReadReadyHandler() {
+        return next.getReadReadyHandler();
+    }
 }

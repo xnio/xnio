@@ -17,6 +17,7 @@ import org.xnio.channels.StreamSourceChannel;
  */
 public final class StreamSourceChannelWrappingConduit implements StreamSourceConduit {
     private final StreamSourceChannel channel;
+    private ReadReadyHandler readReadyHandler;
 
     /**
      * Construct a new instance.
@@ -80,11 +81,17 @@ public final class StreamSourceChannelWrappingConduit implements StreamSourceCon
     }
 
     public void setReadReadyHandler(final ReadReadyHandler handler) {
+        this.readReadyHandler = handler;
         channel.getReadSetter().set(new ChannelListener<StreamSourceChannel>() {
             public void handleEvent(final StreamSourceChannel channel) {
                 handler.readReady();
             }
         });
+    }
+
+    @Override
+    public ReadReadyHandler getReadReadyHandler() {
+        return readReadyHandler;
     }
 
     public XnioWorker getWorker() {

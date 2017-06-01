@@ -125,6 +125,11 @@ public final class NullStreamSinkConduit implements StreamSinkConduit {
         writeReadyHandler = handler;
     }
 
+    @Override
+    public WriteReadyHandler getWriteReadyHandler() {
+        return writeReadyHandler;
+    }
+
     public void truncateWrites() throws IOException {
         terminateWrites();
     }
