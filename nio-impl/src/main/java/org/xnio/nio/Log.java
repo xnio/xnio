@@ -51,7 +51,7 @@ interface Log extends BasicLogger {
 
     // Greeting
 
-    @LogMessage(level = INFO)
+    @LogMessage(level = DEBUG)
     @Message(value = "XNIO NIO Implementation Version %s")
     void greeting(String version);
 
