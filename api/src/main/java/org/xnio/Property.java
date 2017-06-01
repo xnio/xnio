@@ -68,6 +68,16 @@ public final class Property implements Serializable {
     public Object getValue() {
         return value;
     }
+    
+    /**
+     * Get the {@link String} representation of this property.
+     * 
+     * @return the {@link String} representation of this property.
+     */
+    @Override
+    public String toString() {
+        return "(" + key + "=>" + value + ")";
+    }
 
     /**
      * Get the value of this key/value Property.
@@ -91,7 +101,7 @@ public final class Property implements Serializable {
 
     /**
      * Get the hash code for this Property.
-     *
+     * 
      * @return the hash code.
      */
     @Override
