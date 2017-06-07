@@ -408,14 +408,13 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 ok = true;
                 return newConnection;
             } finally {
-                if (! ok) safeClose(accepted);
+                if (! ok) {
+                    safeClose(accepted);
+                    handle.freeConnection();
+                }
             }
         } catch (IOException e) {
             return null;
-        } finally {
-            if (! ok) {
-                handle.freeConnection();
-            }
         }
         // by contract, only a resume will do
         return null;
