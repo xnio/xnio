@@ -922,6 +922,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return taskQueue.size();
     }
 
+    //==================================================
+    //
+    // Source address
+    //
+    //==================================================
+
     /**
      * Get the bind address table.
      *
@@ -929,6 +935,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected CidrAddressTable<InetSocketAddress> getBindAddressTable() {
         return bindAddressTable;
+    }
+
+    /**
+     * Get the expected bind address for the given destination, if any.
+     *
+     * @return the expected bind address for the given destination, or {@code null} if no explicit bind will be done
+     */
+    public InetSocketAddress getBindAddress(InetAddress destination) {
+        return bindAddressTable.get(destination);
     }
 
     //==================================================
