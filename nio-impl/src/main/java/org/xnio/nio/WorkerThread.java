@@ -513,7 +513,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            final boolean hasPending;
+                            synchronized (lock) {
+                                hasPending = workQueue.peek() != null;
+                            }
+                            if (hasPending) {
                                 selector.selectNow();
                             } else {
                                 selector.select();
@@ -526,7 +530,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s (with timeout)", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            final boolean hasPending;
+                            synchronized (lock) {
+                                hasPending = workQueue.peek() != null;
+                            }
+                            if (hasPending) {
                                 selector.selectNow();
                             } else {
                                 selector.select(millis);
