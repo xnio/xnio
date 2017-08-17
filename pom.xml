@@ -32,7 +32,7 @@
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Parent POM</name>
-    <version>3.5.1.Final-SNAPSHOT</version>
+    <version>3.5.2.Final-SNAPSHOT</version>
     <description>The aggregator POM of the XNIO project</description>
 
     <licenses>
@@ -50,11 +50,11 @@
 
     <properties>
         <byteman-version>3.0.3</byteman-version>
-        <version.org.jboss.logging.jboss-logging>3.3.0.Final</version.org.jboss.logging.jboss-logging>
-        <version.org.jboss.logging.jboss-logging-tools>2.0.1.Final</version.org.jboss.logging.jboss-logging-tools>
-        <version.org.jboss.logmanager.jboss-logmanager>2.0.3.Final</version.org.jboss.logmanager.jboss-logmanager>
-        <version.org.wildfly.common>1.2.0.Beta10</version.org.wildfly.common>
-        <version.org.wildfly.client-config>1.0.0.Beta4</version.org.wildfly.client-config>
+        <version.org.jboss.logging.jboss-logging>3.3.1.Final</version.org.jboss.logging.jboss-logging>
+        <version.org.jboss.logging.jboss-logging-tools>2.1.0.Final</version.org.jboss.logging.jboss-logging-tools>
+        <version.org.jboss.logmanager.jboss-logmanager>2.0.7.Final</version.org.jboss.logmanager.jboss-logmanager>
+        <version.org.wildfly.common>1.2.0.Final</version.org.wildfly.common>
+        <version.org.wildfly.client-config>1.0.0.Final</version.org.wildfly.client-config>
         <version.bridger.plugin>1.1.Final</version.bridger.plugin>
         <version.junit>4.11</version.junit>
         <version.jmock>2.6.0</version.jmock>
