@@ -66,6 +66,8 @@ import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
 import static java.security.AccessController.doPrivileged;
+import java.util.concurrent.RejectedExecutionException;
+import org.jboss.logging.Logger;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
@@ -100,6 +102,32 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return taskSeqUpdater.incrementAndGet(this);
     }
 
+    private static final Logger log = Logger.getLogger("org.xnio");
+
+    private static class DebugAbortPolicy implements RejectedExecutionHandler {
+
+        /**
+         * Creates an {@code AbortPolicy}.
+         */
+        public DebugAbortPolicy() {
+        }
+
+        /**
+         * Always throws RejectedExecutionException.
+         *
+         * @param r the runnable task requested to be executed
+         * @param e the executor attempting to execute this task
+         * @throws RejectedExecutionException always
+         */
+        @Override
+        public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
+            log.tracef("Rejecting execution " + r);
+            throw new RejectedExecutionException("Task " + r.toString()
+                    + " rejected from "
+                    + e.toString());
+        }
+    }
+
     /**
      * Construct a new instance.  Intended to be called only from implementations.
      *
@@ -128,7 +156,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
             taskQueue,
             new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
-            new ThreadPoolExecutor.AbortPolicy());
+                new DebugAbortPolicy());
     }
 
     //==================================================
