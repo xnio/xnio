@@ -886,6 +886,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected abstract XnioIoThread chooseThread();
 
+    //==================================================
+    //
+    // Metrics methods
+    //
+    //==================================================
+
     /**
      * Get the core worker pool size.
      *
