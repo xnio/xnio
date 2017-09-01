@@ -886,12 +886,18 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected abstract XnioIoThread chooseThread();
 
+    //==================================================
+    //
+    // Metrics methods
+    //
+    //==================================================
+
     /**
      * Get the core worker pool size.
      *
      * @return the core worker pool size
      */
-    protected final int getCoreWorkerPoolSize() {
+    public final int getCoreWorkerPoolSize() {
         return coreSize;
     }
 
@@ -900,7 +906,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      *
      * @return the estimated number of busy threads in the worker pool
      */
-    protected final int getBusyWorkerThreadCount() {
+    public final int getBusyWorkerThreadCount() {
         return taskPool.getActiveCount();
     }
 
@@ -909,7 +915,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      *
      * @return the maximum worker pool size
      */
-    protected final int getMaxWorkerPoolSize() {
+    public final int getMaxWorkerPoolSize() {
         return taskPool.getMaximumPoolSize();
     }
 
@@ -918,7 +924,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      *
      * @return the estimated number of tasks
      */
-    protected final int getWorkerQueueSize() {
+    public final int getWorkerQueueSize() {
         return taskQueue.size();
     }
 
