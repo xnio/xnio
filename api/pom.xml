@@ -157,6 +157,10 @@
                             <name>test.level</name>
                             <value>${test.level}</value>
                         </property>
+                        <property>
+                            <name>org.xnio.ssl.new</name>
+                            <value>${org.xnio.ssl.new}</value>
+                        </property>
                     </systemProperties>
                     <includes>
                         <include>**/*TestCase.java</include>

@@ -49,6 +49,9 @@
         <version.bridger.plugin>1.1.Final</version.bridger.plugin>
         <version.junit>4.11</version.junit>
         <version.jmock>2.6.0</version.jmock>
+        <org.xnio.ssl.new>false</org.xnio.ssl.new>
+
+        <version.org.osgi.core>6.0.0</version.org.osgi.core>
     </properties>
 
     <dependencyManagement>
