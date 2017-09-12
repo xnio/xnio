@@ -45,6 +45,7 @@ import static org.xnio.nio.Log.log;
 final class NioXnio extends Xnio {
 
     static final boolean IS_HP_UX;
+    static final boolean HAS_BUGGY_EVENT_PORT;
 
     interface SelectorCreator {
         Selector open() throws IOException;
@@ -62,6 +63,8 @@ final class NioXnio extends Xnio {
                 return Boolean.valueOf(System.getProperty("os.name", "unknown").equalsIgnoreCase("hp-ux"));
             }
         }).booleanValue();
+        // if a JDK is released with a fix, we can try to detect it and set this to "false" for those JDKs.
+        HAS_BUGGY_EVENT_PORT = true;
     }
 
     /**
@@ -104,7 +107,7 @@ final class NioXnio extends Xnio {
                             provider = null;
                         }
                     }
-                    if (provider == null) {
+                    if (provider == null && ! HAS_BUGGY_EVENT_PORT) {
                         try {
                             // Solaris (Java 8+)
                             provider = Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
@@ -118,6 +121,16 @@ final class NioXnio extends Xnio {
                         try {
                             // Solaris
                             provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider.openSelector().close();
+                        } catch (Throwable e) {
+                            // not available
+                            provider = null;
+                        }
+                    }
+                    if (provider == null) {
+                        try {
+                            // Solaris (Java 8+)
+                            provider = Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
