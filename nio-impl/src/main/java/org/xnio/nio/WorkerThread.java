@@ -520,7 +520,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            Runnable item = null;
+                            synchronized (lock) {
+                               item =  workQueue.peek();
+                            }
+                            if (item != null) {
                                 log.tracef("SelectNow, queue is not empty");
                                 selector.selectNow();
                             } else {
@@ -535,7 +539,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s (with timeout)", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            Runnable item = null;
+                            synchronized (lock) {
+                               item =  workQueue.peek();
+                            }
+                            if (item != null) {
                                 log.tracef("SelectNow, queue is not empty");
                                 selector.selectNow();
                             } else {
