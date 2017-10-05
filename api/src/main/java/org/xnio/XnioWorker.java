@@ -859,6 +859,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
+     * Get an estimate of the number of busy threads in the worker pool.
+     *
+     * @return the estimated number of busy threads in the worker pool
+     */
+    protected final int getBusyWorkerThreadCount() {
+        return taskPool.getActiveCount();
+    }
+
+    /**
      * Get the maximum worker pool size.
      *
      * @return the maximum worker pool size
