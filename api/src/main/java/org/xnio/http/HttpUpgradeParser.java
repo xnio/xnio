@@ -137,15 +137,15 @@ class HttpUpgradeParser {
     private void parseStatusCode(final ByteBuffer buffer) throws IOException {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
-            if (b == '\r' || b == '\n') {
-                throw new IOException("Invalid response");
-            } else if (b == ' ' || b == '\t') {
+            if (b == ' ' || b == '\t') {
                 responseCode = Integer.parseInt(current.toString().trim());
                 parseState++;
                 current.setLength(0);
                 return;
-            } else {
+            } else if (Character.isDigit(b)) {
                 current.append((char) b);
+            } else {
+                throw new IOException("Invalid response");
             }
         }
     }
@@ -153,15 +153,15 @@ class HttpUpgradeParser {
     private void parseVersion(final ByteBuffer buffer) throws IOException {
         while (buffer.hasRemaining()) {
             byte b = buffer.get();
-            if (b == '\r' || b == '\n') {
-                throw new IOException("Invalid response");
-            } else if (b == ' ' || b == '\t') {
+            if (b == ' ' || b == '\t') {
                 httpVersion = current.toString().trim();
                 parseState++;
                 current.setLength(0);
                 return;
-            } else {
+            } else if(Character.isDigit(b) || Character.isAlphabetic(b) || b == '.' || b == '/') {
                 current.append((char) b);
+            } else {
+                throw new IOException("Invalid response");
             }
         }
     }
