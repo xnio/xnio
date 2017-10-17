@@ -194,6 +194,9 @@ public interface Messages extends BasicLogger {
     @Message(id = 40, value = "Mismatched IP address type; expected %s but got %s")
     IllegalArgumentException mismatchAddressType(Class<? extends InetAddress> expected, Class<? extends InetAddress> actual);
 
+    @Message(id = 41, value = "'%s' is not a valid Strength value")
+    IllegalArgumentException invalidStrength(String name);
+
     // HTTP upgrade
 
     @Message(id = 100, value = "'https' URL scheme chosen but no SSL provider given")
