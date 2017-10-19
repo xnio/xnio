@@ -481,7 +481,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 return;
             }
         } catch (IOException e) {
-            tcpServerLog.logf(FQCN, Logger.Level.ERROR, e, "Exception accepting request, closing server channel %s", this);
+            tcpServerLog.logf(FQCN, Logger.Level.DEBUG, e, "Exception accepting request, closing server channel %s", this);
             IoUtils.safeClose(channel);
             return;
         }
