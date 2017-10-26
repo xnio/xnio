@@ -580,15 +580,19 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     try {
                         ops = key.interestOps();
                         if (ops != 0) {
-                            selectorLog.tracef("Selected key %s for %s", key, key.channel());
+                            final SelectableChannel channel = key.channel();
+                            selectorLog.tracef("Selected key %s for %s", key, channel);
                             final NioHandle handle = (NioHandle) key.attachment();
                             if (handle == null) {
                                 cancelKey(key);
                             } else {
                                 // clear interrupt status
                                 Thread.interrupted();
-                                selectorLog.tracef("Calling handleReady key %s for %s", key.readyOps(), key.channel());
-                                handle.handleReady(key.readyOps());
+                                final int readyOps = key.readyOps();
+                                if (selectorLog.isTraceEnabled()) {
+                                    selectorLog.tracef("Calling handleReady key %s for %s", readyOps, channel);
+                                }
+                                handle.handleReady(readyOps);
                             }
                         }
                     } catch (CancelledKeyException ignored) {
