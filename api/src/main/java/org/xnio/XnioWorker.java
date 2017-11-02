@@ -838,7 +838,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //
     //==================================================
 
-    private static Set<Option<?>> OPTIONS = Option.setBuilder()
+    private final static Set<Option<?>> OPTIONS = Option.setBuilder()
             .add(Options.WORKER_TASK_CORE_THREADS)
             .add(Options.WORKER_TASK_MAX_THREADS)
             .add(Options.WORKER_TASK_KEEPALIVE)
