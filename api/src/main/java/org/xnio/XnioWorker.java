@@ -153,6 +153,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                 .setKeepAliveTime(builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS)
                 .setThreadFactory(new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon))
                 .setTerminationTask(terminationTask)
+                .setRegisterMBean(true)
+                .setMBeanName(workerName)
                 .build()
             );
         }
