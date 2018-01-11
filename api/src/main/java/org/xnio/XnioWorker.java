@@ -24,6 +24,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.PrivilegedAction;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
@@ -137,7 +138,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                 XnioWorker.this.terminationTask.run();
             }
         };
-        if (EnhancedQueueExecutor.DISABLE_HINT) {
+        final ExecutorService executorService = builder.getExternalExecutorService();
+        if (executorService != null) {
+            taskPool = new ExternalTaskPool(executorService);
+        } else if (EnhancedQueueExecutor.DISABLE_HINT) {
             final int poolSize = max(builder.getMaxWorkerPoolSize(), builder.getCoreWorkerPoolSize());
             taskPool = new ThreadPoolExecutorTaskPool(
                 poolSize,
@@ -787,7 +791,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
-     * Callback to indicate that the task thread pool has terminated.
+     * Callback to indicate that the task thread pool has terminated.  Not called if the task pool is external.
      */
     protected void taskPoolTerminated() {}
 
@@ -796,7 +800,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * the {@link #taskPoolTerminated()} method is called.
      */
     protected void shutDownTaskPool() {
-        doPrivileged(new PrivilegedAction<Object>() {
+        if (! isTaskPoolExternal()) doPrivileged(new PrivilegedAction<Object>() {
             public Object run() {
                 taskPool.shutdown();
                 return null;
@@ -810,11 +814,22 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the pending task list
      */
     protected List<Runnable> shutDownTaskPoolNow() {
-        return doPrivileged(new PrivilegedAction<List<Runnable>>() {
+        if (! isTaskPoolExternal()) return doPrivileged(new PrivilegedAction<List<Runnable>>() {
             public List<Runnable> run() {
                 return taskPool.shutdownNow();
             }
         });
+        return Collections.emptyList();
+    }
+
+    /**
+     * Determine whether the worker task pool is managed externally.  Externally managed task pools will never
+     * respond to shut down requests.
+     *
+     * @return {@code true} if the task pool is externally managed, {@code false} otherwise
+     */
+    protected boolean isTaskPoolExternal() {
+        return taskPool instanceof ExternalTaskPool;
     }
 
     /**
@@ -845,12 +860,17 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             .add(Options.WORKER_TASK_KEEPALIVE)
             .create();
 
+    private final static Set<Option<?>> EXTERNAL_POOL_OPTIONS = Option.setBuilder()
+            .create();
+
     public boolean supportsOption(final Option<?> option) {
-        return OPTIONS.contains(option);
+        return taskPool instanceof ExternalTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+        if (! supportsOption(option)) {
+            return null;
+        } else if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
@@ -862,7 +882,9 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+        if (! supportsOption(option)) {
+            return null;
+        } else if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
             final int old = taskPool.getCorePoolSize();
             taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
             return option.cast(Integer.valueOf(old));
@@ -997,6 +1019,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public static class Builder {
         private final Xnio xnio;
+        private ExecutorService externalExecutorService;
         private Runnable terminationTask;
         private String workerName;
         private int coreWorkerPoolSize = 4;
@@ -1140,6 +1163,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         public Builder setWorkerStackSize(final long workerStackSize) {
             Assert.checkMinimumParameter("workerStackSize", 0, workerStackSize);
             this.workerStackSize = workerStackSize;
+            return this;
+        }
+
+        public ExecutorService getExternalExecutorService() {
+            return externalExecutorService;
+        }
+
+        public Builder setExternalExecutorService(final ExecutorService executorService) {
+            this.externalExecutorService = executorService;
             return this;
         }
 
@@ -1345,6 +1377,55 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         public int getQueueSize() {
             return executor.getQueueSize();
+        }
+    }
+
+    static class ExternalTaskPool implements TaskPool {
+        private final ExecutorService delegate;
+
+        ExternalTaskPool(final ExecutorService delegate) {
+            this.delegate = delegate;
+        }
+
+        public void shutdown() {
+            // no operation
+        }
+
+        public List<Runnable> shutdownNow() {
+            return Collections.emptyList();
+        }
+
+        public void execute(final Runnable command) {
+            delegate.execute(command);
+        }
+
+        public int getCorePoolSize() {
+            return -1;
+        }
+
+        public int getMaximumPoolSize() {
+            return -1;
+        }
+
+        public long getKeepAliveTime(final TimeUnit unit) {
+            return -1;
+        }
+
+        public void setCorePoolSize(final int size) {
+        }
+
+        public void setMaximumPoolSize(final int size) {
+        }
+
+        public void setKeepAliveTime(final long time, final TimeUnit unit) {
+        }
+
+        public int getActiveCount() {
+            return -1;
+        }
+
+        public int getQueueSize() {
+            return -1;
         }
     }
 }
