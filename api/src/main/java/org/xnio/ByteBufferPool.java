@@ -338,6 +338,7 @@ public abstract class ByteBufferPool {
             } else {
                 cache = new MultiCache(parent, cacheSize);
             }
+            threadLocalCache.set(cache);
             try {
                 consumer.accept(param1, param2);
                 return;
@@ -434,6 +435,7 @@ public abstract class ByteBufferPool {
             } else {
                 cache = new MultiCache(parent, cacheSize);
             }
+            threadLocalCache.set(cache);
             try {
                 return function.apply(param1, param2);
             } finally {
