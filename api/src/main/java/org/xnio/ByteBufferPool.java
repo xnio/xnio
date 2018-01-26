@@ -32,6 +32,7 @@ import org.wildfly.common.function.ExceptionConsumer;
 import org.wildfly.common.function.ExceptionFunction;
 import org.wildfly.common.function.ExceptionRunnable;
 import org.wildfly.common.function.ExceptionSupplier;
+import org.wildfly.common.function.Functions;
 
 /**
  * A fast source of pooled buffers.
@@ -370,7 +371,7 @@ public abstract class ByteBufferPool {
      */
     public <T, E extends Exception> void acceptWithCacheEx(int cacheSize, ExceptionConsumer<T, E> consumer, T param) throws E {
         Assert.checkNotNullParam("consumer", consumer);
-        acceptWithCacheEx(cacheSize, ExceptionConsumer::accept, consumer, param);
+        acceptWithCacheEx(cacheSize, Functions.exceptionConsumerBiConsumer(), consumer, param);
     }
 
     /**
@@ -385,7 +386,7 @@ public abstract class ByteBufferPool {
      */
     public <E extends Exception> void runWithCacheEx(int cacheSize, ExceptionRunnable<E> runnable) throws E {
         Assert.checkNotNullParam("runnable", runnable);
-        acceptWithCacheEx(cacheSize, (ExceptionConsumer<ExceptionRunnable<E>, E>) ExceptionRunnable::run, runnable);
+        acceptWithCacheEx(cacheSize, Functions.exceptionRunnableConsumer(), runnable);
     }
 
     /**
@@ -398,6 +399,7 @@ public abstract class ByteBufferPool {
      */
     public void runWithCache(int cacheSize, Runnable runnable) {
         Assert.checkNotNullParam("runnable", runnable);
+        // todo: fix with wildfly-common 1.4
         acceptWithCacheEx(cacheSize, Runnable::run, runnable);
     }
 
@@ -466,7 +468,7 @@ public abstract class ByteBufferPool {
      * @throws E if the nested action threw an exception
      */
     public <T, R, E extends Exception> R applyWithCacheEx(int cacheSize, ExceptionFunction<T, R, E> function, T param) throws E {
-        return applyWithCacheEx(cacheSize, ExceptionFunction::apply, function, param);
+        return applyWithCacheEx(cacheSize, Functions.exceptionFunctionBiFunction(), function, param);
     }
 
     /**
@@ -482,7 +484,7 @@ public abstract class ByteBufferPool {
      * @throws E if the nested action threw an exception
      */
     public <R, E extends Exception> R getWithCacheEx(int cacheSize, ExceptionSupplier<R, E> supplier) throws E {
-        return applyWithCacheEx(cacheSize, ExceptionSupplier::get, supplier);
+        return applyWithCacheEx(cacheSize, Functions.exceptionSupplierFunction(), supplier);
     }
 
     // private
