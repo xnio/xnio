@@ -156,6 +156,20 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     }
 
     /**
+     * Cleans all ThreadLocal caches
+     */
+    public void clean() {
+        ThreadLocalCache localCache = localQueueHolder.get();
+        if (!localCache.queue.isEmpty()) {
+            localCache.queue.clear();
+        }
+
+        if(!sliceQueue.isEmpty()) {
+            sliceQueue.clear();
+        }
+    }
+
+    /**
      * Return the size of the {@link ByteBuffer}s that are returned by {@link #allocate()}.
      */
     public int getBufferSize() {
