@@ -66,7 +66,7 @@ final class NioXnioWorker extends XnioWorker {
     private static final int CLOSE_COMP = (1 << 30);
     private final long workerStackSize;
 
-    private volatile int state;
+    private volatile int state = 1;
 
     private final WorkerThread[] workerThreads;
     private final WorkerThread acceptThread;
@@ -82,9 +82,6 @@ final class NioXnioWorker extends XnioWorker {
     @SuppressWarnings("deprecation")
     NioXnioWorker(final Builder builder) {
         super(builder);
-        // start at 2 for the provided thread pool, or 1 if the pool is not provided
-        // we need one extra resource so that we can still shut down even if there is no task pool and there are no I/O threads
-        state = isTaskPoolExternal() ? 1 : 2;
         final NioXnio xnio = (NioXnio) builder.getXnio();
         final int threadCount = builder.getWorkerIoThreads();
         this.workerStackSize = builder.getWorkerStackSize();
@@ -285,8 +282,6 @@ final class NioXnioWorker extends XnioWorker {
             }
             acceptThread.shutdown();
             shutDownTaskPool();
-            // close the one extra resource we maintain
-            closeResource();
             return;
         }
         log.tracef("Idempotent shutdown of %s", this);
