@@ -86,4 +86,8 @@ abstract class NioHandle {
     SelectionKey getSelectionKey() {
         return selectionKey;
     }
+
+    void cancelKey() {
+        workerThread.cancelKey(selectionKey);
+    }
 }
