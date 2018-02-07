@@ -243,7 +243,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             channel.close();
         } finally {
             for (NioTcpServerHandle handle : handles) {
-                handle.cancelKey();
+                handle.cancelKey(false);
             }
             safeClose(mbeanHandle);
         }

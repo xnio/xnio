@@ -218,7 +218,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
         try {
             channel.close();
         } finally {
-            handle.cancelKey();
+            handle.cancelKey(true);
             safeClose(mbeanHandle);
         }
     }

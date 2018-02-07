@@ -550,7 +550,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                             selectorLog.tracef("Selected key %s for %s", key, key.channel());
                             final NioHandle handle = (NioHandle) key.attachment();
                             if (handle == null) {
-                                cancelKey(key);
+                                cancelKey(key, false);
                             } else {
                                 // clear interrupt status
                                 Thread.interrupted();
@@ -704,7 +704,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
     }
 
-    void cancelKey(final SelectionKey key) {
+    void cancelKey(final SelectionKey key, final boolean block) {
         assert key.selector() == selector;
         final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
@@ -736,7 +736,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
             try {
                 key.cancel();
-                selector.wakeup();
+                if (block) {
+                    final SelectNowTask task = new SelectNowTask();
+                    queueTask(task);
+                    selector.wakeup();
+                    // block until the selector is actually deregistered
+                    task.doWait();
+                } else {
+                    selector.wakeup();
+                }
             } catch (Throwable t) {
                 log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (other thread)", key, channel);
             }
@@ -836,6 +844,26 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         void done() {
             done = true;
             unpark(WorkerThread.this);
+        }
+    }
+
+    final class SelectNowTask implements Runnable {
+        final Thread thread = Thread.currentThread();
+        volatile boolean done;
+
+        void doWait() {
+            while (! done) {
+                park();
+            }
+        }
+
+        public void run() {
+            try {
+                selector.selectNow();
+            } catch (IOException ignored) {
+            }
+            done = true;
+            unpark(thread);
         }
     }
 }
