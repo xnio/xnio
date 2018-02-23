@@ -23,6 +23,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
@@ -193,6 +194,9 @@ public interface Messages extends BasicLogger {
 
     @Message(id = 40, value = "Mismatched IP address type; expected %s but got %s")
     IllegalArgumentException mismatchAddressType(Class<? extends InetAddress> expected, Class<? extends InetAddress> actual);
+
+    @Message(id = 42, value = "Cannot add unresolved address '%s'")
+    IllegalArgumentException addressUnresolved(InetSocketAddress bindAddress);
 
     // HTTP upgrade
 

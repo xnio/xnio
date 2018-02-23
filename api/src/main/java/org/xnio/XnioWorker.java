@@ -987,8 +987,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
 
         public Builder addBindAddressConfiguration(CidrAddress cidrAddress, InetSocketAddress bindAddress) {
-            if (cidrAddress.getNetworkAddress().getClass() != bindAddress.getAddress().getClass()) {
-                throw Messages.msg.mismatchAddressType(cidrAddress.getNetworkAddress().getClass(), bindAddress.getAddress().getClass());
+            final Class<? extends InetAddress> networkAddrClass = cidrAddress.getNetworkAddress().getClass();
+            if (bindAddress.isUnresolved()) {
+                throw Messages.msg.addressUnresolved(bindAddress);
+            }
+            if (networkAddrClass != bindAddress.getAddress().getClass()) {
+                throw Messages.msg.mismatchAddressType(networkAddrClass, bindAddress.getAddress().getClass());
             }
             bindAddressConfigurations.put(cidrAddress, bindAddress);
             return this;
