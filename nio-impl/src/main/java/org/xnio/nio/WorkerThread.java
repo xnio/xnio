@@ -195,6 +195,8 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                                 final SelectionKey selectionKey = WorkerThread.this.registerChannel(channel);
                                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(WorkerThread.this, selectionKey, null);
+                                if (optionMap.contains(Options.READ_TIMEOUT)) connection.setOption(Options.READ_TIMEOUT, optionMap.get(Options.READ_TIMEOUT, 0));
+                                if (optionMap.contains(Options.WRITE_TIMEOUT)) connection.setOption(Options.WRITE_TIMEOUT, optionMap.get(Options.WRITE_TIMEOUT, 0));
                                 if (futureResult.setResult(connection)) {
                                     ok = true;
                                     ChannelListeners.invokeChannelListener(connection, openListener);
@@ -259,16 +261,20 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 if (optionMap.contains(Options.SEND_BUFFER)) channel.socket().setSendBufferSize(optionMap.get(Options.SEND_BUFFER, -1));
                 final SelectionKey key = registerChannel(channel);
                 final NioSocketStreamConnection connection = new NioSocketStreamConnection(this, key, null);
+                if (optionMap.contains(Options.READ_TIMEOUT)) connection.setOption(Options.READ_TIMEOUT, optionMap.get(Options.READ_TIMEOUT, 0));
+                if (optionMap.contains(Options.WRITE_TIMEOUT)) connection.setOption(Options.WRITE_TIMEOUT, optionMap.get(Options.WRITE_TIMEOUT, 0));
                 if (bindAddress != null || bindListener != null) {
                     channel.socket().bind(bindAddress);
                     ChannelListeners.invokeChannelListener(connection, bindListener);
                 }
                 if (channel.connect(destinationAddress)) {
+                    selectorLog.tracef("Synchronous connect");
                     execute(ChannelListeners.getChannelListenerTask(connection, openListener));
                     final FinishedIoFuture<StreamConnection> finishedIoFuture = new FinishedIoFuture<StreamConnection>(connection);
                     ok = true;
                     return finishedIoFuture;
                 }
+                selectorLog.tracef("Asynchronous connect");
                 final FutureResult<StreamConnection> futureResult = new FutureResult<StreamConnection>(this);
                 final ConnectHandle connectHandle = new ConnectHandle(this, key, futureResult, connection, openListener);
                 key.attach(connectHandle);
@@ -319,6 +325,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             boolean ok = false;
             try {
                 if (channel.finishConnect()) {
+                    selectorLog.tracef("handleReady connect finished");
                     suspend(SelectionKey.OP_CONNECT);
                     getSelectionKey().attach(connection.getConduit());
                     if (futureResult.setResult(connection)) {
@@ -327,9 +334,13 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     }
                 }
             } catch (IOException e) {
+                selectorLog.tracef("ConnectHandle.handleReady Exception, " + e);
                 futureResult.setException(e);
             } finally {
-                if (! ok) safeClose(connection);
+                if (!ok) {
+                    selectorLog.tracef("!OK, closing connection");
+                    safeClose(connection);
+                }
             }
         }
 
@@ -509,9 +520,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            Runnable item = null;
+                            synchronized (lock) {
+                               item =  workQueue.peek();
+                            }
+                            if (item != null) {
+                                log.tracef("SelectNow, queue is not empty");
                                 selector.selectNow();
                             } else {
+                                log.tracef("Select, queue is empty");
                                 selector.select();
                             }
                         } finally {
@@ -522,9 +539,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                         selectorLog.tracef("Beginning select on %s (with timeout)", selector);
                         polling = true;
                         try {
-                            if (workQueue.peek() != null) {
+                            Runnable item = null;
+                            synchronized (lock) {
+                               item =  workQueue.peek();
+                            }
+                            if (item != null) {
+                                log.tracef("SelectNow, queue is not empty");
                                 selector.selectNow();
                             } else {
+                                log.tracef("Select, queue is empty");
                                 selector.select(millis);
                             }
                         } finally {
@@ -560,10 +583,11 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                             selectorLog.tracef("Selected key %s for %s", key, key.channel());
                             final NioHandle handle = (NioHandle) key.attachment();
                             if (handle == null) {
-                                cancelKey(key);
+                                cancelKey(key, false);
                             } else {
                                 // clear interrupt status
                                 Thread.interrupted();
+                                selectorLog.tracef("Calling handleReady key %s for %s", key.readyOps(), key.channel());
                                 handle.handleReady(key.readyOps());
                             }
                         }
@@ -597,9 +621,12 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
         synchronized (workLock) {
             selectorWorkQueue.add(command);
+            log.tracef("Added task " + command);
         }
         if (polling) { // flag is always false if we're the same thread
             selector.wakeup();
+        } else {
+            log.tracef("Not polling, no wakeup");
         }
     }
 
@@ -714,7 +741,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
     }
 
-    void cancelKey(final SelectionKey key) {
+    void cancelKey(final SelectionKey key, final boolean block) {
         assert key.selector() == selector;
         final SelectableChannel channel = key.channel();
         if (currentThread() == this) {
@@ -746,7 +773,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             log.logf(FQCN, Logger.Level.TRACE, null, "Cancelling key %s of %s (other thread)", key, channel);
             try {
                 key.cancel();
-                selector.wakeup();
+                if (block) {
+                    final SelectNowTask task = new SelectNowTask();
+                    queueTask(task);
+                    selector.wakeup();
+                    // block until the selector is actually deregistered
+                    task.doWait();
+                } else {
+                    selector.wakeup();
+                }
             } catch (Throwable t) {
                 log.logf(FQCN, Logger.Level.TRACE, t, "Error cancelling key %s of %s (other thread)", key, channel);
             }
@@ -756,7 +791,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
     void setOps(final SelectionKey key, final int ops) {
         if (currentThread() == this) {
             try {
-                key.interestOps(key.interestOps() | ops);
+                synchronized(key) {
+                    key.interestOps(key.interestOps() | ops);
+                }
             } catch (CancelledKeyException ignored) {}
         } else if (OLD_LOCKING) {
             final SynchTask task = new SynchTask();
@@ -764,14 +801,18 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
-                key.interestOps(key.interestOps() | ops);
+                synchronized(key) {
+                    key.interestOps(key.interestOps() | ops);
+                }
             } catch (CancelledKeyException ignored) {
             } finally {
                 task.done();
             }
         } else {
             try {
-                key.interestOps(key.interestOps() | ops);
+                synchronized(key) {
+                    key.interestOps(key.interestOps() | ops);
+                }
                 if (polling) selector.wakeup();
             } catch (CancelledKeyException ignored) {
             }
@@ -781,7 +822,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
     void clearOps(final SelectionKey key, final int ops) {
         if (currentThread() == this || ! OLD_LOCKING) {
             try {
-                key.interestOps(key.interestOps() & ~ops);
+                synchronized(key) {
+                    key.interestOps(key.interestOps() & ~ops);
+                }
             } catch (CancelledKeyException ignored) {}
         } else {
             final SynchTask task = new SynchTask();
@@ -789,7 +832,9 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
             try {
                 // Prevent selector from sleeping until we're done!
                 selector.wakeup();
-                key.interestOps(key.interestOps() & ~ops);
+                synchronized(key) {
+                    key.interestOps(key.interestOps() & ~ops);
+                }
             } catch (CancelledKeyException ignored) {
             } finally {
                 task.done();
@@ -846,6 +891,26 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         void done() {
             done = true;
             unpark(WorkerThread.this);
+        }
+    }
+
+    final class SelectNowTask implements Runnable {
+        final Thread thread = Thread.currentThread();
+        volatile boolean done;
+
+        void doWait() {
+            while (! done) {
+                park();
+            }
+        }
+
+        public void run() {
+            try {
+                selector.selectNow();
+            } catch (IOException ignored) {
+            }
+            done = true;
+            unpark(thread);
         }
     }
 }

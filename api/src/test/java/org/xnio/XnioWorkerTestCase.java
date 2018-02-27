@@ -762,7 +762,7 @@ public class XnioWorkerTestCase {
     public void optionRetrieval() throws IllegalArgumentException, IOException {
         final Xnio xnio = Xnio.getInstance();
         final OptionMap.Builder builder = OptionMap.builder();
-        builder.set(Options.WORKER_NAME, "**WoRkEr**");
+        builder.set(Options.WORKER_NAME, "__WoRkEr__");
         builder.set(Options.WORKER_TASK_LIMIT, 0x8000);
         builder.set(Options.WORKER_TASK_CORE_THREADS, 10);
         builder.set(Options.WORKER_TASK_MAX_THREADS, 20);
@@ -771,7 +771,7 @@ public class XnioWorkerTestCase {
 
         xnioWorker = xnio.createWorker(builder.getMap());
         assertNotNull(xnioWorker);
-        assertEquals("**WoRkEr**", xnioWorker.getName());
+        assertEquals("__WoRkEr__", xnioWorker.getName());
         assertNull(xnioWorker.getOption(Options.WORKER_NAME));
         assertNull(xnioWorker.getOption(Options.WORKER_TASK_LIMIT));
         assertEquals(10, (int) xnioWorker.getOption(Options.WORKER_TASK_CORE_THREADS));

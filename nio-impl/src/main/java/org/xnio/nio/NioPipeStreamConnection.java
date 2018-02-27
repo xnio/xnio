@@ -85,7 +85,7 @@ final class NioPipeStreamConnection extends AbstractNioStreamConnection {
     }
 
     private void cancelKey(final NioHandle handle) {
-        if (handle != null) handle.getWorkerThread().cancelKey(handle.getSelectionKey());
+        if (handle != null) handle.cancelKey(false);
     }
 
     private void closeChannel(final Channel channel) throws IOException {

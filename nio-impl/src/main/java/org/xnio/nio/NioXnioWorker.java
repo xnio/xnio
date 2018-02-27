@@ -66,7 +66,6 @@ final class NioXnioWorker extends XnioWorker {
     private static final int CLOSE_COMP = (1 << 30);
     private final long workerStackSize;
 
-    // start at 1 for the provided thread pool
     private volatile int state = 1;
 
     private final WorkerThread[] workerThreads;
@@ -412,6 +411,10 @@ final class NioXnioWorker extends XnioWorker {
 
         public int getMaxWorkerPoolSize() {
             return NioXnioWorker.this.getMaxWorkerPoolSize();
+        }
+
+        public int getBusyWorkerThreadCount() {
+            return NioXnioWorker.this.getBusyWorkerThreadCount();
         }
 
         public int getIoThreadCount() {

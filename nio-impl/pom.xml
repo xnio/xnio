@@ -31,7 +31,7 @@
     <parent>
         <groupId>org.jboss.xnio</groupId>
         <artifactId>xnio-all</artifactId>
-        <version>3.5.0.Beta5-SNAPSHOT</version>
+        <version>3.7.0.Beta1-SNAPSHOT</version>
     </parent>
     
     <properties>
@@ -151,9 +151,14 @@
                             <name>xnio.nio.old-locking</name>
                             <value>${xnio.nio.old-locking}</value>
                         </property>
+                        <property>
+                            <name>org.xnio.ssl.new</name>
+                            <value>${org.xnio.ssl.new}</value>
+                        </property>
                     </systemProperties>
                     <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <trimStackTrace>false</trimStackTrace>
                 </configuration>
             </plugin>
             <plugin>

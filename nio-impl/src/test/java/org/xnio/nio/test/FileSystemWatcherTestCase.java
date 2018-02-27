@@ -21,7 +21,6 @@ package org.xnio.nio.test;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.xnio.FileChangeCallback;
 import org.xnio.FileChangeEvent;
@@ -41,6 +40,7 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
+import static org.xnio.FileChangeEvent.Type.ADDED;
 import static org.xnio.FileChangeEvent.Type.MODIFIED;
 import static org.xnio.FileChangeEvent.Type.REMOVED;
 
@@ -50,7 +50,6 @@ import static org.xnio.FileChangeEvent.Type.REMOVED;
  * @author Stuart Douglas
  */
 public class FileSystemWatcherTestCase {
-
     public static final String DIR_NAME = "/fileSystemWatcherTest";
     public static final String EXISTING_FILE_NAME = "a.txt";
     public static final String EXISTING_DIR = "existingDir";
@@ -154,31 +153,56 @@ public class FileSystemWatcherTestCase {
     }
 
     private void checkResult(File file, FileChangeEvent.Type type) throws InterruptedException {
-        Collection<FileChangeEvent> results = this.results.poll(10, TimeUnit.SECONDS);
-        Collection<FileChangeEvent> secondResults = this.secondResults.poll(10, TimeUnit.SECONDS);
+        Collection<FileChangeEvent> results = this.results.poll(20, TimeUnit.SECONDS);
+        Collection<FileChangeEvent> secondResults = this.secondResults.poll(20, TimeUnit.SECONDS);
         Assert.assertNotNull(results);
         Assert.assertEquals(1, results.size());
         Assert.assertEquals(1, secondResults.size());
         FileChangeEvent res = results.iterator().next();
         FileChangeEvent res2 = secondResults.iterator().next();
+
+        //sometime OS's will give a MODIFIED event before the REMOVED one
+        //We consume these events here
         long endTime = System.currentTimeMillis() + 10000;
         while (type == REMOVED
                 && (res.getType() == MODIFIED || res2.getType() == MODIFIED)
                 && System.currentTimeMillis() < endTime) {
-            //sometime OS's will give a MODIFIED event before the REMOVED one
-            results = this.results.poll(1, TimeUnit.SECONDS);
-            secondResults = this.secondResults.poll(1, TimeUnit.SECONDS);
-            Assert.assertNotNull(results);
-            Assert.assertNotNull(secondResults);
-            Assert.assertEquals(1, results.size());
-            Assert.assertEquals(1, secondResults.size());
-            res = results.iterator().next();
-            res2 = secondResults.iterator().next();
+            FileChangeEvent[] nextEvents = consumeEvents();
+            res = nextEvents[0];
+            res2 = nextEvents[1];
         }
+
+        //sometime OS's will give a MODIFIED event on its parent folder before the ADDED one
+        //We consume these events here
+        endTime = System.currentTimeMillis() + 10000;
+        while (type == ADDED
+                && (res.getType() == MODIFIED || res2.getType() == MODIFIED)
+                && (res.getFile().equals(file.getParentFile()) || res2.getFile().equals(file.getParentFile()))
+                && !file.isDirectory()
+                && System.currentTimeMillis() < endTime) {
+            FileChangeEvent[] nextEvents = consumeEvents();
+            res = nextEvents[0];
+            res2 = nextEvents[1];
+        }
+
         Assert.assertEquals(file, res.getFile());
         Assert.assertEquals(type, res.getType());
         Assert.assertEquals(file, res2.getFile());
         Assert.assertEquals(type, res2.getType());
+    }
+
+    private FileChangeEvent[] consumeEvents() throws InterruptedException {
+        FileChangeEvent[] nextEvents = new FileChangeEvent[2];
+        Collection<FileChangeEvent> results = this.results.poll(1, TimeUnit.SECONDS);
+        Collection<FileChangeEvent> secondResults = this.secondResults.poll(1, TimeUnit.SECONDS);
+        Assert.assertNotNull(results);
+        Assert.assertNotNull(secondResults);
+        Assert.assertEquals(1, results.size());
+        Assert.assertEquals(1, secondResults.size());
+        nextEvents[0] = results.iterator().next();
+        nextEvents[1] = secondResults.iterator().next();
+
+        return nextEvents;
     }
 
     public static void deleteRecursive(final File file) {
