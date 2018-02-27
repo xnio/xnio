@@ -568,9 +568,6 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
         do {
             oldState = getState();
             newState = oldState.withNotifier(getNotifierExecutor(), this, notifier, attachment);
-            if (oldState == newState) {
-                return this;
-            }
         } while (! compareAndSetState(oldState, newState));
         return this;
     }

@@ -152,6 +152,7 @@ public final class IoUtils {
                 resource.close();
             }
         } catch (ClosedChannelException ignored) {
+            msg.tracef("safeClose, ignoring ClosedChannelException exception");
         } catch (Throwable t) {
             closeMsg.resourceCloseFailed(t, resource);
         }
