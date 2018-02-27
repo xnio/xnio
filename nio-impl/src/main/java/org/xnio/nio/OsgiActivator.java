@@ -22,6 +22,7 @@ import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 import org.xnio.Xnio;
+import org.xnio.XnioProvider;
 
 import java.util.Hashtable;
 
@@ -32,19 +33,24 @@ import java.util.Hashtable;
  */
 public class OsgiActivator implements BundleActivator {
 
-    private ServiceRegistration<Xnio> registration;
+    private ServiceRegistration<Xnio> registrationS;
+    private ServiceRegistration<XnioProvider> registrationP;
 
     @Override
     public void start(BundleContext context) throws Exception {
-        Xnio xnio = new NioXnio();
+        XnioProvider provider = new NioXnioProvider();
+        Xnio xnio = provider.getInstance();
+        String name = xnio.getName();
         Hashtable<String, String> props = new Hashtable<>();
-        props.put("name", xnio.getName());
-        registration = context.registerService(Xnio.class, xnio, props);
+        props.put("name", name);
+        registrationS = context.registerService(Xnio.class, xnio, props);
+        registrationP = context.registerService(XnioProvider.class, provider, props);
     }
 
     @Override
     public void stop(BundleContext context) throws Exception {
-        registration.unregister();
+        registrationS.unregister();
+        registrationP.unregister();
     }
 }
 

@@ -24,13 +24,13 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.PrivilegedAction;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
+import org.jboss.threads.EnhancedQueueExecutor;
 import org.wildfly.common.Assert;
 import org.wildfly.common.context.ContextManager;
 import org.wildfly.common.context.Contextual;
@@ -65,7 +66,9 @@ import org.xnio.conduits.StreamSourceChannelWrappingConduit;
 import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
+import static java.lang.Math.max;
 import static java.security.AccessController.doPrivileged;
+import org.jboss.logging.Logger;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
@@ -86,19 +89,18 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     private final CidrAddressTable<InetSocketAddress> bindAddressTable;
 
     private volatile int taskSeq;
-    private volatile int coreSize;
 
     private static final AtomicIntegerFieldUpdater<XnioWorker> taskSeqUpdater = AtomicIntegerFieldUpdater.newUpdater(XnioWorker.class, "taskSeq");
-    private static final AtomicIntegerFieldUpdater<XnioWorker> coreSizeUpdater = AtomicIntegerFieldUpdater.newUpdater(XnioWorker.class, "coreSize");
 
     private static final AtomicInteger seq = new AtomicInteger(1);
 
     private static final RuntimePermission CREATE_WORKER_PERMISSION = new RuntimePermission("createXnioWorker");
-    private final BlockingQueue<Runnable> taskQueue;
 
     private int getNextSeq() {
         return taskSeqUpdater.incrementAndGet(this);
     }
+
+    private static final Logger log = Logger.getLogger("org.xnio");
 
     /**
      * Construct a new instance.  Intended to be called only from implementations.
@@ -117,18 +119,37 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             workerName = "XNIO-" + seq.getAndIncrement();
         }
         name = workerName;
-        taskQueue = new LinkedBlockingQueue<Runnable>();
-        this.coreSize = builder.getCoreWorkerPoolSize();
         final boolean markThreadAsDaemon = builder.isDaemon();
-        final int threadCount = builder.getMaxWorkerPoolSize();
         bindAddressTable = builder.getBindAddressConfigurations();
-        taskPool = new TaskPool(
-            threadCount, // ignore core threads setting, always fill to max
-            threadCount,
-            builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
-            taskQueue,
-            new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
-            new ThreadPoolExecutor.AbortPolicy());
+        final Runnable terminationTask = new Runnable() {
+            public void run() {
+                taskPoolTerminated();
+            }
+        };
+        final ExecutorService executorService = builder.getExternalExecutorService();
+        if (executorService != null) {
+            taskPool = new ExternalTaskPool(executorService);
+        } else if (EnhancedQueueExecutor.DISABLE_HINT) {
+            final int poolSize = max(builder.getMaxWorkerPoolSize(), builder.getCoreWorkerPoolSize());
+            taskPool = new ThreadPoolExecutorTaskPool(
+                poolSize,
+                poolSize,
+                builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
+                new LinkedBlockingDeque<>(),
+                new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
+                terminationTask);
+        } else {
+            taskPool = new EnhancedQueueExecutorTaskPool(new EnhancedQueueExecutor.Builder()
+                .setCorePoolSize(builder.getCoreWorkerPoolSize())
+                .setMaximumPoolSize(builder.getMaxWorkerPoolSize())
+                .setKeepAliveTime(builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS)
+                .setThreadFactory(new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon))
+                .setTerminationTask(terminationTask)
+                .setRegisterMBean(true)
+                .setMBeanName(workerName)
+                .build()
+            );
+        }
     }
 
     //==================================================
@@ -758,7 +779,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
-     * Callback to indicate that the task thread pool has terminated.
+     * Callback to indicate that the task thread pool has terminated.  Not called if the task pool is external.
      */
     protected void taskPoolTerminated() {}
 
@@ -767,12 +788,16 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * the {@link #taskPoolTerminated()} method is called.
      */
     protected void shutDownTaskPool() {
-        doPrivileged(new PrivilegedAction<Object>() {
-            public Object run() {
-                taskPool.shutdown();
-                return null;
-            }
-        });
+        if (isTaskPoolExternal()) {
+            taskPoolTerminated();
+        } else {
+            doPrivileged(new PrivilegedAction<Object>() {
+                public Object run() {
+                    taskPool.shutdown();
+                    return null;
+                }
+            });
+        }
     }
 
     /**
@@ -781,11 +806,22 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the pending task list
      */
     protected List<Runnable> shutDownTaskPoolNow() {
-        return doPrivileged(new PrivilegedAction<List<Runnable>>() {
+        if (! isTaskPoolExternal()) return doPrivileged(new PrivilegedAction<List<Runnable>>() {
             public List<Runnable> run() {
                 return taskPool.shutdownNow();
             }
         });
+        return Collections.emptyList();
+    }
+
+    /**
+     * Determine whether the worker task pool is managed externally.  Externally managed task pools will never
+     * respond to shut down requests.
+     *
+     * @return {@code true} if the task pool is externally managed, {@code false} otherwise
+     */
+    protected boolean isTaskPoolExternal() {
+        return taskPool instanceof ExternalTaskPool;
     }
 
     /**
@@ -810,19 +846,24 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     //
     //==================================================
 
-    private static Set<Option<?>> OPTIONS = Option.setBuilder()
+    private final static Set<Option<?>> OPTIONS = Option.setBuilder()
             .add(Options.WORKER_TASK_CORE_THREADS)
             .add(Options.WORKER_TASK_MAX_THREADS)
             .add(Options.WORKER_TASK_KEEPALIVE)
             .create();
 
+    private final static Set<Option<?>> EXTERNAL_POOL_OPTIONS = Option.setBuilder()
+            .create();
+
     public boolean supportsOption(final Option<?> option) {
-        return OPTIONS.contains(option);
+        return taskPool instanceof ExternalTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
-        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            return option.cast(Integer.valueOf(coreSize));
+        if (! supportsOption(option)) {
+            return null;
+        } else if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+            return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
@@ -833,11 +874,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
-        if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
-            return option.cast(Integer.valueOf(coreSizeUpdater.getAndSet(this, Options.WORKER_TASK_CORE_THREADS.cast(value).intValue())));
+        if (! supportsOption(option)) {
+            return null;
+        } else if (option.equals(Options.WORKER_TASK_CORE_THREADS)) {
+            final int old = taskPool.getCorePoolSize();
+            taskPool.setCorePoolSize(Options.WORKER_TASK_CORE_THREADS.cast(value).intValue());
+            return option.cast(Integer.valueOf(old));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             final int old = taskPool.getMaximumPoolSize();
-            taskPool.setCorePoolSize(Options.WORKER_TASK_MAX_THREADS.cast(value).intValue());
             taskPool.setMaximumPoolSize(Options.WORKER_TASK_MAX_THREADS.cast(value).intValue());
             return option.cast(Integer.valueOf(old));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
@@ -892,7 +936,16 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the core worker pool size
      */
     protected final int getCoreWorkerPoolSize() {
-        return coreSize;
+        return taskPool.getCorePoolSize();
+    }
+
+    /**
+     * Get an estimate of the number of busy threads in the worker pool.
+     *
+     * @return the estimated number of busy threads in the worker pool
+     */
+    protected final int getBusyWorkerThreadCount() {
+        return taskPool.getActiveCount();
     }
 
     /**
@@ -910,8 +963,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the estimated number of tasks
      */
     protected final int getWorkerQueueSize() {
-        return taskQueue.size();
+        return taskPool.getQueueSize();
     }
+
+    //==================================================
+    //
+    // Source address
+    //
+    //==================================================
 
     /**
      * Get the bind address table.
@@ -920,6 +979,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected CidrAddressTable<InetSocketAddress> getBindAddressTable() {
         return bindAddressTable;
+    }
+
+    /**
+     * Get the expected bind address for the given destination, if any.
+     *
+     * @return the expected bind address for the given destination, or {@code null} if no explicit bind will be done
+     */
+    public InetSocketAddress getBindAddress(InetAddress destination) {
+        return bindAddressTable.get(destination);
     }
 
     //==================================================
@@ -943,6 +1011,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     public static class Builder {
         private final Xnio xnio;
+        private ExecutorService externalExecutorService;
         private Runnable terminationTask;
         private String workerName;
         private int coreWorkerPoolSize = 4;
@@ -976,7 +1045,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             if (optionMap.contains(Options.WORKER_IO_THREADS)) {
                 setWorkerIoThreads(optionMap.get(Options.WORKER_IO_THREADS, 1));
             } else if (optionMap.contains(Options.WORKER_READ_THREADS) || optionMap.contains(Options.WORKER_WRITE_THREADS)) {
-                setWorkerIoThreads(Math.max(optionMap.get(Options.WORKER_READ_THREADS, 1), optionMap.get(Options.WORKER_WRITE_THREADS, 1)));
+                setWorkerIoThreads(max(optionMap.get(Options.WORKER_READ_THREADS, 1), optionMap.get(Options.WORKER_WRITE_THREADS, 1)));
             }
             setWorkerStackSize(optionMap.get(Options.STACK_SIZE, workerStackSize));
             return this;
@@ -1093,6 +1162,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             return this;
         }
 
+        public ExecutorService getExternalExecutorService() {
+            return externalExecutorService;
+        }
+
+        public Builder setExternalExecutorService(final ExecutorService executorService) {
+            this.externalExecutorService = executorService;
+            return this;
+        }
+
         public XnioWorker build() {
             return xnio.build(this);
         }
@@ -1103,17 +1181,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     // Private
     //
     //==================================================
-
-    final class TaskPool extends ThreadPoolExecutor {
-
-        TaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final RejectedExecutionHandler handler) {
-            super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
-        }
-
-        protected void terminated() {
-            taskPoolTerminated();
-        }
-    }
 
     static class StreamConnectionWrapListener implements ChannelListener<StreamConnection> {
 
@@ -1198,6 +1265,163 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                     return taskThread;
                 }
             });
+        }
+    }
+
+    interface TaskPool {
+
+        void shutdown();
+
+        List<Runnable> shutdownNow();
+
+        void execute(Runnable command);
+
+        int getCorePoolSize();
+
+        int getMaximumPoolSize();
+
+        long getKeepAliveTime(TimeUnit unit);
+
+        void setCorePoolSize(int size);
+
+        void setMaximumPoolSize(int size);
+
+        void setKeepAliveTime(long time, TimeUnit unit);
+
+        int getActiveCount();
+
+        int getQueueSize();
+    }
+
+    static class ThreadPoolExecutorTaskPool extends ThreadPoolExecutor implements TaskPool {
+        private final Runnable terminationTask;
+
+        ThreadPoolExecutorTaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final Runnable terminationTask) {
+            super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+            this.terminationTask = terminationTask;
+        }
+
+        protected void terminated() {
+            terminationTask.run();
+        }
+
+        public void setCorePoolSize(final int size) {
+            setMaximumPoolSize(size);
+        }
+
+        public void setMaximumPoolSize(final int size) {
+            if (size > getCorePoolSize()) {
+                super.setMaximumPoolSize(size);
+                super.setCorePoolSize(size);
+            } else {
+                super.setCorePoolSize(size);
+                super.setMaximumPoolSize(size);
+            }
+        }
+
+        public int getQueueSize() {
+            return getQueue().size();
+        }
+    }
+
+    static class EnhancedQueueExecutorTaskPool implements TaskPool {
+        private final EnhancedQueueExecutor executor;
+
+        EnhancedQueueExecutorTaskPool(final EnhancedQueueExecutor executor) {
+            this.executor = executor;
+        }
+
+        public void shutdown() {
+            executor.shutdown();
+        }
+
+        public List<Runnable> shutdownNow() {
+            return executor.shutdownNow();
+        }
+
+        public void execute(final Runnable command) {
+            executor.execute(command);
+        }
+
+        public int getCorePoolSize() {
+            return executor.getCorePoolSize();
+        }
+
+        public int getMaximumPoolSize() {
+            return executor.getMaximumPoolSize();
+        }
+
+        public long getKeepAliveTime(final TimeUnit unit) {
+            return executor.getKeepAliveTime(unit);
+        }
+
+        public void setCorePoolSize(final int size) {
+            executor.setCorePoolSize(size);
+        }
+
+        public void setMaximumPoolSize(final int size) {
+            executor.setMaximumPoolSize(size);
+        }
+
+        public void setKeepAliveTime(final long time, final TimeUnit unit) {
+            executor.setKeepAliveTime(time, unit);
+        }
+
+        public int getActiveCount() {
+            return executor.getActiveCount();
+        }
+
+        public int getQueueSize() {
+            return executor.getQueueSize();
+        }
+    }
+
+    static class ExternalTaskPool implements TaskPool {
+        private final ExecutorService delegate;
+
+        ExternalTaskPool(final ExecutorService delegate) {
+            this.delegate = delegate;
+        }
+
+        public void shutdown() {
+            // no operation
+        }
+
+        public List<Runnable> shutdownNow() {
+            return Collections.emptyList();
+        }
+
+        public void execute(final Runnable command) {
+            delegate.execute(command);
+        }
+
+        public int getCorePoolSize() {
+            return -1;
+        }
+
+        public int getMaximumPoolSize() {
+            return -1;
+        }
+
+        public long getKeepAliveTime(final TimeUnit unit) {
+            return -1;
+        }
+
+        public void setCorePoolSize(final int size) {
+        }
+
+        public void setMaximumPoolSize(final int size) {
+        }
+
+        public void setKeepAliveTime(final long time, final TimeUnit unit) {
+        }
+
+        public int getActiveCount() {
+            return -1;
+        }
+
+        public int getQueueSize() {
+            return -1;
         }
     }
 }
