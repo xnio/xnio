@@ -1976,7 +1976,9 @@ public final class Buffers {
             }
 
             public void free() {
-                ByteBufferPool.free(buf);
+                ByteBuffer oldBuf = this.buf;
+                if (oldBuf == null) return;
+                ByteBufferPool.free(oldBuf);
                 buf = null;
             }
 

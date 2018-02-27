@@ -414,6 +414,10 @@ final class NioXnioWorker extends XnioWorker {
             return NioXnioWorker.this.getMaxWorkerPoolSize();
         }
 
+        public int getBusyWorkerThreadCount() {
+            return NioXnioWorker.this.getBusyWorkerThreadCount();
+        }
+
         public int getIoThreadCount() {
             return NioXnioWorker.this.getIoThreadCount();
         }

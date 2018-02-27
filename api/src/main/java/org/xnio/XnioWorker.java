@@ -66,6 +66,8 @@ import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
 import static java.security.AccessController.doPrivileged;
+import java.util.concurrent.RejectedExecutionException;
+import org.jboss.logging.Logger;
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio._private.Messages.msg;
 
@@ -100,6 +102,32 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return taskSeqUpdater.incrementAndGet(this);
     }
 
+    private static final Logger log = Logger.getLogger("org.xnio");
+
+    private static class DebugAbortPolicy implements RejectedExecutionHandler {
+
+        /**
+         * Creates an {@code AbortPolicy}.
+         */
+        public DebugAbortPolicy() {
+        }
+
+        /**
+         * Always throws RejectedExecutionException.
+         *
+         * @param r the runnable task requested to be executed
+         * @param e the executor attempting to execute this task
+         * @throws RejectedExecutionException always
+         */
+        @Override
+        public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
+            log.tracef("Rejecting execution " + r);
+            throw new RejectedExecutionException("Task " + r.toString()
+                    + " rejected from "
+                    + e.toString());
+        }
+    }
+
     /**
      * Construct a new instance.  Intended to be called only from implementations.
      *
@@ -128,7 +156,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
             taskQueue,
             new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
-            new ThreadPoolExecutor.AbortPolicy());
+                new DebugAbortPolicy());
     }
 
     //==================================================
@@ -896,6 +924,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
+     * Get an estimate of the number of busy threads in the worker pool.
+     *
+     * @return the estimated number of busy threads in the worker pool
+     */
+    protected final int getBusyWorkerThreadCount() {
+        return taskPool.getActiveCount();
+    }
+
+    /**
      * Get the maximum worker pool size.
      *
      * @return the maximum worker pool size
@@ -913,6 +950,12 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         return taskQueue.size();
     }
 
+    //==================================================
+    //
+    // Source address
+    //
+    //==================================================
+
     /**
      * Get the bind address table.
      *
@@ -920,6 +963,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      */
     protected CidrAddressTable<InetSocketAddress> getBindAddressTable() {
         return bindAddressTable;
+    }
+
+    /**
+     * Get the expected bind address for the given destination, if any.
+     *
+     * @return the expected bind address for the given destination, or {@code null} if no explicit bind will be done
+     */
+    public InetSocketAddress getBindAddress(InetAddress destination) {
+        return bindAddressTable.get(destination);
     }
 
     //==================================================

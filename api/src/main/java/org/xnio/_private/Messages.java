@@ -195,6 +195,9 @@ public interface Messages extends BasicLogger {
     @Message(id = 40, value = "Mismatched IP address type; expected %s but got %s")
     IllegalArgumentException mismatchAddressType(Class<? extends InetAddress> expected, Class<? extends InetAddress> actual);
 
+    @Message(id = 41, value = "'%s' is not a valid Strength value")
+    IllegalArgumentException invalidStrength(String name);
+
     @Message(id = 42, value = "Cannot add unresolved address '%s'")
     IllegalArgumentException addressUnresolved(InetSocketAddress bindAddress);
 

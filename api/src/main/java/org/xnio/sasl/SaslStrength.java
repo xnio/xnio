@@ -18,6 +18,8 @@
 
 package org.xnio.sasl;
 
+import static org.xnio._private.Messages.msg;
+
 /**
  * The SASL cipher strength value.
  *
@@ -28,13 +30,47 @@ public enum SaslStrength {
     /**
      * Specify low cipher strength.
      */
-    LOW,
+    LOW("low"),
     /**
      * Specify medium cipher strength.
      */
-    MEDIUM,
+    MEDIUM("medium"),
     /**
      * Specify high cipher strength.
      */
-    HIGH,
+    HIGH("high"),
+    ;
+
+    private final String toString;
+
+    SaslStrength(String toString) {
+        this.toString = toString;
+    }
+
+    /**
+     * Get the SASL Strength level for the given string.
+     *
+     * @param name the Strength level
+     * @return the Strength value
+     */
+    public static SaslStrength fromString(String name) {
+        if ("low".equals(name)) {
+            return LOW;
+        } else if ("medium".equals(name)) {
+            return MEDIUM;
+        } else if ("high".equals(name)) {
+            return HIGH;
+        } else {
+            throw msg.invalidStrength(name);
+        }
+    }
+
+    /**
+     * Returns the human-readable reprentation of this Strength value.
+     *
+     * @return the string representation
+     */
+    public String toString() {
+        return toString;
+    }
 }
