@@ -243,8 +243,15 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
     }
     
     private IoFuture<StreamConnection> internalOpenTcpStreamConnection(InetSocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
-        InetSocketAddress bindAddress = getWorker().getBindAddressTable().get(((InetSocketAddress)destination).getAddress());
-        return openTcpStreamConnection(bindAddress == null ? Xnio.ANY_INET_ADDRESS : bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
+        if (destination.isUnresolved()) {
+            try {
+                destination = new InetSocketAddress(InetAddress.getByName(destination.getHostString()), destination.getPort());
+            } catch (UnknownHostException e) {
+                return new FailedIoFuture<>(e);
+            }
+        }
+        InetSocketAddress bindAddress = getWorker().getBindAddressTable().get(destination.getAddress());
+        return openTcpStreamConnection(bindAddress == null ? Xnio.ANY_INET_ADDRESS : bindAddress, destination, openListener, bindListener, optionMap);
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
