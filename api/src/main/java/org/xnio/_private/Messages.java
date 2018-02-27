@@ -23,6 +23,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
@@ -196,6 +197,9 @@ public interface Messages extends BasicLogger {
 
     @Message(id = 41, value = "'%s' is not a valid Strength value")
     IllegalArgumentException invalidStrength(String name);
+
+    @Message(id = 42, value = "Cannot add unresolved address '%s'")
+    IllegalArgumentException addressUnresolved(InetSocketAddress bindAddress);
 
     // HTTP upgrade
 
