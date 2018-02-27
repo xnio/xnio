@@ -23,6 +23,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
@@ -335,6 +336,9 @@ public interface Messages extends BasicLogger {
     @Message(id = 1010, value = "Failed to submit task to executor: %s (closing %s)")
     @LogMessage(level = ERROR)
     void executorSubmitFailed(RejectedExecutionException cause, Channel channel);
+
+    @Message(id = 1011, value = "Cannot connect to an unresolved address %s")
+    IllegalArgumentException cannotConnectToUnResolvedAddress(InetSocketAddress socketAddress);
 
     // Trace
 
