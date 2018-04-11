@@ -27,6 +27,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
@@ -38,6 +39,10 @@ import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
 import static org.xnio.nio.Log.log;
+
+import java.lang.reflect.Field;
+
+import sun.misc.Unsafe;
 
 /**
  * An NIO-based XNIO provider for a standalone application.
@@ -78,9 +83,20 @@ final class NioXnio extends Xnio {
                     final SelectorProvider defaultProvider = SelectorProvider.provider();
                     final String chosenProvider = System.getProperty("xnio.nio.selector.provider");
                     SelectorProvider provider = null;
+                    
+                    // get Unsafe singleton instance
+                    Unsafe theUnsafe;
+                    try {
+                        Field singleoneInstanceField = Unsafe.class.getDeclaredField("theUnsafe");
+                        singleoneInstanceField.setAccessible(true);
+                        theUnsafe = (Unsafe) singleoneInstanceField.get(null);
+                    } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+                        throw new IllegalStateException("Unsafe could not be obtained, no Provider can be instantiated!");
+                    }
+                    
                     if (chosenProvider != null) {
                         try {
-                            provider = Class.forName(chosenProvider, true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName(chosenProvider, true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -90,7 +106,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // Mac OS X and BSD
-                            provider = Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.KQueueSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -100,7 +116,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // Linux
-                            provider = Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.EPollSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -110,7 +126,7 @@ final class NioXnio extends Xnio {
                     if (provider == null && ! HAS_BUGGY_EVENT_PORT) {
                         try {
                             // Solaris (Java 8+)
-                            provider = Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -120,7 +136,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // Solaris
-                            provider = Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.DevPollSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -130,7 +146,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // Solaris (Java 8+)
-                            provider = Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.EventPortSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -140,7 +156,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // AIX
-                            provider = Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.PollsetSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -158,7 +174,7 @@ final class NioXnio extends Xnio {
                     if (provider == null) {
                         try {
                             // Nothing else works, not even the default
-                            provider = Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            provider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()));
                             provider.openSelector().close();
                         } catch (Throwable e) {
                             // not available
@@ -192,7 +208,7 @@ final class NioXnio extends Xnio {
                     if (! defaultIsPoll) {
                         // default is fine for main selectors; we should try to get poll for temp though
                         if (objects[1] == null) try {
-                            SelectorProvider pollSelectorProvider = Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()).asSubclass(SelectorProvider.class).getConstructor().newInstance();
+                            SelectorProvider pollSelectorProvider = (SelectorProvider) theUnsafe.allocateInstance(Class.forName("sun.nio.ch.PollSelectorProvider", true, NioXnio.class.getClassLoader()));
                             pollSelectorProvider.openSelector().close();
                             objects[1] = new DefaultSelectorCreator(provider);
                         } catch (Exception e) {
