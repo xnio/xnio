@@ -131,7 +131,7 @@ final class JsseAcceptingSslStreamChannel implements AcceptingChannel<ConnectedS
             return null;
         }
         final InetSocketAddress peerAddress = tcpChannel.getPeerAddress(InetSocketAddress.class);
-        final SSLEngine engine = sslContext.createSSLEngine(peerAddress.getHostName(), peerAddress.getPort());
+        final SSLEngine engine = sslContext.createSSLEngine(JsseSslUtils.getHostNameNoResolve(peerAddress), peerAddress.getPort());
         final boolean clientMode = useClientMode != 0;
         engine.setUseClientMode(clientMode);
         if (! clientMode) {
