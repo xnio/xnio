@@ -251,7 +251,7 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
             }
         }
         InetSocketAddress bindAddress = getWorker().getBindAddressTable().get(destination.getAddress());
-        return openTcpStreamConnection(bindAddress == null ? Xnio.ANY_INET_ADDRESS : bindAddress, destination, openListener, bindListener, optionMap);
+        return openTcpStreamConnection(bindAddress, destination, openListener, bindListener, optionMap);
     }
 
     public IoFuture<StreamConnection> openStreamConnection(SocketAddress bindAddress, SocketAddress destination, ChannelListener<? super StreamConnection> openListener, ChannelListener<? super BoundChannel> bindListener, OptionMap optionMap) {
