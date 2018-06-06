@@ -199,7 +199,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void connectTcpStream() throws CancellationException, IOException {
-        checkConnectStream(new InetSocketAddress(1000), Xnio.ANY_INET_ADDRESS, XnioWorkerMock.TCP_CHANNEL_INFO);
+        checkConnectStream(new InetSocketAddress(1000), null, XnioWorkerMock.TCP_CHANNEL_INFO);
     }
 
     @Test
@@ -230,7 +230,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void connectTcpStreamWithBindListener() throws CancellationException, IOException {
-        checkConnectStreamWithBindListener(new InetSocketAddress(1500), Xnio.ANY_INET_ADDRESS, XnioWorkerMock.TCP_CHANNEL_INFO);
+        checkConnectStreamWithBindListener(new InetSocketAddress(1500), null, XnioWorkerMock.TCP_CHANNEL_INFO);
     }
 
     @Test
