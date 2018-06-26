@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -480,8 +481,11 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 IoUtils.safeClose(accepted);
                 return;
             }
+        } catch (ClosedChannelException e) {
+            tcpServerLog.logf(FQCN, Logger.Level.DEBUG, e, "ClosedChannelException occurred at accepting request on the server channel %s", channel);
+            return;
         } catch (IOException e) {
-            tcpServerLog.logf(FQCN, Logger.Level.DEBUG, e, "Exception accepting request, closing server channel %s", this);
+            tcpServerLog.logf(FQCN, Logger.Level.ERROR, e, "Exception accepting request, closing server channel %s", this);
             IoUtils.safeClose(channel);
             return;
         }
