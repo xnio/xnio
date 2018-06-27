@@ -651,6 +651,40 @@ public class XnioWorkerTestCase {
     }
 
     @Test
+    public void testQueueMaximumSizeExceeded() throws Exception {
+        final Xnio xnio = Xnio.getInstance();
+        XnioWorker worker = xnio.createWorker(OptionMap.builder()
+                .set(Options.WORKER_NAME, "worker for queue test")
+                .set(Options.THREAD_DAEMON, true)
+                .set(Options.WORKER_TASK_MAX_QUEUE_SIZE, 1)
+                .set(Options.WORKER_TASK_CORE_THREADS, 1)
+                .set(Options.WORKER_TASK_MAX_THREADS, 1)
+                .getMap());
+        try {
+            Runnable sleepingRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            };
+            worker.execute(sleepingRunnable); // running
+            worker.execute(sleepingRunnable); // enqueued
+            RejectedExecutionException expected = null;
+            try {
+                worker.execute(sleepingRunnable); // Queue is already full
+            } catch (RejectedExecutionException e) {
+                expected = e;
+            }
+            assertNotNull("Expected RejectedExecutionException", expected);
+        } finally {
+            worker.shutDownTaskPoolNow();
+        }
+    }
+
+    @Test
     public void shutdownTaskPoolNow() throws InterruptedException {
         final TestCommand command = new TestCommand();
         xnioWorker.shutDownTaskPoolNow();
