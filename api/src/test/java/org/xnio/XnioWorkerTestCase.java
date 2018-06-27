@@ -668,6 +668,7 @@ public class XnioWorkerTestCase {
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_CORE_THREADS));
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_MAX_THREADS));
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_KEEPALIVE));
+        assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_MAX_QUEUE_SIZE));
         
         assertFalse(xnioWorker.supportsOption(Options.ALLOW_BLOCKING));
         assertFalse(xnioWorker.supportsOption(Options.MULTICAST));
@@ -766,6 +767,7 @@ public class XnioWorkerTestCase {
         builder.set(Options.WORKER_TASK_LIMIT, 0x8000);
         builder.set(Options.WORKER_TASK_CORE_THREADS, 10);
         builder.set(Options.WORKER_TASK_MAX_THREADS, 20);
+        builder.set(Options.WORKER_TASK_MAX_QUEUE_SIZE, 50);
         builder.set(Options.WORKER_TASK_KEEPALIVE, 300);
         builder.set(Options.THREAD_DAEMON, true);
 
@@ -776,6 +778,7 @@ public class XnioWorkerTestCase {
         assertNull(xnioWorker.getOption(Options.WORKER_TASK_LIMIT));
         assertEquals(10, (int) xnioWorker.getOption(Options.WORKER_TASK_CORE_THREADS));
         assertEquals(20, (int) xnioWorker.getOption(Options.WORKER_TASK_MAX_THREADS));
+        assertEquals(50, (int) xnioWorker.getOption(Options.WORKER_TASK_MAX_QUEUE_SIZE));
         assertEquals(300, (int) xnioWorker.getOption(Options.WORKER_TASK_KEEPALIVE));
     }
 
