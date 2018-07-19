@@ -515,6 +515,11 @@ public final class Options {
     public static final Option<Integer> WORKER_TASK_MAX_THREADS = Option.simple(Options.class, "WORKER_TASK_MAX_THREADS", Integer.class);
 
     /**
+     * Specify the maximum queue size for the worker task thread pool.
+     */
+    public static final Option<Integer> WORKER_TASK_MAX_QUEUE_SIZE = Option.simple(Options.class, "WORKER_TASK_MAX_QUEUE_SIZE", Integer.class);
+
+    /**
      * Specify the number of milliseconds to keep non-core task threads alive.
      */
     public static final Option<Integer> WORKER_TASK_KEEPALIVE = Option.simple(Options.class, "WORKER_TASK_KEEPALIVE", Integer.class);

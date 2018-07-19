@@ -651,6 +651,40 @@ public class XnioWorkerTestCase {
     }
 
     @Test
+    public void testQueueMaximumSizeExceeded() throws Exception {
+        final Xnio xnio = Xnio.getInstance();
+        XnioWorker worker = xnio.createWorker(OptionMap.builder()
+                .set(Options.WORKER_NAME, "worker for queue test")
+                .set(Options.THREAD_DAEMON, true)
+                .set(Options.WORKER_TASK_MAX_QUEUE_SIZE, 1)
+                .set(Options.WORKER_TASK_CORE_THREADS, 1)
+                .set(Options.WORKER_TASK_MAX_THREADS, 1)
+                .getMap());
+        try {
+            Runnable sleepingRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            };
+            worker.execute(sleepingRunnable); // running
+            worker.execute(sleepingRunnable); // enqueued
+            RejectedExecutionException expected = null;
+            try {
+                worker.execute(sleepingRunnable); // Queue is already full
+            } catch (RejectedExecutionException e) {
+                expected = e;
+            }
+            assertNotNull("Expected RejectedExecutionException", expected);
+        } finally {
+            worker.shutDownTaskPoolNow();
+        }
+    }
+
+    @Test
     public void shutdownTaskPoolNow() throws InterruptedException {
         final TestCommand command = new TestCommand();
         xnioWorker.shutDownTaskPoolNow();
@@ -668,6 +702,7 @@ public class XnioWorkerTestCase {
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_CORE_THREADS));
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_MAX_THREADS));
         assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_KEEPALIVE));
+        assertTrue(xnioWorker.supportsOption(Options.WORKER_TASK_MAX_QUEUE_SIZE));
         
         assertFalse(xnioWorker.supportsOption(Options.ALLOW_BLOCKING));
         assertFalse(xnioWorker.supportsOption(Options.MULTICAST));
@@ -766,6 +801,7 @@ public class XnioWorkerTestCase {
         builder.set(Options.WORKER_TASK_LIMIT, 0x8000);
         builder.set(Options.WORKER_TASK_CORE_THREADS, 10);
         builder.set(Options.WORKER_TASK_MAX_THREADS, 20);
+        builder.set(Options.WORKER_TASK_MAX_QUEUE_SIZE, 50);
         builder.set(Options.WORKER_TASK_KEEPALIVE, 300);
         builder.set(Options.THREAD_DAEMON, true);
 
@@ -776,6 +812,7 @@ public class XnioWorkerTestCase {
         assertNull(xnioWorker.getOption(Options.WORKER_TASK_LIMIT));
         assertEquals(10, (int) xnioWorker.getOption(Options.WORKER_TASK_CORE_THREADS));
         assertEquals(20, (int) xnioWorker.getOption(Options.WORKER_TASK_MAX_THREADS));
+        assertEquals(50, (int) xnioWorker.getOption(Options.WORKER_TASK_MAX_QUEUE_SIZE));
         assertEquals(300, (int) xnioWorker.getOption(Options.WORKER_TASK_KEEPALIVE));
     }
 

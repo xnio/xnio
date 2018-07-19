@@ -135,13 +135,14 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                 poolSize,
                 poolSize,
                 builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
-                new LinkedBlockingDeque<>(),
+                new LinkedBlockingDeque<>(builder.getMaximumQueueSize()),
                 new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
                 terminationTask);
         } else {
             taskPool = new EnhancedQueueExecutorTaskPool(new EnhancedQueueExecutor.Builder()
                 .setCorePoolSize(builder.getCoreWorkerPoolSize())
                 .setMaximumPoolSize(builder.getMaxWorkerPoolSize())
+                .setMaximumQueueSize(builder.getMaximumQueueSize())
                 .setKeepAliveTime(builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS)
                 .setThreadFactory(new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon))
                 .setTerminationTask(terminationTask)
@@ -850,6 +851,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             .add(Options.WORKER_TASK_CORE_THREADS)
             .add(Options.WORKER_TASK_MAX_THREADS)
             .add(Options.WORKER_TASK_KEEPALIVE)
+            .add(Options.WORKER_TASK_MAX_QUEUE_SIZE)
             .create();
 
     private final static Set<Option<?>> EXTERNAL_POOL_OPTIONS = Option.setBuilder()
@@ -866,6 +868,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             return option.cast(Integer.valueOf(taskPool.getCorePoolSize()));
         } else if (option.equals(Options.WORKER_TASK_MAX_THREADS)) {
             return option.cast(Integer.valueOf(taskPool.getMaximumPoolSize()));
+        } else if (option.equals(Options.WORKER_TASK_MAX_QUEUE_SIZE)) {
+            return option.cast(Integer.valueOf(taskPool.getMaximumQueueSize()));
         } else if (option.equals(Options.WORKER_TASK_KEEPALIVE)) {
             return option.cast(Integer.valueOf((int) Math.min((long) Integer.MAX_VALUE, taskPool.getKeepAliveTime(TimeUnit.MILLISECONDS))));
         } else {
@@ -1016,6 +1020,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         private String workerName;
         private int coreWorkerPoolSize = 4;
         private int maxWorkerPoolSize = 16;
+        private int maximumQueueSize = Integer.MAX_VALUE;
         private ThreadGroup threadGroup;
         private boolean daemon;
         private int workerKeepAlive = 60_000;
@@ -1040,6 +1045,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             setWorkerName(optionMap.get(Options.WORKER_NAME));
             setCoreWorkerPoolSize(optionMap.get(Options.WORKER_TASK_CORE_THREADS, coreWorkerPoolSize));
             setMaxWorkerPoolSize(optionMap.get(Options.WORKER_TASK_MAX_THREADS, maxWorkerPoolSize));
+            setMaximumQueueSize(optionMap.get(Options.WORKER_TASK_MAX_QUEUE_SIZE, maximumQueueSize));
             setDaemon(optionMap.get(Options.THREAD_DAEMON, daemon));
             setWorkerKeepAlive(optionMap.get(Options.WORKER_TASK_KEEPALIVE, workerKeepAlive));
             if (optionMap.contains(Options.WORKER_IO_THREADS)) {
@@ -1111,6 +1117,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         public Builder setMaxWorkerPoolSize(final int maxWorkerPoolSize) {
             Assert.checkMinimumParameter("maxWorkerPoolSize", 0, maxWorkerPoolSize);
             this.maxWorkerPoolSize = maxWorkerPoolSize;
+            return this;
+        }
+
+        public int getMaximumQueueSize() {
+            return maximumQueueSize;
+        }
+
+        public Builder setMaximumQueueSize(final int maximumQueueSize) {
+            this.maximumQueueSize = maximumQueueSize;
             return this;
         }
 
@@ -1280,6 +1295,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         int getMaximumPoolSize();
 
+        int getMaximumQueueSize();
+
         long getKeepAliveTime(TimeUnit unit);
 
         void setCorePoolSize(int size);
@@ -1303,6 +1320,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         protected void terminated() {
             terminationTask.run();
+        }
+
+        @Override
+        public int getMaximumQueueSize() {
+            return -1;
         }
 
         public void setCorePoolSize(final int size) {
@@ -1349,6 +1371,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         public int getMaximumPoolSize() {
             return executor.getMaximumPoolSize();
+        }
+
+        @Override
+        public int getMaximumQueueSize() {
+            return executor.getMaximumQueueSize();
         }
 
         public long getKeepAliveTime(final TimeUnit unit) {
@@ -1400,6 +1427,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
 
         public int getMaximumPoolSize() {
+            return -1;
+        }
+
+        @Override
+        public int getMaximumQueueSize() {
             return -1;
         }
 
