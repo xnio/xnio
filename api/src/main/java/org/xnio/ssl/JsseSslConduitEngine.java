@@ -594,7 +594,7 @@ final class JsseSslConduitEngine {
     public long unwrap(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
         assert ! Thread.holdsLock(getUnwrapLock());
         assert ! Thread.holdsLock(getWrapLock());
-        if (dsts.length == 0 || length == 0) {
+        if (dsts.length == 0 || length == 0 || isClosed()) {
             return 0L;
         }
         clearFlags(FIRST_HANDSHAKE | BUFFER_UNDERFLOW);
