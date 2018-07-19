@@ -109,7 +109,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if (offs < 0 || offs > len || len < 0 || offs + len > dsts.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
-        if ((!sslEngine.isDataAvailable() && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
+        if (sslEngine.isClosed() || (!sslEngine.isDataAvailable() && sslEngine.isInboundClosed())) {
             return -1;
         }
         final int readResult;
