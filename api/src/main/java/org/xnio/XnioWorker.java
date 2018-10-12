@@ -128,7 +128,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         };
         final ExecutorService executorService = builder.getExternalExecutorService();
         if (executorService != null) {
-            taskPool = new ExternalTaskPool(executorService);
+            if (executorService instanceof EnhancedQueueExecutor) {
+                taskPool = new EnhancedQueueExecutorTaskPool((EnhancedQueueExecutor) executorService);
+            } else {
+                taskPool = new ExternalTaskPool(executorService);
+            }
         } else if (EnhancedQueueExecutor.DISABLE_HINT) {
             final int poolSize = max(builder.getMaxWorkerPoolSize(), builder.getCoreWorkerPoolSize());
             taskPool = new ThreadPoolExecutorTaskPool(
