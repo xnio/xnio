@@ -129,9 +129,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         final ExecutorService executorService = builder.getExternalExecutorService();
         if (executorService != null) {
             if (executorService instanceof EnhancedQueueExecutor) {
-                taskPool = new EnhancedQueueExecutorTaskPool((EnhancedQueueExecutor) executorService);
+                taskPool = new ExternalTaskPool(
+                        new EnhancedQueueExecutorTaskPool((EnhancedQueueExecutor) executorService));
             } else {
-                taskPool = new ExternalTaskPool(executorService);
+                taskPool = new ExternalTaskPool(new ExecutorServiceTaskPool(executorService));
             }
         } else if (EnhancedQueueExecutor.DISABLE_HINT) {
             final int poolSize = max(builder.getMaxWorkerPoolSize(), builder.getCoreWorkerPoolSize());
@@ -860,7 +861,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             .create();
 
     public boolean supportsOption(final Option<?> option) {
-        return taskPool instanceof ExternalTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
+        return taskPool instanceof ExecutorServiceTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
@@ -1380,19 +1381,19 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
     }
 
-    static class ExternalTaskPool implements TaskPool {
+    static class ExecutorServiceTaskPool implements TaskPool {
         private final ExecutorService delegate;
 
-        ExternalTaskPool(final ExecutorService delegate) {
+        ExecutorServiceTaskPool(final ExecutorService delegate) {
             this.delegate = delegate;
         }
 
         public void shutdown() {
-            // no operation
+            delegate.shutdown();
         }
 
         public List<Runnable> shutdownNow() {
-            return Collections.emptyList();
+            return delegate.shutdownNow();
         }
 
         public void execute(final Runnable command) {
@@ -1426,6 +1427,72 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         public int getQueueSize() {
             return -1;
+        }
+    }
+
+    /**
+     * {@link ExternalTaskPool} wrapper to prevent an delegate {@link TaskPool} from being shut down by the worker.
+     */
+    static class ExternalTaskPool implements TaskPool {
+        private final TaskPool delegate;
+
+        ExternalTaskPool(final TaskPool delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void shutdown() {
+            // no operation
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void execute(final Runnable command) {
+            delegate.execute(command);
+        }
+
+        @Override
+        public int getCorePoolSize() {
+            return delegate.getCorePoolSize();
+        }
+
+        @Override
+        public int getMaximumPoolSize() {
+            return delegate.getMaximumPoolSize();
+        }
+
+        @Override
+        public long getKeepAliveTime(final TimeUnit unit) {
+            return delegate.getKeepAliveTime(unit);
+        }
+
+        @Override
+        public void setCorePoolSize(final int size) {
+            delegate.setCorePoolSize(size);
+        }
+
+        @Override
+        public void setMaximumPoolSize(final int size) {
+            delegate.setMaximumPoolSize(size);
+        }
+
+        @Override
+        public void setKeepAliveTime(final long time, final TimeUnit unit) {
+            delegate.setKeepAliveTime(time, unit);
+        }
+
+        @Override
+        public int getActiveCount() {
+            return delegate.getActiveCount();
+        }
+
+        @Override
+        public int getQueueSize() {
+            return delegate.getQueueSize();
         }
     }
 }
