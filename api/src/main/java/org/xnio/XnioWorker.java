@@ -131,18 +131,20 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             if (executorService instanceof EnhancedQueueExecutor) {
                 taskPool = new ExternalTaskPool(
                         new EnhancedQueueExecutorTaskPool((EnhancedQueueExecutor) executorService));
+            } else if (executorService instanceof ThreadPoolExecutor) {
+                taskPool = new ExternalTaskPool(new ThreadPoolExecutorTaskPool((ThreadPoolExecutor) executorService));
             } else {
                 taskPool = new ExternalTaskPool(new ExecutorServiceTaskPool(executorService));
             }
         } else if (EnhancedQueueExecutor.DISABLE_HINT) {
             final int poolSize = max(builder.getMaxWorkerPoolSize(), builder.getCoreWorkerPoolSize());
-            taskPool = new ThreadPoolExecutorTaskPool(
+            taskPool = new ThreadPoolExecutorTaskPool(new DefaultThreadPoolExecutor(
                 poolSize,
                 poolSize,
                 builder.getWorkerKeepAlive(), TimeUnit.MILLISECONDS,
                 new LinkedBlockingDeque<>(),
                 new WorkerThreadFactory(builder.getThreadGroup(), builder.getWorkerStackSize(), markThreadAsDaemon),
-                terminationTask);
+                terminationTask));
         } else {
             taskPool = new EnhancedQueueExecutorTaskPool(new EnhancedQueueExecutor.Builder()
                 .setCorePoolSize(builder.getCoreWorkerPoolSize())
@@ -1298,10 +1300,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         int getQueueSize();
     }
 
-    static class ThreadPoolExecutorTaskPool extends ThreadPoolExecutor implements TaskPool {
+    static class DefaultThreadPoolExecutor extends ThreadPoolExecutor {
         private final Runnable terminationTask;
 
-        ThreadPoolExecutorTaskPool(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final Runnable terminationTask) {
+        DefaultThreadPoolExecutor(final int corePoolSize, final int maximumPoolSize, final long keepAliveTime, final TimeUnit unit, final BlockingQueue<Runnable> workQueue, final ThreadFactory threadFactory, final Runnable terminationTask) {
             super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
             this.terminationTask = terminationTask;
         }
@@ -1323,9 +1325,68 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                 super.setMaximumPoolSize(size);
             }
         }
+    }
 
+    static class ThreadPoolExecutorTaskPool implements TaskPool {
+        private final ThreadPoolExecutor delegate;
+
+        ThreadPoolExecutorTaskPool(final ThreadPoolExecutor delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void shutdown() {
+            delegate.shutdown();
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return delegate.shutdownNow();
+        }
+
+        @Override
+        public void execute(final Runnable command) {
+            delegate.execute(command);
+        }
+
+        @Override
+        public int getCorePoolSize() {
+            return delegate.getCorePoolSize();
+        }
+
+        @Override
+        public int getMaximumPoolSize() {
+            return delegate.getMaximumPoolSize();
+        }
+
+        @Override
+        public long getKeepAliveTime(final TimeUnit unit) {
+            return delegate.getKeepAliveTime(unit);
+        }
+
+        @Override
+        public void setCorePoolSize(final int size) {
+            delegate.setCorePoolSize(size);
+        }
+
+        @Override
+        public void setMaximumPoolSize(final int size) {
+            delegate.setMaximumPoolSize(size);
+        }
+
+        @Override
+        public void setKeepAliveTime(final long time, final TimeUnit unit) {
+            delegate.setKeepAliveTime(time, unit);
+        }
+
+        @Override
+        public int getActiveCount() {
+            return delegate.getActiveCount();
+        }
+
+        @Override
         public int getQueueSize() {
-            return getQueue().size();
+            return delegate.getQueue().size();
         }
     }
 
@@ -1430,9 +1491,6 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
     }
 
-    /**
-     * {@link ExternalTaskPool} wrapper to prevent an delegate {@link TaskPool} from being shut down by the worker.
-     */
     static class ExternalTaskPool implements TaskPool {
         private final TaskPool delegate;
 
