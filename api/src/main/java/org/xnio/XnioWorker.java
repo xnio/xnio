@@ -861,7 +861,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             .create();
 
     public boolean supportsOption(final Option<?> option) {
-        return taskPool instanceof ExecutorServiceTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
+        return taskPool instanceof ExternalTaskPool ? EXTERNAL_POOL_OPTIONS.contains(option) : OPTIONS.contains(option);
     }
 
     public <T> T getOption(final Option<T> option) throws IOException {
