@@ -956,6 +956,15 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
     }
 
     /**
+     * Get an estimate of the number of threads in the worker pool.
+     *
+     * @return the estimated number of threads in the worker pool
+     */
+    protected final int getWorkerPoolSize() {
+        return taskPool.getPoolSize();
+    }
+
+    /**
      * Get the maximum worker pool size.
      *
      * @return the maximum worker pool size
@@ -1297,6 +1306,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
 
         int getActiveCount();
 
+        int getPoolSize();
+
         int getQueueSize();
     }
 
@@ -1385,6 +1396,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
 
         @Override
+        public int getPoolSize() {
+            return delegate.getPoolSize();
+        }
+
+        @Override
         public int getQueueSize() {
             return delegate.getQueue().size();
         }
@@ -1437,6 +1453,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
             return executor.getActiveCount();
         }
 
+        public int getPoolSize() {
+            return executor.getPoolSize();
+        }
+
         public int getQueueSize() {
             return executor.getQueueSize();
         }
@@ -1483,6 +1503,10 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
 
         public int getActiveCount() {
+            return -1;
+        }
+
+        public int getPoolSize() {
             return -1;
         }
 
@@ -1546,6 +1570,11 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         @Override
         public int getActiveCount() {
             return delegate.getActiveCount();
+        }
+
+        @Override
+        public int getPoolSize() {
+            return delegate.getPoolSize();
         }
 
         @Override
