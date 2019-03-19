@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
-import org.xnio.ReadPropertyAction;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
