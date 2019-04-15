@@ -186,7 +186,7 @@
                     <footer><![CDATA[XNIO API ]]>${project.version}</footer>
                     <bottom><![CDATA[<i>Copyright &#169; 2017 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
                     <links>
-                        <link>http://java.sun.com/javase/8/docs/api/</link>
+                        <link>https://docs.oracle.com/javase/8/docs/api/</link>
                     </links>
                 </configuration>
             </plugin>
