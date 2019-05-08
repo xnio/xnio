@@ -36,11 +36,7 @@ public class FutureResult<T> implements Result<T> {
      * @param executor the executor to use to execute listener notifiers.
      */
     public FutureResult(final Executor executor) {
-        ioFuture = new AbstractIoFuture<T>() {
-            protected Executor getNotifierExecutor() {
-                return executor;
-            }
-        };
+        ioFuture = new AbstractIoFuture<T>(){};
     }
 
     /**
