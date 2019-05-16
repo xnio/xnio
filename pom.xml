@@ -49,7 +49,7 @@
     </modules>
 
     <properties>
-        <byteman-version>3.0.3</byteman-version>
+        <byteman-version>4.0.6</byteman-version>
         <version.org.jboss.logging.jboss-logging>3.4.0.Final</version.org.jboss.logging.jboss-logging>
         <version.org.jboss.logging.jboss-logging-tools>2.2.0.Final</version.org.jboss.logging.jboss-logging-tools>
         <version.org.jboss.logmanager.jboss-logmanager>2.1.10.Final</version.org.jboss.logmanager.jboss-logmanager>
