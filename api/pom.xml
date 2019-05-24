@@ -207,7 +207,7 @@
                             *
                         </Import-Package>
                         <Require-Capability>
-                            osgi.service;effective:=active;filter:="(objectClass=org.xnio.Xnio)";
+                            osgi.service;effective:=active;filter:="(objectClass=org.xnio.Xnio)"
                         </Require-Capability>
                     </instructions>
                 </configuration>
