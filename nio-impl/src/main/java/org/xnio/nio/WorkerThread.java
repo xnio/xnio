@@ -334,7 +334,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     }
                 }
             } catch (IOException e) {
-                selectorLog.tracef("ConnectHandle.handleReady Exception, " + e);
+                selectorLog.tracef("ConnectHandle.handleReady Exception, %s", e);
                 futureResult.setException(e);
             } finally {
                 if (!ok) {
@@ -621,7 +621,7 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
         }
         synchronized (workLock) {
             selectorWorkQueue.add(command);
-            log.tracef("Added task " + command);
+            log.tracef("Added task %s", command);
         }
         if (polling) { // flag is always false if we're the same thread
             selector.wakeup();
