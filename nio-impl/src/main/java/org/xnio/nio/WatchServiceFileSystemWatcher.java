@@ -126,6 +126,16 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
                             while (it.hasNext()) {
                                 FileChangeEvent event = it.next();
                                 if (event.getType() == FileChangeEvent.Type.MODIFIED) {
+                                    if (addedFiles.contains(event.getFile()) &&
+                                            deletedFiles.contains(event.getFile())) {
+                                        // XNIO-344
+                                        // All file change events (ADDED, REMOVED and MODIFIED) occurred here.
+                                        // This happens when an updated file is moved from the different
+                                        // filesystems or the directory having different project quota on Linux.
+                                        // ADDED and REMOVED events will be removed in the latter conditional branching.
+                                        // So, this MODIFIED event needs to be kept for the file change notification.
+                                        continue;
+                                    }
                                     if (addedFiles.contains(event.getFile()) ||
                                             deletedFiles.contains(event.getFile())) {
                                         it.remove();
