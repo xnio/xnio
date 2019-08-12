@@ -19,6 +19,7 @@
 
 package org.xnio;
 
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.util.ArrayDeque;
@@ -71,22 +72,7 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
     private final int buffersPerRegion;
     private final int threadLocalQueueSize;
     private final List<ByteBuffer> directBuffers;
-    private final ThreadLocal<ThreadLocalCache> localQueueHolder = new ThreadLocal<ThreadLocalCache>() {
-        protected ThreadLocalCache initialValue() {
-            //noinspection serial
-            return new ThreadLocalCache();
-        }
-
-        public void remove() {
-            final ArrayDeque<Slice> deque = get().queue;
-            Slice slice = deque.poll();
-            while (slice != null) {
-                doFree(slice);
-                slice = deque.poll();
-            }
-            super.remove();
-        }
-    };
+    private final ThreadLocal<ThreadLocalCache> localQueueHolder = new ThreadLocalCacheWrapper(this);
 
     /**
      * Construct a new instance.
@@ -235,6 +221,19 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         return bufferSize;
     }
 
+    private ThreadLocalCache createThreadLocalCache() {
+        return new ThreadLocalCache(this);
+    }
+
+    private void freeThreadLocalCache(ThreadLocalCache cache) {
+        final ArrayDeque<Slice> deque = cache.queue;
+        Slice slice = deque.poll();
+        while (slice != null) {
+            doFree(slice);
+            slice = deque.poll();
+        }
+    }
+
     private void doFree(Slice region) {
         if (threadLocalQueueSize > 0) {
             final ThreadLocalCache localCache = localQueueHolder.get();
@@ -298,11 +297,15 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
     }
 
-    private final class Slice {
+    // to prevent memory leaks via thread internal map for thread local, we need to
+    // make this class static or else the outer ByteBufferSlicePool
+    // is never collected while the thread is active
+    // Thread -> thread local map -> ThreadLocalCacheWrapper -> ThreadLocalCache -> queue -> Slices -> ByteBufferSlicePool
+    private static final class Slice {
         private final ByteBuffer parent;
 
         private Slice(final ByteBuffer parent, final int start, final int size) {
-            this.parent = (ByteBuffer)parent.duplicate().position(start).limit(start+size);
+            this.parent = (ByteBuffer) parent.duplicate().position(start).limit(start+size);
         }
 
         ByteBuffer slice() {
@@ -324,26 +327,68 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         }
     }
 
-    private final class ThreadLocalCache {
+    final static class ThreadLocalCache {
+        // to prevent memory leaks via thread internal map for thread local, we need to
+        // weakly reference the outer ByteBufferSlicePool
+        // or else the pool is never collected while the thread is active
+        // Thread -> thread local map -> ThreadLocalCache -> pool
+        final WeakReference<ByteBufferSlicePool> pool;
 
-        final ArrayDeque<Slice> queue =  new ArrayDeque<Slice>(threadLocalQueueSize) {
-
-            /**
-             * This sucks but there's no other way to ensure these buffers are returned to the pool.
-             */
-            protected void finalize() {
-                final ArrayDeque<Slice> deque = queue;
-                Slice slice = deque.poll();
-                while (slice != null) {
-                    doFree(slice);
-                    slice = deque.poll();
-                }
-            }
-        };
-
+        // internal queue of slices; used to prevent all threads synchronizing on a single queue
+        final ArrayDeque<Slice> queue;
+        // indicates how many slices should be returned to queue on free
         int outstanding = 0;
 
-        ThreadLocalCache() {
+        ThreadLocalCache(ByteBufferSlicePool pool) {
+            this.pool = new WeakReference<>(pool);
+            this.queue = new ArrayDeque<Slice>(pool.threadLocalQueueSize) {
+                /**
+                 * This sucks but there's no other way to ensure these buffers are returned to the pool.
+                 */
+                protected void finalize() {
+                    final ByteBufferSlicePool pool = ThreadLocalCache.this.pool.get();
+                    if (pool == null)
+                        return;
+                    final ArrayDeque<Slice> deque = queue;
+                    Slice slice = deque.poll();
+                    while (slice != null) {
+                        pool.doFree(slice);
+                        slice = deque.poll();
+                    }
+                }
+            };
         }
     }
+
+    private static class ThreadLocalCacheWrapper extends ThreadLocal<ThreadLocalCache> {
+        // to prevent memory leaks via thread internal map for thread local, we need to
+        // weakly reference the outer ByteBufferSlicePool
+        // or else the pool is never collected while the thread is active
+        // Thread -> thread local map -> ThreadLocalCacheWrapper -> pool
+        private final WeakReference<ByteBufferSlicePool> pool;
+
+        ThreadLocalCacheWrapper(ByteBufferSlicePool pool) {
+            this.pool = new WeakReference<>(pool);
+        }
+
+        protected ThreadLocalCache initialValue() {
+            final ByteBufferSlicePool pool = this.pool.get();
+            if (pool != null) {
+                //noinspection serial
+                return pool.createThreadLocalCache();
+            }
+            return null;
+        }
+
+        public void remove() {
+            final ByteBufferSlicePool pool = this.pool.get();
+            final ThreadLocalCache cache = get();
+            if (pool != null && cache != null) {
+                //noinspection serial
+                pool.freeThreadLocalCache(cache);
+            }
+            super.remove();
+        }
+    }
+
 }
