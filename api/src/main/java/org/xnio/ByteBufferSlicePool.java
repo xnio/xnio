@@ -22,8 +22,10 @@ package org.xnio;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -35,14 +37,20 @@ import static org.xnio._private.Messages.msg;
  * returned pooled buffers.  When the buffer is no longer needed, it should be freed back into the pool; failure
  * to do so will cause the corresponding buffer area to be unavailable until the buffer is garbage-collected.
  *
+ * If the buffer pool is no longer used, it is advisable to invoke {@link #clean()} to make
+ * sure that direct allocated buffers can be reused by a future instance.
+ *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author Flavia Rainone
  * @deprecated See {@link ByteBufferPool}.
  */
 public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
 
     private static final int LOCAL_LENGTH;
+    private static final Queue<ByteBuffer> FREE_DIRECT_BUFFERS;
 
     static {
+        // read thread local size property
         String value = AccessController.doPrivileged(new ReadPropertyAction("xnio.bufferpool.threadlocal.size", "12"));
         int val;
         try {
@@ -51,14 +59,18 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             val = 12;
         }
         LOCAL_LENGTH = val;
+
+        // free direct buffers queue to keep direct buffers that are out of reach because of garbage collection of pools
+        FREE_DIRECT_BUFFERS = new ConcurrentLinkedQueue<>();
     }
 
-    private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<Ref>());
+    private final Set<Ref> refSet = Collections.synchronizedSet(new HashSet<>());
     private final Queue<Slice> sliceQueue;
     private final BufferAllocator<ByteBuffer> allocator;
     private final int bufferSize;
     private final int buffersPerRegion;
     private final int threadLocalQueueSize;
+    private final List<ByteBuffer> directBuffers;
     private final ThreadLocal<ThreadLocalCache> localQueueHolder = new ThreadLocal<ThreadLocalCache>() {
         protected ThreadLocalCache initialValue() {
             //noinspection serial
@@ -94,8 +106,14 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         buffersPerRegion = maxRegionSize / bufferSize;
         this.bufferSize = bufferSize;
         this.allocator = allocator;
-        sliceQueue = new ConcurrentLinkedQueue<Slice>();
+        sliceQueue = new ConcurrentLinkedQueue<>();
         this.threadLocalQueueSize = threadLocalQueueSize;
+        // handle direct byte buffer allocation for reuse of direct buffers
+        if (allocator == BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR) {
+            directBuffers = Collections.synchronizedList(new ArrayList<>());
+        } else {
+            directBuffers = null;
+        }
     }
 
     /**
@@ -142,31 +160,72 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
             if (slice != null) {
                 return new PooledByteBuffer(slice, slice.slice());
             }
-            final int bufferSize = this.bufferSize;
-            final int buffersPerRegion = this.buffersPerRegion;
-            final ByteBuffer region = allocator.allocate(buffersPerRegion * bufferSize);
-            int idx = bufferSize;
-            for (int i = 1; i < buffersPerRegion; i ++) {
-                sliceQueue.add(new Slice(region, idx, bufferSize));
-                idx += bufferSize;
-            }
-            final Slice newSlice = new Slice(region, 0, bufferSize);
+            final Slice newSlice = allocateSlices(buffersPerRegion, bufferSize);
             return new PooledByteBuffer(newSlice, newSlice.slice());
         }
     }
 
+    private Slice allocateSlices(final int buffersPerRegion, final int bufferSize) {
+        // only true if using direct allocation
+        if (directBuffers != null) {
+            ByteBuffer region = FREE_DIRECT_BUFFERS.poll();
+            try {
+                if (region != null) {
+                    return sliceReusedBuffer(region, buffersPerRegion, bufferSize);
+                }
+                region = allocator.allocate(buffersPerRegion * bufferSize);
+                return sliceAllocatedBuffer(region, buffersPerRegion, bufferSize);
+            } finally {
+                directBuffers.add(region);
+            }
+        }
+        return sliceAllocatedBuffer(
+                allocator.allocate(buffersPerRegion * bufferSize),
+                buffersPerRegion, bufferSize);
+    }
+
+    private Slice sliceReusedBuffer(final ByteBuffer region, final int buffersPerRegion, final int bufferSize) {
+        int maxI = Math.min(buffersPerRegion, region.capacity() / bufferSize);
+        // create slices
+        int idx = bufferSize;
+        for (int i = 1; i < maxI; i++) {
+            sliceQueue.add(new Slice(region, idx, bufferSize));
+            idx += bufferSize;
+        }
+
+        if (maxI == 0)
+            return allocateSlices(buffersPerRegion, bufferSize);
+        if (maxI < buffersPerRegion)
+            sliceQueue.add(allocateSlices(buffersPerRegion - maxI, bufferSize));
+        return new Slice(region, 0, bufferSize);
+
+    }
+
+    private Slice sliceAllocatedBuffer(final ByteBuffer region, final int buffersPerRegion, final int bufferSize) {
+        // create slices
+        int idx = bufferSize;
+        for (int i = 1; i < buffersPerRegion; i++) {
+            sliceQueue.add(new Slice(region, idx, bufferSize));
+            idx += bufferSize;
+        }
+        return new Slice(region, 0, bufferSize);
+    }
+
     /**
-     * Cleans all ThreadLocal caches
+     * Cleans the pool, removing references to any buffers inside it.
+     * Should be invoked on pool disposal, when the pool will no longer be
+     * used.
      */
     public void clean() {
         ThreadLocalCache localCache = localQueueHolder.get();
         if (!localCache.queue.isEmpty()) {
             localCache.queue.clear();
         }
-
         if(!sliceQueue.isEmpty()) {
             sliceQueue.clear();
         }
+        // pass everything that is directly allocated to free direct buffers
+        FREE_DIRECT_BUFFERS.addAll(directBuffers);
     }
 
     /**
