@@ -310,9 +310,9 @@ public interface Messages extends BasicLogger {
     @Message(id = 1002, value = "Operation was cancelled")
     CancellationException opCancelled();
 
-    @Message(id = 1003, value = "Running IoFuture notifier %s failed")
+    @Message(id = 1003, value = "Running IoFuture notifier %s (with attachment %s) failed")
     @LogMessage(level = WARN)
-    void notifierFailed(@Cause Throwable cause, IoFuture.Notifier<?, ?> notifier);
+    void notifierFailed(@Cause Throwable cause, IoFuture.Notifier<?, ?> notifier, Object attachment);
 
     @Message(id = 1004, value = "Operation timed out")
     TimeoutException opTimedOut();
