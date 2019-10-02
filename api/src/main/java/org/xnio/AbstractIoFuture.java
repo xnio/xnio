@@ -719,7 +719,7 @@ public abstract class AbstractIoFuture<T> implements IoFuture<T> {
             try {
                 notifier.notify(future, attachment);
             } catch (Throwable t) {
-                futureMsg.notifierFailed(t, notifier);
+                futureMsg.notifierFailed(t, notifier, attachment);
             }
         }
     }
