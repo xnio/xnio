@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -377,7 +378,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         return (int) ((value & CONN_LOW_MASK) >> CONN_LOW_BIT);
     }
 
-    public NioSocketStreamConnection accept() throws IOException {
+    public NioSocketStreamConnection accept() throws ClosedChannelException {
         final WorkerThread current = WorkerThread.getCurrent();
         if (current == null) {
             return null;
@@ -427,6 +428,8 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
             } finally {
                 if (! ok) safeClose(accepted);
             }
+        } catch (ClosedChannelException e) {
+            throw e;
         } catch (IOException e) {
             return null;
         } finally {
