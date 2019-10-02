@@ -30,6 +30,7 @@ import java.lang.reflect.InvocationTargetException;
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
+import org.xnio.ReadPropertyAction;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
@@ -46,6 +47,7 @@ final class NioXnio extends Xnio {
 
     static final boolean IS_HP_UX;
     static final boolean HAS_BUGGY_EVENT_PORT;
+    static final boolean USE_ALT_QUEUED_SERVER;
 
     interface SelectorCreator {
         Selector open() throws IOException;
@@ -63,6 +65,7 @@ final class NioXnio extends Xnio {
                 return Boolean.valueOf(System.getProperty("os.name", "unknown").equalsIgnoreCase("hp-ux"));
             }
         }).booleanValue();
+        USE_ALT_QUEUED_SERVER = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.alt-queued-server", "true")));
         // if a JDK is released with a fix, we can try to detect it and set this to "false" for those JDKs.
         HAS_BUGGY_EVENT_PORT = true;
     }
