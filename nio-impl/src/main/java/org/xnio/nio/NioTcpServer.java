@@ -424,6 +424,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
                 newConnection.setOption(Options.READ_TIMEOUT, Integer.valueOf(readTimeout));
                 newConnection.setOption(Options.WRITE_TIMEOUT, Integer.valueOf(writeTimeout));
                 ok = true;
+                handle.resetBackOff();
                 return newConnection;
             } finally {
                 if (! ok) safeClose(accepted);
@@ -431,6 +432,10 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         } catch (ClosedChannelException e) {
             throw e;
         } catch (IOException e) {
+            // something went wrong with the accept
+            // it could be due to running out of file descriptors, or due to closed channel, or other things
+            handle.startBackOff();
+            log.acceptFailed(e, handle.getBackOffTime());
             return null;
         } finally {
             if (! ok) {
