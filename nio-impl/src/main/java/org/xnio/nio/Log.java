@@ -125,6 +125,10 @@ interface Log extends BasicLogger {
     @Message(id = 8000, value = "Received an I/O error on selection: %s")
     void selectionError(IOException e);
 
+    @LogMessage(level = WARN)
+    @Message(id = 8001, value = "Socket accept failed, backing off for %2$d milliseconds: %1$s")
+    void acceptFailed(IOException problem, int backOffTime);
+
     // Trace
 
     @LogMessage(level = TRACE)

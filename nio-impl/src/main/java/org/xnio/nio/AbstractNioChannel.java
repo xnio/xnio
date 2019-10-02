@@ -21,7 +21,6 @@ package org.xnio.nio;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.XnioIoThread;
-import org.xnio.XnioWorker;
 import org.xnio.channels.CloseableChannel;
 
 abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements CloseableChannel {
@@ -37,7 +36,7 @@ abstract class AbstractNioChannel<C extends AbstractNioChannel<C>> implements Cl
         this.worker = worker;
     }
 
-    public final XnioWorker getWorker() {
+    public final NioXnioWorker getWorker() {
         return worker;
     }
 
