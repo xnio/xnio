@@ -40,6 +40,7 @@
         <xnio.nio.selector.main/>
         <xnio.nio.selector.temp/>
         <xnio.nio.selector.provider/>
+        <xnio.nio.alt-queued-server>true</xnio.nio.alt-queued-server>
     </properties>
 
     <dependencies>
@@ -154,6 +155,10 @@
                         <property>
                             <name>org.xnio.ssl.new</name>
                             <value>${org.xnio.ssl.new}</value>
+                        </property>
+                        <property>
+                            <name>xnio.nio.alt-queued-server</name>
+                            <value>${xnio.nio.alt-queued-server}</value>
                         </property>
                     </systemProperties>
                     <enableAssertions>true</enableAssertions>
