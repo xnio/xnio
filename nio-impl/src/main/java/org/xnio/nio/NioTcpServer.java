@@ -379,6 +379,9 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     public NioSocketStreamConnection accept() throws IOException {
         final WorkerThread current = WorkerThread.getCurrent();
+        if (current == null) {
+            return null;
+        }
         final NioTcpServerHandle handle = handles[current.getNumber()];
         if (! handle.getConnection()) {
             return null;
