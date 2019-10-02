@@ -112,24 +112,35 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
 
     private static final AtomicLongFieldUpdater<NioTcpServer> connectionStatusUpdater = AtomicLongFieldUpdater.newUpdater(NioTcpServer.class, "connectionStatus");
 
-    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap) throws IOException {
+    NioTcpServer(final NioXnioWorker worker, final ServerSocketChannel channel, final OptionMap optionMap, final boolean useAcceptThreadOnly) throws IOException {
         super(worker);
         this.channel = channel;
-        final WorkerThread[] threads = worker.getAll();
-        final int threadCount = threads.length;
-        if (threadCount == 0) {
-            throw log.noThreads();
-        }
-        final int tokens = optionMap.get(Options.BALANCING_TOKENS, -1);
-        final int connections = optionMap.get(Options.BALANCING_CONNECTIONS, 16);
-        if (tokens != -1) {
-            if (tokens < 1 || tokens >= threadCount) {
-                throw log.balancingTokens();
+        final WorkerThread[] threads;
+        final int threadCount;
+        final int tokens;
+        final int connections;
+        if (useAcceptThreadOnly) {
+            threads = new WorkerThread[] { worker.getAcceptThread() };
+            threadCount = 1;
+            tokens = 0;
+            connections = 0;
+        } else {
+            threads = worker.getAll();
+            threadCount = threads.length;
+            if (threadCount == 0) {
+                throw log.noThreads();
             }
-            if (connections < 1) {
-                throw log.balancingConnectionCount();
+            tokens = optionMap.get(Options.BALANCING_TOKENS, -1);
+            connections = optionMap.get(Options.BALANCING_CONNECTIONS, 16);
+            if (tokens != -1) {
+                if (tokens < 1 || tokens >= threadCount) {
+                    throw log.balancingTokens();
+                }
+                if (connections < 1) {
+                    throw log.balancingConnectionCount();
+                }
+                tokenConnectionCount = connections;
             }
-            tokenConnectionCount = connections;
         }
         socket = channel.socket();
         if (optionMap.contains(Options.SEND_BUFFER)) {
@@ -383,7 +394,12 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         if (current == null) {
             return null;
         }
-        final NioTcpServerHandle handle = handles[current.getNumber()];
+        final NioTcpServerHandle handle;
+        if (handles.length == 1) {
+            handle = handles[0];
+        } else {
+            handle = handles[current.getNumber()];
+        }
         if (! handle.getConnection()) {
             return null;
         }
