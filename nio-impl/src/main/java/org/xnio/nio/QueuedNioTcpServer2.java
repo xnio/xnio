@@ -150,13 +150,13 @@ final class QueuedNioTcpServer2 extends AbstractNioChannel<QueuedNioTcpServer2> 
         } catch (ClosedChannelException e) {
             return;
         }
+        XnioIoThread thread;
         if (connection != null) {
             int i = 0;
-            final XnioIoThread thread = connection.getIoThread();
-            final Queue<StreamConnection> queue = acceptQueues.get(thread.getNumber());
             final Runnable acceptTask = this.acceptTask;
             do {
-                queue.add(connection);
+                thread = connection.getIoThread();
+                acceptQueues.get(thread.getNumber()).add(connection);
                 thread.execute(acceptTask);
                 if (++i == 128) {
                     // prevent starvation of other acceptors
