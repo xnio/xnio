@@ -33,6 +33,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -408,25 +409,7 @@ final class NioTcpServer extends AbstractNioChannel<NioTcpServer> implements Acc
         try {
             accepted = channel.accept();
             if (accepted != null) try {
-                final SocketAddress localAddress = accepted.getLocalAddress();
-                int hash;
-                if (localAddress instanceof InetSocketAddress) {
-                    final InetSocketAddress address = (InetSocketAddress) localAddress;
-                    hash = address.getAddress().hashCode() * 23 + address.getPort();
-                } else if (localAddress instanceof LocalSocketAddress) {
-                    hash = ((LocalSocketAddress) localAddress).getName().hashCode();
-                } else {
-                    hash = localAddress.hashCode();
-                }
-                final SocketAddress remoteAddress = accepted.getRemoteAddress();
-                if (remoteAddress instanceof InetSocketAddress) {
-                    final InetSocketAddress address = (InetSocketAddress) remoteAddress;
-                    hash = (address.getAddress().hashCode() * 23 + address.getPort()) * 23 + hash;
-                } else if (remoteAddress instanceof LocalSocketAddress) {
-                    hash = ((LocalSocketAddress) remoteAddress).getName().hashCode() * 23 + hash;
-                } else {
-                    hash = localAddress.hashCode() * 23 + hash;
-                }
+                int hash = ThreadLocalRandom.current().nextInt();
                 accepted.configureBlocking(false);
                 final Socket socket = accepted.socket();
                 socket.setKeepAlive(keepAlive != 0);

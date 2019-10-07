@@ -37,6 +37,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
@@ -488,25 +489,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
         try {
             boolean ok = false;
             if (accepted != null) try {
-                final SocketAddress localAddress = accepted.getLocalAddress();
-                int hash;
-                if (localAddress instanceof InetSocketAddress) {
-                    final InetSocketAddress address = (InetSocketAddress) localAddress;
-                    hash = address.getAddress().hashCode() * 23 + address.getPort();
-                } else if (localAddress instanceof LocalSocketAddress) {
-                    hash = ((LocalSocketAddress) localAddress).getName().hashCode();
-                } else {
-                    hash = localAddress.hashCode();
-                }
-                final SocketAddress remoteAddress = accepted.getRemoteAddress();
-                if (remoteAddress instanceof InetSocketAddress) {
-                    final InetSocketAddress address = (InetSocketAddress) remoteAddress;
-                    hash = (address.getAddress().hashCode() * 23 + address.getPort()) * 23 + hash;
-                } else if (remoteAddress instanceof LocalSocketAddress) {
-                    hash = ((LocalSocketAddress) remoteAddress).getName().hashCode() * 23 + hash;
-                } else {
-                    hash = localAddress.hashCode() * 23 + hash;
-                }
+                int hash = ThreadLocalRandom.current().nextInt();
                 accepted.configureBlocking(false);
                 final Socket socket = accepted.socket();
                 socket.setKeepAlive(keepAlive != 0);
