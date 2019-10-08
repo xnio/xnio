@@ -32,7 +32,7 @@
     <artifactId>xnio-all</artifactId>
     <packaging>pom</packaging>
     <name>XNIO Parent POM</name>
-    <version>3.7.5.Final-SNAPSHOT</version>
+    <version>3.7.5.Final</version>
     <description>The aggregator POM of the XNIO project</description>
 
     <licenses>
