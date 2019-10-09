@@ -24,9 +24,9 @@ import java.util.concurrent.TimeUnit;
 import org.xnio.ChannelListeners;
 
 import static java.lang.Math.min;
+import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static org.xnio.IoUtils.safeClose;
-import static sun.swing.MenuItemLayoutHelper.max;
 
 /**
 * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
