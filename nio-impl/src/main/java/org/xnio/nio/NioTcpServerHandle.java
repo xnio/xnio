@@ -26,13 +26,18 @@ import org.xnio.ChannelListeners;
 import static java.lang.Math.min;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
+
+import org.jboss.logging.Logger;
+
 import static org.xnio.IoUtils.safeClose;
+import static org.xnio.nio.Log.tcpServerLog;
 
 /**
 * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
 */
 final class NioTcpServerHandle extends NioHandle implements ChannelClosed {
 
+    private static final String FQCN = NioTcpServerHandle.class.getName();
     private final Runnable freeTask;
     private final NioTcpServer server;
     private int count;
@@ -109,6 +114,8 @@ final class NioTcpServerHandle extends NioHandle implements ChannelClosed {
     void freeConnection() {
         assert currentThread() == getWorkerThread();
         if (count-- <= low && tokenCount != 0 && stopped) {
+            tcpServerLog.logf(FQCN, Logger.Level.DEBUG, null,
+                    "Connection freed, resuming accept connections");
             stopped = false;
             if (server.resumed) {
                 // end backoff optimistically
@@ -191,12 +198,17 @@ final class NioTcpServerHandle extends NioHandle implements ChannelClosed {
     boolean getConnection() {
         assert currentThread() == getWorkerThread();
         if (stopped || backOff) {
+            tcpServerLog.logf(FQCN, Logger.Level.DEBUG, null, "Refusing accepting request (temporarily stopped: %s, backed off: %s)", stopped, backOff);
             return false;
         }
         if (tokenCount != -1 && --tokenCount == 0) {
             setThreadNewCount(getWorkerThread().getNextThread(), server.getTokenConnectionCount());
         }
         if (++count >= high || tokenCount == 0) {
+            if (tcpServerLog.isEnabled(Logger.Level.WARN) && count >= high)
+                tcpServerLog.logf(FQCN, Logger.Level.WARN, null,
+                            "Total open connections reach high water limit (%s) by this new accepting request. Temporarily stopping accept connections",
+                            high);
             stopped = true;
             super.suspend(SelectionKey.OP_ACCEPT);
         }
