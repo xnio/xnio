@@ -65,7 +65,7 @@ final class NioXnio extends Xnio {
                 return Boolean.valueOf(System.getProperty("os.name", "unknown").equalsIgnoreCase("hp-ux"));
             }
         }).booleanValue();
-        USE_ALT_QUEUED_SERVER = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.alt-queued-server", "true")));
+        USE_ALT_QUEUED_SERVER = Boolean.parseBoolean(AccessController.doPrivileged(new ReadPropertyAction("xnio.nio.alt-queued-server", "false")));
         // if a JDK is released with a fix, we can try to detect it and set this to "false" for those JDKs.
         HAS_BUGGY_EVENT_PORT = true;
     }
