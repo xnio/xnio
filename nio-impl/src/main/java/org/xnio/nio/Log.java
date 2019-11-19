@@ -47,6 +47,7 @@ interface Log extends BasicLogger {
     Log socketLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.socket");
     Log selectorLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.selector");
     Log tcpServerLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.tcp.server");
+    Log tcpServerConnectionLimitLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.tcp.server.connection-limit");
     Log udpServerChannelLog = Logger.getMessageLogger(Log.class, "org.xnio.nio.udp.server.channel");
 
     // Greeting

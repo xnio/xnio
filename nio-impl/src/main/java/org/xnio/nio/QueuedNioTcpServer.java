@@ -20,6 +20,7 @@ package org.xnio.nio;
 
 import static org.xnio.IoUtils.safeClose;
 import static org.xnio.nio.Log.log;
+import static org.xnio.nio.Log.tcpServerConnectionLimitLog;
 import static org.xnio.nio.Log.tcpServerLog;
 
 import java.io.IOException;
@@ -114,6 +115,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
      * The current number of open connections, can only be accessed by the accept thread
      */
     private int openConnections;
+    private boolean limitwarn = true;
     private volatile boolean suspendedDueToWatermark;
     private volatile boolean suspended;
 
@@ -359,7 +361,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 if(openConnections >= getHighWater(connectionStatus)) {
                     synchronized (QueuedNioTcpServer.this) {
                         suspendedDueToWatermark = true;
-                        tcpServerLog.logf(FQCN, Logger.Level.DEBUG, null, "Total open connections reach high water limit (%s) after updating water mark", getHighWater(connectionStatus));
+                        tcpServerConnectionLimitLog.logf(FQCN, Logger.Level.DEBUG, null, "Total open connections reach high water limit (%s) after updating water mark", getHighWater(connectionStatus));
                     }
                 } else if(suspendedDueToWatermark && openConnections <= getLowWater(connectionStatus)) {
                     suspendedDueToWatermark = false;
@@ -478,7 +480,7 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
         try {
             accepted = channel.accept();
             if(suspendedDueToWatermark) {
-                tcpServerLog.logf(FQCN, Logger.Level.DEBUG, null, "Exceeding connection high water limit (%s). Closing this new accepting request %s", getHighWater(connectionStatus), accepted);
+                tcpServerConnectionLimitLog.logf(FQCN, Logger.Level.DEBUG, null, "Exceeding connection high water limit (%s). Closing this new accepting request %s", getHighWater(connectionStatus), accepted);
                 IoUtils.safeClose(accepted);
                 return;
             }
@@ -512,7 +514,12 @@ final class QueuedNioTcpServer extends AbstractNioChannel<QueuedNioTcpServer> im
                 if(openConnections >= getHighWater(connectionStatus)) {
                     synchronized (QueuedNioTcpServer.this) {
                         suspendedDueToWatermark = true;
-                        tcpServerLog.logf(FQCN, Logger.Level.DEBUG, null, "Total open connections reach high water limit (%s) by this new accepting request %s", getHighWater(connectionStatus), accepted);
+                        if (limitwarn) {
+                            tcpServerConnectionLimitLog.logf(FQCN, Logger.Level.WARN, null, "Total open connections reach high water limit (%s) by this new accepting request %s", getHighWater(connectionStatus), accepted);
+                            limitwarn = false;
+                        } else {
+                            tcpServerConnectionLimitLog.logf(FQCN, Logger.Level.DEBUG, null, "Total open connections reach high water limit (%s) by this new accepting request %s", getHighWater(connectionStatus), accepted);
+                        }
                     }
                 }
             } finally {
