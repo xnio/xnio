@@ -66,6 +66,39 @@ public final class Channels {
     }
 
     /**
+     * Simple utility method to execute a blocking flush on a writable channel. The method blocks until there are no
+     * remaining bytes in the send queue or the timeout is reached.
+     *
+     * @param channel the writable channel
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @return true if the channel was successfully flushed, false if the timeout was reached
+     * @throws IOException if an I/O exception occurs
+     *
+     * @since 3.8
+     */
+    public static boolean flushBlocking(SuspendableWriteChannel channel, long time, TimeUnit unit) throws IOException {
+        // In the fast path, the timeout is not used because bytes can be flushed without blocking.
+        if (channel.flush()) {
+            return true;
+        }
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
+        do {
+            // awaitWritable may return spuriously so looping is required.
+            channel.awaitWritable(remaining, TimeUnit.NANOSECONDS);
+            // flush prior to recalculating remaining time to avoid a nanoTime
+            // invocation in the optimal path.
+            if (channel.flush()) {
+                return true;
+            }
+            // Nanotime must only be used in comparison with another nanotime value
+            // This implementation allows us to avoid immediate subsequent nanoTime calls
+        } while ((remaining -= Math.max(-now + (now = System.nanoTime()), 0L)) > 0L);
+        return false;
+    }
+
+    /**
      * Simple utility method to execute a blocking write shutdown on a writable channel.  The method blocks until the
      * channel's output side is fully shut down.
      *
@@ -77,6 +110,23 @@ public final class Channels {
     public static void shutdownWritesBlocking(SuspendableWriteChannel channel) throws IOException {
         channel.shutdownWrites();
         flushBlocking(channel);
+    }
+
+    /**
+     * Simple utility method to execute a blocking write shutdown on a writable channel.  The method blocks until the
+     * channel's output side is fully shut down or the timeout is reached.
+     *
+     * @param channel the writable channel
+     * @param time the amount of time to wait
+     * @param unit the unit of time to wait
+     * @return true if the channel was successfully flushed, false if the timeout was reached
+     * @throws IOException if an I/O exception occurs
+     *
+     * @since 3.8
+     */
+    public static boolean shutdownWritesBlocking(SuspendableWriteChannel channel, long time, TimeUnit unit) throws IOException {
+        channel.shutdownWrites();
+        return flushBlocking(channel, time, unit);
     }
 
     /**
