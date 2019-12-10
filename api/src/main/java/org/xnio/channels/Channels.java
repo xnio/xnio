@@ -311,13 +311,27 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends ReadableByteChannel & SuspendableReadChannel> int readBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        // In the fast path, the timeout is not used because bytes can be read without blocking.
         int res = channel.read(buffer);
-        if (res == 0 && buffer.hasRemaining()) {
-            channel.awaitReadable(time, unit);
-            return channel.read(buffer);
-        } else {
+        if (res != 0) {
             return res;
         }
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
+        while (buffer.hasRemaining() && remaining > 0) {
+            // awaitReadable may return spuriously, so looping is required.
+            channel.awaitReadable(remaining, TimeUnit.NANOSECONDS);
+            // read prior to recalculating remaining time to avoid a nanoTime
+            // invocation in the optimal path.
+            res = channel.read(buffer);
+            if (res != 0) {
+                return res;
+            }
+            // Nanotime must only be used in comparison with another nanotime value
+            // This implementation allows us to avoid immediate subsequent nanoTime calls
+            remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
+        }
+        return res;
     }
 
     /**
@@ -357,13 +371,28 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends ScatteringByteChannel & SuspendableReadChannel> long readBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        // In the fast path, the timeout is not used because bytes can be read
+        // without blocking or interaction with the precise clock.
         long res = channel.read(buffers, offs, len);
-        if (res == 0L && Buffers.hasRemaining(buffers, offs, len)) {
-            channel.awaitReadable(time, unit);
-            return channel.read(buffers, offs, len);
-        } else {
+        if (res != 0L) {
             return res;
         }
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
+        while (Buffers.hasRemaining(buffers, offs, len) && remaining > 0) {
+            // awaitReadable may return spuriously, looping is required.
+            channel.awaitReadable(remaining, TimeUnit.NANOSECONDS);
+            // read prior to recalculating remaining time to avoid a nanoTime
+            // invocation in the optimal path.
+            res = channel.read(buffers, offs, len);
+            if (res != 0) {
+                return res;
+            }
+            // Nanotime must only be used in comparison with another nanotime value
+            // This implementation allows us to avoid immediate subsequent nanoTime calls
+            remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
+        }
+        return res;
     }
 
     /**
@@ -399,13 +428,27 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends ReadableMessageChannel> int receiveBlocking(C channel, ByteBuffer buffer, long time, TimeUnit unit) throws IOException {
+        // In the fast path, the timeout is not used because bytes can be read without blocking.
         int res = channel.receive(buffer);
-        if ((res) == 0) {
-            channel.awaitReadable(time, unit);
-            return channel.receive(buffer);
-        } else {
+        if (res != 0) {
             return res;
         }
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
+        while (buffer.hasRemaining() && remaining > 0) {
+            // awaitReadable may return spuriously, looping is required.
+            channel.awaitReadable(remaining, TimeUnit.NANOSECONDS);
+            // read prior to recalculating remaining time to avoid a nanoTime
+            // invocation in the optimal path.
+            res = channel.receive(buffer);
+            if (res != 0) {
+                return res;
+            }
+            // Nanotime must only be used in comparison with another nanotime value
+            // This implementation allows us to avoid immediate subsequent nanoTime calls
+            remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
+        }
+        return res;
     }
 
     /**
@@ -445,13 +488,25 @@ public final class Channels {
      * @since 1.2
      */
     public static <C extends ReadableMessageChannel> long receiveBlocking(C channel, ByteBuffer[] buffers, int offs, int len, long time, TimeUnit unit) throws IOException {
+        // In the fast path, the timeout is not used because bytes can be read without blocking.
         long res = channel.receive(buffers, offs, len);
-        if ((res) == 0) {
-            channel.awaitReadable(time, unit);
-            return channel.receive(buffers, offs, len);
-        } else {
+        if (res != 0L) {
             return res;
         }
+        long remaining = unit.toNanos(time);
+        long now = System.nanoTime();
+        while (Buffers.hasRemaining(buffers, offs, len) && remaining > 0) {
+            // awaitReadable may return spuriously, looping is required.
+            channel.awaitReadable(remaining, TimeUnit.NANOSECONDS);
+            res = channel.receive(buffers, offs, len);
+            if (res != 0) {
+                return res;
+            }
+            // Nanotime must only be used in comparison with another nanotime value
+            // This implementation allows us to avoid immediate subsequent nanoTime calls
+            remaining -= Math.max(-now + (now = System.nanoTime()), 0L);
+        }
+        return res;
     }
 
     /**
