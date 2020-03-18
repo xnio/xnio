@@ -164,6 +164,7 @@
                     <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
                     <trimStackTrace>false</trimStackTrace>
+                    <reuseForks>false</reuseForks>
                 </configuration>
             </plugin>
             <plugin>
