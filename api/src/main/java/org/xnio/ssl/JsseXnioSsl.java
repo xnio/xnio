@@ -159,7 +159,13 @@ public final class JsseXnioSsl extends XnioSsl {
             public void handleEvent(final StreamConnection connection) {
                 final SSLEngine sslEngine = JsseSslUtils.createSSLEngine(sslContext, optionMap, destination);
                 final boolean startTls = optionMap.get(Options.SSL_STARTTLS, false);
-                final SslConnection wrappedConnection = NEW_IMPL ? new JsseSslConnection(connection, sslEngine, bufferPool, bufferPool) : new JsseSslStreamConnection(connection, sslEngine, bufferPool, bufferPool, startTls);
+                final SslConnection wrappedConnection;
+                try {
+                    wrappedConnection = NEW_IMPL ? new JsseSslConnection(connection, sslEngine, bufferPool, bufferPool) : new JsseSslStreamConnection(connection, sslEngine, bufferPool, bufferPool, startTls);
+                } catch (RuntimeException e) {
+                    futureResult.setCancelled();
+                    throw e;
+                }
                 if (NEW_IMPL && ! startTls) {
                     try {
                         wrappedConnection.startHandshake();
