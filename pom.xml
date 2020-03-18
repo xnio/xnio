@@ -56,7 +56,7 @@
         <version.org.jboss.threads>2.3.3.Final</version.org.jboss.threads>
         <version.org.wildfly.common>1.5.2.Final</version.org.wildfly.common>
         <version.org.wildfly.client-config>1.0.1.Final</version.org.wildfly.client-config>
-        <version.bridger.plugin>1.1.Final</version.bridger.plugin>
+        <version.bridger.plugin>1.5.Final</version.bridger.plugin>
         <version.junit>4.12</version.junit>
         <version.jmock>2.12.0</version.jmock>
         <org.xnio.ssl.new>false</org.xnio.ssl.new>
