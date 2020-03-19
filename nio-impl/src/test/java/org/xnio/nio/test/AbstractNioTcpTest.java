@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -88,13 +89,7 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
             worker = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, threads));
         }
         try {
-            final AcceptingChannel<? extends T> server = createServer(worker,
-                    new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
-                    ChannelListeners.<T>openListenerAdapter(new CatchingChannelListener<T>(
-                            serverHandler,
-                            problems
-                    )), serverOptionMap);
-            server.resumeAccepts();
+            final AcceptingChannel<? extends T> server = startServer(worker, serverHandler);
             try {
                 final IoFuture<? extends T> ioFuture = connect(worker, new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT), new CatchingChannelListener<T>(clientHandler, problems), null, clientOptionMap);
                 final T channel = ioFuture.get();
@@ -118,6 +113,18 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
             worker.shutdown();
             worker.awaitTermination(1L, TimeUnit.MINUTES);
         }
+    }
+
+    protected AcceptingChannel<? extends T> startServer(XnioWorker worker, final ChannelListener<? super T> serverHandler) throws
+            IOException {
+        final AcceptingChannel<? extends T> server = createServer(worker,
+                new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
+                ChannelListeners.<T>openListenerAdapter(new CatchingChannelListener<T>(
+                        serverHandler,
+                        problems
+                )), serverOptionMap);
+        server.resumeAccepts();
+        return server;
     }
 
     /**

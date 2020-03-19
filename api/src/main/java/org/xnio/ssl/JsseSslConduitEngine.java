@@ -44,7 +44,10 @@ import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSession;
 
 import org.jboss.logging.Logger;
+
+import org.xnio.BufferAllocator;
 import org.xnio.Buffers;
+import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
 import org.xnio.Pooled;
 import org.xnio.conduits.StreamSinkConduit;
@@ -86,6 +89,10 @@ final class JsseSslConduitEngine {
     private final Pooled<ByteBuffer> receiveBuffer;
     /** The buffer from which outbound SSL data is sent. */
     private final Pooled<ByteBuffer> sendBuffer;
+    /** An expanded non-final buffer from which outbound SSL data is sent when
+     * large fragments handling is enabled in the underlying SSL Engine. When
+     * this happens, we need a specific buffer with expanded capacity. */
+    private  ByteBuffer expandedSendBuffer;
     /** The buffer into which inbound clear data is written. */
     private final Pooled<ByteBuffer> readBuffer;
 
@@ -149,18 +156,11 @@ final class JsseSslConduitEngine {
             sendBuffer = socketBufferPool.allocate();
             try {
                 if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
-                    throw msg.socketBufferTooSmall();
+                    // create expanded send buffer
+                    expandedSendBuffer = ByteBuffer.allocate(packetBufferSize);
                 }
-                final int applicationBufferSize = session.getApplicationBufferSize();
                 readBuffer = applicationBufferPool.allocate();
-                try {
-                    if (readBuffer.getResource().capacity() < applicationBufferSize) {
-                        throw msg.appBufferTooSmall();
-                    }
-                    ok = true;
-                } finally {
-                    if (! ok) readBuffer.free();
-                }
+                ok = true;
             } finally {
                 if (! ok) sendBuffer.free();
             }
@@ -231,14 +231,13 @@ final class JsseSslConduitEngine {
             // a workaround for a bug found in SSLEngine
             throw new ClosedChannelException();
         }
-        final ByteBuffer buffer = sendBuffer.getResource();
         long bytesConsumed = 0;
         boolean run;
         try {
             do {
                 final SSLEngineResult result;
                 synchronized (getWrapLock()) {
-                    run = handleWrapResult(result = engineWrap(srcs, offset, length, buffer), false);
+                    run = handleWrapResult(result = engineWrap(srcs, offset, length, getSendBuffer()), false);
                     bytesConsumed += (long) result.bytesConsumed();
                 }
                 // handshake will tell us whether to keep the loop
@@ -247,7 +246,7 @@ final class JsseSslConduitEngine {
         } catch (SSLHandshakeException e) {
             try {
                 synchronized (getWrapLock()) {
-                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    engine.wrap(EMPTY_BUFFER, getSendBuffer());
                     doFlush();
                 }
             } catch (IOException ignore) {}
@@ -266,7 +265,7 @@ final class JsseSslConduitEngine {
     public ByteBuffer getWrappedBuffer() {
         assert Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
-        return allAreSet(stateUpdater.get(this), ENGINE_CLOSED)? Buffers.EMPTY_BYTE_BUFFER: sendBuffer.getResource();
+        return allAreSet(stateUpdater.get(this), ENGINE_CLOSED)? Buffers.EMPTY_BYTE_BUFFER: getSendBuffer();
     }
 
     /**
@@ -300,14 +299,13 @@ final class JsseSslConduitEngine {
             throw new ClosedChannelException();
         }
         clearFlags(FIRST_HANDSHAKE);
-        final ByteBuffer buffer = sendBuffer.getResource();
         int bytesConsumed = 0;
         boolean run;
         try {
             do {
                 final SSLEngineResult result;
                 synchronized (getWrapLock()) {
-                    run = handleWrapResult(result = engineWrap(src, buffer), isCloseExpected);
+                    run = handleWrapResult(result = engineWrap(src, getSendBuffer()), isCloseExpected);
                     bytesConsumed += result.bytesConsumed();
                 }
                 // handshake will tell us whether to keep the loop
@@ -316,7 +314,7 @@ final class JsseSslConduitEngine {
         } catch (SSLHandshakeException e) {
             try {
                 synchronized (getWrapLock()) {
-                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    engine.wrap(EMPTY_BUFFER, getSendBuffer());
                     doFlush();
                 }
             } catch (IOException ignore) {}
@@ -376,9 +374,13 @@ final class JsseSslConduitEngine {
             case BUFFER_OVERFLOW: {
                 assert result.bytesConsumed() == 0;
                 assert result.bytesProduced() == 0;
-                final ByteBuffer buffer = sendBuffer.getResource();
+                final ByteBuffer buffer = getSendBuffer();
                 if (buffer.position() == 0) {
-                    throw msg.wrongBufferExpansion();
+                    final int bufferSize = engine.getSession().getPacketBufferSize();
+                    if (buffer.capacity() < bufferSize) {
+                        msg.expandedSslBufferEnabled(bufferSize);
+                        expandedSendBuffer = ByteBuffer.allocate(bufferSize);
+                    } else throw msg.wrongBufferExpansion();
                 } else {
                     // there's some data in there, so send it first
                     buffer.flip();
@@ -462,7 +464,7 @@ final class JsseSslConduitEngine {
                     if (write) {
                         return true;
                     }
-                    final ByteBuffer buffer = sendBuffer.getResource();
+                    final ByteBuffer buffer = getSendBuffer();
                     // else, trigger a write call
                     // Needs wrap, so we wrap (if possible)...
                     synchronized (getWrapLock()) {
@@ -578,6 +580,8 @@ final class JsseSslConduitEngine {
         return (int) unwrap(new ByteBuffer[]{dst}, 0, 1);
     }
 
+    private int failureCount = 0;
+
     /**
      * Unwraps the bytes contained in {@link #getUnwrapBuffer()}, copying the resulting unwrapped bytes into
      * {@code dsts}.
@@ -632,7 +636,7 @@ final class JsseSslConduitEngine {
         } catch (SSLHandshakeException e) {
             try {
                 synchronized (getWrapLock()) {
-                    engine.wrap(EMPTY_BUFFER, sendBuffer.getResource());
+                    engine.wrap(EMPTY_BUFFER, getSendBuffer());
                     doFlush();
                 }
             } catch (IOException ignore) {}
@@ -827,15 +831,14 @@ final class JsseSslConduitEngine {
         if (sinkConduit.isWriteShutdown()) {
             return true;
         }
-        final ByteBuffer buffer = sendBuffer.getResource();
         if (!engine.isOutboundDone() || !engine.isInboundDone()) {
             SSLEngineResult result;
             do {
-                if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true)) {
+                if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, getSendBuffer()), true)) {
                     return false;
                 }
             } while (handleHandshake(result, true) && (result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP || !engine.isOutboundDone()));
-            handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true);
+            handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, getSendBuffer()), true);
             if (!engine.isOutboundDone() || (result.getHandshakeStatus() != HandshakeStatus.NOT_HANDSHAKING &&
                     result.getHandshakeStatus() != HandshakeStatus.NEED_UNWRAP)) {
                 return false;
@@ -855,7 +858,7 @@ final class JsseSslConduitEngine {
         assert Thread.holdsLock(getWrapLock());
         assert ! Thread.holdsLock(getUnwrapLock());
         final ByteBuffer buffer;
-        buffer = sendBuffer.getResource();
+        buffer = getSendBuffer();
         buffer.flip();
         try {
             while (buffer.hasRemaining()) {
@@ -914,9 +917,13 @@ final class JsseSslConduitEngine {
             }
         } catch (Exception e) {
             //if there is an exception on close we immediately close the engine to make sure buffers are freed
-            closeEngine();
+            try {
+                closeEngine();
+            } catch (Exception closeEngineException) {
+                msg.failedToCloseSSLEngine(e, closeEngineException);
+            }
             if(e instanceof IOException) {
-                throw (IOException)e;
+                throw (IOException) e;
             } else {
                 throw (RuntimeException)e;
             }
@@ -1196,5 +1203,9 @@ final class JsseSslConduitEngine {
                 return false;
             }
         }
+    }
+
+    private final ByteBuffer getSendBuffer() {
+        return expandedSendBuffer != null? expandedSendBuffer : sendBuffer.getResource();
     }
 }

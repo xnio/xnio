@@ -240,6 +240,10 @@ public interface Messages extends BasicLogger {
     @Message(id = 306, value = "SSL connection is not from this provider")
     IllegalArgumentException notFromThisProvider();
 
+    @Message(id = 307, value = "Failed to close ssl engine when handling exception %s")
+    @LogMessage(level = WARN)
+    void failedToCloseSSLEngine(@Cause Throwable cause, Exception originalException);
+
     // I/O errors
 
     @Message(id = 800, value = "Read timed out")
@@ -353,4 +357,8 @@ public interface Messages extends BasicLogger {
     @Message(value = "Shutting down reads on %s failed")
     @LogMessage(level = TRACE)
     void resourceReadShutdownFailed(@Cause Throwable cause, Object resource);
+
+    @Message(value = "Expanded buffer enabled due to overflow with empty buffer, expanded buffer size is %s")
+    @LogMessage(level = TRACE)
+    void expandedSslBufferEnabled(int bufferSize);
 }
