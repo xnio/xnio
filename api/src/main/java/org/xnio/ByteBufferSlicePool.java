@@ -206,8 +206,11 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         if(!sliceQueue.isEmpty()) {
             sliceQueue.clear();
         }
-        // pass everything that is directly allocated to free direct buffers
-        FREE_DIRECT_BUFFERS.addAll(directBuffers);
+        // only true if using direct allocation
+        if (directBuffers != null) {
+            // pass everything that is directly allocated to free direct buffers
+            FREE_DIRECT_BUFFERS.addAll(directBuffers);
+        }
     }
 
     /**
