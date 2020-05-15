@@ -155,11 +155,15 @@ public final class ByteBufferSlicePool implements Pool<ByteBuffer> {
         // only true if using direct allocation
         if (directBuffers != null) {
             ByteBuffer region = FREE_DIRECT_BUFFERS.poll();
-            if (region != null) {
-                return sliceReusedBuffer(region, buffersPerRegion, bufferSize);
+            try {
+                if (region != null) {
+                    return sliceReusedBuffer(region, buffersPerRegion, bufferSize);
+                }
+                region = allocator.allocate(buffersPerRegion * bufferSize);
+                return sliceAllocatedBuffer(region, buffersPerRegion, bufferSize);
+            } finally {
+                directBuffers.add(region);
             }
-            region = allocator.allocate(buffersPerRegion * bufferSize);
-            return sliceAllocatedBuffer(region, buffersPerRegion, bufferSize);
         }
         return sliceAllocatedBuffer(
                 allocator.allocate(buffersPerRegion * bufferSize),
