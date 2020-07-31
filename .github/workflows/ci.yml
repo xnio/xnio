@@ -12,25 +12,13 @@ jobs:
     name: Compile (no tests) with JDK 8
     runs-on: ubuntu-latest
     steps:
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/cache@v1
-      with:
-        path: ~/.m2/repository
-        key: m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-            m2-
     - uses: actions/checkout@v2
-    - name: Host information
-      run: netstat -anp
-      shell: bash
-    - name: Set up JDK 8
-      uses: joschi/setup-jdk@v2
+    - uses: AdoptOpenJDK/install-jdk@v1
+      name: Install JDK 8
       with:
-        java-version: 8
+        version: 8    
     - name: Build
-      run: mvn -U -B -fae -DskipTests -Dfindbugs clean install
+      run: mvn -U -B -fae -DskipTests clean install
     - name: Tar Maven Repo
       shell: bash
       run: tar -czf maven-repo.tgz -C ~ .m2/repository
@@ -52,14 +40,9 @@ jobs:
       fail-fast: false
       matrix:
         module: [api, nio-impl]
-        os: [ubuntu-20.04, windows-latest]
+        os: [ubuntu-20.04, windows-latest, macos-latest]
         jdk: [8, 11]
-        openjdk_impl: [openjdk, openj9]
-        exclude:
-          - os: ubuntu-20.04
-            jdk: 11
-          - os: windows-latest
-            jdk: 11
+        openjdk_impl: [hotspot, openj9]
     steps:
     - name: Configure runner - Linux 
       if: contains(matrix.os, 'ubuntu')
@@ -68,20 +51,30 @@ jobs:
         sudo bash -c "echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> /etc/hosts"
         sudo apt-get update
         sudo apt-get install openssl net-tools -y
+        sudo sysctl -w net.ipv4.ip_local_port_range="13000 64000"
+        sudo sysctl -w net.ipv4.tcp_tw_reuse=0
     - name: Configure Runner - Windows
       if: contains(matrix.os, 'windows')
       run: |
-        echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' >	%SystemRoot%\System32\drivers\etc\hosts
+        echo '127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' > %SystemRoot%\System32\drivers\etc\hosts
         echo '::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' >> %SystemRoot%\System32\drivers\etc\hosts
         choco install openssl --version=1.1.1.4 -y
+        refreshenv
       shell: cmd
+    - name: Configure Runner - OSX
+      if: contains(matrix.os, 'macos')
+      run: |
+        brew update
+        brew install openssl
+        brew link --force openssl
+        export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"
+        echo 'export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"' >> /Users/runner/.bash_profile
+        openssl version -a
+        which openssl
     - name: Run netstat (pre)
       if: always()
-      run: netstat -anp
+      run: netstat -an
       shell: bash
-    - uses: n1hility/cancel-previous-runs@v2
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v2
     - name: Download Maven Repo
       uses: actions/download-artifact@v1
@@ -92,10 +85,10 @@ jobs:
       shell: bash
       run: tar -xzf maven-repo.tgz -C ~
     - name: Set up JDK ${{ matrix.java }}
-      uses: joschi/setup-jdk@v2
+      uses: AdoptOpenJDK/install-jdk@v1
       with:
-        java-version: ${{ matrix.jdk }}
-        openjdk_impl: ${{ matrix.jdk_impl }}
+        version: ${{ matrix.jdk }}
+        impl: ${{ matrix.jdk_impl }}
     - name: Run Tests
       run: mvn -U -B -fae test -pl ${{ matrix.module }}
     - uses: actions/upload-artifact@v2
@@ -105,4 +98,4 @@ jobs:
         path: '**/surefire-reports/*.txt'
     - name: Run netstat (post)
       if: always()
-      run: netstat -anp
+      run: netstat -an
