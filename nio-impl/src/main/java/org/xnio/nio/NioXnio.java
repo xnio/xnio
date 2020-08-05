@@ -246,6 +246,13 @@ final class NioXnio extends Xnio {
         return super.createFileSystemWatcher(name, options);
     }
 
+    @Override
+    protected void handleThreadExit() {
+        log.tracef("Invoke selectorThreadLocal.remove() on Thread [%s] exits", Thread.currentThread().getName());
+        selectorThreadLocal.remove();
+        super.handleThreadExit();
+    }
+
     private final ThreadLocal<FinalizableSelectorHolder> selectorThreadLocal = new ThreadLocal<FinalizableSelectorHolder>() {
         public void remove() {
             // if no selector was created, none will be closed
