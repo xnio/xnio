@@ -43,6 +43,11 @@ jobs:
         os: [ubuntu-20.04, windows-latest, macos-latest]
         jdk: [8, 11]
         openjdk_impl: [hotspot, openj9]
+        exclude:
+          - os: macos-latest
+            openjdk_impl: openj9
+          - os: windows-latest
+            openjdk_impl: openj9
     steps:
     - name: Configure runner - Linux 
       if: contains(matrix.os, 'ubuntu')
