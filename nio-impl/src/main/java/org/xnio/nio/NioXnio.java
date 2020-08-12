@@ -30,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import org.xnio.FileSystemWatcher;
 import org.xnio.IoUtils;
 import org.xnio.Options;
-import org.xnio.ReadPropertyAction;
 import org.xnio.Xnio;
 import org.xnio.OptionMap;
 import org.xnio.XnioWorker;
@@ -244,6 +243,13 @@ final class NioXnio extends Xnio {
             //ignore
         }
         return super.createFileSystemWatcher(name, options);
+    }
+
+    @Override
+    protected void handleThreadExit() {
+        log.tracef("Invoke selectorThreadLocal.remove() on Thread [%s] exits", Thread.currentThread().getName());
+        selectorThreadLocal.remove();
+        super.handleThreadExit();
     }
 
     private final ThreadLocal<FinalizableSelectorHolder> selectorThreadLocal = new ThreadLocal<FinalizableSelectorHolder>() {
