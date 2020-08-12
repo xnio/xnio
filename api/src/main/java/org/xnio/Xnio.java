@@ -494,6 +494,12 @@ public abstract class Xnio {
         return new PollingFileSystemWatcher(name, pollInterval, daemonThread);
     }
 
+    /**
+     * Implement tasks that will be executed on thread exits if a task worker
+     * thread is initialized through {@code XnioWorker$WorkerThreadFactory}.
+     */
+    protected void handleThreadExit() {}
+
     //==================================================
     //
     // General methods
