@@ -413,7 +413,7 @@ public class HttpUpgrade {
                             channel.resumeReads();
                             return;
                         } else if (r == -1) {
-                            throw msg.connectionClosedEarly();
+                            throw new ConnectionClosedEarlyException(msg.connectionClosedEarly().getMessage());
                         }
                         buffer.flip();
                         parser.parse(buffer);
