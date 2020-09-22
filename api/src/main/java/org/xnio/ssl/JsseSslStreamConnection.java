@@ -39,7 +39,7 @@ import org.xnio.conduits.StreamSourceConduit;
 
 /**
  * StreamConnection with SSL support.
- * 
+ *
  * @author <a href="mailto:frainone@redhat.com">Flavia Rainone</a>
  *
  */
@@ -120,6 +120,13 @@ public final class JsseSslStreamConnection extends SslConnection {
             } catch (IOException e) {
                 safeClose(connection);
                 throw e;
+            }
+        } else {
+            //still need to close the engine, as it is allocated eagerly
+            try {
+                sslConduitEngine.closeInbound();
+            } finally {
+                sslConduitEngine.closeOutbound();
             }
         }
         connection.close();
