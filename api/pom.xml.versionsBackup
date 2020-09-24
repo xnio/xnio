@@ -23,25 +23,22 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <name>XNIO NIO Implementation</name>
-    <description>The NIO implementation of the XNIO project</description>
-    <artifactId>xnio-nio</artifactId>
+    <artifactId>xnio-api</artifactId>
     <packaging>jar</packaging>
+    <name>XNIO API</name>
+    <description>The API JAR of the XNIO project</description>
+    <url>http://www.jboss.org/xnio</url>
+
+    <properties>
+        <skip.enforcer>false</skip.enforcer>
+        <test.level>INFO</test.level>
+    </properties>
 
     <parent>
         <groupId>org.jboss.xnio</groupId>
         <artifactId>xnio-all</artifactId>
-        <version>3.7.11.Final</version>
+        <version>3.7.11.Final-SNAPSHOT</version>
     </parent>
-    
-    <properties>
-        <test.level>INFO</test.level>
-        <xnio.nio.old-locking>false</xnio.nio.old-locking>
-        <xnio.nio.selector.main/>
-        <xnio.nio.selector.temp/>
-        <xnio.nio.selector.provider/>
-        <xnio.nio.alt-queued-server>true</xnio.nio.alt-queued-server>
-    </properties>
 
     <dependencies>
         <dependency>
@@ -51,9 +48,26 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.jboss.logmanager</groupId>
+            <artifactId>jboss-logmanager</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.jboss.logging</groupId>
             <artifactId>jboss-logging-processor</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly.common</groupId>
+            <artifactId>wildfly-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly.client</groupId>
+            <artifactId>wildfly-client-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.threads</groupId>
+            <artifactId>jboss-threads</artifactId>
         </dependency>
         <dependency>
             <groupId>org.jboss.logging</groupId>
@@ -61,14 +75,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.xnio</groupId>
-            <artifactId>xnio-api</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.core</artifactId>
-            <optional>true</optional>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -76,8 +86,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.logmanager</groupId>
-            <artifactId>jboss-logmanager</artifactId>
+            <groupId>org.jmock</groupId>
+            <artifactId>jmock</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jmock</groupId>
+            <artifactId>jmock-junit4</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -102,6 +117,7 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
     <build>
         <resources>
             <resource>
@@ -111,21 +127,34 @@
         </resources>
         <plugins>
             <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
+                <groupId>org.jboss.bridger</groupId>
+                <artifactId>bridger</artifactId>
+                <version>${version.bridger.plugin}</version>
+                <executions>
+                    <!-- run after "compile", runs bridger on main classes -->
+                    <execution>
+                        <id>weave</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>transform</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
+                    <excludes>
+                        <exclude>java/**</exclude>
+                    </excludes>
                     <archive>
                         <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-            <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>${version.surefire.plugin}</version>
                 <configuration>
                     <systemProperties>
                         <property>
@@ -137,40 +166,29 @@
                             <value>${test.level}</value>
                         </property>
                         <property>
-                            <name>xnio.nio.selector.main</name>
-                            <value>${xnio.nio.selector.main}</value>
-                        </property>
-                        <property>
-                            <name>xnio.nio.selector.temp</name>
-                            <value>${xnio.nio.selector.temp}</value>
-                        </property>
-                        <property>
-                            <name>xnio.nio.selector.provider</name>
-                            <value>${xnio.nio.selector.provider}</value>
-                        </property>
-                        <property>
-                            <name>xnio.nio.old-locking</name>
-                            <value>${xnio.nio.old-locking}</value>
-                        </property>
-                        <property>
                             <name>org.xnio.ssl.new</name>
                             <value>${org.xnio.ssl.new}</value>
                         </property>
-                        <property>
-                            <name>xnio.nio.alt-queued-server</name>
-                            <value>${xnio.nio.alt-queued-server}</value>
-                        </property>
                     </systemProperties>
+                    <includes>
+                        <include>**/*TestCase.java</include>
+                    </includes>
                     <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
-                    <trimStackTrace>false</trimStackTrace>
-                    <reuseForks>false</reuseForks>
+                    <argLine>-Djdk.attach.allowAttachSelf</argLine>
                 </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
                     <additionalparam>-Xdoclint:none</additionalparam>
+                    <doctitle><![CDATA[XNIO API ]]>${project.version}</doctitle>
+                    <header><![CDATA[XNIO API ]]>${project.version}</header>
+                    <footer><![CDATA[XNIO API ]]>${project.version}</footer>
+                    <bottom><![CDATA[<i>Copyright &#169; 2017 JBoss, a division of Red Hat, Inc.</i>]]></bottom>
+                    <links>
+                        <link>https://docs.oracle.com/javase/8/docs/api/</link>
+                    </links>
                 </configuration>
             </plugin>
             <plugin>
@@ -183,15 +201,15 @@
                         <Jar-Name>${project.artifactId}</Jar-Name>
                         <Export-Package>
                             !*._private,
-                            org.xnio.nio*;version=${project.version}
+                            org.xnio*;version=${project.version}
                         </Export-Package>
                         <Import-Package>
+                            sun.misc*;resolution:=optional,
                             *
                         </Import-Package>
-                        <Provide-Capability>
-                            osgi.service;objectClass=org.xnio.Xnio;name=xnio
-                        </Provide-Capability>
-                        <Bundle-Activator>org.xnio.nio.OsgiActivator</Bundle-Activator>
+                        <Require-Capability>
+                            osgi.service;effective:=active;filter:="(objectClass=org.xnio.Xnio)"
+                        </Require-Capability>
                     </instructions>
                 </configuration>
                 <executions>
