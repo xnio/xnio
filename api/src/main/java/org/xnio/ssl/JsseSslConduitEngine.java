@@ -885,9 +885,11 @@ final class JsseSslConduitEngine {
             return;
         }
         try {
-            synchronized(getWrapLock()) {
-                if (! doFlush()) {
-                    throw msg.unflushedData();
+            if (!isFirstHandshake()) {
+                synchronized (getWrapLock()) {
+                    if (!doFlush()) {
+                        throw msg.unflushedData();
+                    }
                 }
             }
         } finally {
@@ -905,7 +907,7 @@ final class JsseSslConduitEngine {
     public void closeOutbound() throws IOException {
         int old = setFlags(WRITE_SHUT_DOWN);
         try {
-            if (allAreClear(old, WRITE_SHUT_DOWN)) {
+            if (allAreClear(old, WRITE_SHUT_DOWN | FIRST_HANDSHAKE)) {
                 engine.closeOutbound();
                 synchronized (getWrapLock()) {
                     wrapCloseMessage();
@@ -1019,9 +1021,14 @@ final class JsseSslConduitEngine {
                 sourceConduit.terminateReads();
             }
             if (allAreSet(old, WRITE_SHUT_DOWN) && !allAreSet(old, WRITE_COMPLETE)) {
-                synchronized (getWrapLock()) {
-                    wrapCloseMessage();
-                    flush();
+                if (isFirstHandshake()) {
+                    setFlags(WRITE_COMPLETE);
+                    closeEngine();
+                } else {
+                    synchronized (getWrapLock()) {
+                        wrapCloseMessage();
+                        flush();
+                    }
                 }
             }
             if (allAreSet(old, WRITE_COMPLETE)) {
