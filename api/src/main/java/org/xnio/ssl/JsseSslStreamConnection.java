@@ -123,11 +123,7 @@ public final class JsseSslStreamConnection extends SslConnection {
             }
         } else {
             //still need to close the engine, as it is allocated eagerly
-            try {
-                sslConduitEngine.closeInbound();
-            } finally {
-                sslConduitEngine.closeOutbound();
-            }
+            sslConduitEngine.close();
         }
         connection.close();
     }
