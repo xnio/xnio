@@ -931,6 +931,32 @@ final class JsseSslConduitEngine {
     }
 
     /**
+     * Closes the engine for both inbound and outbound connection, and discards this engine's internal
+     * resources immediately without handshaking if this engine has not been used.
+     *
+     * @throws IOException
+     */
+    void close() throws IOException {
+        if (isFirstHandshake()) {
+            setFlags(WRITE_SHUT_DOWN|WRITE_COMPLETE|READ_SHUT_DOWN);
+            closeEngine();
+        } else {
+            try {
+                closeInbound();
+            } catch (Throwable t) {
+                try {
+                    closeOutbound();
+                } catch (Throwable t2) {
+                    t2.addSuppressed(t);
+                    throw t2;
+                }
+                throw t;
+            }
+            closeOutbound();
+        }
+    }
+
+    /**
      * Indicates if outbound is closed.
      * 
      * @throws IOException if an IO exception occurs
