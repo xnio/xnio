@@ -39,6 +39,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipFile;
+
+import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.XMLStreamWriter;
+
 import org.xnio.channels.SuspendableReadChannel;
 
 import java.util.logging.Handler;
@@ -258,6 +262,38 @@ public final class IoUtils {
      * @param resource the resource to close
      */
     public static void safeClose(final Handler resource) {
+        try {
+            if (resource != null) {
+                closeMsg.closingResource(resource);
+                resource.close();
+            }
+        } catch (Throwable t) {
+            closeMsg.resourceCloseFailed(t, resource);
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final XMLStreamReader resource) {
+        try {
+            if (resource != null) {
+                closeMsg.closingResource(resource);
+                resource.close();
+            }
+        } catch (Throwable t) {
+            closeMsg.resourceCloseFailed(t, resource);
+        }
+    }
+
+    /**
+     * Close a resource, logging an error if an error occurs.
+     *
+     * @param resource the resource to close
+     */
+    public static void safeClose(final XMLStreamWriter resource) {
         try {
             if (resource != null) {
                 closeMsg.closingResource(resource);

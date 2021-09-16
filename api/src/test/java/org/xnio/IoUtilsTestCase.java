@@ -56,6 +56,10 @@ import java.util.logging.LogRecord;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.XMLStreamWriter;
+import javax.xml.stream.XMLStreamException;
+
 import junit.framework.TestCase;
 
 import org.xnio.IoFuture.Status;
@@ -269,6 +273,20 @@ public final class IoUtilsTestCase extends TestCase {
             @Override public void flush() {}
         });
         IoUtils.safeClose((Handler) null);         // should do nothing if target is null
+    }
+
+    public void testSafeCloseXMLStreamReader() throws IOException {
+        IoUtils.safeClose(new XMLStreamReaderTestImpl(RuntimeException.class));
+        IoUtils.safeClose(new XMLStreamReaderTestImpl(Error.class));
+        IoUtils.safeClose(new XMLStreamReaderTestImpl(XMLStreamException.class));
+        IoUtils.safeClose((XMLStreamReader) null);         // should do nothing if target is null
+    }
+
+    public void testSafeCloseXMLStreamWriter() throws IOException {
+        IoUtils.safeClose(new XMLStreamWriterTestImpl(RuntimeException.class));
+        IoUtils.safeClose(new XMLStreamWriterTestImpl(Error.class));
+        IoUtils.safeClose(new XMLStreamWriterTestImpl(XMLStreamException.class));
+        IoUtils.safeClose((XMLStreamWriter) null);         // should do nothing if target is null
     }
 
     public void testSafeCloseIoFuture() {
