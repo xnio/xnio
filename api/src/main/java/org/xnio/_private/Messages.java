@@ -336,13 +336,13 @@ public interface Messages extends BasicLogger {
     @LogMessage(level = ERROR)
     void exceptionHandlerException(@Cause Throwable cause);
 
-    @Message(id = 1009, value = "Failed to accept a connection on %s: %s")
+    @Message(id = 1009, value = "Failed to accept a connection on %s")
     @LogMessage(level = ERROR)
-    void acceptFailed(AcceptingChannel<? extends ConnectedChannel> channel, IOException reason);
+    void acceptFailed(AcceptingChannel<? extends ConnectedChannel> channel, @Cause IOException reason);
 
-    @Message(id = 1010, value = "Failed to submit task to executor: %s (closing %s)")
+    @Message(id = 1010, value = "Failed to submit task to executor: (closing %s)")
     @LogMessage(level = ERROR)
-    void executorSubmitFailed(RejectedExecutionException cause, Channel channel);
+    void executorSubmitFailed(@Cause RejectedExecutionException cause, Channel channel);
 
     // Trace
 
