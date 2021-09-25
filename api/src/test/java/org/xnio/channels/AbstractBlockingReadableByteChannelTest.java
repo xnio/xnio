@@ -278,7 +278,7 @@ public abstract class AbstractBlockingReadableByteChannelTest<T extends Scatteri
     @Test
     public void readBlocksUntilTimeoutWithBytearray5() throws Exception {
         final T blockingChannel = createBlockingReadableByteChannel(channelMock);
-        setReadTimeout(blockingChannel, 30000, TimeUnit.MICROSECONDS);
+        setReadTimeout(blockingChannel, 300000, TimeUnit.MICROSECONDS);
         final ReadToBufferArray readRunnable = new ReadToBufferArray(blockingChannel);
         final Thread readThread = new Thread(readRunnable);
         readThread.start();

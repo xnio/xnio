@@ -127,7 +127,7 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
 
     @Test
     public void writeBlocksUntilTimeout3() throws Exception {
-        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 30000000, TimeUnit.NANOSECONDS);
+        final T blockingChannel = createBlockingWritableByteChannel(channelMock, 0, TimeUnit.NANOSECONDS, 300000000, TimeUnit.NANOSECONDS);
         final Write writeRunnable = new Write(blockingChannel, "write... this");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
@@ -305,7 +305,7 @@ public abstract class AbstractBlockingWritableByteChannelTest<T extends Gatherin
     @Test
     public void writeBufferArrayBlocksUntilTimeout5() throws Exception {
         final T blockingChannel = createBlockingWritableByteChannel(channelMock);
-        setWriteTimeout(blockingChannel, 2, TimeUnit.MICROSECONDS);
+        setWriteTimeout(blockingChannel, 20000, TimeUnit.MICROSECONDS);
         final WriteBufferArray writeRunnable = new WriteBufferArray(blockingChannel, "2", "microseconds");
         final Thread writeThread = new Thread(writeRunnable);
         writeThread.start();
