@@ -244,7 +244,7 @@ final class NioXnioWorker extends XnioWorker {
 
     void checkShutdown() throws ClosedWorkerException {
         if (isShutdown())
-            throw log.workerShutDown();
+            throw log.workerShutDown(this);
     }
 
     void closeResource() {

@@ -81,8 +81,8 @@ interface Log extends BasicLogger {
 
     InterruptedIOException interruptedIO(@Field int bytesTransferred);
 
-    @Message(id = 815, value = "Worker is shut down")
-    ClosedWorkerException workerShutDown();
+    @Message(id = 815, value = "Worker is shut down: %s")
+    ClosedWorkerException workerShutDown(NioXnioWorker worker);
 
     // Unsupported implementation operations - cross-check with xnio-api
 
