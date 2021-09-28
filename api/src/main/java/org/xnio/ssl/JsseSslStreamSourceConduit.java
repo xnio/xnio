@@ -142,20 +142,21 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
 
     @Override
     public void terminateReads() throws IOException {
-        if (tls) {
-            try {
-                sslEngine.closeInbound();
-            } catch (IOException ex) {
-                try {
-                    super.terminateReads();
-                } catch (IOException e2) {
-                    e2.addSuppressed(ex);
-                    throw e2;
-                }
-                throw ex;
-            }
+        if (!tls) {
+            super.terminateReads();
+            return;
         }
-        super.terminateReads();
+        try {
+            sslEngine.closeInbound();
+        } catch (IOException ex) {
+            try {
+                super.terminateReads();
+            } catch (IOException e2) {
+                e2.addSuppressed(ex);
+                throw e2;
+            }
+            throw ex;
+        }
     }
 
     @Override
