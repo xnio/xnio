@@ -471,7 +471,6 @@ final class JsseSslConduitEngine {
                         // and flush any wrapped data we may have left
                         if (doFlush()) {
                             if (result.getStatus() == SSLEngineResult.Status.CLOSED) {
-                                closeOutbound();
                                 return false;
                             }
                             if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true) || !doFlush()) {
