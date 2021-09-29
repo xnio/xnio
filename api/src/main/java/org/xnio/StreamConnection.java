@@ -18,6 +18,8 @@
 
 package org.xnio;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
@@ -30,12 +32,18 @@ import static org.xnio._private.Messages.msg;
  * A connection between peers.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
+ * @author Flavia Rainone
  */
 public abstract class StreamConnection extends Connection implements CloseListenerSettable<StreamConnection> {
 
+    /**
+     * An empty listener used as a flag, to indicate that close listener has been invoked.
+     */
+    private static final ChannelListener<? super StreamConnection> INVOKED_CLOSE_LISTENER_FLAG = (StreamConnection connection)->{};
+
     private ConduitStreamSourceChannel sourceChannel;
     private ConduitStreamSinkChannel sinkChannel;
-    private ChannelListener<? super StreamConnection> closeListener;
+    private AtomicReference<ChannelListener<? super StreamConnection>> closeListener;
 
     /**
      * Construct a new instance.
@@ -44,18 +52,40 @@ public abstract class StreamConnection extends Connection implements CloseListen
      */
     protected StreamConnection(final XnioIoThread thread) {
         super(thread);
+        closeListener = new AtomicReference<>();
     }
 
     public void setCloseListener(final ChannelListener<? super StreamConnection> listener) {
-        this.closeListener = listener;
+        ChannelListener<? super StreamConnection> currentListener;
+        ChannelListener<? super StreamConnection> newListener;
+        do {
+            newListener = listener;
+            currentListener = closeListener.get();
+            if (currentListener != null) {
+                // channel is closed, just invoke the new listener and do not update closeListener
+                if (currentListener == INVOKED_CLOSE_LISTENER_FLAG) {
+                    ChannelListeners.invokeChannelListener(this, listener);
+                    return;
+                } else {
+                    newListener = mergeListeners(currentListener, listener);
+                }
+            }
+        } while (!closeListener.compareAndSet(currentListener, newListener));
+    }
+
+    private final ChannelListener<? super StreamConnection> mergeListeners(final ChannelListener<? super StreamConnection> listener1, final ChannelListener<? super StreamConnection> listener2) {
+        return (StreamConnection channel) -> {
+            listener1.handleEvent(channel);
+            listener2.handleEvent(channel);
+        };
     }
 
     public ChannelListener<? super StreamConnection> getCloseListener() {
-        return closeListener;
+        return closeListener.get();
     }
 
     public ChannelListener.Setter<? extends StreamConnection> getCloseSetter() {
-        return new Setter<StreamConnection>(this);
+        return new Setter<>(this);
     }
 
     /**
@@ -77,7 +107,9 @@ public abstract class StreamConnection extends Connection implements CloseListen
     }
 
     void invokeCloseListener() {
-        ChannelListeners.invokeChannelListener(this, closeListener);
+        // use a flag to indicate that closeListener has been invoked
+        final ChannelListener<? super StreamConnection> listener = closeListener.getAndSet(INVOKED_CLOSE_LISTENER_FLAG);
+        ChannelListeners.invokeChannelListener(this, listener);
     }
 
     private static <T> T notNull(T orig) throws IllegalStateException {
