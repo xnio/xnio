@@ -929,23 +929,18 @@ final class JsseSslConduitEngine {
      * @throws IOException
      */
     void close() throws IOException {
-        if (isFirstHandshake()) {
-            setFlags(WRITE_SHUT_DOWN|WRITE_COMPLETE|READ_SHUT_DOWN);
-            closeEngine();
-        } else {
+        try {
+            closeInbound();
+        } catch (Throwable t) {
             try {
-                closeInbound();
-            } catch (Throwable t) {
-                try {
-                    closeOutbound();
-                } catch (Throwable t2) {
-                    t2.addSuppressed(t);
-                    throw t2;
-                }
-                throw t;
+                closeOutbound();
+            } catch (Throwable t2) {
+                t2.addSuppressed(t);
+                throw t2;
             }
-            closeOutbound();
+            throw t;
         }
+        closeOutbound();
     }
 
     /**
