@@ -20,7 +20,9 @@ package org.xnio.nio.test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
+import java.security.GeneralSecurityException;
 
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.xnio.ChannelListener;
 import org.xnio.IoFuture;
@@ -66,6 +68,11 @@ public class NioSslTcpConnectionTestCase extends AbstractNioSslTcpTest<SslConnec
         }
     }
 
+    @Before
+    public void initXnioSsl() throws GeneralSecurityException {
+        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
+    }
+
     @Override
     protected AcceptingChannel<? extends SslConnection> createServer(XnioWorker worker, InetSocketAddress address,
             ChannelListener<AcceptingChannel<SslConnection>> openListener, OptionMap optionMap) throws IOException {
@@ -107,11 +114,5 @@ public class NioSslTcpConnectionTestCase extends AbstractNioSslTcpTest<SslConnec
     @Override
     protected void shutdownWrites(SslConnection connection) throws IOException {
         connection.getSinkChannel().shutdownWrites();
-    }
-
-    @Override
-    protected void doConnectionTest(final Runnable body, final ChannelListener<? super SslConnection> clientHandler, final ChannelListener<? super SslConnection> serverHandler) throws Exception {
-        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
-        super.doConnectionTest(body,  clientHandler, serverHandler);
     }
 }

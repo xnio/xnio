@@ -436,13 +436,23 @@ public class XnioWorkerTestCase {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<StreamConnection> channelListener = new TestChannelListener<StreamConnection>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-        final IoFuture<StreamConnection> connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
-        final IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+        IoFuture<StreamConnection> connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+        IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
 
         assertNotNull(connectionFuture1);
         assertNotNull(connection2);
 
         connectionFuture1.cancel();
+
+        // we were beaten, couldn't cancel the connection future
+        while (connectionFuture1.getStatus() != IoFuture.Status.CANCELLED) {
+            StreamConnection connection1 = connectionFuture1.get();
+            assertNotNull(connection1);
+            connection2.get().close();
+            // try again once more
+            connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+            connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+        }
 
         CancellationException expected = null;
         try {
@@ -466,13 +476,24 @@ public class XnioWorkerTestCase {
         final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<ConnectedStreamChannel> channelListener = new TestChannelListener<ConnectedStreamChannel>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-        final IoFuture<ConnectedStreamChannel> channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
-        final IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
+        IoFuture<ConnectedStreamChannel> channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+        IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
 
         assertNotNull(connectedStreamChannel);
         assertNotNull(channelFuture);
 
         channelFuture.cancel();
+
+        // we were beaten, couldn't cancel the channel future
+        while (channelFuture.getStatus() != IoFuture.Status.CANCELLED) {
+            ConnectedStreamChannel channel = channelFuture.get();
+            assertNotNull(channel);
+            connectedStreamChannel.get().close();
+            channel.close();
+            // try again once more
+            channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY).cancel();
+            connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
+        }
 
         CancellationException expected = null;
         try {
