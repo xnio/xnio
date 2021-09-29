@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.xnio.ChannelListener;
@@ -69,6 +70,11 @@ public class NioSslBufferExpansionTcpChannelTestCase extends
         }
     }
 
+    @Before
+    public void initXnioSsl() throws Exception {
+        xnioSsl = Xnio.getInstance("nio", NioSslBufferExpansionTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
+    }
+
     @SuppressWarnings("deprecation")
     @Override
     protected AcceptingChannel<? extends ConnectedSslStreamChannel> createServer(XnioWorker worker, InetSocketAddress address,
@@ -114,9 +120,6 @@ public class NioSslBufferExpansionTcpChannelTestCase extends
         channel.shutdownWrites();
     }
 
-    @Override
-    protected void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedSslStreamChannel> clientHandler, final ChannelListener<? super ConnectedSslStreamChannel> serverHandler) throws Exception {
-        xnioSsl = Xnio.getInstance("nio", NioSslBufferExpansionTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
-        super.doConnectionTest(body,  clientHandler, serverHandler);
-    }
+    @Override @Ignore
+    public void serverClose() {}
 }
