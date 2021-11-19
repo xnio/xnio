@@ -67,10 +67,6 @@ public final class JsseSslConnection extends SslConnection {
         }
     }
 
-    protected void notifyWriteClosed() {}
-
-    protected void notifyReadClosed() {}
-
     public SocketAddress getPeerAddress() {
         return streamConnection.getPeerAddress();
     }
