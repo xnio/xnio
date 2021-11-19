@@ -254,8 +254,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                     cnt = target.write(src, position);
                     if (cnt == rem) {
                         // we emptied our buffer
-                        channel = next;
-                        buffer.free();
+                        moveToNext();
                     } else {
                         return cnt;
                     }
@@ -263,7 +262,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                     count -= cnt;
                 }
             } catch (IllegalStateException ignored) {
-                channel = next;
+                moveToNext();
                 cnt = 0L;
             }
             return cnt + next.transferTo(position, count, target);
@@ -289,14 +288,13 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                     cnt = target.write(src);
                     if (cnt == rem) {
                         // we emptied our buffer
-                        channel = next;
-                        buffer.free();
+                        moveToNext();
                     } else {
                         return cnt;
                     }
                 }
             } catch (IllegalStateException ignored) {
-                channel = next;
+                moveToNext();
                 cnt = 0L;
             }
             final long res = next.transferTo(count - cnt, throughBuffer, target);
@@ -318,7 +316,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                     return cnt;
                 }
             } catch (IllegalStateException ignored) {
-                channel = next;
+                moveToNext();
                 cnt = 0;
             }
             final long res = next.read(dsts, offset, length);
@@ -340,14 +338,13 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                 if (src.hasRemaining()) {
                     return cnt;
                 }
-                final StreamSourceChannel next = channel = this.next;
-                buffer.free();
+                final StreamSourceChannel next = moveToNext();
                 if (cnt > 0 && next == firstChannel) {
                     // don't hit the main channel until the user wants to
                     return cnt;
                 }
             } catch (IllegalStateException ignored) {
-                channel = next;
+                moveToNext();
                 cnt = 0;
             }
             final int res = next.read(dst);
@@ -426,6 +423,11 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
 
         public <T> T setOption(final Option<T> option, final T value) throws IllegalArgumentException, IOException {
             throw new UnsupportedOperationException();
+        }
+
+        private final StreamSourceChannel moveToNext() {
+            buffer.free();
+            return channel = next;
         }
     }
 }
