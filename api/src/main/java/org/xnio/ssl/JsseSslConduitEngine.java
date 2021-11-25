@@ -903,6 +903,8 @@ final class JsseSslConduitEngine {
      * @throws IOException if an IO exception occurs
      */
     public void closeOutbound() throws IOException {
+        if (isOutboundClosed()) //idempotent
+            return;
         int old = setFlags(WRITE_SHUT_DOWN);
         try {
             if (allAreClear(old, WRITE_SHUT_DOWN)) {
@@ -925,7 +927,7 @@ final class JsseSslConduitEngine {
             if(e instanceof IOException) {
                 throw (IOException) e;
             } else {
-                throw (RuntimeException)e;
+                throw (RuntimeException) e;
             }
         }
     }
