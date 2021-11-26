@@ -17,9 +17,6 @@
  */
 package org.xnio.nio.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -28,11 +25,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Superclass for all ssl tcp test cases.
@@ -165,6 +166,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                                     log.info("client closing connection");
                                     clientOK.set(true);
                                     channel.close();
+                                    //sourceChannel.shutdownReads();
                                     return;
                                 }
                                 return;
@@ -204,6 +206,7 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
                                 if (c == -1) {
                                     log.info("server closing connection");
                                     channel.close();
+                                    //sourceChannel.shutdownReads();
                                     serverOK.set(true);
                                 }
                             } catch (Throwable t) {
@@ -411,4 +414,20 @@ public abstract class AbstractNioSslTcpTest<T extends ConnectedChannel, R extend
         assertEquals(clientSent.get(), serverReceived.get());
     }
 
+
+    @Test
+    public void closeConnectionWithoutHandshake() throws Exception {
+        log.info("Test: closeConnectionWithoutHandshake");
+        final CountDownLatch latch = new CountDownLatch(2);
+        doConnectionTest(() -> log.info("Do nothing, go ahead and close it"), channel -> {
+            channel.getCloseSetter().set((ChannelListener<ConnectedChannel>) channel1 -> latch.countDown());
+            setReadListener(channel, sourceChannel -> log.info("client read event"));
+            setWriteListener(channel, sinkChannel -> log.info("client write event"));
+        }, channel -> {
+            channel.getCloseSetter().set((ChannelListener<ConnectedChannel>) channel12 -> latch.countDown());
+            setReadListener(channel, sourceChannel -> log.info("server read event"));
+            setWriteListener(channel, sinkChannel -> log.info("server write event"));
+        });
+        Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
+    }
 }

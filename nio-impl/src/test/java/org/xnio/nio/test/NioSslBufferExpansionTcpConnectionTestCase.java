@@ -21,7 +21,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 
+import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.xnio.ChannelListener;
 import org.xnio.IoFuture;
 import org.xnio.OptionMap;
@@ -68,6 +70,11 @@ public class NioSslBufferExpansionTcpConnectionTestCase extends
         }
     }
 
+    @Before
+    public void initXnioSsl() throws Exception {
+        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
+    }
+
     @Override
     protected AcceptingChannel<? extends SslConnection> createServer(XnioWorker worker, InetSocketAddress address,
             ChannelListener<AcceptingChannel<SslConnection>> openListener, OptionMap optionMap) throws IOException {
@@ -108,12 +115,10 @@ public class NioSslBufferExpansionTcpConnectionTestCase extends
 
     @Override
     protected void shutdownWrites(SslConnection connection) throws IOException {
+        log.info("server shutting down writes on " + connection.getSinkChannel());
         connection.getSinkChannel().shutdownWrites();
     }
 
-    @Override
-    protected void doConnectionTest(final Runnable body, final ChannelListener<? super SslConnection> clientHandler, final ChannelListener<? super SslConnection> serverHandler) throws Exception {
-        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
-        super.doConnectionTest(body,  clientHandler, serverHandler);
-    }
+    @Override @Ignore
+    public void serverClose() {}
 }

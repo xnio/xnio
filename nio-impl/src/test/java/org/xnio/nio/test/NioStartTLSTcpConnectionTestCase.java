@@ -58,7 +58,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
 
     @Test
     public void oneWayTransfer3() throws Exception {
-        log.info("Test: oneWayTransfer");
+        log.info("Test: oneWayTransfer3");
         final CountDownLatch latch = new CountDownLatch(2);
         final AtomicInteger clientSent = new AtomicInteger(0);
         final AtomicInteger serverReceived = new AtomicInteger(0);
@@ -377,6 +377,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                             }
                             if (c == -1) {
                                 log.info("client shutdown reads");
+                                //sourceChannel.shutdownReads();
                                 connection.close();
                             }
                         } catch (Throwable t) {
@@ -419,7 +420,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                 try {
                                                     if (sinkChannel.flush()) {
                                                         try {
-                                                            log.info("client closing channel");
+                                                            log.info("client shutdown writes on " + sinkChannel);
                                                             sinkChannel.shutdownWrites();
                                                         } catch (Throwable t) {
                                                             t.printStackTrace();
@@ -475,6 +476,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                             }
                             if (c == -1) {
                                 log.info("server shutdown reads");
+                                //sourceChannel.shutdownReads();
                                 connection.close();
                             }
                         } catch (Throwable t) {
@@ -497,7 +499,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                 }
                                 return false;
                             }
-                            if (clientHandshakeStarted.get()) {
+                            if (serverHandshakeStarted.get()) {
                                 return true;
                             }
                             return false;
@@ -519,7 +521,7 @@ public class NioStartTLSTcpConnectionTestCase extends NioSslTcpConnectionTestCas
                                                 try {
                                                     if (sinkChannel.flush()) {
                                                         try {
-                                                            log.info("server closing channel");
+                                                            log.info("server shutdown writes");
                                                             sinkChannel.shutdownWrites();
                                                         } catch (Throwable t) {
                                                             t.printStackTrace();
