@@ -21,7 +21,9 @@ package org.xnio.nio.test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
+import java.security.GeneralSecurityException;
 
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.xnio.ChannelListener;
 import org.xnio.IoFuture;
@@ -64,6 +66,11 @@ public class NioSslTcpChannelTestCase extends AbstractNioSslTcpTest<ConnectedSsl
         if (System.getProperty(TRUST_STORE_PASSWORD_PROPERTY) == null) {
             System.setProperty(TRUST_STORE_PASSWORD_PROPERTY, DEFAULT_KEY_STORE_PASSWORD);
         }
+    }
+
+    @Before
+    public void initXnioSsl() throws GeneralSecurityException {
+        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
     }
 
     @SuppressWarnings("deprecation")
@@ -109,11 +116,5 @@ public class NioSslTcpChannelTestCase extends AbstractNioSslTcpTest<ConnectedSsl
     @Override
     protected void shutdownWrites(ConnectedSslStreamChannel channel) throws IOException {
         channel.shutdownWrites();
-    }
-
-    @Override
-    protected void doConnectionTest(final Runnable body, final ChannelListener<? super ConnectedSslStreamChannel> clientHandler, final ChannelListener<? super ConnectedSslStreamChannel> serverHandler) throws Exception {
-        xnioSsl = Xnio.getInstance("nio", NioSslTcpChannelTestCase.class.getClassLoader()).getSslProvider(OptionMap.EMPTY);
-        super.doConnectionTest(body,  clientHandler, serverHandler);
     }
 }

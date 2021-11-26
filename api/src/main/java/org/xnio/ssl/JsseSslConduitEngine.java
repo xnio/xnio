@@ -19,22 +19,17 @@
 
 package org.xnio.ssl;
 
-import static java.lang.Thread.currentThread;
-import static java.util.concurrent.locks.LockSupport.park;
-import static java.util.concurrent.locks.LockSupport.parkNanos;
-import static java.util.concurrent.locks.LockSupport.unpark;
-import static org.xnio.Bits.allAreClear;
-import static org.xnio.Bits.allAreSet;
-import static org.xnio.Bits.anyAreSet;
-import static org.xnio.Bits.intBitMask;
-import static org.xnio._private.Messages.msg;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
+import static java.lang.Thread.currentThread;
+import static java.util.concurrent.locks.LockSupport.park;
+import static java.util.concurrent.locks.LockSupport.parkNanos;
+import static java.util.concurrent.locks.LockSupport.unpark;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
@@ -45,13 +40,17 @@ import javax.net.ssl.SSLSession;
 
 import org.jboss.logging.Logger;
 
-import org.xnio.BufferAllocator;
 import org.xnio.Buffers;
-import org.xnio.ByteBufferSlicePool;
 import org.xnio.Pool;
 import org.xnio.Pooled;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
+
+import static org.xnio.Bits.allAreClear;
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.Bits.anyAreSet;
+import static org.xnio.Bits.intBitMask;
+import static org.xnio._private.Messages.msg;
 
 /**
  * {@link SSLEngine} wrapper, used by Jsse SSL conduits.
@@ -472,7 +471,6 @@ final class JsseSslConduitEngine {
                         // and flush any wrapped data we may have left
                         if (doFlush()) {
                             if (result.getStatus() == SSLEngineResult.Status.CLOSED) {
-                                closeOutbound();
                                 return false;
                             }
                             if (!handleWrapResult(result = engineWrap(Buffers.EMPTY_BYTE_BUFFER, buffer), true) || !doFlush()) {
@@ -780,9 +778,6 @@ final class JsseSslConduitEngine {
         int oldState, newState;
         oldState = stateUpdater.get(this);
         if (allAreSet(oldState, WRITE_COMPLETE)) {
-            if (engine.isOutboundDone()) {
-                connection.writeClosed();
-            }
             return true;
         }
         synchronized (getWrapLock()) {
@@ -791,9 +786,6 @@ final class JsseSslConduitEngine {
                     return false;
                 }
             } else {
-                if (engine.isOutboundDone()) {
-                    connection.writeClosed();
-                }
                 return true;
             }
         }
@@ -802,19 +794,13 @@ final class JsseSslConduitEngine {
         while (! stateUpdater.compareAndSet(this, oldState, newState)) {
             oldState = stateUpdater.get(this);
             if (allAreSet(oldState, WRITE_COMPLETE)) {
-                if (engine.isOutboundDone()) {
-                    connection.writeClosed();
-                }
-                return true;//sinkConduit.flush();
+                return true;
             }
             newState = oldState | WRITE_COMPLETE;
         }
         // close the engine if read is shut down
         if (allAreSet(oldState, READ_SHUT_DOWN)) {
             closeEngine();
-        }
-        if (engine.isOutboundDone()) {
-            connection.writeClosed();
         }
         return true;
     }
@@ -891,6 +877,10 @@ final class JsseSslConduitEngine {
                 }
             }
         } finally {
+            sourceConduit.terminateReads();
+            sinkConduit.terminateWrites();
+            connection.readClosed();
+            connection.writeClosed();
             readBuffer.free();
             receiveBuffer.free();
             sendBuffer.free();
@@ -906,15 +896,15 @@ final class JsseSslConduitEngine {
         if (isOutboundClosed()) //idempotent
             return;
         int old = setFlags(WRITE_SHUT_DOWN);
+        boolean sentCloseMessage = true;
         try {
             if (allAreClear(old, WRITE_SHUT_DOWN)) {
                 engine.closeOutbound();
                 synchronized (getWrapLock()) {
-                    wrapCloseMessage();
-                    flush();
+                    sentCloseMessage = wrapCloseMessage() && flush();
                 }
             }
-            if (!allAreClear(old, READ_SHUT_DOWN)) {
+            if (!allAreClear(old, READ_SHUT_DOWN) && sentCloseMessage) {
                 closeEngine();
             }
         } catch (Exception e) {
@@ -939,23 +929,18 @@ final class JsseSslConduitEngine {
      * @throws IOException
      */
     void close() throws IOException {
-        if (isFirstHandshake()) {
-            setFlags(WRITE_SHUT_DOWN|WRITE_COMPLETE|READ_SHUT_DOWN);
-            closeEngine();
-        } else {
+        try {
+            closeInbound();
+        } catch (Throwable t) {
             try {
-                closeInbound();
-            } catch (Throwable t) {
-                try {
-                    closeOutbound();
-                } catch (Throwable t2) {
-                    t2.addSuppressed(t);
-                    throw t2;
-                }
-                throw t;
+                closeOutbound();
+            } catch (Throwable t2) {
+                t2.addSuppressed(t);
+                throw t2;
             }
-            closeOutbound();
+            throw t;
         }
+        closeOutbound();
     }
 
     /**
@@ -1040,19 +1025,15 @@ final class JsseSslConduitEngine {
      * @throws IOException if an IO exception occurs
      */
     public void closeInbound() throws IOException {
-        connection.readClosed();
         int old = setFlags(READ_SHUT_DOWN);
+        boolean sentCloseMessage = true;
         try {
-            if (allAreClear(old, READ_SHUT_DOWN)) {
-                sourceConduit.terminateReads();
-            }
             if (allAreSet(old, WRITE_SHUT_DOWN) && !allAreSet(old, WRITE_COMPLETE)) {
                 synchronized (getWrapLock()) {
-                    wrapCloseMessage();
-                    flush();
+                    sentCloseMessage = wrapCloseMessage() && flush();
                 }
             }
-            if (allAreSet(old, WRITE_COMPLETE)) {
+            if (allAreSet(old, WRITE_COMPLETE) && sentCloseMessage) {
                 closeEngine();
             }
         } catch (Exception e) {

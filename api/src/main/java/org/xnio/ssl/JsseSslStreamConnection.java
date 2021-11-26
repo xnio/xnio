@@ -17,18 +17,18 @@
  */
 package org.xnio.ssl;
 
-import static org.xnio.IoUtils.safeClose;
-
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
 
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
+import org.xnio.Connection;
 import org.xnio.Option;
 import org.xnio.Options;
 import org.xnio.Pool;
@@ -36,6 +36,9 @@ import org.xnio.SslClientAuthMode;
 import org.xnio.StreamConnection;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
+
+import static org.xnio.Bits.allAreSet;
+import static org.xnio.IoUtils.safeClose;
 
 /**
  * StreamConnection with SSL support.
@@ -62,6 +65,16 @@ public final class JsseSslStreamConnection extends SslConnection {
      */
     private final ChannelListener.SimpleSetter<SslConnection> handshakeSetter = new ChannelListener.SimpleSetter<SslConnection>();
 
+    @SuppressWarnings("unused")
+    private volatile int state;
+
+    private static final int FLAG_READ_CLOSE_REQUESTED           = 0b0001;
+    private static final int FLAG_WRITE_CLOSE_REQUESTED          = 0b0010;
+    private static final int FLAG_READ_CLOSED                    = 0b0100;
+    private static final int FLAG_WRITE_CLOSED                   = 0b1000;
+
+    private static final AtomicIntegerFieldUpdater<JsseSslStreamConnection> stateUpdater = AtomicIntegerFieldUpdater.newUpdater(JsseSslStreamConnection.class, "state");
+
     public JsseSslStreamConnection(StreamConnection connection, SSLEngine sslEngine, final boolean startTls) {
         this(connection, sslEngine, JsseXnioSsl.bufferPool, JsseXnioSsl.bufferPool, startTls);
     }
@@ -75,6 +88,8 @@ public final class JsseSslStreamConnection extends SslConnection {
         tls = ! startTls;
         setSinkConduit(new JsseSslStreamSinkConduit(sinkConduit, sslConduitEngine, tls));
         setSourceConduit(new JsseSslStreamSourceConduit(sourceConduit, sslConduitEngine, tls));
+        getSourceChannel().setCloseListener(channel -> readClosed());
+        getSinkChannel().setCloseListener(channel -> writeClosed());
     }
 
     /** {@inheritDoc} */
@@ -104,28 +119,33 @@ public final class JsseSslStreamConnection extends SslConnection {
     /** {@inheritDoc} */
     @Override
     protected void closeAction() throws IOException {
-        if (tls) {
-            try {
-                getSinkChannel().getConduit().truncateWrites();
-            } catch (IOException e) {
+        // when invoked from the outside world, like an attempt to close the connection
+        // we need to first invoke close on the engine
+        // when the engine is closed, it will invoke closeAction again, then we enter else block below
+        if (!sslConduitEngine.isClosed())
+            sslConduitEngine.close();
+        else {
+            if (tls) {
+                try {
+                    getSinkChannel().getConduit().terminateWrites();
+                } catch (IOException e) {
+                    try {
+                        getSourceChannel().getConduit().terminateReads();
+                    } catch (IOException ignored) {
+                    }
+                    safeClose(connection);
+                    throw e;
+                }
                 try {
                     getSourceChannel().getConduit().terminateReads();
-                } catch (IOException ignored) {
+                } catch (IOException e) {
+                    safeClose(connection);
+                    throw e;
                 }
-                safeClose(connection);
-                throw e;
+                super.closeAction();
             }
-            try {
-                getSourceChannel().getConduit().terminateReads();
-            } catch (IOException e) {
-                safeClose(connection);
-                throw e;
-            }
-        } else {
-            //still need to close the engine, as it is allocated eagerly
-            sslConduitEngine.close();
+            connection.close();
         }
-        connection.close();
     }
 
     /** {@inheritDoc} */
@@ -189,11 +209,64 @@ public final class JsseSslStreamConnection extends SslConnection {
     }
 
     protected boolean readClosed() {
-        return super.readClosed();
+        final boolean closeRequestedNow;
+        synchronized(this) {
+            int oldVal, newVal;
+            do {
+                oldVal = state;
+                if (allAreSet(oldVal, FLAG_READ_CLOSE_REQUESTED)) {
+                    break;
+                }
+                newVal = oldVal | FLAG_READ_CLOSE_REQUESTED;
+            } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+            closeRequestedNow = allAreSet(oldVal, FLAG_READ_CLOSE_REQUESTED);
+            if (sslConduitEngine.isClosed() || !tls/* || sslConduitEngine.isFirstHandshake()*/) {
+                do {
+                    oldVal = state;
+                    if (allAreSet(oldVal, FLAG_READ_CLOSED)) {
+                        return false;
+                    }
+                    newVal = oldVal | FLAG_READ_CLOSED;
+                } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+                if (allAreSet(oldVal, FLAG_READ_CLOSED)) {
+                    return false;
+                }
+            } else return closeRequestedNow;
+        }
+        // invoke super.readClosed when we know that engine is closed, with previous state check we make sure we don't invoke this twice
+        super.readClosed();
+        return closeRequestedNow;
     }
 
     protected boolean writeClosed() {
-        return super.writeClosed();
+        final boolean closeRequestedNow;
+        synchronized(this) {
+            int oldVal, newVal;
+            do {
+                oldVal = state;
+                if (allAreSet(oldVal, FLAG_WRITE_CLOSE_REQUESTED)) {
+                    break;
+                }
+                newVal = oldVal | FLAG_WRITE_CLOSE_REQUESTED;
+            } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+            closeRequestedNow = allAreSet(oldVal, FLAG_WRITE_CLOSE_REQUESTED);
+            if (sslConduitEngine.isClosed()  || !tls/* || sslConduitEngine.isFirstHandshake()*/) {
+                do {
+                    oldVal = state;
+                    if (allAreSet(oldVal, FLAG_WRITE_CLOSED)) {
+                        return false;
+                    }
+                    newVal = oldVal | FLAG_WRITE_CLOSED;
+                } while (! stateUpdater.compareAndSet(this, oldVal, newVal));
+                if (allAreSet(oldVal, FLAG_WRITE_CLOSED)) {
+                    return false;
+                }
+            } else return closeRequestedNow;
+        }
+        // invoke super.writeClosed when we know that engine is closed, with previous state check we make sure we don't invoke this twice,
+        // and we also get the appropriate return value, that is independent if we internally invoke writeClosed or not
+        super.writeClosed();
+        return closeRequestedNow;
     }
 
     /**
@@ -205,5 +278,19 @@ public final class JsseSslStreamConnection extends SslConnection {
             return;
         }
         ChannelListeners.<SslConnection>invokeChannelListener(this, listener);
+    }
+
+    @Override
+    public boolean isReadShutdown() {
+        return allAreSet(state, FLAG_READ_CLOSE_REQUESTED);
+    }
+
+    /**
+     * Determine whether writes have been shut down on this connection.
+     *
+     * @return {@code true} if writes were shut down
+     */
+    public boolean isWriteShutdown() {
+        return allAreSet(state, FLAG_WRITE_CLOSE_REQUESTED);
     }
 }

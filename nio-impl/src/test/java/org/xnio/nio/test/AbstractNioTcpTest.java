@@ -17,16 +17,10 @@
  */
 package org.xnio.nio.test;
 
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,6 +47,9 @@ import org.xnio.channels.BoundChannel;
 import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.StreamSinkChannel;
 import org.xnio.channels.StreamSourceChannel;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Abstract test for TCP connected channels.
@@ -174,6 +172,36 @@ public abstract class AbstractNioTcpTest<T extends ConnectedChannel, R extends S
             public void run() {
             }
         }, null, ChannelListeners.closingChannelListener());
+    }
+
+    @Test
+    public void closeWorker() throws Exception {
+        log.info("Test: closeWorker");
+        final Xnio xnio = Xnio.getInstance("nio", AbstractNioTcpTest.class.getClassLoader());
+        final XnioWorker worker;
+        if (threads == 1) {
+            worker = xnio.createWorker(OptionMap.create(Options.READ_TIMEOUT, 10000, Options.WRITE_TIMEOUT, 10000));
+        } else {
+            worker = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, threads));
+        }
+        CountDownLatch latch = new CountDownLatch(2);
+        ChannelListener<? super T> handler = connection -> {
+            connection.getCloseSetter().set((ChannelListener) connection1 -> latch.countDown());
+        };
+        try {
+            final AcceptingChannel<? extends T> server = startServer(worker, handler);
+            try {
+                final IoFuture<? extends T> ioFuture = connect(worker,
+                        new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT),
+                        new CatchingChannelListener<T>(handler, problems), null, clientOptionMap);
+                ioFuture.get();
+            } finally {
+                IoUtils.safeClose(server);
+            }
+        } finally {
+            worker.shutdown();
+            worker.awaitTermination(1L, TimeUnit.MINUTES);
+        }
     }
 
     @Test

@@ -79,8 +79,17 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
         if ((!sslEngine.isDataAvailable() && sslEngine.isInboundClosed()) || sslEngine.isClosed()) {
             return -1;
         }
+        final boolean attemptToUnwrapFirst;
+        synchronized(sslEngine.getUnwrapLock()) {
+            attemptToUnwrapFirst = sslEngine.getUnwrapBuffer().remaining() > 0;
+        }
+        if (attemptToUnwrapFirst) {
+            final int unwrapResult = sslEngine.unwrap(dst);
+            if (unwrapResult > 0) {
+                return unwrapResult;
+            }
+        }
         final int readResult;
-        final int unwrapResult;
         synchronized(sslEngine.getUnwrapLock()) {
             final ByteBuffer unwrapBuffer = sslEngine.getUnwrapBuffer().compact();
             try {
@@ -89,7 +98,7 @@ final class JsseSslStreamSourceConduit extends AbstractStreamSourceConduit<Strea
                 unwrapBuffer.flip();
             }
         }
-        unwrapResult = sslEngine.unwrap(dst);
+        final int unwrapResult = sslEngine.unwrap(dst);
         if (unwrapResult == 0 && readResult == -1) {
             terminateReads();
             return -1;
