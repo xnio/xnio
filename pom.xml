@@ -113,6 +113,12 @@
                 <groupId>org.wildfly.client</groupId>
                 <artifactId>wildfly-client-config</artifactId>
                 <version>${version.org.wildfly.client-config}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.wildfly.common</groupId>
+                        <artifactId>wildfly-common</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.osgi</groupId>
