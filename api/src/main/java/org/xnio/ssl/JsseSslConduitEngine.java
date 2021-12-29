@@ -1207,7 +1207,7 @@ final class JsseSslConduitEngine {
     public boolean isDataAvailable() {
         synchronized (getUnwrapLock()) {
             try {
-                return readBuffer.getResource().hasRemaining() || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
+                return readBuffer.getResource().position() > 0 || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
             } catch (IllegalStateException ignored) {
                 return false;
             }
