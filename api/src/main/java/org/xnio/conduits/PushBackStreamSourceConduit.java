@@ -111,6 +111,17 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             next.wakeupReads();
         }
 
+        public void terminateReads() throws IOException {
+            try {
+                super.terminateReads();
+            } finally {
+                if (pooledBuffer != null) {
+                    pooledBuffer.free();
+                }
+                next.terminateReads();
+            }
+        }
+
         public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
             // readable
         }
@@ -131,14 +142,13 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                 if (src.hasRemaining()) {
                     return cnt;
                 }
-                current = next;
-                pooledBuffer.free();
+                moveToNext();
                 if (cnt > 0 && next == PushBackStreamSourceConduit.this.next) {
                     // don't hit the main channel until the user wants to
                     return cnt;
                 }
             } catch (IllegalStateException ignored) {
-                current = next;
+                moveToNext();
                 cnt = 0;
             }
             final int res = next.read(dst);
@@ -154,14 +164,13 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                 if (src.hasRemaining()) {
                     return cnt;
                 }
-                current = next;
-                pooledBuffer.free();
+                moveToNext();
                 if (cnt > 0L && next == PushBackStreamSourceConduit.this.next) {
                     // don't hit the main channel until the user wants to
                     return cnt;
                 }
             } catch (IllegalStateException ignored) {
-                current = next;
+                moveToNext();
                 cnt = 0;
             }
             final long res = next.read(dsts, offs, len);
@@ -186,8 +195,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                     cnt = target.write(src, position);
                     if (cnt == rem) {
                         // we emptied our buffer
-                        current = next;
-                        pooledBuffer.free();
+                        moveToNext();
                     } else {
                         return cnt;
                     }
@@ -195,7 +203,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                     count -= cnt;
                 }
             } catch (IllegalStateException ignored) {
-                current = next;
+                moveToNext();
                 cnt = 0L;
             }
             return cnt + next.transferTo(position, count, target);
@@ -231,8 +239,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                     cnt = target.write(src);
                     if (cnt == rem) {
                         // we emptied our buffer
-                        current = next;
-                        pooledBuffer.free();
+                        moveToNext();
                     } else {
                         if (cnt == 0) {
                             //a bit yuck, but if we have filed to copy anything we need to transfer data into the throughbuffer
@@ -249,11 +256,16 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
                     }
                 }
             } catch (IllegalStateException ignored) {
-                current = next;
+                moveToNext();
                 cnt = 0L;
             }
             final long res = next.transferTo(count - cnt, throughBuffer, target);
             return res > 0L ? cnt + res : cnt > 0L ? cnt : res;
+        }
+
+        private final void moveToNext() {
+            current = next;
+            pooledBuffer.free();
         }
     }
 }
