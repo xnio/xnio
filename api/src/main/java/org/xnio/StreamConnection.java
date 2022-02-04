@@ -18,6 +18,7 @@
 
 package org.xnio;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.xnio.channels.CloseListenerSettable;
@@ -78,6 +79,23 @@ public abstract class StreamConnection extends Connection implements CloseListen
             listener1.handleEvent(channel);
             listener2.handleEvent(channel);
         };
+    }
+
+    @Override protected void notifyReadClosed() {
+
+        try {
+            this.getSourceChannel().shutdownReads();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override protected void notifyWriteClosed() {
+        try {
+            this.getSinkChannel().shutdownWrites();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public ChannelListener<? super StreamConnection> getCloseListener() {
