@@ -25,7 +25,7 @@
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
-        <version>35</version>
+        <version>39</version>
     </parent>
 
     <groupId>org.jboss.xnio</groupId>
@@ -49,15 +49,15 @@
     </modules>
 
     <properties>
-        <byteman-version>4.0.8</byteman-version>
-        <version.org.jboss.logging.jboss-logging>3.4.1.Final</version.org.jboss.logging.jboss-logging>
+        <byteman-version>4.0.18</byteman-version>
+        <version.org.jboss.logging.jboss-logging>3.4.3.Final</version.org.jboss.logging.jboss-logging>
         <version.org.jboss.logging.jboss-logging-tools>2.2.1.Final</version.org.jboss.logging.jboss-logging-tools>
-        <version.org.jboss.logmanager.jboss-logmanager>2.1.14.Final</version.org.jboss.logmanager.jboss-logmanager>
-        <version.org.jboss.threads>2.3.3.Final</version.org.jboss.threads>
-        <version.org.wildfly.common>1.5.2.Final</version.org.wildfly.common>
+        <version.org.jboss.logmanager.jboss-logmanager>2.1.18.Final</version.org.jboss.logmanager.jboss-logmanager>
+        <version.org.jboss.threads>2.3.6.Final</version.org.jboss.threads>
+        <version.org.wildfly.common>1.5.4.Final</version.org.wildfly.common>
         <version.org.wildfly.client-config>1.0.1.Final</version.org.wildfly.client-config>
-        <version.bridger.plugin>1.5.Final</version.bridger.plugin>
-        <version.junit>4.12</version.junit>
+        <version.bridger.plugin>1.6.Final</version.bridger.plugin>
+        <version.junit>4.13.2</version.junit>
         <version.jmock>2.12.0</version.jmock>
         <org.xnio.ssl.new>false</org.xnio.ssl.new>
 
