@@ -747,7 +747,7 @@ final class JsseSslConduitEngine {
                 }
             }
             case CLOSED: {
-                // if unwrap processed any data, it should return bytes produced instead of -1
+                // if unwrap processed any data, it should return bytes consumed instead of -1
                 if (result.bytesConsumed() > 0) {
                     return result.bytesConsumed();
                 }
