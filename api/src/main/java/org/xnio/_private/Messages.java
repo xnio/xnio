@@ -43,6 +43,7 @@ import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 import org.xnio.IoFuture;
+import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.channels.ConcurrentStreamChannelAccessException;
 import org.xnio.channels.ConnectedChannel;
@@ -361,4 +362,12 @@ public interface Messages extends BasicLogger {
     @Message(value = "Expanded buffer enabled due to overflow with empty buffer, expanded buffer size is %s")
     @LogMessage(level = TRACE)
     void expandedSslBufferEnabled(int bufferSize);
+
+    @Message(value = "Notify read closed for connection %s failed")
+    @LogMessage(level = TRACE)
+    void connectionNotifyReadClosedFailed(@Cause Throwable cause, StreamConnection connection);
+
+    @Message(value = "Notify write closed for connection %s failed")
+    @LogMessage(level = TRACE)
+    void connectionNotifyWriteClosedFailed(@Cause Throwable cause, StreamConnection connection);
 }
