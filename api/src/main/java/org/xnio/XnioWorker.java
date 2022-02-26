@@ -1188,6 +1188,8 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
         }
 
         public XnioWorker build() {
+            log.debugf("Creating worker:%s, pool size:%s, max pool size:%s, keep alive:%s, io threads:%s, stack size:%s", 
+                workerName, coreWorkerPoolSize, maxWorkerPoolSize, workerKeepAlive, workerIoThreads, workerStackSize);
             return xnio.build(this);
         }
     }
