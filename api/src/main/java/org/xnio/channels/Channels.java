@@ -1095,7 +1095,7 @@ public final class Channels {
                 final String osName = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
                 try {
                     if (osName.contains("windows")) {
-                        return new FileOutputStream("NUL:").getChannel();
+                        return new FileOutputStream("NUL").getChannel();
                     } else {
                         return new FileOutputStream("/dev/null").getChannel();
                     }
