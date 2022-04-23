@@ -691,7 +691,19 @@ final class JsseSslConduitEngine {
             buffer.flip();
         }
         log.logf(FQCN, Logger.Level.TRACE, null, "Unwrapping %s into %s", buffer, unwrappedBuffer);
-        return engine.unwrap(buffer, unwrappedBuffer);
+        try {
+            return engine.unwrap(buffer, unwrappedBuffer);
+        } catch (SSLHandshakeException e) {
+            // see XNIO-406 (TODO once the JDK bug is solved, remove this catch block)
+            // ugly hack. I tried to check for buffer has remaining in previous if block (after read attempt), such as
+            // if (!buffer.hasRemaining() && !engine.isInboundDone() && !engine.isOutboundDone() && engine.getDelegatedTask() == null) {
+            //      return new SSLEngineResult(...)
+            // but that breaks other tests (for some known reasons), so it appears that the only workaround for now is catching the exception
+            if (e.getMessage().startsWith("Insufficient buffer remaining for AEAD cipher fragment (2).")) {
+                return new SSLEngineResult(SSLEngineResult.Status.BUFFER_UNDERFLOW, HandshakeStatus.NEED_UNWRAP,0, 0);
+            }
+            throw e;
+        }
     }
 
     /**
