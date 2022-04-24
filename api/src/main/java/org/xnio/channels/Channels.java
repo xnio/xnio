@@ -995,6 +995,7 @@ public final class Channels {
                     }
                     total += lres;
                     count -= lres;
+                    position += lres;
                 }
                 // jump out quick if we drained the fast way
                 if (total > 0L) return total;
