@@ -20,7 +20,6 @@
 package org.xnio.mock;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -49,32 +48,25 @@ import org.xnio.channels.StreamSourceChannel;
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  */
-public class ConnectedStreamChannelMock implements ConnectedStreamChannel, StreamSourceChannel, StreamSinkChannel, Mock{
+public class ConnectedStreamChannelMock extends ReadableByteChannelMock implements ConnectedStreamChannel, StreamSourceChannel, StreamSinkChannel, Mock {
 
+    private OptionMap optionMap;
+    private Thread readWaiter;
     // written stuff will be copied to this buffer
-    private ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
-    // read stuff will be taken from this buffer
-    private ByteBuffer readBuffer = ByteBuffer.allocate(10000);
-    // read stuff can only be read if read is enabled
-    private boolean readEnabled;
+    private final ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
     // can only write when write is enabled
     private boolean writeEnabled = true;
-    // indicates if this channel is closed
-    private boolean closed = false;
-    private boolean checkClosed = true;
     private boolean writeResumed = false;
     private boolean writeAwaken = false;
     private boolean readAwaken = false;
     private boolean readResumed = false;
     private boolean readsDown = false;
     private boolean writesDown = false;
-    private boolean allowShutdownWrites = true;
+    private final boolean allowShutdownWrites = true;
     private boolean flushed = true;
     private boolean flushEnabled = true;
-    private boolean eof = false;
     private XnioWorker worker = new XnioWorkerMock();
-    private XnioIoThread executor = new XnioIoThreadMock(null);
-    private Thread readWaiter;
+    private final XnioIoThread executor = new XnioIoThreadMock(null);
     private Thread writeWaiter;
     private ChannelListener<? super ConnectedStreamChannel> readListener;
     private ChannelListener<? super ConnectedStreamChannel> writeListener;
@@ -82,27 +74,26 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     private String info = null; // any extra information regarding this channel used by tests
 
     // listener setters
-    private final ChannelListener.Setter<ConnectedStreamChannel> readListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+    private final Setter<ConnectedStreamChannel> readListenerSetter = new Setter<ConnectedStreamChannel>() {
         @Override
         public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
             readListener = listener;
         }
     };
 
-    private final ChannelListener.Setter<ConnectedStreamChannel> writeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+    private final Setter<ConnectedStreamChannel> writeListenerSetter = new Setter<ConnectedStreamChannel>() {
         @Override
         public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
             writeListener = listener;
         }
     };
 
-    private final ChannelListener.Setter<ConnectedStreamChannel> closeListenerSetter = new ChannelListener.Setter<ConnectedStreamChannel>() {
+    private final Setter<ConnectedStreamChannel> closeListenerSetter = new Setter<ConnectedStreamChannel>() {
         @Override
         public void set(ChannelListener<? super ConnectedStreamChannel> listener) {
             closeListener = listener;
         }
     };
-
 
     /**
      * Feeds {@code readData} to read clients.
@@ -110,91 +101,21 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
      */
     public void setReadData(String... readData) {
         final Thread waiter;
-
         synchronized (this) {
-            int totalLength = 0;
-        for (String data: readData) {
-            totalLength += data.length();
-        }
-        int position = readBuffer.position();
-        boolean resetPosition = false;
-        if (!readBuffer.hasRemaining()) {
-            readBuffer.compact();
-        } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-            if (readBuffer.capacity() - readBuffer.limit() < totalLength) {
-                if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() >= totalLength) {
-                    readBuffer.compact();
-                }
-                throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
+            int totalLength = super.doSetReadData(readData);
+            if (readWaiter == null || totalLength == 0 || !readEnabled) {
+                return;
             }
-            int limit = readBuffer.limit();
-            readBuffer.position(limit);
-            readBuffer.limit(limit += totalLength);
-            resetPosition = true;
-        }
-        for (String data: readData) {
-            try {
-                readBuffer.put(data.getBytes("UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        readBuffer.flip();
-        if (resetPosition) {
-            readBuffer.position(position);
-        }
-        
-        if (readWaiter == null || totalLength == 0 || !readEnabled) {
-            return;
-        }
-        waiter = readWaiter;
-        readWaiter = null;
+            waiter = readWaiter;
+            readWaiter = null;
         }
         LockSupport.unpark(waiter);
     }
 
-    /**
-     * Feeds {@code readData} to read clients.
-     * @param readData data that will be available for reading on this channel mock
-     */
     public void setReadDataWithLength(String... readData) {
         final Thread waiter;
         synchronized (this) {
-            if (eof == true) {
-                throw new IllegalStateException("Cannot add read data once eof is set");
-            }
-            int totalLength = 0;
-            for (String data: readData) {
-                totalLength += data.length();
-            }
-            int position = readBuffer.position();
-            boolean resetPosition = false;
-            if (!readBuffer.hasRemaining()) {
-                readBuffer.compact();
-            } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-                if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
-                    if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
-                        readBuffer.compact();
-                    }
-                    throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
-                }
-                int limit = readBuffer.limit();
-                readBuffer.position(limit);
-                readBuffer.limit(limit += totalLength + 4);
-                resetPosition = true;
-            }
-            readBuffer.putInt(totalLength);
-            for (String data: readData) {
-                try {
-                    readBuffer.put(data.getBytes("UTF-8"));
-                } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            readBuffer.flip();
-            if (resetPosition) {
-                readBuffer.position(position);
-            }
+            int totalLength = doSetReadDataWithLength(readData);
             if (readWaiter == null || totalLength == 0 || !readEnabled) {
                 return;
             }
@@ -203,48 +124,10 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         LockSupport.unpark(waiter);
     }
 
-    /**
-     * Feeds {@code readData} to read clients.
-     * @param readData data that will be available for reading on this channel mock
-     */
     public void setReadDataWithLength(int length, String... readData) {
         final Thread waiter;
         synchronized (this) {
-            if (eof == true) {
-                throw new IllegalStateException("Cannot add read data once eof is set");
-            }
-            int totalLength = 0;
-            for (String data: readData) {
-                totalLength += data.length();
-            }
-            int position = readBuffer.position();
-            boolean resetPosition = false;
-            if (!readBuffer.hasRemaining()) {
-                readBuffer.compact();
-            } else if(readBuffer.position() > 0 || readBuffer.limit() != readBuffer.capacity()) {
-                if (readBuffer.capacity() - readBuffer.limit() + 4 < totalLength) {
-                    if (readBuffer.position() > 0 && readBuffer.capacity() - readBuffer.limit() + readBuffer.position() + 4 >= totalLength) {
-                        readBuffer.compact();
-                    }
-                    throw new RuntimeException("ReadBuffer is full - not enough space to add more read data");
-                }
-                int limit = readBuffer.limit();
-                readBuffer.position(limit);
-                readBuffer.limit(limit += totalLength + 4);
-                resetPosition = true;
-            }
-            readBuffer.putInt(length);
-            for (String data: readData) {
-                try {
-                    readBuffer.put(data.getBytes("UTF-8"));
-                } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            readBuffer.flip();
-            if (resetPosition) {
-                readBuffer.position(position);
-            }
+            int totalLength = doSetReadDataWithLength(length, readData);
             if (readWaiter == null || totalLength == 0 || !readEnabled) {
                 return;
             }
@@ -256,7 +139,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     public void setEof() {
         final Thread waiter;
         synchronized (this) {
-            eof = true;
+            super.setEof();
             if (readWaiter == null || !readEnabled) {
                 return;
             }
@@ -265,10 +148,27 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         LockSupport.unpark(waiter);
     }
 
+    /**
+     * Returns all the bytes that have been written to this channel mock.
+     *
+     * @return the written bytes in the form of a UTF-8 string
+     */
+    public String getWrittenText() {
+        if (writeBuffer.position() == 0 && writeBuffer.limit() == writeBuffer.capacity()) {
+            return "";
+        }
+        writeBuffer.flip();
+        return Buffers.getModifiedUtf8(writeBuffer);
+    }
+
+    public ByteBuffer getWrittenBytes() {
+        return writeBuffer;
+    }
+
     public void enableRead(boolean enable) {
         final Thread waiter;
         synchronized (this) {
-            readEnabled = enable;
+            super.enableRead(enable);
             if (readWaiter == null || !readEnabled || !((readBuffer.hasRemaining() && readBuffer.limit() != readBuffer.capacity()) || eof)) {
                 return;
             }
@@ -288,44 +188,9 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         }
     }
 
-    public synchronized void enableClosedCheck(boolean enable) {
-        checkClosed = enable;
-    }
-
-    /**
-     * Returns all the bytes that have been written to this channel mock.
-     * 
-     * @return the written bytes in the form of a UTF-8 string
-     */
-    public String getWrittenText() {
-        if (writeBuffer.position() == 0 && writeBuffer.limit() == writeBuffer.capacity()) {
-            return "";
-        }
-        writeBuffer.flip();
-        return Buffers.getModifiedUtf8(writeBuffer);
-    }
-    
-    public ByteBuffer getWrittenBytes() {
-        return writeBuffer;
-    }
-
-    @Override
-    public void close() throws IOException {
-        closed = true;
-        shutdownWrites();
-        shutdownReads();
-    }
-
-    @Override
-    public boolean isOpen() {
-        return !closed;
-    }
-
-    private OptionMap optionMap; 
-
     @Override
     public boolean supportsOption(Option<?> option) {
-        return optionMap == null? false: optionMap.contains(option);
+        return optionMap != null && optionMap.contains(option);
     }
 
     @Override
@@ -374,9 +239,8 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     @Override
     public void shutdownReads() throws IOException {
         readsDown = true;
-        return;
     }
-    
+
     public boolean isShutdownReads() {
         return readsDown;
     }
@@ -457,14 +321,13 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         writesDown = true;
         final Thread waiter;
         synchronized (this) {
-            eof = true;
+            super.setEof();
             if (readWaiter == null) {
                 return;
             }
             waiter = readWaiter;
         }
         LockSupport.unpark(waiter);
-        return;
     }
 
     public boolean isShutdownWrites() {
@@ -611,28 +474,6 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     }
 
     @Override
-    public synchronized int read(ByteBuffer dst) throws IOException {
-        if (closed && checkClosed) {
-            throw new ClosedChannelException();
-        }
-        if (readEnabled) {
-            try {
-                if ((!readBuffer.hasRemaining() || readBuffer.position() == 0 && readBuffer.limit() == readBuffer.capacity()) && eof) {
-                    return -1;
-                }
-                if (readBuffer.limit() == readBuffer.capacity() && readBuffer.position() == 0) {
-                    return 0;
-                }
-                return Buffers.copy(dst, readBuffer);
-            } catch (RuntimeException e) {
-                System.out.println("Got exception at attempt of copying contents of dst "+ dst.remaining()  +  " into read buffer " + readBuffer.remaining());
-                throw e;
-            }
-        }
-        return 0;
-    }
-
-    @Override
     public synchronized long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
         if (closed && checkClosed) {
             throw new ClosedChannelException();
@@ -648,7 +489,7 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
         }
         return 0;
     }
-    
+
     public synchronized boolean allReadDataConsumed() {
         return readBuffer.position() == readBuffer.limit();
     }
@@ -790,4 +631,12 @@ public class ConnectedStreamChannelMock implements ConnectedStreamChannel, Strea
     public void setInfo(String i) {
         info = i;
     }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        shutdownWrites();
+        shutdownReads();
+    }
+
 }

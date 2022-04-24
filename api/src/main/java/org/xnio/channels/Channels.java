@@ -910,7 +910,7 @@ public final class Channels {
             if (count == 0L) return total;
             if (NULL_FILE_CHANNEL != null) {
                 while (count > 0) {
-                    if ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) == 0L) {
+                    if ((lres = channel.transferTo(0, count, NULL_FILE_CHANNEL)) <= 0L) {
                         break;
                     }
                     total += lres;
@@ -950,7 +950,7 @@ public final class Channels {
                 if (count == 0L) return total;
                 if (NULL_FILE_CHANNEL != null) {
                     while (count > 0) {
-                        if ((lres = NULL_FILE_CHANNEL.transferFrom(channel, 0, count)) == 0L) {
+                        if ((lres = NULL_FILE_CHANNEL.transferFrom(channel, 0, count)) <= 0L) {
                             break;
                         }
                         total += lres;
@@ -990,7 +990,7 @@ public final class Channels {
             if (count == 0L) return total;
             if (NULL_FILE_CHANNEL != null) {
                 while (count > 0) {
-                    if ((lres = channel.transferTo(position, count, NULL_FILE_CHANNEL)) == 0L) {
+                    if ((lres = channel.transferTo(position, count, NULL_FILE_CHANNEL)) <= 0L) {
                         break;
                     }
                     total += lres;
