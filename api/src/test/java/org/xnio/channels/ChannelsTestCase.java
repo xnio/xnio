@@ -19,24 +19,10 @@
 
 package org.xnio.channels;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.xnio.AssertReadWrite.assertReadMessage;
-import static org.xnio.AssertReadWrite.assertWrittenMessage;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.util.concurrent.TimeUnit;
-
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.xnio.Buffers;
 import org.xnio.ChannelListener;
 import org.xnio.Option;
@@ -45,6 +31,30 @@ import org.xnio.StreamConnection;
 import org.xnio.mock.AcceptingChannelMock;
 import org.xnio.mock.ConnectedStreamChannelMock;
 import org.xnio.mock.MessageChannelMock;
+import org.xnio.mock.ReadableByteChannelMock;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongFunction;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.xnio.AssertReadWrite.assertReadMessage;
+import static org.xnio.AssertReadWrite.assertWrittenMessage;
 
 /**
  * Test for {@link Channels}.
@@ -706,6 +716,207 @@ public class ChannelsTestCase {
         assertSame(channelMock, Channels.unwrap(ConnectedStreamChannelMock.class, channelMock));
         assertSame(channelMock, Channels.unwrap(ConnectedStreamChannelMock.class, wrappedChannel));
         assertNull(Channels.unwrap(FramedMessageChannel.class, channelMock));
+    }
+
+    @Test
+    public void drainStreamSourceChannel() throws IOException {
+        ConnectedStreamChannelMock channelMock = new ConnectedStreamChannelMock();
+        assertDrain(channelMock, (long count)-> {
+            try {
+                return Channels.drain(channelMock, count);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Test
+    public void drainStreamSourceChannelAsReadableByteChannel() throws IOException {
+        ReadableByteChannelMock channelMock = new ConnectedStreamChannelMock();
+        assertDrain(channelMock, (long count)-> {
+            try {
+                return Channels.drain(channelMock, count);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Test
+    public void drainReadableByteChannel() throws IOException {
+        ReadableByteChannelMock channelMock = new ReadableByteChannelMock();
+        assertDrain(channelMock, (long count)-> {
+            try {
+                return Channels.drain(channelMock, count);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Rule
+    public TemporaryFolder folder = new TemporaryFolder();
+
+    @Test
+    public void drainFileChannel() throws IOException {
+        final File file1 = folder.newFile();
+        //write out data to the test files
+        final FileWriter fw1 = new FileWriter( file1 );
+        final BufferedWriter bw1 = new BufferedWriter( fw1 );
+        for (int i = 0; i < 5; i++)
+            bw1.write( "read data\n");
+        bw1.close();
+        fw1.close();
+        for (Method method: FileChannel.class.getDeclaredMethods())
+            if (Modifier.isStatic(method.getModifiers()))
+                System.out.println("method: " + method);
+        final FileChannel fileChannel = new FileInputStream(file1).getChannel();
+        try
+        {
+            // test drain 0
+            assertEquals(0, Channels.drain(fileChannel, 0));
+            ByteBuffer buffer = ByteBuffer.allocate(10);
+            fileChannel.read(buffer, 0);
+            assertReadMessage(buffer, "read data\n");
+
+            // test drain negative
+            buffer.clear();
+            boolean failed = false;
+            try {
+                assertEquals(0, Channels.drain(fileChannel, 10, -3));
+            } catch (IllegalArgumentException illegalArgumentException) {
+                failed = true;
+            }
+            assertTrue(failed);
+            assertEquals(10, fileChannel.read(buffer, 10));
+            assertReadMessage(buffer, "read data\n");
+
+            // test drain 2
+            assertEquals(2, Channels.drain(fileChannel, 20,2));
+            buffer.clear();
+            buffer.limit(8);
+            assertEquals(8, fileChannel.read(buffer, 22));
+            assertReadMessage(buffer, "ad data\n");
+
+            // test drain little by little
+            buffer.clear();
+            buffer.limit(4);
+            assertEquals(1, Channels.drain(fileChannel, 30, 1));
+            assertEquals(2, Channels.drain(fileChannel, 31,2));
+            assertEquals(3, Channels.drain(fileChannel, 33,3));
+            assertEquals(4, fileChannel.read(buffer, 36));
+            assertReadMessage(buffer, "ata\n");
+
+            // test drain more bytes than available
+            buffer.clear();
+            assertEquals(10, Channels.drain(fileChannel, 40, 11));
+
+            // test drain an already drained channel
+            assertEquals(-1, Channels.drain(fileChannel, 50, Long.MAX_VALUE));
+            assertEquals(-1, fileChannel.read(buffer, 50));
+        } finally {
+            fileChannel.close();
+        }
+        boolean failed = false;
+        try {
+            Channels.drain(fileChannel, Long.MAX_VALUE);
+        } catch (ClosedChannelException e) {
+            failed = true;
+        }
+        assertTrue(failed);
+    }
+
+    private void assertDrain(ReadableByteChannelMock channelMock, LongFunction drainFunction) throws IOException {
+        channelMock.enableClosedCheck(true);
+        // test drain 0
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        assertEquals(0l, drainFunction.apply(0));
+        ByteBuffer buffer = ByteBuffer.allocate(10);
+        channelMock.read(buffer);
+        assertReadMessage(buffer, "read", "data");
+
+        // test drain negative
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        boolean failed = false;
+        try {
+            drainFunction.apply(-5);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            failed = true;
+        }
+        assertTrue(failed);
+        assertEquals(8, channelMock.read(buffer));
+        assertReadMessage(buffer, "read", "data");
+
+        // test drain 2
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        assertEquals(2l, drainFunction.apply(2));
+        buffer.clear();
+        assertEquals(6, channelMock.read(buffer));
+        assertReadMessage(buffer, "ad", "data");
+
+        // test drain little by little
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        assertEquals(1l, drainFunction.apply(1));
+        assertEquals(2l, drainFunction.apply(2));
+        assertEquals(3l, drainFunction.apply(3));
+        assertEquals(2, channelMock.read(buffer));
+        assertReadMessage(buffer, "ta");
+
+        // test drain the exact amount of bytes left
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        assertEquals(8l, drainFunction.apply(8));
+        assertEquals(0, channelMock.read(buffer));
+
+        // test drain more bytes than available
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        assertEquals(8l, drainFunction.apply(9));
+        assertEquals(0, channelMock.read(buffer));
+
+        // test drain the exact amount of bytes left without reading the EOF
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        channelMock.setEof();
+        buffer.clear();
+        assertEquals(8l, drainFunction.apply(8));
+        assertEquals(-1, channelMock.read(buffer));
+
+        // test drain more bytes than available with eof
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        assertEquals(8l, drainFunction.apply(9));
+        assertEquals(-1, channelMock.read(buffer));
+
+        // test drain with long max (Undertow usage)
+        channelMock.setReadData("read", "data");
+        channelMock.enableRead(true);
+        buffer.clear();
+        assertEquals(8l, drainFunction.apply(Long.MAX_VALUE));
+        assertEquals(-1, channelMock.read(buffer));
+
+        // test drain an already drained channel
+        assertEquals(-1l, drainFunction.apply(Long.MAX_VALUE));
+        assertEquals(-1, channelMock.read(buffer));
+
+        channelMock.close();
+        failed = false;
+        try {
+            drainFunction.apply(Long.MAX_VALUE);
+        } catch (RuntimeException e) {
+            assertTrue(e.getCause() instanceof ClosedChannelException);
+            failed = true;
+        }
+        assertTrue(failed);
     }
 
     public static class FlushBlocking implements Runnable {
