@@ -983,34 +983,30 @@ public final class Channels {
      * @throws IOException if an error occurs
      */
     public static long drain(FileChannel channel, long position, long count) throws IOException {
-        if (channel instanceof StreamSourceChannel) {
-            return drain((StreamSourceChannel) channel, count);
-        } else {
-            long total = 0L, lres;
-            int ires;
-            ByteBuffer buffer = null;
-            for (;;) {
-                if (count == 0L) return total;
-                if (NULL_FILE_CHANNEL != null) {
-                    while (count > 0) {
-                        if ((lres = channel.transferTo(position, count, NULL_FILE_CHANNEL)) == 0L) {
-                            break;
-                        }
-                        total += lres;
-                        count -= lres;
+        long total = 0L, lres;
+        int ires;
+        ByteBuffer buffer = null;
+        for (;;) {
+            if (count == 0L) return total;
+            if (NULL_FILE_CHANNEL != null) {
+                while (count > 0) {
+                    if ((lres = channel.transferTo(position, count, NULL_FILE_CHANNEL)) == 0L) {
+                        break;
                     }
-                    // jump out quick if we drained the fast way
-                    if (total > 0L) return total;
+                    total += lres;
+                    count -= lres;
                 }
-                if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
-                if ((long) buffer.limit() > count) buffer.limit((int) count);
-                ires = channel.read(buffer);
-                buffer.clear();
-                switch (ires) {
-                    case -1: return total == 0L ? -1L : total;
-                    case 0: return total;
-                    default: total += (long) ires;
-                }
+                // jump out quick if we drained the fast way
+                if (total > 0L) return total;
+            }
+            if (buffer == null) buffer = DRAIN_BUFFER.duplicate();
+            if ((long) buffer.limit() > count) buffer.limit((int) count);
+            ires = channel.read(buffer, position);
+            buffer.clear();
+            switch (ires) {
+                case -1: return total == 0L ? -1L : total;
+                case 0: return total;
+                default: total += (long) ires;
             }
         }
     }
