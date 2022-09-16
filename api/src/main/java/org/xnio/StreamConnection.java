@@ -21,6 +21,7 @@ package org.xnio;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.jboss.logging.Logger;
 import org.xnio.channels.CloseListenerSettable;
 import org.xnio.conduits.ConduitStreamSinkChannel;
 import org.xnio.conduits.ConduitStreamSourceChannel;
@@ -41,6 +42,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
      * An empty listener used as a flag, to indicate that close listener has been invoked.
      */
     private static final ChannelListener<? super StreamConnection> INVOKED_CLOSE_LISTENER_FLAG = (StreamConnection connection)->{};
+    private static final Logger log = Logger.getLogger("org.xnio.StreamConnection");
 
     private ConduitStreamSourceChannel sourceChannel;
     private ConduitStreamSinkChannel sinkChannel;
@@ -86,7 +88,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
         try {
             this.getSourceChannel().shutdownReads();
         } catch (IOException e) {
-            e.printStackTrace();
+            msg.connectionNotifyReadClosedFailed(e, this);
         }
     }
 
@@ -94,7 +96,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
         try {
             this.getSinkChannel().shutdownWrites();
         } catch (IOException e) {
-            e.printStackTrace();
+            msg.connectionNotifyWriteClosedFailed(e, this);
         }
     }
 
