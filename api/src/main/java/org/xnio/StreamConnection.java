@@ -88,7 +88,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
         try {
             this.getSourceChannel().shutdownReads();
         } catch (IOException e) {
-            log.error("Error in read close", e);
+            msg.connectionNotifyReadClosedFailed(e, this);
         }
     }
 
@@ -96,7 +96,7 @@ public abstract class StreamConnection extends Connection implements CloseListen
         try {
             this.getSinkChannel().shutdownWrites();
         } catch (IOException e) {
-            log.error("Error in write close", e);
+            msg.connectionNotifyWriteClosedFailed(e, this);
         }
     }
 
