@@ -489,6 +489,8 @@ public class XnioWorkerTestCase {
             assertNotNull(channel);
             connectedStreamChannel.get().close();
             channel.close();
+            channelListener.clear();
+            bindListener.clear();
             // try again once more
             channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY).cancel();
             connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
