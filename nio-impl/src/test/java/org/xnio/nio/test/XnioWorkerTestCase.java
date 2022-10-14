@@ -257,7 +257,6 @@ public class XnioWorkerTestCase {
                     channelListener.clear();
                 }
                 connectedStreamChannel = xnioWorker.connectStream(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
-                connectedStreamChannel.cancel();
             } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED);
 
             CancellationException expected = null;
@@ -269,8 +268,9 @@ public class XnioWorkerTestCase {
             assertNotNull(expected);
             assertSame(IoFuture.Status.CANCELLED, connectedStreamChannel.getStatus());
 
-            assertFalse(channelListener.isInvokedYet());
-            assertFalse(bindListener.isInvokedYet());
+            assertFalse("listener is not supposed to have been invoked; is channel open: "  +
+                            (channelListener.getChannel() != null? channelListener.getChannel().isOpen(): " null channel"),
+                    channelListener.isInvokedYet());
 
             // make sure that the server is up and can accept more connections
             assertTrue(streamServer.isOpen());
@@ -849,12 +849,12 @@ public class XnioWorkerTestCase {
         private final CountDownLatch countDown = new CountDownLatch(1);
 
         @Override
-        public void run() {
+        public synchronized void run() {
             invoked = true;
             countDown.countDown();
         }
 
-        public boolean isInvoked() {
+        public synchronized boolean isInvoked() {
             try {
                 countDown.await();
             } catch (InterruptedException e) {
@@ -881,7 +881,7 @@ public class XnioWorkerTestCase {
             this(w, -1, null);
         }
 
-        public void run() {
+        public synchronized void run() {
             try {
                 if (timeoutUnit == null) {
                     xnioWorker.awaitTermination();
@@ -893,7 +893,7 @@ public class XnioWorkerTestCase {
             }
         }
 
-        public boolean isInterrupted() {
+        public synchronized boolean isInterrupted() {
             return interrupted;
         }
     }
