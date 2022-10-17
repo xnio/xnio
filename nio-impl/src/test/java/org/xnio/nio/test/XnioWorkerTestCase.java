@@ -21,6 +21,7 @@ package org.xnio.nio.test;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.xnio.ChannelListener;
 import org.xnio.IoFuture;
@@ -202,7 +203,7 @@ public class XnioWorkerTestCase {
         }
     }
 
-    @Test
+    @Test @Ignore
     public void cancelOpenStreamConnection() throws IOException {
         worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<StreamConnection>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<StreamConnection>>();;
@@ -253,7 +254,7 @@ public class XnioWorkerTestCase {
         }
     }
 
-    @Test
+    @Test @Ignore
     public void cancelConnectStream() throws IOException {
         worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
@@ -497,7 +498,7 @@ public class XnioWorkerTestCase {
         }
     }
 
-    @Test
+    @Test @Ignore
     public void cancelAcceptTcpStream() throws CancellationException, IOException {
         worker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<ConnectedStreamChannel> channelListener = new TestChannelListener<ConnectedStreamChannel>();
