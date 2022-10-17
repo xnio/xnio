@@ -227,7 +227,7 @@ public class XnioWorkerTestCase {
                 connectedStreamChannel.cancel();
             } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED && count ++ < MAX_ATTEMPTS);
 
-            if (count == MAX_ATTEMPTS) {
+            if (count > MAX_ATTEMPTS) {
                 Assert.fail("Could not cancel successfully operation");
             }
 
@@ -276,7 +276,7 @@ public class XnioWorkerTestCase {
                 connectedStreamChannel = worker.connectStream(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
             } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED && count ++ < MAX_ATTEMPTS);
 
-            if (count == MAX_ATTEMPTS) {
+            if (count > MAX_ATTEMPTS) {
                 Assert.fail("Could not cancel successfully operation");
             }
 
@@ -476,7 +476,7 @@ public class XnioWorkerTestCase {
             connection2 = worker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
         }
 
-        if (count == MAX_ATTEMPTS) {
+        if (count > MAX_ATTEMPTS) {
             Assert.fail("Could not cancel operation");
         }
 
@@ -524,7 +524,7 @@ public class XnioWorkerTestCase {
             connectedStreamChannel = worker.connectStream(bindAddress, null, OptionMap.EMPTY);
         }
 
-        if (count == MAX_ATTEMPTS) {
+        if (count > MAX_ATTEMPTS) {
             Assert.fail("Could not cancel operation");
         }
 
