@@ -18,23 +18,7 @@
  */
 package org.xnio.nio.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.channels.Channel;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -52,6 +36,22 @@ import org.xnio.channels.ConnectedChannel;
 import org.xnio.channels.ConnectedStreamChannel;
 import org.xnio.channels.MulticastMessageChannel;
 
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.channels.Channel;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 /**
  * Test for XnioWorker.
  * 
@@ -63,60 +63,70 @@ public class XnioWorkerTestCase {
 
     private static final int SERVER_PORT = 12345;
     private static SocketAddress bindAddress;
-    private static XnioWorker worker;
+    private XnioWorker worker = null;
     private static Xnio xnio;
     private static final int MAX_ATTEMPTS = 100;
 
     protected AcceptingChannel<? extends ConnectedStreamChannel> server;
 
     @BeforeClass
-    public static void createWorker() throws IOException {
+    public static void setupXnio() throws IOException {
         xnio = Xnio.getInstance("nio", XnioWorkerTestCase.class.getClassLoader());
         bindAddress = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), SERVER_PORT);
     }
 
-    @AfterClass
-    public static void destroyWorker() throws InterruptedException {
-        if (worker != null && !worker.isShutdown()) {
+    @After
+    public void destroyWorker() throws InterruptedException {
+        if (worker != null && !worker.isTerminated()) {
             worker.shutdown();
             worker.awaitTermination(1L, TimeUnit.MINUTES);
         }
     }
 
     @Test
-    public void illegalWorker() throws IOException {
+    public void illegalWorker() throws IOException, InterruptedException {
         IllegalArgumentException expected = null;
         try {
-            xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, -1));
+            worker = xnio.createWorker(OptionMap.create(Options.WORKER_IO_THREADS, -1));
         } catch (IllegalArgumentException e) {
             expected = e;
+        } finally {
+            if (worker != null && !worker.isTerminated()) {
+                worker.shutdown();
+                worker.awaitTermination(1L, TimeUnit.MINUTES);
+            }
         }
         assertNotNull(expected);
 
         expected = null;
         try {
-            xnio.createWorker(OptionMap.create(Options.STACK_SIZE, -10000l));
+            worker = xnio.createWorker(OptionMap.create(Options.STACK_SIZE, -10000l));
         } catch (IllegalArgumentException e) {
             expected = e;
+        } finally {
+            if (worker != null && !worker.isTerminated()) {
+                worker.shutdown();
+                worker.awaitTermination(1L, TimeUnit.MINUTES);
+            }
         }
         assertNotNull(expected);
     }
 
     @Test
     public void createTcpStreamServerAndConnect() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<StreamConnection>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<StreamConnection>>();;
-        final AcceptingChannel<? extends StreamConnection> streamServer = xnioWorker.createStreamConnectionServer(
+        final AcceptingChannel<? extends StreamConnection> streamServer = worker.createStreamConnectionServer(
                 bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
         assertNotNull(streamServer);
         try {
             assertEquals(bindAddress, streamServer.getLocalAddress());
-            assertSame(xnioWorker, streamServer.getWorker());
+            assertSame(worker, streamServer.getWorker());
             final TestChannelListener<StreamConnection> connectionListener1 = new TestChannelListener<StreamConnection>();
             final TestChannelListener<StreamConnection> connectionListener2 = new TestChannelListener<StreamConnection>();
             final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-            final IoFuture<StreamConnection> connection1 = xnioWorker.openStreamConnection(bindAddress, connectionListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
-            final IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, connectionListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
+            final IoFuture<StreamConnection> connection1 = worker.openStreamConnection(bindAddress, connectionListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
+            final IoFuture<StreamConnection> connection2 = worker.openStreamConnection(bindAddress, connectionListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
             assertNotNull(connection1);
             assertNotNull(connection2);
             assertServerClientConnection(streamServer, bindListener, connection1.get(), connectionListener1, connection2.get(), connectionListener2);
@@ -170,19 +180,19 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createTcpStreamChannelServerAndConnect() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
-        final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = xnioWorker.createStreamServer(
+        final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = worker.createStreamServer(
                 bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
         assertNotNull(streamServer);
         try {
             assertEquals(bindAddress, streamServer.getLocalAddress());
-            assertSame(xnioWorker, streamServer.getWorker());
+            assertSame(worker, streamServer.getWorker());
             final TestChannelListener<ConnectedStreamChannel> channelListener1 = new TestChannelListener<ConnectedStreamChannel>();
             final TestChannelListener<ConnectedStreamChannel> channelListener2 = new TestChannelListener<ConnectedStreamChannel>();
             final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-            final IoFuture<ConnectedStreamChannel> connectedStreamChannel1 = xnioWorker.connectStream(bindAddress, channelListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
-            final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = xnioWorker.connectStream(bindAddress, channelListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
+            final IoFuture<ConnectedStreamChannel> connectedStreamChannel1 = worker.connectStream(bindAddress, channelListener1, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true));
+            final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = worker.connectStream(bindAddress, channelListener2, bindListener, OptionMap.create(Options.MAX_OUTBOUND_MESSAGE_SIZE, 50000));
             assertNotNull(connectedStreamChannel1);
             assertNotNull(connectedStreamChannel2);
     
@@ -194,9 +204,9 @@ public class XnioWorkerTestCase {
 
     @Test
     public void cancelOpenStreamConnection() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<StreamConnection>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<StreamConnection>>();;
-        final AcceptingChannel<? extends StreamConnection> streamServer = xnioWorker.createStreamConnectionServer(
+        final AcceptingChannel<? extends StreamConnection> streamServer = worker.createStreamConnectionServer(
                 bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
         assertNotNull(streamServer);
         try {
@@ -213,7 +223,7 @@ public class XnioWorkerTestCase {
                     }
                     channelListener.clear();
                 }
-                connectedStreamChannel = xnioWorker.openStreamConnection(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
+                connectedStreamChannel = worker.openStreamConnection(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
                 connectedStreamChannel.cancel();
             } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED && count ++ < MAX_ATTEMPTS);
 
@@ -235,7 +245,7 @@ public class XnioWorkerTestCase {
 
             // make sure that the server is up and can accept more connections
             assertTrue(streamServer.isOpen());
-            final IoFuture<StreamConnection> anotherChannel = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+            final IoFuture<StreamConnection> anotherChannel = worker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
             assertNotNull(anotherChannel.get());
             anotherChannel.get().close();
         } finally {
@@ -245,9 +255,9 @@ public class XnioWorkerTestCase {
 
     @Test
     public void cancelConnectStream() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
+        worker = xnio.createWorker(OptionMap.create(Options.THREAD_DAEMON, true));
         final ChannelListener<AcceptingChannel<ConnectedStreamChannel>> acceptingChannelListener = new TestChannelListener<AcceptingChannel<ConnectedStreamChannel>>();;
-        final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = xnioWorker.createStreamServer(
+        final AcceptingChannel<? extends ConnectedStreamChannel> streamServer = worker.createStreamServer(
                 bindAddress, acceptingChannelListener, OptionMap.create(Options.BROADCAST, true));
         assertNotNull(streamServer);
         int count = 1;
@@ -263,7 +273,7 @@ public class XnioWorkerTestCase {
                     }
                     channelListener.clear();
                 }
-                connectedStreamChannel = xnioWorker.connectStream(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
+                connectedStreamChannel = worker.connectStream(bindAddress, channelListener, OptionMap.create(Options.MAX_INBOUND_MESSAGE_SIZE, 50000, Options.WORKER_ESTABLISH_WRITING, true)).cancel();
             } while (connectedStreamChannel.getStatus() != IoFuture.Status.CANCELLED && count ++ < MAX_ATTEMPTS);
 
             if (count == MAX_ATTEMPTS) {
@@ -285,7 +295,7 @@ public class XnioWorkerTestCase {
 
             // make sure that the server is up and can accept more connections
             assertTrue(streamServer.isOpen());
-            final IoFuture<ConnectedStreamChannel> anotherChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
+            final IoFuture<ConnectedStreamChannel> anotherChannel = worker.connectStream(bindAddress, null, OptionMap.EMPTY);
             assertNotNull(anotherChannel.get());
             anotherChannel.get().close();
         } finally {
@@ -295,10 +305,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createLocalStreamConnectionServer() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.createStreamConnectionServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
+            worker.createStreamConnectionServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -307,10 +317,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createLocalStreamServer() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.createStreamServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
+            worker.createStreamServer(new LocalSocketAddress("server"), null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -319,10 +329,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void openLocalStreamConnection() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.openStreamConnection(new LocalSocketAddress("server for test"), null, OptionMap.EMPTY);
+            worker.openStreamConnection(new LocalSocketAddress("server for test"), null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -331,10 +341,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void connectLocalStream() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.connectStream(new LocalSocketAddress("server for test"), null, OptionMap.EMPTY);
+            worker.connectStream(new LocalSocketAddress("server for test"), null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -343,17 +353,17 @@ public class XnioWorkerTestCase {
 
     @Test
     public void acceptStreamConnection() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final InetSocketAddress bindAddress2 = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 23456);
         final TestChannelListener<StreamConnection> channelListener1 = new TestChannelListener<StreamConnection>();
         final TestChannelListener<StreamConnection> channelListener2 = new TestChannelListener<StreamConnection>();
         final TestChannelListener<BoundChannel> bindListener1 = new TestChannelListener<BoundChannel>();
         final TestChannelListener<BoundChannel> bindListener2 = new TestChannelListener<BoundChannel>();
         final OptionMap optionMap = OptionMap.create(Options.READ_TIMEOUT, 800000);
-        final IoFuture<StreamConnection> channelFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener1, bindListener1, optionMap);
-        final IoFuture<StreamConnection> channelFuture2 = xnioWorker.acceptStreamConnection(bindAddress2, channelListener2, bindListener2, optionMap);
-        final IoFuture<StreamConnection> connectedStreamChannel1 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
-        final IoFuture<StreamConnection> connectedStreamChannel2 = xnioWorker.openStreamConnection(bindAddress2, null, OptionMap.EMPTY);
+        final IoFuture<StreamConnection> channelFuture1 = worker.acceptStreamConnection(bindAddress, channelListener1, bindListener1, optionMap);
+        final IoFuture<StreamConnection> channelFuture2 = worker.acceptStreamConnection(bindAddress2, channelListener2, bindListener2, optionMap);
+        final IoFuture<StreamConnection> connectedStreamChannel1 = worker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+        final IoFuture<StreamConnection> connectedStreamChannel2 = worker.openStreamConnection(bindAddress2, null, OptionMap.EMPTY);
         assertNotNull(connectedStreamChannel1);
         assertNotNull(connectedStreamChannel2);
         assertNotNull(channelFuture1);
@@ -363,7 +373,7 @@ public class XnioWorkerTestCase {
         final StreamConnection channel2 = channelFuture2.get();
         assertNotNull(channel1);
         assertNotNull(channel2);
-        assertAcceptedChannels(xnioWorker, channel1, channelListener1, bindListener1, bindAddress,
+        assertAcceptedChannels(worker, channel1, channelListener1, bindListener1, bindAddress,
                 connectedStreamChannel1.get().getLocalAddress(), channel2, channelListener2, bindListener2,
                 bindAddress2, connectedStreamChannel2.get().getLocalAddress());
     }
@@ -381,7 +391,7 @@ public class XnioWorkerTestCase {
             final BoundChannel boundChannel1 = bindListener1.getChannel();
             assertNotNull(boundChannel1);
             assertSame(worker, boundChannel1.getWorker());
-            assertEquals(bindAddress, boundChannel1.getLocalAddress());
+            assertEquals(bindAddress1, boundChannel1.getLocalAddress());
             assertNull(boundChannel1.getLocalAddress(LocalSocketAddress.class));
             assertNotNull(boundChannel1.getCloseSetter());
             assertFalse(boundChannel1.isOpen()); // expected
@@ -416,17 +426,17 @@ public class XnioWorkerTestCase {
 
     @Test
     public void acceptTcpStream() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final InetSocketAddress bindAddress2 = new InetSocketAddress(Inet4Address.getByAddress(new byte[] { 127, 0, 0, 1 }), 23456);
         final TestChannelListener<ConnectedStreamChannel> channelListener1 = new TestChannelListener<ConnectedStreamChannel>();
         final TestChannelListener<ConnectedStreamChannel> channelListener2 = new TestChannelListener<ConnectedStreamChannel>();
         final TestChannelListener<BoundChannel> bindListener1 = new TestChannelListener<BoundChannel>();
         final TestChannelListener<BoundChannel> bindListener2 = new TestChannelListener<BoundChannel>();
         final OptionMap optionMap = OptionMap.create(Options.READ_TIMEOUT, 800000);
-        final IoFuture<ConnectedStreamChannel> channelFuture1 = xnioWorker.acceptStream(bindAddress, channelListener1, bindListener1, optionMap);
-        final IoFuture<ConnectedStreamChannel> channelFuture2 = xnioWorker.acceptStream(bindAddress2, channelListener2, bindListener2, optionMap);
-        final IoFuture<ConnectedStreamChannel> connectedStreamChannel1 = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
-        final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = xnioWorker.connectStream(bindAddress2, null, OptionMap.EMPTY);
+        final IoFuture<ConnectedStreamChannel> channelFuture1 = worker.acceptStream(bindAddress, channelListener1, bindListener1, optionMap);
+        final IoFuture<ConnectedStreamChannel> channelFuture2 = worker.acceptStream(bindAddress2, channelListener2, bindListener2, optionMap);
+        final IoFuture<ConnectedStreamChannel> connectedStreamChannel1 = worker.connectStream(bindAddress, null, OptionMap.EMPTY);
+        final IoFuture<ConnectedStreamChannel> connectedStreamChannel2 = worker.connectStream(bindAddress2, null, OptionMap.EMPTY);
         assertNotNull(connectedStreamChannel1);
         assertNotNull(connectedStreamChannel2);
         assertNotNull(channelFuture1);
@@ -437,18 +447,18 @@ public class XnioWorkerTestCase {
         assertNotNull(channel1);
         assertNotNull(channel2);
 
-        assertAcceptedChannels(xnioWorker, channel1, channelListener1, bindListener1, bindAddress,
+        assertAcceptedChannels(worker, channel1, channelListener1, bindListener1, bindAddress,
                 connectedStreamChannel1.get().getLocalAddress(), channel2, channelListener2, bindListener2,
                 bindAddress2, connectedStreamChannel2.get().getLocalAddress());
     }
 
     @Test
     public void cancelAcceptStreamConnection() throws CancellationException, IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<StreamConnection> channelListener = new TestChannelListener<StreamConnection>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-        IoFuture<StreamConnection> connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
-        IoFuture<StreamConnection> connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+        IoFuture<StreamConnection> connectionFuture1 = worker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+        IoFuture<StreamConnection> connection2 = worker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
 
         assertNotNull(connectionFuture1);
         assertNotNull(connection2);
@@ -462,8 +472,8 @@ public class XnioWorkerTestCase {
             assertNotNull(connection1);
             connection2.get().close();
             // try again once more
-            connectionFuture1 = xnioWorker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
-            connection2 = xnioWorker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
+            connectionFuture1 = worker.acceptStreamConnection(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+            connection2 = worker.openStreamConnection(bindAddress, null, OptionMap.EMPTY);
         }
 
         if (count == MAX_ATTEMPTS) {
@@ -489,11 +499,11 @@ public class XnioWorkerTestCase {
 
     @Test
     public void cancelAcceptTcpStream() throws CancellationException, IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TestChannelListener<ConnectedStreamChannel> channelListener = new TestChannelListener<ConnectedStreamChannel>();
         final TestChannelListener<BoundChannel> bindListener = new TestChannelListener<BoundChannel>();
-        IoFuture<ConnectedStreamChannel> channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
-        IoFuture<ConnectedStreamChannel> connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
+        IoFuture<ConnectedStreamChannel> channelFuture = worker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY);
+        IoFuture<ConnectedStreamChannel> connectedStreamChannel = worker.connectStream(bindAddress, null, OptionMap.EMPTY);
 
         assertNotNull(connectedStreamChannel);
         assertNotNull(channelFuture);
@@ -510,8 +520,8 @@ public class XnioWorkerTestCase {
             channelListener.clear();
             bindListener.clear();
             // try again once more
-            channelFuture = xnioWorker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY).cancel();
-            connectedStreamChannel = xnioWorker.connectStream(bindAddress, null, OptionMap.EMPTY);
+            channelFuture = worker.acceptStream(bindAddress, channelListener, bindListener, OptionMap.EMPTY).cancel();
+            connectedStreamChannel = worker.connectStream(bindAddress, null, OptionMap.EMPTY);
         }
 
         if (count == MAX_ATTEMPTS) {
@@ -536,10 +546,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void acceptLocalStream() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.acceptStream(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
+            worker.acceptStream(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -547,7 +557,7 @@ public class XnioWorkerTestCase {
 
         expected = null;
         try {
-            xnioWorker.acceptStreamConnection(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
+            worker.acceptStreamConnection(new LocalSocketAddress("local address"), null, null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -556,10 +566,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void connectTcpDatagram() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         IllegalArgumentException expected = null;
         try {
-            xnioWorker.connectDatagram(bindAddress, null, null, OptionMap.EMPTY);
+            worker.connectDatagram(bindAddress, null, null, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -568,10 +578,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void connectLocalDatagram() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         UnsupportedOperationException expected = null;
         try {
-            xnioWorker.connectDatagram(new LocalSocketAddress("local"), null, null, OptionMap.EMPTY);
+            worker.connectDatagram(new LocalSocketAddress("local"), null, null, OptionMap.EMPTY);
         } catch (UnsupportedOperationException e) {
             expected = e;
         }
@@ -580,10 +590,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void acceptDatagram() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         IllegalArgumentException expected = null;
         try {
-            xnioWorker.acceptDatagram(bindAddress, null, null, OptionMap.EMPTY);
+            worker.acceptDatagram(bindAddress, null, null, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -592,10 +602,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void acceptMessageConnection() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         IllegalArgumentException expected = null;
         try {
-            xnioWorker.acceptMessageConnection(bindAddress, null, null, OptionMap.EMPTY);
+            worker.acceptMessageConnection(bindAddress, null, null, OptionMap.EMPTY);
         } catch (IllegalArgumentException e) {
             expected = e;
         }
@@ -604,10 +614,10 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createUdpServer() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final InetSocketAddress address = new InetSocketAddress(0);
         final OptionMap optionMap = OptionMap.create(Options.MULTICAST, true, Options.SECURE, false);
-        final MulticastMessageChannel channel = xnioWorker.createUdpServer(address, optionMap);
+        final MulticastMessageChannel channel = worker.createUdpServer(address, optionMap);
         assertNotNull(channel);
         try {
             // check address
@@ -619,11 +629,11 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createUdpServerWithListener() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final InetSocketAddress address = new InetSocketAddress(0);
         final TestChannelListener<MulticastMessageChannel> listener = new TestChannelListener<MulticastMessageChannel>();
         final OptionMap optionMap = OptionMap.create(Options.MULTICAST, true, Options.SECURE, true);
-        final MulticastMessageChannel channel = xnioWorker.createUdpServer(address, listener, optionMap);
+        final MulticastMessageChannel channel = worker.createUdpServer(address, listener, optionMap);
         assertNotNull(channel);
         try {
             // check address
@@ -638,35 +648,35 @@ public class XnioWorkerTestCase {
 
     @Test
     public void createFullDuplexPipe() throws IOException {
-        final XnioWorker xnioWorker = xnio.createWorker(OptionMap.EMPTY);
-        assertNotNull(xnioWorker.createFullDuplexPipe());
-        assertNotNull(xnioWorker.createHalfDuplexPipe());
+        worker = xnio.createWorker(OptionMap.EMPTY);
+        assertNotNull(worker.createFullDuplexPipe());
+        assertNotNull(worker.createHalfDuplexPipe());
     }
 
     @Test
     public void shutdownNowWithTerminationTask() throws IOException, InterruptedException {
         final TerminationTask terminationTask = new TerminationTask();
-        final XnioWorker xnioWorker = xnio.createWorker(Thread.currentThread().getThreadGroup(), OptionMap.EMPTY, terminationTask);
-        assertFalse(xnioWorker.isShutdown());
-        assertFalse(xnioWorker.isTerminated());
-        xnioWorker.shutdownNow();
-        assertTrue(xnioWorker.isShutdown());
-        if (!xnioWorker.isTerminated()) {
-            xnioWorker.awaitTermination();
+        worker = xnio.createWorker(Thread.currentThread().getThreadGroup(), OptionMap.EMPTY, terminationTask);
+        assertFalse(worker.isShutdown());
+        assertFalse(worker.isTerminated());
+        worker.shutdownNow();
+        assertTrue(worker.isShutdown());
+        if (!worker.isTerminated()) {
+            worker.awaitTermination();
         }
         assertTrue(terminationTask.isInvoked());
-        assertTrue(xnioWorker.isShutdown());
-        assertTrue(xnioWorker.isTerminated());
+        assertTrue(worker.isShutdown());
+        assertTrue(worker.isTerminated());
 
-        xnioWorker.awaitTermination();
+        worker.awaitTermination();
         // idempotent
-        xnioWorker.shutdown();
-        xnioWorker.shutdownNow();
+        worker.shutdown();
+        worker.shutdownNow();
     }
 
     @Test
     public void awaitTerminationWithMultipleAwaiters1() throws IOException, InterruptedException {
-        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TerminationAwaiter awaiter1 = new TerminationAwaiter(worker);
         final TerminationAwaiter awaiter2 = new TerminationAwaiter(worker, 10, TimeUnit.HOURS);
         final TerminationAwaiter awaiter3 = new TerminationAwaiter(worker, 10, TimeUnit.MILLISECONDS);
@@ -693,7 +703,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void awaitTerminationWithMultipleAwaiters2() throws IOException, InterruptedException {
-        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TerminationAwaiter awaiter1 = new TerminationAwaiter(worker);
         final TerminationAwaiter awaiter2 = new TerminationAwaiter(worker, 10, TimeUnit.HOURS);
         final TerminationAwaiter awaiter3 = new TerminationAwaiter(worker, 300, TimeUnit.MILLISECONDS);
@@ -742,7 +752,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void awaitTerminationWithMultipleAwaiters3() throws IOException, InterruptedException {
-        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TerminationAwaiter awaiter1 = new TerminationAwaiter(worker, 1, TimeUnit.NANOSECONDS);
         final TerminationAwaiter awaiter2 = new TerminationAwaiter(worker, 10, TimeUnit.HOURS);
         final TerminationAwaiter awaiter3 = new TerminationAwaiter(worker);
@@ -781,7 +791,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void interruptedAwaiters() throws IOException, InterruptedException {
-        final XnioWorker worker = xnio.createWorker(OptionMap.EMPTY);
+        worker = xnio.createWorker(OptionMap.EMPTY);
         final TerminationAwaiter awaiter1 = new TerminationAwaiter(worker);
         final TerminationAwaiter awaiter2 = new TerminationAwaiter(worker, 3, TimeUnit.MINUTES);
         final Thread thread1 = new Thread(awaiter1);
@@ -803,7 +813,7 @@ public class XnioWorkerTestCase {
 
     @Test
     public void invalidAcceptStream() throws IOException {
-        final XnioWorker worker = xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, 0, Options.WORKER_WRITE_THREADS, 0));
+        worker = xnio.createWorker(OptionMap.create(Options.WORKER_READ_THREADS, 0, Options.WORKER_WRITE_THREADS, 0));
         assertNotNull(worker);
 
         IllegalArgumentException expected = null;
