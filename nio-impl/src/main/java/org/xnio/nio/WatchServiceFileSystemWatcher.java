@@ -117,7 +117,6 @@ class WatchServiceFileSystemWatcher implements FileSystemWatcher, Runnable {
                                 }
                                 results.add(new FileChangeEvent(targetFile, type));
                             }
-                            key.pollEvents().clear();
 
                             //now we need to prune the results, to remove duplicates
                             //e.g. if the file is modified after creation we only want to
