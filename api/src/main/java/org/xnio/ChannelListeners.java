@@ -106,7 +106,7 @@ public final class ChannelListeners {
      * @param <T> the channel type
      */
     public static <T extends Channel> void invokeChannelListener(Executor executor, T channel, ChannelListener<? super T> channelListener) {
-        try {
+        if (channelListener != null) try {
             executor.execute(getChannelListenerTask(channel, channelListener));
         } catch (RejectedExecutionException ree) {
             invokeChannelListener(channel, channelListener);
@@ -122,7 +122,7 @@ public final class ChannelListeners {
      * @param <T> the exception type
      */
     public static <T extends Channel> void invokeChannelExceptionHandler(final T channel, final ChannelExceptionHandler<? super T> exceptionHandler, final IOException exception) {
-        try {
+        if (exceptionHandler != null) try {
             exceptionHandler.handleException(channel, exception);
         } catch (Throwable t) {
             listenerMsg.exceptionHandlerException(t);
