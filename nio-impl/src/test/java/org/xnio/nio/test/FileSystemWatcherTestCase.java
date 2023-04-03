@@ -35,12 +35,16 @@ import org.xnio.channels.ConnectedStreamChannel;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
-import static org.xnio.FileChangeEvent.Type.ADDED;
 import static org.xnio.FileChangeEvent.Type.MODIFIED;
 import static org.xnio.FileChangeEvent.Type.REMOVED;
 
@@ -54,8 +58,12 @@ public class FileSystemWatcherTestCase {
     public static final String EXISTING_FILE_NAME = "a.txt";
     public static final String EXISTING_DIR = "existingDir";
 
-    private final BlockingDeque<Collection<FileChangeEvent>> results = new LinkedBlockingDeque<Collection<FileChangeEvent>>();
-    private final BlockingDeque<Collection<FileChangeEvent>> secondResults = new LinkedBlockingDeque<Collection<FileChangeEvent>>();
+    private static final int WAIT_SECONDS = 20;
+    private static final int NUM_THREADS = 5;
+    private static final int NUM_FILES = 6;
+
+    private final BlockingDeque<Collection<FileChangeEvent>> results = new LinkedBlockingDeque<>();
+    private final BlockingDeque<Collection<FileChangeEvent>> secondResults = new LinkedBlockingDeque<>();
 
     File rootDir;
     File existingSubDir;
@@ -98,8 +106,7 @@ public class FileSystemWatcherTestCase {
 
     @Test
     public void testFileSystemWatcher() throws Exception {
-        FileSystemWatcher watcher = createXnio().createFileSystemWatcher("testWatcher", OptionMap.create(Options.WATCHER_POLL_INTERVAL, 10));
-        try {
+        try (FileSystemWatcher watcher = createXnio().createFileSystemWatcher("testWatcher", OptionMap.create(Options.WATCHER_POLL_INTERVAL, 10))) {
             watcher.watchPath(rootDir, new FileChangeCallback() {
                 @Override
                 public void handleChanges(Collection<FileChangeEvent> changes) {
@@ -144,65 +151,71 @@ public class FileSystemWatcherTestCase {
             added.delete();
             Thread.sleep(1);
             checkResult(added, REMOVED);
-
-
-        } finally {
-            watcher.close();
         }
+        results.clear();
+        secondResults.clear();
+    }
 
+    @Test
+    public void testMultiThread() throws Exception {
+        try (FileSystemWatcher watcher = createXnio().createFileSystemWatcher(
+                "testWatcher", OptionMap.create(Options.WATCHER_POLL_INTERVAL, 10))) {
+            watcher.watchPath(rootDir, new FileChangeCallback() {
+                @Override
+                public void handleChanges(Collection<FileChangeEvent> changes) {
+                    results.add(changes);
+                }
+            });
+
+            Thread[] array = new Thread[NUM_THREADS];
+            for (int i = 0; i< array.length; i++) {
+                array[i] = new Thread(new FileAdder(i));
+                array[i].start();
+            }
+
+            // mark each file received in a set
+            Set<String> files = new HashSet<>(NUM_THREADS * NUM_FILES);
+            // get changes until all the adds are in the set
+            Collection<FileChangeEvent> events = this.results.poll(WAIT_SECONDS, TimeUnit.SECONDS);
+            while (files.size() < NUM_THREADS * NUM_FILES && events != null) {
+                for (FileChangeEvent e : events) {
+                    if (e.getType() == FileChangeEvent.Type.ADDED) {
+                        files.add(e.getFile().getName());
+                    }
+                }
+                if (files.size() < NUM_THREADS * NUM_FILES) {
+                    events = this.results.poll(WAIT_SECONDS, TimeUnit.SECONDS);
+                }
+            }
+            // check the files created are all received
+            for (int i = 0; i < NUM_THREADS; i++) {
+                for (int j = 0; j < NUM_FILES; j++) {
+                    Assert.assertTrue("Add for file [" + i + "," + j + "] was not received",
+                            files.contains("thread-" + i + "-" + j));
+                }
+            }
+        }
+        results.clear();
     }
 
     private void checkResult(File file, FileChangeEvent.Type type) throws InterruptedException {
-        Collection<FileChangeEvent> results = this.results.poll(20, TimeUnit.SECONDS);
-        Collection<FileChangeEvent> secondResults = this.secondResults.poll(20, TimeUnit.SECONDS);
-        Assert.assertNotNull(results);
-        Assert.assertEquals(1, results.size());
-        Assert.assertEquals(1, secondResults.size());
-        FileChangeEvent res = results.iterator().next();
-        FileChangeEvent res2 = secondResults.iterator().next();
-
-        //sometime OS's will give a MODIFIED event before the REMOVED one
-        //We consume these events here
-        long endTime = System.currentTimeMillis() + 10000;
-        while (type == REMOVED
-                && (res.getType() == MODIFIED || res2.getType() == MODIFIED)
-                && System.currentTimeMillis() < endTime) {
-            FileChangeEvent[] nextEvents = consumeEvents();
-            res = nextEvents[0];
-            res2 = nextEvents[1];
-        }
-
-        //sometime OS's will give a MODIFIED event on its parent folder before the ADDED one
-        //We consume these events here
-        endTime = System.currentTimeMillis() + 10000;
-        while (type == ADDED
-                && (res.getType() == MODIFIED || res2.getType() == MODIFIED)
-                && (res.getFile().equals(file.getParentFile()) || res2.getFile().equals(file.getParentFile()))
-                && !file.isDirectory()
-                && System.currentTimeMillis() < endTime) {
-            FileChangeEvent[] nextEvents = consumeEvents();
-            res = nextEvents[0];
-            res2 = nextEvents[1];
-        }
-
-        Assert.assertEquals(file, res.getFile());
-        Assert.assertEquals(type, res.getType());
-        Assert.assertEquals(file, res2.getFile());
-        Assert.assertEquals(type, res2.getType());
+        Assert.assertTrue("File " + file + " operation " + type + " not received in results", checkResult(file, type, results));
+        Assert.assertTrue("File " + file + " operation " + type + " not received in secondResults", checkResult(file, type, secondResults));
     }
 
-    private FileChangeEvent[] consumeEvents() throws InterruptedException {
-        FileChangeEvent[] nextEvents = new FileChangeEvent[2];
-        Collection<FileChangeEvent> results = this.results.poll(1, TimeUnit.SECONDS);
-        Collection<FileChangeEvent> secondResults = this.secondResults.poll(1, TimeUnit.SECONDS);
-        Assert.assertNotNull(results);
-        Assert.assertNotNull(secondResults);
-        Assert.assertEquals(1, results.size());
-        Assert.assertEquals(1, secondResults.size());
-        nextEvents[0] = results.iterator().next();
-        nextEvents[1] = secondResults.iterator().next();
-
-        return nextEvents;
+    private static boolean checkResult(File file, FileChangeEvent.Type type, BlockingDeque<Collection<FileChangeEvent>> deque) throws InterruptedException {
+        // sometime OS will give a MODIFIED event on its parent folder when a file is ADDED
+        // consume all extra events until the expected one is received
+        Collection<FileChangeEvent> events = deque.poll(WAIT_SECONDS, TimeUnit.SECONDS);
+        while (events != null) {
+            for (FileChangeEvent e : events) {
+                if (file.equals(e.getFile()) && type == e.getType()) {
+                    return true;
+                }
+            }
+            events = deque.poll(WAIT_SECONDS, TimeUnit.SECONDS);
+        }
+        return false;
     }
 
     public static void deleteRecursive(final File file) {
@@ -215,4 +228,36 @@ public class FileSystemWatcherTestCase {
         file.delete();
     }
 
+    /**
+     * Helper runnable to create NUM_FILES files in the working directory with
+     * the name: "thread-" + i + "-" + j. Where i is thread number and j the
+     * iteration [0-NUM_FILES). Between each file creation the thread waits a
+     * random time [0-100ms).
+     */
+    class FileAdder implements Runnable {
+
+        private final int number;
+        private final Random random;
+
+        FileAdder(int number) {
+            this.number = number;
+            this.random = new Random();
+        }
+
+        @Override
+        public void run() {
+            for (int j = 0; j < NUM_FILES; j++) {
+                try {
+                    Path added = rootDir.toPath().resolve("thread-" + number + "-" + j);
+                    Files.write(added, added.getFileName().toString().getBytes());
+                    final int timeout = random.nextInt(100);
+                    if (timeout > 0) {
+                        TimeUnit.MILLISECONDS.sleep(timeout);
+                    }
+                } catch (IOException | InterruptedException e) {
+                    Assert.fail("Thread " + number + " failed " + e.getMessage());
+                }
+            }
+        }
+    }
 }
