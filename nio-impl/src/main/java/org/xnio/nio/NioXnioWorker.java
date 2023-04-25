@@ -99,7 +99,7 @@ final class NioXnioWorker extends XnioWorker {
                 } catch (IOException e) {
                     throw Log.log.unexpectedSelectorOpenProblem(e);
                 }
-                final WorkerThread workerThread = new WorkerThread(this, threadSelector, String.format("%s I/O-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
+                final WorkerThread workerThread = new WorkerThread(this, threadSelector, String.format("%s:I/O-%d", workerName, Integer.valueOf(i + 1)), threadGroup, workerStackSize, i);
                 // Mark as daemon if the Options.THREAD_DAEMON has been set
                 if (markWorkerThreadAsDaemon) {
                     workerThread.setDaemon(true);
@@ -112,7 +112,7 @@ final class NioXnioWorker extends XnioWorker {
             } catch (IOException e) {
                 throw Log.log.unexpectedSelectorOpenProblem(e);
             }
-            acceptThread = new WorkerThread(this, threadSelector, String.format("%s Accept", workerName), threadGroup, workerStackSize, threadCount);
+            acceptThread = new WorkerThread(this, threadSelector, String.format("%s:Accept", workerName), threadGroup, workerStackSize, threadCount);
             if (markWorkerThreadAsDaemon) {
                 acceptThread.setDaemon(true);
             }
