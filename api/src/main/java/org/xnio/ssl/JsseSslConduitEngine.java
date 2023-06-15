@@ -22,6 +22,7 @@ package org.xnio.ssl;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.security.cert.CertPathBuilderException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -317,6 +318,15 @@ final class JsseSslConduitEngine {
                     doFlush();
                 }
             } catch (IOException ignore) {}
+            Throwable cause = e.getCause();
+
+            while (cause!=null && !cause.equals(cause.getCause())){
+                if(cause instanceof CertPathBuilderException){
+                   // throw new SSLException(e.getMessage()+", check for missing required intermediate / root certificates in a truststore",e);
+                    throw msg.wrapJDKException(e.getMessage(),e);
+                }
+                cause=cause.getCause();
+            }
             throw e;
         }
         return bytesConsumed;
