@@ -242,7 +242,7 @@ public interface Messages extends BasicLogger {
     IllegalArgumentException notFromThisProvider();
 
     @Message(id = 307, value = "Failed to close ssl engine when handling exception %s")
-    @LogMessage(level = WARN)
+    @LogMessage(level = DEBUG)
     void failedToCloseSSLEngine(@Cause Throwable cause, Exception originalException);
 
     // I/O errors
