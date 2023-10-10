@@ -293,6 +293,10 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                 if (! ok) safeClose(channel);
             }
         } catch (IOException e) {
+            if (selectorLog.isTraceEnabled()) {
+                selectorLog.tracef("ConnectHandle.handleReady Exception, %s. Connection attempt to %s failed", e,
+                        destinationAddress);
+            }
             return new FailedIoFuture<StreamConnection>(e);
         }
     }
@@ -334,7 +338,15 @@ final class WorkerThread extends XnioIoThread implements XnioExecutor {
                     }
                 }
             } catch (IOException e) {
-                selectorLog.tracef("ConnectHandle.handleReady Exception, %s", e);
+                if (selectorLog.isTraceEnabled()) {
+                    if (!this.connection.getConduit().getSocketChannel().isConnected()) {
+                        final SocketAddress peerAddress = this.connection.getPeerAddress();
+                        selectorLog.tracef("ConnectHandle.handleReady Exception, %s. Connection attempt to %s failed", e,
+                                peerAddress);
+                    } else {
+                        selectorLog.tracef("ConnectHandle.handleReady Exception, %s.", e);
+                    }
+                }
                 futureResult.setException(e);
             } finally {
                 if (!ok) {
