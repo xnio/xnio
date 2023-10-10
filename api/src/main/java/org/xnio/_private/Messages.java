@@ -34,6 +34,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLHandshakeException;
 import javax.security.sasl.SaslException;
 import org.jboss.logging.BasicLogger;
 import org.jboss.logging.Logger;
@@ -344,6 +345,9 @@ public interface Messages extends BasicLogger {
     @Message(id = 1010, value = "Failed to submit task to executor: (closing %s)")
     @LogMessage(level = ERROR)
     void executorSubmitFailed(@Cause RejectedExecutionException cause, Channel channel);
+
+    @Message(id = 1011, value = "%s, check for missing required intermediate / root certificates in a truststore")
+    SSLHandshakeException wrapJDKException(String message, @Cause SSLHandshakeException reason);
 
     // Trace
 
