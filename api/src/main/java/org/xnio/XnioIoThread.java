@@ -40,6 +40,8 @@ import static org.xnio._private.Messages.msg;
  */
 @SuppressWarnings("unused")
 public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioIoFactory {
+
+    private static final InetSocketAddress ANY_INET_ADDRESS = new InetSocketAddress(0);
     private final XnioWorker worker;
     private final int number;
 
@@ -261,6 +263,8 @@ public abstract class XnioIoThread extends Thread implements XnioExecutor, XnioI
             throw msg.mismatchSockType(bindAddress.getClass(), destination.getClass());
         }
         if (destination instanceof InetSocketAddress) {
+            final InetSocketAddress configuredAddress = ANY_INET_ADDRESS.equals(bindAddress) ? getWorker().getBindAddressTable().get(((InetSocketAddress) destination).getAddress()) : null;
+            bindAddress = configuredAddress != null ? configuredAddress : bindAddress;
             return openTcpStreamConnection((InetSocketAddress) bindAddress, (InetSocketAddress) destination, openListener, bindListener, optionMap);
         } else if (destination instanceof LocalSocketAddress) {
             return openLocalStreamConnection((LocalSocketAddress) bindAddress, (LocalSocketAddress) destination, openListener, bindListener, optionMap);
