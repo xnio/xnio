@@ -91,7 +91,8 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
             }
             if (Bits.allAreSet(ops, SelectionKey.OP_WRITE)) try {
                 if (isWriteShutdown()) suspendWrites();
-                writeReadyHandler.writeReady();
+                else
+                    writeReadyHandler.writeReady();
             } catch (Throwable ignored) {
             }
         } catch (CancelledKeyException ignored) {}
@@ -230,7 +231,7 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
         if (isWriteShutdown()) {
             return;
         }
-        SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE);
+        SelectorUtils.await((NioXnio) getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE);
     }
 
     public void awaitWritable(final long time, final TimeUnit timeUnit) throws IOException {
@@ -238,7 +239,7 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
         if (isWriteShutdown()) {
             return;
         }
-        SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
+        SelectorUtils.await((NioXnio) getWorker().getXnio(), socketChannel, SelectionKey.OP_WRITE, time, timeUnit);
     }
 
     public XnioIoThread getWriteThread() {
@@ -355,12 +356,12 @@ final class NioSocketConduit extends NioHandle implements StreamSourceConduit, S
 
     public void awaitReadable() throws IOException {
         Xnio.checkBlockingAllowed();
-        SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_READ);
+        SelectorUtils.await((NioXnio) getWorker().getXnio(), socketChannel, SelectionKey.OP_READ);
     }
 
     public void awaitReadable(final long time, final TimeUnit timeUnit) throws IOException {
         Xnio.checkBlockingAllowed();
-        SelectorUtils.await((NioXnio)getWorker().getXnio(), socketChannel, SelectionKey.OP_READ, time, timeUnit);
+        SelectorUtils.await((NioXnio) getWorker().getXnio(), socketChannel, SelectionKey.OP_READ, time, timeUnit);
     }
 
     public XnioIoThread getReadThread() {
