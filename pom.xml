@@ -60,7 +60,7 @@
         <version.junit>4.13.2</version.junit>
         <version.jmock>2.12.0</version.jmock>
         <org.xnio.ssl.new>false</org.xnio.ssl.new>
-
+        <modular.jdk.props></modular.jdk.props>
         <version.org.osgi.core>6.0.0</version.org.osgi.core>
     </properties>
 
@@ -171,4 +171,17 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>jdk18</id>
+            <activation>
+                <jdk>[18,)</jdk>
+            </activation>
+            <properties>
+                <modular.jdk.props>-Djava.security.manager=allow</modular.jdk.props>
+            </properties>
+        </profile>
+    </profiles>
+
 </project>

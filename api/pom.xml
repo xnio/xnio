@@ -175,7 +175,7 @@
                     </includes>
                     <enableAssertions>true</enableAssertions>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
-                    <argLine>-Djdk.attach.allowAttachSelf</argLine>
+                    <argLine>-Djdk.attach.allowAttachSelf ${modular.jdk.props}</argLine>
                 </configuration>
             </plugin>
             <plugin>
