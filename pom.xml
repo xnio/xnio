@@ -25,7 +25,7 @@
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
-        <version>39</version>
+        <version>43</version>
     </parent>
 
     <groupId>org.jboss.xnio</groupId>
@@ -60,8 +60,10 @@
         <version.junit>4.13.2</version.junit>
         <version.jmock>2.12.0</version.jmock>
         <org.xnio.ssl.new>false</org.xnio.ssl.new>
-
+        <modular.jdk.props></modular.jdk.props>
         <version.org.osgi.core>6.0.0</version.org.osgi.core>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
     <dependencyManagement>
@@ -171,4 +173,17 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>jdk18</id>
+            <activation>
+                <jdk>[18,)</jdk>
+            </activation>
+            <properties>
+                <modular.jdk.props>-Djava.security.manager=allow</modular.jdk.props>
+            </properties>
+        </profile>
+    </profiles>
+
 </project>
