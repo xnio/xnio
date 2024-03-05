@@ -41,7 +41,7 @@ jobs:
       matrix:
         module: [api, nio-impl]
         os: [ubuntu-20.04, windows-latest, macos-latest]
-        jdk: [8, 11]
+        jdk: [8, 11, 17, 21]
         openjdk_impl: [hotspot, openj9]
         exclude:
           - os: macos-latest
