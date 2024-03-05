@@ -62,6 +62,8 @@
         <org.xnio.ssl.new>false</org.xnio.ssl.new>
         <modular.jdk.props></modular.jdk.props>
         <version.org.osgi.core>6.0.0</version.org.osgi.core>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
     <dependencyManagement>
