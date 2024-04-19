@@ -21,14 +21,11 @@ package org.xnio.ssl;
 
 import java.io.IOError;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.junit.After;
 import org.junit.Before;
 import org.xnio.AssertReadWrite;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
-import org.xnio.Pool;
+import org.xnio.ByteBufferPool;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 import org.xnio.mock.ConduitMock;
@@ -68,8 +65,8 @@ public abstract class AbstractSslConnectionTest extends AbstractSslTest {
     }
 
     protected SslConnection createSslConnection() {
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
+        final ByteBufferPool socketBufferPool = ByteBufferPool.LARGE_HEAP;
+        final ByteBufferPool applicationBufferPool = ByteBufferPool.LARGE_HEAP;
         final StreamConnectionMock connectionMock = new StreamConnectionMock(conduitMock);
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         try {

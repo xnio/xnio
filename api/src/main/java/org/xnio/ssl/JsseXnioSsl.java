@@ -26,7 +26,6 @@ import static org.xnio._private.Messages.msg;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -35,8 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.FutureResult;
@@ -45,7 +42,7 @@ import org.xnio.IoUtils;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.Pool;
+import org.xnio.ByteBufferPool;
 import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioExecutor;
@@ -66,7 +63,7 @@ import org.xnio.channels.ConnectedStreamChannel;
 public final class JsseXnioSsl extends XnioSsl {
     public static final boolean NEW_IMPL = doPrivileged((PrivilegedAction<Boolean>) () -> Boolean.valueOf(Boolean.parseBoolean(System.getProperty("org.xnio.ssl.new", "false")))).booleanValue();
 
-    static final Pool<ByteBuffer> bufferPool = new ByteBufferSlicePool(BufferAllocator.DIRECT_BYTE_BUFFER_ALLOCATOR, 21 * 1024, 21 * 1024 * 128);
+    static final ByteBufferPool bufferPool = ByteBufferPool.LARGE_DIRECT;
     private final SSLContext sslContext;
 
     /**

@@ -2,7 +2,6 @@ package org.xnio.ssl;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.Set;
 
 import javax.net.ssl.SSLEngine;
@@ -11,7 +10,7 @@ import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.Options;
-import org.xnio.Pool;
+import org.xnio.ByteBufferPool;
 import org.xnio.SslClientAuthMode;
 import org.xnio.StreamConnection;
 
@@ -25,7 +24,7 @@ public final class JsseSslConnection extends SslConnection {
         this(streamConnection, engine, JsseXnioSsl.bufferPool, JsseXnioSsl.bufferPool);
     }
 
-    JsseSslConnection(final StreamConnection streamConnection, final SSLEngine engine, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseSslConnection(final StreamConnection streamConnection, final SSLEngine engine, final ByteBufferPool socketBufferPool, final ByteBufferPool applicationBufferPool) {
         super(streamConnection.getIoThread());
         this.streamConnection = streamConnection;
         conduit = new JsseStreamConduit(this, engine, streamConnection.getSourceChannel().getConduit(), streamConnection.getSinkChannel().getConduit(), socketBufferPool, applicationBufferPool);

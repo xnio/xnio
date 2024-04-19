@@ -35,9 +35,7 @@ import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
-import org.xnio.Pool;
+import org.xnio.ByteBufferPool;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 import org.xnio.mock.ConduitMock;
@@ -74,8 +72,8 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
                     setThreadingPolicy(new Synchroniser());
                 }};
         engineMock = new SSLEngineMockSmallPacketSize(context);
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
+        final ByteBufferPool socketBufferPool = ByteBufferPool.SMALL_HEAP;
+        final ByteBufferPool applicationBufferPool = ByteBufferPool.SMALL_HEAP;
         final XnioWorkerMock worker = new XnioWorkerMock();
         threadMock = worker.chooseThread();
         threadMock.start();
@@ -100,7 +98,10 @@ public class JsseSslStreamConnectionBufferOverflowTestCase {
     public void bufferOverflowOnWrite() throws IOException {
         boolean fail = false;
         final ByteBuffer buffer = ByteBuffer.allocate(100);
-        buffer.put("12345678901234567890".getBytes("UTF-8")).flip();
+        for (int i = 0; i < 10; i++) {
+            buffer.put("1234567890".getBytes("UTF-8"));
+        }
+        buffer.flip();
         // attempt to write... conduit is expected to write to throw an IOException
         // SSLEngine required a bigger send buffer but out buffer was already big enough 
         try {

@@ -38,11 +38,9 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.jmock.Expectations;
 import org.junit.Test;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
+import org.xnio.ByteBufferPool;
 import org.xnio.ChannelListener;
 import org.xnio.Options;
-import org.xnio.Pool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedStreamChannel;
@@ -59,8 +57,8 @@ public class StartTLSChannelTestCase extends AbstractConnectedSslStreamChannelTe
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected ConnectedSslStreamChannel createSslChannel() {
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 17000, 17000 * 16);
+        final ByteBufferPool socketBufferPool = ByteBufferPool.LARGE_HEAP;
+        final ByteBufferPool applicationBufferPool = ByteBufferPool.LARGE_HEAP;
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         final ConnectedSslStreamChannel channel = new AssembledConnectedSslStreamChannel(connection, connection.getSourceChannel(), connection.getSinkChannel());
         final ChannelListener readListener = context.mock(ChannelListener.class, "read listener");

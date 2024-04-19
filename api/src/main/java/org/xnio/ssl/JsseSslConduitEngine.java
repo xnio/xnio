@@ -42,8 +42,7 @@ import javax.net.ssl.SSLSession;
 import org.jboss.logging.Logger;
 
 import org.xnio.Buffers;
-import org.xnio.Pool;
-import org.xnio.Pooled;
+import org.xnio.ByteBufferPool;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 
@@ -86,15 +85,15 @@ final class JsseSslConduitEngine {
     /** The SSL engine. */
     private final SSLEngine engine;
     /** The buffer into which incoming SSL data is written. */
-    private final Pooled<ByteBuffer> receiveBuffer;
+    private final ByteBuffer receiveBuffer;
     /** The buffer from which outbound SSL data is sent. */
-    private final Pooled<ByteBuffer> sendBuffer;
+    private final ByteBuffer sendBuffer;
     /** An expanded non-final buffer from which outbound SSL data is sent when
      * large fragments handling is enabled in the underlying SSL Engine. When
      * this happens, we need a specific buffer with expanded capacity. */
     private  ByteBuffer expandedSendBuffer;
     /** The buffer into which inbound clear data is written. */
-    private final Pooled<ByteBuffer> readBuffer;
+    private final ByteBuffer readBuffer;
 
     // the next conduits
     private final StreamSinkConduit sinkConduit;
@@ -123,7 +122,7 @@ final class JsseSslConduitEngine {
      * @param socketBufferPool      the socket buffer pool
      * @param applicationBufferPool the application buffer pool
      */
-    JsseSslConduitEngine(final JsseSslStreamConnection connection, final StreamSinkConduit sinkConduit, final StreamSourceConduit sourceConduit, final SSLEngine engine, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
+    JsseSslConduitEngine(final JsseSslStreamConnection connection, final StreamSinkConduit sinkConduit, final StreamSourceConduit sourceConduit, final SSLEngine engine, final ByteBufferPool socketBufferPool, final ByteBufferPool applicationBufferPool) {
         if (connection == null) {
             throw msg.nullParameter("connection");
         }
@@ -152,20 +151,20 @@ final class JsseSslConduitEngine {
         boolean ok = false;
         receiveBuffer = socketBufferPool.allocate();
         try {
-            receiveBuffer.getResource().flip();
+            receiveBuffer.flip();
             sendBuffer = socketBufferPool.allocate();
             try {
-                if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
+                if (receiveBuffer.capacity() < packetBufferSize || sendBuffer.capacity() < packetBufferSize) {
                     // create expanded send buffer
                     expandedSendBuffer = ByteBuffer.allocate(packetBufferSize);
                 }
                 readBuffer = applicationBufferPool.allocate();
                 ok = true;
             } finally {
-                if (! ok) sendBuffer.free();
+                if (! ok) ByteBufferPool.free(sendBuffer);
             }
         } finally {
-            if (! ok) receiveBuffer.free();
+            if (! ok) ByteBufferPool.free(receiveBuffer);
         }
     }
 
@@ -507,8 +506,8 @@ final class JsseSslConduitEngine {
                         // there could be unflushed data from a previous wrap, make sure everything is flushed at this point
                         doFlush();
                     }
-                    final ByteBuffer buffer = receiveBuffer.getResource();
-                    final ByteBuffer unwrappedBuffer = readBuffer.getResource();
+                    final ByteBuffer buffer = receiveBuffer;
+                    final ByteBuffer unwrappedBuffer = readBuffer;
                     // FIXME this if block is a workaround for a bug in SSLEngine
                    if (result.getHandshakeStatus() == HandshakeStatus.NEED_UNWRAP && engine.isOutboundDone()) {
                         synchronized (getUnwrapLock()) {
@@ -613,8 +612,8 @@ final class JsseSslConduitEngine {
             return 0L;
         }
         clearFlags(FIRST_HANDSHAKE | BUFFER_UNDERFLOW);
-        final ByteBuffer buffer = receiveBuffer.getResource();
-        final ByteBuffer unwrappedBuffer = readBuffer.getResource();
+        final ByteBuffer buffer = receiveBuffer;
+        final ByteBuffer unwrappedBuffer = readBuffer;
         long total = 0;
         SSLEngineResult result;
         synchronized(getUnwrapLock()) {
@@ -673,7 +672,7 @@ final class JsseSslConduitEngine {
     public ByteBuffer getUnwrapBuffer() {
         assert Thread.holdsLock(getUnwrapLock());
         assert ! Thread.holdsLock(getWrapLock());
-        return receiveBuffer.getResource();
+        return receiveBuffer;
     }
 
     /**
@@ -757,7 +756,7 @@ final class JsseSslConduitEngine {
                 assert result.bytesConsumed() == 0;
                 assert result.bytesProduced() == 0;
                 // fill the rest of the buffer, then retry!
-                final ByteBuffer buffer = receiveBuffer.getResource();
+                final ByteBuffer buffer = receiveBuffer;
                 synchronized (getUnwrapLock()) {
                     buffer.compact();
                     try {
@@ -902,9 +901,9 @@ final class JsseSslConduitEngine {
             sinkConduit.terminateWrites();
             connection.readClosed();
             connection.writeClosed();
-            readBuffer.free();
-            receiveBuffer.free();
-            sendBuffer.free();
+            ByteBufferPool.free(readBuffer);
+            ByteBufferPool.free(receiveBuffer);
+            ByteBufferPool.free(sendBuffer);
         }
     }
 
@@ -1228,7 +1227,7 @@ final class JsseSslConduitEngine {
     public boolean isDataAvailable() {
         synchronized (getUnwrapLock()) {
             try {
-                return readBuffer.getResource().position() > 0 || (receiveBuffer.getResource().hasRemaining() && !isUnderflow());
+                return readBuffer.position() > 0 || (receiveBuffer.hasRemaining() && !isUnderflow());
             } catch (IllegalStateException ignored) {
                 return false;
             }
@@ -1236,6 +1235,6 @@ final class JsseSslConduitEngine {
     }
 
     private final ByteBuffer getSendBuffer() {
-        return expandedSendBuffer != null? expandedSendBuffer : sendBuffer.getResource();
+        return expandedSendBuffer != null? expandedSendBuffer : sendBuffer;
     }
 }

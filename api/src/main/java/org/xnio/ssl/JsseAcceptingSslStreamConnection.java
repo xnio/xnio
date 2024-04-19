@@ -19,14 +19,13 @@
 package org.xnio.ssl;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import org.xnio.ByteBufferPool;
 import org.xnio.IoUtils;
 import org.xnio.OptionMap;
-import org.xnio.Pool;
 import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
 
@@ -38,7 +37,7 @@ import org.xnio.channels.AcceptingChannel;
  */
 final class JsseAcceptingSslStreamConnection extends AbstractAcceptingSslChannel<SslConnection, StreamConnection> {
 
-    JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
+    JsseAcceptingSslStreamConnection(final SSLContext sslContext, final AcceptingChannel<? extends StreamConnection> tcpServer, final OptionMap optionMap, final ByteBufferPool socketBufferPool, final ByteBufferPool applicationBufferPool, final boolean startTls) {
         super(sslContext, tcpServer, optionMap, socketBufferPool, applicationBufferPool, startTls);
     }
 

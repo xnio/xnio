@@ -33,9 +33,7 @@ import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
 import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Test;
-import org.xnio.BufferAllocator;
-import org.xnio.ByteBufferSlicePool;
-import org.xnio.Pool;
+import org.xnio.ByteBufferPool;
 import org.xnio.channels.AssembledConnectedSslStreamChannel;
 import org.xnio.channels.ConnectedSslStreamChannel;
 import org.xnio.mock.ConnectedStreamChannelMock;
@@ -66,8 +64,8 @@ public class ConnectedSslStreamChannelBufferOverflowTestCase extends AbstractCon
         }};
         connectedChannelMock = new ConnectedStreamChannelMock();
         engineMock = new SSLEngineMockSmallPacketSize(context);
-        final Pool<ByteBuffer> socketBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
-        final Pool<ByteBuffer> applicationBufferPool = new ByteBufferSlicePool(BufferAllocator.BYTE_BUFFER_ALLOCATOR, 10, 160);
+        final ByteBufferPool socketBufferPool = ByteBufferPool.SMALL_HEAP;
+        final ByteBufferPool applicationBufferPool = ByteBufferPool.SMALL_HEAP;
         final SslConnection connection = new JsseSslConnection(connectionMock, engineMock, socketBufferPool, applicationBufferPool);
         try {
             connection.startHandshake();
@@ -81,7 +79,10 @@ public class ConnectedSslStreamChannelBufferOverflowTestCase extends AbstractCon
     public void bufferOverflowOnWrite() throws IOException {
         boolean fail = false;
         final ByteBuffer buffer = ByteBuffer.allocate(100);
-        buffer.put("12345678901234567890".getBytes("UTF-8")).flip();
+        for (int i = 0; i < 10; i++) {
+            buffer.put("1234567890".getBytes("UTF-8"));
+        }
+        buffer.flip();
         // attempt to write... channel is expected to write to throw an IOException
         // SSLEngine required a bigger send buffer but out buffer was already big enough 
         try {

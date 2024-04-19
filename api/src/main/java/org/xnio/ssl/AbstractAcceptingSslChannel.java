@@ -23,7 +23,6 @@ import static org.xnio._private.Messages.msg;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -36,12 +35,12 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import org.xnio.ByteBufferPool;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.Pool;
 import org.xnio.Sequence;
 import org.xnio.SslClientAuthMode;
 import org.xnio.XnioExecutor;
@@ -80,11 +79,11 @@ abstract class AbstractAcceptingSslChannel<C extends ConnectedChannel, S extends
     private final ChannelListener.Setter<AcceptingChannel<C>> closeSetter;
     private final ChannelListener.Setter<AcceptingChannel<C>> acceptSetter;
     protected final boolean startTls;
-    protected final Pool<ByteBuffer> socketBufferPool;
-    protected final Pool<ByteBuffer> applicationBufferPool;
+    protected final ByteBufferPool socketBufferPool;
+    protected final ByteBufferPool applicationBufferPool;
 
 
-    AbstractAcceptingSslChannel(final SSLContext sslContext, final AcceptingChannel<? extends S> tcpServer, final OptionMap optionMap, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool, final boolean startTls) {
+    AbstractAcceptingSslChannel(final SSLContext sslContext, final AcceptingChannel<? extends S> tcpServer, final OptionMap optionMap, final ByteBufferPool socketBufferPool, final ByteBufferPool applicationBufferPool, final boolean startTls) {
         this.tcpServer = tcpServer;
         this.sslContext = sslContext;
         this.socketBufferPool = socketBufferPool;

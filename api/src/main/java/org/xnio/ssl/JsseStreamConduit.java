@@ -42,9 +42,8 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
+import org.xnio.ByteBufferPool;
 import org.xnio.Buffers;
-import org.xnio.Pool;
-import org.xnio.Pooled;
 import org.xnio.XnioIoThread;
 import org.xnio.XnioWorker;
 import org.xnio.channels.StreamSinkChannel;
@@ -72,11 +71,11 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     private final StreamSourceConduit sourceConduit;
     private final StreamSinkConduit sinkConduit;
     /** The buffer into which incoming SSL data is written. */
-    private final Pooled<ByteBuffer> receiveBuffer;
+    private final ByteBuffer receiveBuffer;
     /** The buffer from which outbound SSL data is sent. */
-    private final Pooled<ByteBuffer> sendBuffer;
+    private final ByteBuffer sendBuffer;
     /** The buffer into which inbound clear data is written. */
-    private final Pooled<ByteBuffer> readBuffer;
+    private final ByteBuffer readBuffer;
 
     //================================================================
     //
@@ -99,41 +98,41 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     //
     //================================================================
 
-    JsseStreamConduit(final JsseSslConnection connection, final SSLEngine engine, final StreamSourceConduit sourceConduit, final StreamSinkConduit sinkConduit, final Pool<ByteBuffer> socketBufferPool, final Pool<ByteBuffer> applicationBufferPool) {
-        Pooled<ByteBuffer> receiveBuffer;
-        Pooled<ByteBuffer> sendBuffer;
-        Pooled<ByteBuffer> readBuffer;
+    JsseStreamConduit(final JsseSslConnection connection, final SSLEngine engine, final StreamSourceConduit sourceConduit, final StreamSinkConduit sinkConduit, final ByteBufferPool socketBufferPool, final ByteBufferPool applicationBufferPool) {
+        ByteBuffer receiveBuffer;
+        ByteBuffer sendBuffer;
+        ByteBuffer readBuffer;
         boolean ok = false;
         final SSLSession session = engine.getSession();
         final int packetBufferSize = session.getPacketBufferSize();
         receiveBuffer = socketBufferPool.allocate();
         try {
-            receiveBuffer.getResource().flip();
+            receiveBuffer.flip();
             sendBuffer = socketBufferPool.allocate();
             try {
-                if (receiveBuffer.getResource().capacity() < packetBufferSize || sendBuffer.getResource().capacity() < packetBufferSize) {
+                if (receiveBuffer.capacity() < packetBufferSize || sendBuffer.capacity() < packetBufferSize) {
                     throw msg.socketBufferTooSmall();
                 }
                 final int applicationBufferSize = session.getApplicationBufferSize();
                 readBuffer = applicationBufferPool.allocate();
                 try {
-                    if (readBuffer.getResource().capacity() < applicationBufferSize) {
+                    if (readBuffer.capacity() < applicationBufferSize) {
                         throw msg.appBufferTooSmall();
                     }
                     ok = true;
                 } finally {
-                    if (! ok) readBuffer.free();
+                    if (! ok) ByteBufferPool.free(readBuffer);
                 }
             } finally {
-                if (! ok) sendBuffer.free();
+                if (! ok) ByteBufferPool.free(sendBuffer);
             }
         } finally {
-            if (! ok) receiveBuffer.free();
+            if (! ok) ByteBufferPool.free(receiveBuffer);
         }
         this.receiveBuffer = receiveBuffer;
         this.sendBuffer = sendBuffer;
         this.readBuffer = readBuffer;
-        receiveBuffer.getResource().clear().limit(0);
+        receiveBuffer.clear().limit(0);
         if (sourceConduit.getReadThread() != sinkConduit.getWriteThread()) {
             throw new IllegalArgumentException("Source and sink thread mismatch");
         }
@@ -346,9 +345,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
     }
 
     boolean markTerminated() {
-        readBuffer.free();
-        receiveBuffer.free();
-        sendBuffer.free();
+        ByteBufferPool.free(readBuffer);
+        ByteBufferPool.free(receiveBuffer);
+        ByteBufferPool.free(sendBuffer);
         if (anyAreClear(state, READ_FLAG_SHUTDOWN | WRITE_FLAG_FINISHED)) {
             state |= READ_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN | WRITE_FLAG_SHUTDOWN2 | WRITE_FLAG_SHUTDOWN3 | WRITE_FLAG_FINISHED;
             return true;
@@ -840,7 +839,7 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
                         this.state |= READ_FLAG_EOF;
                     }
                 }
-                if (allAreClear(this.state, READ_FLAG_EOF) || this.receiveBuffer.getResource().hasRemaining()) {
+                if (allAreClear(this.state, READ_FLAG_EOF) || this.receiveBuffer.hasRemaining()) {
                     // potentially unread data :(
                     final EOFException exception = msg.connectionClosedEarly();
                     try {
@@ -939,8 +938,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         }
         if (anyAreSet(state, READ_FLAG_EOF)) {
             // read data
-            if (readBuffer.getResource().position() > 0) {
-                final ByteBuffer readBufferResource = readBuffer.getResource();
+            if (readBuffer.position() > 0) {
+                final ByteBuffer readBufferResource = readBuffer;
                 readBufferResource.flip();
                 try {
                     if (TRACE_SSL) msg.tracef("TLS copy unwrapped data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dst));
@@ -978,8 +977,8 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
         if (anyAreSet(state, READ_FLAG_SHUTDOWN)) {
             return -1;
         } else if (anyAreSet(state, READ_FLAG_EOF)){
-            if (readBuffer.getResource().position() > 0) {
-                final ByteBuffer readBufferResource = readBuffer.getResource();
+            if (readBuffer.position() > 0) {
+                final ByteBuffer readBufferResource = readBuffer;
                 readBufferResource.flip();
                 try {
                     if (TRACE_SSL) msg.tracef("TLS copy unwrapped data from %s to %s", Buffers.debugString(readBufferResource), Buffers.debugString(dsts, offs, len));
@@ -1174,9 +1173,9 @@ final class JsseStreamConduit implements StreamSourceConduit, StreamSinkConduit,
             return 0L;
         }
         final SSLEngine engine = this.engine;
-        final ByteBuffer sendBuffer = this.sendBuffer.getResource();
-        final ByteBuffer receiveBuffer = this.receiveBuffer.getResource();
-        final ByteBuffer readBuffer = this.readBuffer.getResource();
+        final ByteBuffer sendBuffer = this.sendBuffer;
+        final ByteBuffer receiveBuffer = this.receiveBuffer;
+        final ByteBuffer readBuffer = this.readBuffer;
         // unwrap into our read buffer if necessary to avoid underflow problems
         final ByteBuffer[] realDsts = Arrays.copyOfRange(dsts, dstOff, dstLen + 1);
         realDsts[dstLen] = readBuffer;
