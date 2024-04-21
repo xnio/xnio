@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.Buffers;
+import org.xnio.ByteBufferPool;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
 import org.xnio.Option;
@@ -134,12 +135,30 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
      * to this channel.  The buffer should be flipped for emptying.
      *
      * @param buffer the buffer to re-queue
+     * @deprecated Use {@link #unget(ByteBuffer)} instead.
      */
+    @Deprecated
     public void unget(Pooled<ByteBuffer> buffer) {
         StreamSourceChannel old;
         old = channel;
         if (old == null) {
             buffer.free();
+            return;
+        }
+        channel = new BufferHolder(old, buffer);
+    }
+
+    /**
+     * Re-queue the given pooled buffer into this channel. This method transfers ownership of the given buffer
+     * to this channel. The buffer should be flipped for emptying.
+     *
+     * @param buffer the buffer to re-queue
+     */
+    public void unget(ByteBuffer buffer) {
+        StreamSourceChannel old;
+        old = channel;
+        if (old == null) {
+            ByteBufferPool.free(buffer);
             return;
         }
         channel = new BufferHolder(old, buffer);
@@ -229,18 +248,28 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
 
     class BufferHolder implements StreamSourceChannel {
         private final StreamSourceChannel next;
+        @Deprecated
         private final Pooled<ByteBuffer> buffer;
+        private final ByteBuffer newBuffer;
 
+        @Deprecated
         BufferHolder(final StreamSourceChannel next, final Pooled<ByteBuffer> buffer) {
             this.next = next;
             this.buffer = buffer;
+            this.newBuffer = null;
+        }
+
+        BufferHolder(final StreamSourceChannel next, ByteBuffer buffer) {
+            this.next = next;
+            this.buffer = null;
+            this.newBuffer = buffer;
         }
 
         public long transferTo(long position, long count, FileChannel target) throws IOException {
             long cnt;
             final ByteBuffer src;
             try {
-                src = buffer.getResource();
+                src = getBuffer();
                 final int pos = src.position();
                 final int rem = src.remaining();
                 if (rem > count) try {
@@ -273,7 +302,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
             throughBuffer.clear();
             final ByteBuffer src;
             try {
-                src = buffer.getResource();
+                src = getBuffer();
                 final int pos = src.position();
                 final int rem = src.remaining();
                 if (rem > count) try {
@@ -304,13 +333,13 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
         public long read(final ByteBuffer[] dsts, final int offset, final int length) throws IOException {
             long cnt;
             try {
-                final ByteBuffer src = buffer.getResource();
+                final ByteBuffer src = getBuffer();
                 cnt = Buffers.copy(dsts, offset, length, src);
                 if (src.hasRemaining()) {
                     return cnt;
                 }
                 final StreamSourceChannel next = channel = this.next;
-                buffer.free();
+                freeBuffer();
                 if (cnt > 0L && next == firstChannel) {
                     // don't hit the main channel until the user wants to
                     return cnt;
@@ -333,7 +362,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
                 return 0;
             }
             try {
-                final ByteBuffer src = buffer.getResource();
+                final ByteBuffer src = getBuffer();
                 cnt = Buffers.copy(dst, src);
                 if (src.hasRemaining()) {
                     return cnt;
@@ -352,7 +381,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
         }
 
         public void close() throws IOException {
-            buffer.free();
+            freeBuffer();
             next.close();
         }
 
@@ -362,7 +391,7 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
         }
 
         public void shutdownReads() throws IOException {
-            buffer.free();
+            freeBuffer();
             next.shutdownReads();
         }
 
@@ -425,8 +454,20 @@ public final class PushBackStreamChannel implements StreamSourceChannel, Wrapped
             throw new UnsupportedOperationException();
         }
 
-        private final StreamSourceChannel moveToNext() {
-            buffer.free();
+        private ByteBuffer getBuffer() {
+            return newBuffer != null ? newBuffer : buffer.getResource();
+        }
+
+        private void freeBuffer() {
+            if (newBuffer != null) {
+                ByteBufferPool.free(newBuffer);
+            } else {
+                buffer.free();
+            }
+        }
+
+        private StreamSourceChannel moveToNext() {
+            freeBuffer();
             return channel = next;
         }
     }
