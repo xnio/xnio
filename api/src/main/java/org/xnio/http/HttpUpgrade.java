@@ -432,27 +432,7 @@ public class HttpUpgrade {
                 if (buffer.hasRemaining()) {
                     StreamSourceConduit orig = connection.getSourceChannel().getConduit();
                     PushBackStreamSourceConduit pushBack = new PushBackStreamSourceConduit(orig);
-                    pushBack.pushBack(new Pooled<ByteBuffer>() {
-                        @Override
-                        public void discard() {
-                            buffer = null;
-                        }
-
-                        @Override
-                        public void free() {
-                            buffer = null;
-                        }
-
-                        @Override
-                        public ByteBuffer getResource() throws IllegalStateException {
-                            return buffer;
-                        }
-
-                        @Override
-                        public void close() {
-                            free();
-                        }
-                    });
+                    pushBack.pushBack(buffer);
                     connection.getSourceChannel().setConduit(pushBack);
                 }
 

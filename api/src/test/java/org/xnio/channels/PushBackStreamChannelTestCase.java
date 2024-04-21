@@ -34,16 +34,14 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.xnio.ByteBufferSlicePool;
+import org.xnio.ByteBufferPool;
 import org.xnio.ChannelListener;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.Pool;
-import org.xnio.Pooled;
 import org.xnio.mock.ConnectedStreamChannelMock;
 
 /**
- * Test for {@link PushBacksStreamChannel}.
+ * Test for {@link PushBackStreamChannel}.
  * 
  * @author <a href="mailto:flavia.rainone@jboss.com">Flavia Rainone</a>
  *
@@ -64,9 +62,9 @@ public class PushBackStreamChannelTestCase {
         final ByteBuffer emptyBuffer = ByteBuffer.allocate(0);
         assertEquals(0, channel.read(emptyBuffer));
 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("dummy".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("dummy".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer);
         assertEquals(0, channel.read(emptyBuffer));
 
@@ -77,9 +75,9 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readPushedMessage() throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(10);
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("new read data".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("new read data".getBytes("UTF-8")).flip();
 
         assertEquals(0, channel.read(buffer));
         channel.unget(messageBuffer);
@@ -102,10 +100,10 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readFirstChannelDataAndPushedMessage1() throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(15);
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
         firstChannel.setReadData("E=");
-        messageBuffer.getResource().put("mc".getBytes("UTF-8")).flip();
+        messageBuffer.put("mc".getBytes("UTF-8")).flip();
         assertEquals(2, channel.read(buffer));
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("2");
@@ -119,12 +117,12 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readFirstChannelDataAndPushedMessage2() throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(15);
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
         firstChannel.setReadData("E=");
-        messageBuffer1.getResource().put("c".getBytes("UTF-8")).flip();
-        messageBuffer2.getResource().put("m".getBytes("UTF-8")).flip();
+        messageBuffer1.put("c".getBytes("UTF-8")).flip();
+        messageBuffer2.put("m".getBytes("UTF-8")).flip();
         assertEquals(2, channel.read(buffer));
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("2");
@@ -140,9 +138,9 @@ public class PushBackStreamChannelTestCase {
         final ByteBuffer[] emptyBufferArray = new ByteBuffer[0];
         assertEquals(0, channel.read(emptyBufferArray));
 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("dummy".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("dummy".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer);
         assertEquals(0, channel.read(emptyBufferArray));
 
@@ -153,9 +151,9 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readPushedMessageToByteArray() throws IOException {
         final ByteBuffer buffer = ByteBuffer.allocate(15);
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(20, 20);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("pushed read data".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("pushed read data".getBytes("UTF-8")).flip();
 
         assertEquals(0, channel.read(new ByteBuffer[] {buffer}));
         channel.unget(messageBuffer);
@@ -181,11 +179,11 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void readFirstChannelDataAndPushedMessageToByteArray1() throws IOException {
-        final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(3), ByteBuffer.allocate(10)}; 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
+        final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(3), ByteBuffer.allocate(10)};
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
         firstChannel.setReadData("JBoss");
-        messageBuffer.getResource().put("Xnio".getBytes("UTF-8")).flip();
+        messageBuffer.put("Xnio".getBytes("UTF-8")).flip();
         assertEquals(5, channel.read(buffer));
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("Api");
@@ -198,13 +196,13 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void readFirstChannelDataAndPushedMessageToByteArray2() throws IOException {
-        final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(3), ByteBuffer.allocate(10)}; 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
+        final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(3), ByteBuffer.allocate(10)};
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
         firstChannel.setReadData("JBoss");
-        messageBuffer1.getResource().put("io".getBytes("UTF-8")).flip();
-        messageBuffer2.getResource().put("Xn".getBytes("UTF-8")).flip();
+        messageBuffer1.put("io".getBytes("UTF-8")).flip();
+        messageBuffer2.put("Xn".getBytes("UTF-8")).flip();
         assertEquals(5, channel.read(buffer));
         assertEquals(0, channel.read(buffer));
         firstChannel.setReadData("Api");
@@ -219,9 +217,9 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readPushedMessageToByteArrayWithOffset() throws IOException {
         final ByteBuffer[] buffer = new ByteBuffer[] {null, ByteBuffer.allocate(50)};
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(50, 50);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("read data for array with offset".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("read data for array with offset".getBytes("UTF-8")).flip();
 
         assertEquals(0, channel.read(buffer, 1, 1));
         channel.unget(messageBuffer);
@@ -241,11 +239,11 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readFirstChannelDataAndPushedMessageToByteArrayWithOffset1() throws IOException {
         final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(20), ByteBuffer.allocate(20),
-                ByteBuffer.allocate(20), ByteBuffer.allocate(20)}; 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(20, 20);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
+                ByteBuffer.allocate(20), ByteBuffer.allocate(20)};
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
         firstChannel.setReadData("123456789");
-        messageBuffer.getResource().put("10111213141516171819".getBytes("UTF-8")).flip();
+        messageBuffer.put("10111213141516171819".getBytes("UTF-8")).flip();
         assertEquals(9, channel.read(buffer, 1, 2));
         assertEquals(0, channel.read(buffer, 1, 2));
         firstChannel.setReadData("20212223242526272829");
@@ -261,13 +259,13 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void readFirstChannelDataAndPushedMessageToByteArrayWithOffset2() throws IOException {
         final ByteBuffer[] buffer = new ByteBuffer[] {ByteBuffer.allocate(20), ByteBuffer.allocate(20),
-                ByteBuffer.allocate(20), ByteBuffer.allocate(20)}; 
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(20, 20);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
+                ByteBuffer.allocate(20), ByteBuffer.allocate(20)};
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
         firstChannel.setReadData("123456789");
-        messageBuffer1.getResource().put("16171819".getBytes("UTF-8")).flip();
-        messageBuffer2.getResource().put("101112131415".getBytes("UTF-8")).flip();
+        messageBuffer1.put("16171819".getBytes("UTF-8")).flip();
+        messageBuffer2.put("101112131415".getBytes("UTF-8")).flip();
         assertEquals(9, channel.read(buffer, 1, 2));
         assertEquals(0, channel.read(buffer, 1, 2));
         firstChannel.setReadData("20212223242526272829");
@@ -283,9 +281,9 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void transferPushedMessageToFileChannel() throws IOException {
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("pushed message".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("pushed message".getBytes("UTF-8")).flip();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
         final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
@@ -322,9 +320,9 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void transferFirstChannelDataAndPushedMessageToFileChannel1() throws IOException {
         firstChannel.setReadData("x");
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("nio".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("nio".getBytes("UTF-8")).flip();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
         final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
@@ -347,11 +345,11 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void transferFirstChannelDataAndPushedMessageToFileChannel2() throws IOException {
         firstChannel.setReadData("x");
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        messageBuffer1.getResource().put("io".getBytes("UTF-8")).flip();
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
-        messageBuffer2.getResource().put("n".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        messageBuffer1.put("io".getBytes("UTF-8")).flip();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
+        messageBuffer2.put("n".getBytes("UTF-8")).flip();
         final File file = File.createTempFile("test", ".txt");
         file.deleteOnExit();
         final FileChannel fileChannel = new RandomAccessFile(file, "rw").getChannel();
@@ -374,9 +372,9 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void transferToStreamSinkChannel() throws Exception {
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("pushed message".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("pushed message".getBytes("UTF-8")).flip();
         final ConnectedStreamChannelMock sinkChannel = new ConnectedStreamChannelMock();
 
         assertEquals(0, channel.transferTo(15, ByteBuffer.allocate(60), sinkChannel));
@@ -396,9 +394,9 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void transferFirstChannelDataAndPushedMessageToSinkChannel1() throws IOException {
         firstChannel.setReadData("1+");
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("2=".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("2=".getBytes("UTF-8")).flip();
         final ConnectedStreamChannelMock sinkChannel = new ConnectedStreamChannelMock();
         final ByteBuffer throughBuffer = ByteBuffer.allocate(10);
         assertEquals(1, channel.transferTo(1, throughBuffer, sinkChannel));
@@ -416,11 +414,11 @@ public class PushBackStreamChannelTestCase {
     @Test
     public void transferFirstChannelDataAndPushedMessageToSinkChannel2() throws IOException {
         firstChannel.setReadData("1+");
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        messageBuffer1.getResource().put("30".getBytes("UTF-8")).flip();
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
-        messageBuffer2.getResource().put("2+".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        messageBuffer1.put("30".getBytes("UTF-8")).flip();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
+        messageBuffer2.put("2+".getBytes("UTF-8")).flip();
         final ConnectedStreamChannelMock sinkChannel = new ConnectedStreamChannelMock();
         final ByteBuffer throughBuffer = ByteBuffer.allocate(10);
         assertEquals(1, channel.transferTo(1, throughBuffer, sinkChannel));
@@ -461,9 +459,9 @@ public class PushBackStreamChannelTestCase {
         t.join();
 
         // push data
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(15, 15);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
-        messageBuffer.getResource().put("pushed message".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
+        messageBuffer.put("pushed message".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer);
 
         channel.resumeReads();
@@ -482,17 +480,11 @@ public class PushBackStreamChannelTestCase {
         channel.shutdownReads();
         assertTrue(firstChannel.isShutdownReads());
         // cannot unget after shutdown
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
         boolean bufferCleared = false;
-        messageBuffer.getResource().put("a".getBytes("UTF-8")).flip();
+        messageBuffer.put("a".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer);
-        try {
-            messageBuffer.getResource();
-        } catch (IllegalStateException e) {
-            bufferCleared = true;
-        }
-        assertTrue(bufferCleared);
         // cannot read
         final ByteBuffer buffer = ByteBuffer.allocate(30);
         assertEquals(-1, channel.read(buffer));
@@ -511,12 +503,12 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void shutdownReadsWithPushedData() throws IOException {
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        messageBuffer1.getResource().put("1".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        messageBuffer1.put("1".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer1);
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
-        messageBuffer2.getResource().put("2".getBytes("UTF-8")).flip();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
+        messageBuffer2.put("2".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer2);
         channel.shutdownReads();
         assertTrue(firstChannel.isShutdownReads());
@@ -524,16 +516,10 @@ public class PushBackStreamChannelTestCase {
         channel.shutdownReads();
         assertTrue(firstChannel.isShutdownReads());
         // cannot unget after shutdown
-        final Pooled<ByteBuffer> messageBuffer3 = messagePool.allocate();
+        final ByteBuffer messageBuffer3 = messagePool.allocate();
         boolean bufferCleared = false;
-        messageBuffer3.getResource().put("3".getBytes("UTF-8")).flip();
+        messageBuffer3.put("3".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer3);
-        try {
-            messageBuffer3.getResource();
-        } catch (IllegalStateException e) {
-            bufferCleared = true;
-        }
-        assertTrue(bufferCleared);
         // cannot read
         final ByteBuffer buffer = ByteBuffer.allocate(30);
         assertEquals(-1, channel.read(buffer));
@@ -564,17 +550,11 @@ public class PushBackStreamChannelTestCase {
         assertFalse(channel.isOpen());
         assertFalse(firstChannel.isOpen());
         // cannot unget after closed
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer = messagePool.allocate();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer = messagePool.allocate();
         boolean bufferCleared = false;
-        messageBuffer.getResource().put("a".getBytes("UTF-8")).flip();
+        messageBuffer.put("a".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer);
-        try {
-            messageBuffer.getResource();
-        } catch (IllegalStateException e) {
-            bufferCleared = true;
-        }
-        assertTrue(bufferCleared);
         // cannot read
         final ByteBuffer buffer = ByteBuffer.allocate(30);
         assertEquals(-1, channel.read(buffer));
@@ -597,12 +577,12 @@ public class PushBackStreamChannelTestCase {
 
     @Test
     public void closeChannelWithPushedData() throws IOException {
-        final Pool<ByteBuffer> messagePool = new ByteBufferSlicePool(5, 5);
-        final Pooled<ByteBuffer> messageBuffer1 = messagePool.allocate();
-        messageBuffer1.getResource().put("1".getBytes("UTF-8")).flip();
+        final ByteBufferPool messagePool = ByteBufferPool.SMALL_HEAP;
+        final ByteBuffer messageBuffer1 = messagePool.allocate();
+        messageBuffer1.put("1".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer1);
-        final Pooled<ByteBuffer> messageBuffer2 = messagePool.allocate();
-        messageBuffer2.getResource().put("2".getBytes("UTF-8")).flip();
+        final ByteBuffer messageBuffer2 = messagePool.allocate();
+        messageBuffer2.put("2".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer2);
         channel.close();
         assertFalse(channel.isOpen());
@@ -612,16 +592,10 @@ public class PushBackStreamChannelTestCase {
         assertFalse(channel.isOpen());
         assertFalse(firstChannel.isOpen());
         // cannot unget after closed
-        final Pooled<ByteBuffer> messageBuffer3 = messagePool.allocate();
+        final ByteBuffer messageBuffer3 = messagePool.allocate();
         boolean bufferCleared = false;
-        messageBuffer3.getResource().put("3".getBytes("UTF-8")).flip();
+        messageBuffer3.put("3".getBytes("UTF-8")).flip();
         channel.unget(messageBuffer3);
-        try {
-            messageBuffer3.getResource();
-        } catch (IllegalStateException e) {
-            bufferCleared = true;
-        }
-        assertTrue(bufferCleared);
         // cannot read
         final ByteBuffer buffer = ByteBuffer.allocate(30);
         assertEquals(-1, channel.read(buffer));
