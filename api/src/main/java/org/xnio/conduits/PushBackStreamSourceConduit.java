@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 import org.xnio.Buffers;
+import org.xnio.ByteBufferPool;
 import org.xnio.Pooled;
 import org.xnio.channels.StreamSinkChannel;
 
@@ -86,7 +87,9 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
      * be released back to its original pool (if any).
      *
      * @param pooledBuffer the buffer to push back
+     * @deprecated Use {@link #PushBackStreamSourceConduit(StreamSourceConduit)} instead
      */
+    @Deprecated
     public void pushBack(Pooled<ByteBuffer> pooledBuffer) {
         if (pooledBuffer == null) {
             return;
@@ -98,13 +101,39 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
         }
     }
 
+    /**
+     * Push a buffer back to the head of the stream.  Once the buffer data is consumed, it will
+     * be released back to its original pool (if any).
+     *
+     * @param buffer the buffer to push back
+     */
+    public void pushBack(ByteBuffer buffer) {
+        if (buffer == null) {
+            return;
+        }
+        if (shutdown || ! buffer.hasRemaining()) {
+            ByteBufferPool.free(buffer);
+        } else {
+            current = new BufferConduit(current, buffer);
+        }
+    }
+
     class BufferConduit extends AbstractStreamSourceConduit<StreamSourceConduit> implements StreamSourceConduit {
 
         private final Pooled<ByteBuffer> pooledBuffer;
+        private final ByteBuffer newBuffer;
 
+        @Deprecated
         BufferConduit(final StreamSourceConduit next, final Pooled<ByteBuffer> pooledBuffer) {
             super(next);
             this.pooledBuffer = pooledBuffer;
+            this.newBuffer = null;
+        }
+
+        BufferConduit(final StreamSourceConduit next, final ByteBuffer buffer) {
+            super(next);
+            this.pooledBuffer = null;
+            this.newBuffer = buffer;
         }
 
         public void resumeReads() {
@@ -115,9 +144,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             try {
                 super.terminateReads();
             } finally {
-                if (pooledBuffer != null) {
-                    pooledBuffer.free();
-                }
+                freeBuffer();
                 next.terminateReads();
             }
         }
@@ -137,7 +164,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             }
             final StreamSourceConduit next = this.next;
             try {
-                final ByteBuffer src = pooledBuffer.getResource();
+                final ByteBuffer src = getBuffer();
                 cnt = Buffers.copy(dst, src);
                 if (src.hasRemaining()) {
                     return cnt;
@@ -159,7 +186,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             long cnt;
             final StreamSourceConduit next = this.next;
             try {
-                final ByteBuffer src = pooledBuffer.getResource();
+                final ByteBuffer src = getBuffer();
                 cnt = Buffers.copy(dsts, offs, len, src);
                 if (src.hasRemaining()) {
                     return cnt;
@@ -181,7 +208,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             long cnt;
             final ByteBuffer src;
             try {
-                src = pooledBuffer.getResource();
+                src = getBuffer();
                 final int pos = src.position();
                 final int rem = src.remaining();
                 if (rem > count) try {
@@ -213,7 +240,7 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             long cnt;
             final ByteBuffer src;
             try {
-                src = pooledBuffer.getResource();
+                src = getBuffer();
                 final int pos = src.position();
                 final int rem = src.remaining();
                 if (rem > count) try {
@@ -263,9 +290,21 @@ public final class PushBackStreamSourceConduit extends AbstractStreamSourceCondu
             return res > 0L ? cnt + res : cnt > 0L ? cnt : res;
         }
 
+        private ByteBuffer getBuffer() {
+            return newBuffer != null ? newBuffer : pooledBuffer.getResource();
+        }
+
+        private void freeBuffer() {
+            if (newBuffer != null) {
+                ByteBufferPool.free(newBuffer);
+            } else {
+                pooledBuffer.free();
+            }
+        }
+
         private final void moveToNext() {
             current = next;
-            pooledBuffer.free();
+            freeBuffer();
         }
     }
 }
