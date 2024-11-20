@@ -1284,7 +1284,7 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
                                 xnio.handleThreadExit();
                             }
                         }
-                    }, name + " task-" + getNextSeq(), stackSize);
+                    }, name + ":task-" + getNextSeq(), stackSize);
                     // Mark the thread as daemon if the Options.THREAD_DAEMON has been set
                     if (markThreadAsDaemon) {
                         taskThread.setDaemon(true);
