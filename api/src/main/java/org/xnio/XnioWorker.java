@@ -34,8 +34,14 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
@@ -67,6 +73,7 @@ import org.xnio.management.XnioServerMXBean;
 import org.xnio.management.XnioWorkerMXBean;
 
 import static java.lang.Math.max;
+import static java.lang.System.nanoTime;
 import static java.security.AccessController.doPrivileged;
 import org.jboss.logging.Logger;
 import static org.xnio.IoUtils.safeClose;
@@ -80,7 +87,7 @@ import static org.xnio._private.Messages.msg;
  * @since 3.0
  */
 @SuppressWarnings("unused")
-public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ExecutorService, XnioIoFactory, Contextual<XnioWorker> {
+public abstract class XnioWorker extends AbstractExecutorService implements Configurable, ScheduledExecutorService, XnioIoFactory, Contextual<XnioWorker> {
 
     private final Xnio xnio;
     private final TaskPool taskPool;
@@ -846,6 +853,165 @@ public abstract class XnioWorker extends AbstractExecutorService implements Conf
      * @return the number of I/O threads configured on this worker
      */
     public abstract int getIoThreadCount();
+
+    //==================================================
+    //
+    // Scheduled executor methods
+    //
+    //==================================================
+
+    private abstract static class KeyScheduledFuture<V> extends FutureTask<V> implements ScheduledFuture<V> {
+        AtomicReference<XnioExecutor.Key> key = new AtomicReference<>();
+
+        public KeyScheduledFuture(Callable<V> callable) {
+            super(callable);
+        }
+
+        public KeyScheduledFuture(Runnable runnable, V result) {
+            super(runnable, result);
+        }
+
+        @Override
+        public int compareTo(final Delayed other) {
+            if (other == this) // compare zero ONLY if same object
+                return 0;
+            long d = (getDelay(TimeUnit.NANOSECONDS) -
+                    other.getDelay(TimeUnit.NANOSECONDS));
+            return (d == 0) ? 0 : ((d < 0) ? -1 : 1);
+        }
+
+        @Override
+        public boolean cancel(final boolean mayInterruptIfRunning) {
+            boolean canceled = super.cancel(mayInterruptIfRunning);
+            if (canceled)
+            key.get().remove();
+            return true;
+        }
+    }
+
+    private static class EstDelayKeyScheduledFuture<V> extends KeyScheduledFuture<V> {
+        private long maxDelay;
+
+        public EstDelayKeyScheduledFuture(Callable<V> callable) {
+            super(callable);
+        }
+
+        public EstDelayKeyScheduledFuture(Runnable runnable, V result) {
+            super(runnable, result);
+        }
+
+        @Override
+        public long getDelay(TimeUnit unit) {
+            return maxDelay;
+        }
+    }
+
+    @Override
+    public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
+        EstDelayKeyScheduledFuture<V> ft = new EstDelayKeyScheduledFuture<V>(callable);
+        ft.maxDelay = unit.toNanos(delay);
+        ft.key.set(getIoThread().executeAfter(ft, delay, unit));
+        return ft;
+    }
+
+    @Override
+    public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+        EstDelayKeyScheduledFuture<?> ft = new EstDelayKeyScheduledFuture(command, null);
+        ft.maxDelay = unit.toNanos(delay);
+        ft.key.set(getIoThread().executeAfter(ft, delay, unit));
+        return ft;
+    }
+
+    public static class WrappingTimeCalculator {
+        private final long period;
+        private final long periodOffset;
+        private long lastCount;
+
+        WrappingTimeCalculator(long start, long period) {
+            this.period = period;
+            periodOffset = start % period;
+            lastCount = start / period - 1;
+        }
+
+        public long delay() {
+            long now = nanoTime();
+            long nowCount = (now - periodOffset) / period;
+            if (nowCount < lastCount) {
+                lastCount -= Long.MAX_VALUE / period;
+            }
+            long dist = (lastCount + 1) - nowCount;
+            return dist * period - (now - periodOffset) % period;
+        }
+
+        public void advance() {
+            lastCount += 1;
+        }
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleAtFixedRate(
+            Runnable command, long initialDelay, long period, TimeUnit unit
+    ) {
+        WrappingTimeCalculator calculator = new WrappingTimeCalculator(
+                nanoTime() + unit.toNanos(initialDelay), unit.toNanos(period));
+        KeyScheduledFuture<?> ft = new KeyScheduledFuture(command, null) {
+            @Override
+            public long getDelay(TimeUnit unit) {
+                return calculator.delay();
+            }
+
+            @Override
+            protected void setException(Throwable t) {
+                super.setException(t);
+                ((XnioExecutor.Key)key.get()).remove();
+            }
+
+            @Override
+            public void run() {
+                super.runAndReset();
+            }
+        };
+        ft.key.set(getIoThread().executeAfter(new Runnable() {
+            @Override
+            public void run() {
+                long delay;
+                while ((delay = calculator.delay()) <= 0) {
+                    calculator.advance();
+                    ft.run();
+                    if (ft.isDone()) return;
+                }
+                ft.key.set(getIoThread().executeAfter(this, delay, TimeUnit.NANOSECONDS));
+            }
+        }, initialDelay, unit));
+        return ft;
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleWithFixedDelay(
+            Runnable command, long initialDelay, long delay, TimeUnit unit
+    ) {
+        EstDelayKeyScheduledFuture<?> ft = new EstDelayKeyScheduledFuture(command, null) {
+            @Override
+            protected void setException(Throwable t) {
+                super.setException(t);
+                ((XnioExecutor.Key)key.get()).remove();
+            }
+
+            @Override
+            public void run() {
+                super.runAndReset();
+            }
+        };
+        ft.key.set(getIoThread().executeAfter(new Runnable() {
+            @Override
+            public void run() {
+                ft.run();
+                if (ft.isDone()) return;
+                ft.key.set(getIoThread().executeAtInterval(ft, delay, unit));
+            }
+        }, initialDelay, unit));
+        return ft;
+    }
 
     //==================================================
     //
