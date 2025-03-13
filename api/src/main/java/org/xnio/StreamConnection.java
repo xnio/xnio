@@ -24,6 +24,8 @@ import org.xnio.conduits.ConduitStreamSourceChannel;
 import org.xnio.conduits.StreamSinkConduit;
 import org.xnio.conduits.StreamSourceConduit;
 
+import java.io.IOException;
+
 import static org.xnio._private.Messages.msg;
 
 /**
@@ -44,6 +46,23 @@ public abstract class StreamConnection extends Connection implements CloseListen
      */
     protected StreamConnection(final XnioIoThread thread) {
         super(thread);
+    }
+
+    @Override protected void notifyReadClosed() {
+
+        try {
+            this.getSourceChannel().shutdownReads();
+        } catch (IOException e) {
+            msg.connectionNotifyReadClosedFailed(e, this);
+        }
+    }
+
+    @Override protected void notifyWriteClosed() {
+        try {
+            this.getSinkChannel().shutdownWrites();
+        } catch (IOException e) {
+            msg.connectionNotifyWriteClosedFailed(e, this);
+        }
     }
 
     public void setCloseListener(final ChannelListener<? super StreamConnection> listener) {
