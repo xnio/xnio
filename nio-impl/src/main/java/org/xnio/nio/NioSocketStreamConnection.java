@@ -142,10 +142,12 @@ final class NioSocketStreamConnection extends AbstractNioStreamConnection {
 
     protected void notifyWriteClosed() {
         conduit.writeTerminated();
+        super.notifyWriteClosed();
     }
 
     protected void notifyReadClosed() {
         conduit.readTerminated();
+        super.notifyReadClosed();
     }
 
     SocketChannel getChannel() {
