@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.xnio.Buffers;
 import org.xnio.ChannelExceptionHandler;
 import org.xnio.ChannelListener;
 import org.xnio.ChannelListeners;
@@ -401,6 +402,7 @@ public class HttpUpgrade {
 
             private final HttpUpgradeParser parser = new HttpUpgradeParser();
             private ByteBuffer buffer = ByteBuffer.allocate(1024);
+            private ByteBuffer pushBackBuffer = null;
 
             @Override
             public void handleEvent(final StreamSourceChannel channel) {
@@ -430,30 +432,46 @@ public class HttpUpgrade {
                 channel.suspendReads();
 
                 if (buffer.hasRemaining()) {
-                    StreamSourceConduit orig = connection.getSourceChannel().getConduit();
-                    PushBackStreamSourceConduit pushBack = new PushBackStreamSourceConduit(orig);
-                    pushBack.pushBack(new Pooled<ByteBuffer>() {
-                        @Override
-                        public void discard() {
-                            buffer = null;
-                        }
+                    if (pushBackBuffer == null) {
+                        pushBackBuffer = ByteBuffer.allocate(1024);
+                        Buffers.copy(pushBackBuffer, buffer);
+                        buffer.clear();
+                        StreamSourceConduit orig = connection.getSourceChannel().getConduit();
+                        PushBackStreamSourceConduit pushBack = new PushBackStreamSourceConduit(orig);
+                        pushBack.pushBack(new Pooled<ByteBuffer>() {
+                            @Override
+                            public void discard() {
+                            }
 
-                        @Override
-                        public void free() {
-                            buffer = null;
-                        }
+                            @Override
+                            public void free() {
+                                // if we clear the pushBackBuffer, the push back stream source will think it has remaining()
+                                // bytes to read yet the next time it is invoked, so it keep it as it is
+                            }
 
-                        @Override
-                        public ByteBuffer getResource() throws IllegalStateException {
-                            return buffer;
-                        }
+                            @Override
+                            public ByteBuffer getResource() throws IllegalStateException {
+                                return pushBackBuffer;
+                            }
 
-                        @Override
-                        public void close() {
-                            free();
-                        }
-                    });
-                    connection.getSourceChannel().setConduit(pushBack);
+                            @Override
+                            public void close() {
+                            }
+                        });
+                        connection.getSourceChannel().setConduit(pushBack);
+                    } else {
+                        // it is safe to clear this buffer for the following reasons:
+                        // if we are pushing back after a push back, we have two different scenarios:
+                        // a) we are pushing back new bytes, the previous push back is done and solved
+                        // b) we are pushing back some of the bytes we have already pushed back. In this case, notice
+                        // that those bytes have already been read from the previous push back stream source conduit
+                        // regardless of whether it has fred or not its internal byte buffer. After all, we read them
+                        // from the push back in the previous do while block above. So, it is also safe to use the
+                        // same buffer
+                        pushBackBuffer.clear();
+                        Buffers.copy(pushBackBuffer, buffer);
+                        // no need to set the pushback stream source conduit, it is already set
+                    }
                 }
 
                 //ok, we have a response
