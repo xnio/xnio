@@ -30,6 +30,8 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
@@ -117,10 +119,25 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         initChannels(worker, OptionMap.EMPTY);
     }
 
+    protected void waitForACycle() {
+        final FutureTask<Boolean> futureTask = new FutureTask(()->{
+            return true;
+        });
+        worker.run(futureTask);
+        try {
+            assertTrue(futureTask.get());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @After
     public void closeChannels() throws IOException {
         if (sinkChannel != null) {
             sinkChannel.close();
+            waitForACycle();
             assertFalse(sinkChannel.isOpen());
             sourceChannel.close();
             assertFalse(sourceChannel.isOpen());
@@ -141,6 +158,7 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         readBuffer.flip();
         assertEquals("write to sink and read from source", Buffers.getModifiedUtf8(readBuffer));
         sinkChannel.close();
+        waitForACycle();
         assertEquals(0, sourceChannel.read(readBuffer));
         writeBuffer.flip();
         ClosedChannelException expected = null;
@@ -181,6 +199,7 @@ public abstract class AbstractStreamSinkSourceChannelTest<S extends StreamSinkCh
         assertEquals(">= 2several", Buffers.getModifiedUtf8(readBuffers[3]));
         assertEquals(0, readBuffers[4].remaining());
         sinkChannel.close();
+        waitForACycle();
         assertEquals(0, sourceChannel.read(readBuffers));
         writeBuffers[0].flip();
         ClosedChannelException expected = null;
