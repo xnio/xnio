@@ -47,13 +47,13 @@
     <developers>
         <developer>
             <name>David Lloyd</name>
-            <email>dmlloyd@redhat</email>
+            <email>dmlloyd@redhat.com</email>
             <organization>WildFly</organization>
             <organizationUrl>https://www.wildfly.org/</organizationUrl>
         </developer>
         <developer>
             <name>Flavia Rainone</name>
-            <email>frainone@redhat</email>
+            <email>frainone@redhat.com</email>
             <organization>WildFly</organization>
             <organizationUrl>https://www.wildfly.org/</organizationUrl>
         </developer>
@@ -72,7 +72,7 @@
 
     <properties>
         <!-- Repository Deployment Settings -->
-        <nexus.repository.staging>wildfly-staging</nexus.repository.staging>
+        <nexus.repository.staging>jboss-io</nexus.repository.staging>
         <nexus.repository.release>releases</nexus.repository.release>
         <nexus.staging.tag>xnio-${project.version}</nexus.staging.tag>
         <nexus.serverId>jboss</nexus.serverId>
