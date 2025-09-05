@@ -47,13 +47,13 @@
     <developers>
         <developer>
             <name>David Lloyd</name>
-            <email>dmlloyd@redhat</email>
+            <email>dmlloyd@redhat.com</email>
             <organization>WildFly</organization>
             <organizationUrl>https://www.wildfly.org/</organizationUrl>
         </developer>
         <developer>
             <name>Flavia Rainone</name>
-            <email>frainone@redhat</email>
+            <email>frainone@redhat.com</email>
             <organization>WildFly</organization>
             <organizationUrl>https://www.wildfly.org/</organizationUrl>
         </developer>
