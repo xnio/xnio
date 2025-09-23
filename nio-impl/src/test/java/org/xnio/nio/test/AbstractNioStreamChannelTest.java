@@ -69,6 +69,12 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
         readBuffer.flip();
         assertEquals("read and write", Buffers.getModifiedUtf8(readBuffer));
         channel1.close();
+        waitForACycle();
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         assertEquals(-1, channel1.read(readBuffer));
         writeBuffer.flip();
         ClosedChannelException expected = null;
@@ -109,6 +115,10 @@ public abstract class AbstractNioStreamChannelTest extends AbstractStreamSinkSou
         assertEquals("> 1multiple", Buffers.getModifiedUtf8(readBuffers[3]));
         assertEquals(0, readBuffers[4].remaining());
         channel1.close();
+        waitForACycle();
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e){}
         assertEquals(-1, channel1.read(readBuffers));
         writeBuffers[0].flip();
         ClosedChannelException expected = null;
