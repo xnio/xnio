@@ -46,6 +46,7 @@ import java.util.ServiceConfigurationError;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.junit.Assume;
 import org.junit.Test;
 import org.xnio.channels.Channels;
 import org.xnio.mock.ConnectedStreamChannelMock;
@@ -59,9 +60,12 @@ import org.xnio.ssl.XnioSsl;
  */
 public class XnioTestCase {
 
+    private static final int JDK_VERSION;
     static {
         String securityPolicyFile = XnioTestCase.class.getClassLoader().getResource("security.policy").getFile();
         AccessController.doPrivileged(new SetSecurityPolicyAction(securityPolicyFile));
+        String jdkVersion = System.getProperty("java.specification.version", "1.8");
+        JDK_VERSION = "1.8".equals(jdkVersion) ? 8 : Integer.parseInt(jdkVersion);
     }
 
     private static final String DEFAULT_KEY_STORE = "keystore.jks";
@@ -105,6 +109,8 @@ public class XnioTestCase {
 
     @Test
     public void allowBlockingWithSecurity() {
+        Assume.assumeTrue("Skipping on JDK " + JDK_VERSION, JDK_VERSION < 25);
+
         final SecurityManager securityManager = new SecurityManager();
         System.setSecurityManager(securityManager);
         assertTrue(Xnio.isBlockingAllowed());
@@ -365,6 +371,8 @@ public class XnioTestCase {
 
     @Test
     public void propertiesRetrieval() {
+        Assume.assumeTrue("Skipping on JDK " + JDK_VERSION, JDK_VERSION < 25);
+
         final Xnio xnio = Xnio.getInstance();
         assertNull(xnio.getProperty("xnio.test.prop"));
         assertEquals("foo", xnio.getProperty("xnio.test.prop", "foo"));
@@ -382,6 +390,8 @@ public class XnioTestCase {
 
     @Test
     public void illegalPropertiesRetrieval() {
+        Assume.assumeTrue("Skipping on JDK " + JDK_VERSION, JDK_VERSION < 25);
+
         System.setSecurityManager(null);
         final Xnio xnio = Xnio.getInstance();
         
